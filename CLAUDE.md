@@ -300,10 +300,11 @@ Agent continues with context from other agent
 - `create_consensus_task(task, forceConsensus?, userDirective?)` - Create task requiring both agents
 - `create_simple_task(task, skipConsensus?, userDirective?)` - Single-agent execution
 - `assign_task(task, targetAgent)` - User-directed agent assignment
-- `get_pending_tasks(agentId)` - Show tasks waiting for input
-- `submit_input(taskId, input)` - Submit analysis/plan/review
+- `get_pending_tasks(agentId?)` - Show tasks waiting for input
+- **`respond_to_task(taskId, response)`** - **RECOMMENDED**: Load context + submit response in one call (combines continue + submit)
+- `submit_input(taskId, input)` - Submit analysis/plan/review (for advanced workflows)
+- `continue_task(taskId)` - Get full context to continue (for advanced workflows requiring separate analysis)
 - `get_task_status(taskId)` - Check if other agent responded
-- `continue_task(taskId)` - Get full context to continue
 
 ---
 
@@ -607,20 +608,26 @@ orchestrator.assign_task(
 
 ### Agent Switching Workflow
 
+#### Simple Workflow (RECOMMENDED - using respond_to_task)
+
 ```kotlin
 // User switches to Codex CLI
 You: "Check pending tasks"
 
 // Codex internally calls:
-orchestrator.get_pending_tasks("codex-cli")
+orchestrator.get_pending_tasks()
 
 // Returns: [Task #123: OAuth2 system]
 
-You: "Analyze task 123"
-// Codex analyzes and submits:
-orchestrator.submit_input(
+You: "Respond to task 123"
+// Codex uses the unified tool (loads context + submits in one call):
+orchestrator.respond_to_task(
     taskId = 123,
-    input = architecturalPlan
+    response = {
+        content = architecturalPlan,
+        inputType = "ARCHITECTURAL_PLAN",
+        confidence = 0.85
+    }
 )
 
 // User switches back to Claude Code
@@ -628,6 +635,25 @@ You: "Continue task 123"
 
 // Claude gets context and implements:
 orchestrator.continue_task(123)
+```
+
+#### Advanced Workflow (using continue_task + submit_input separately)
+
+```kotlin
+// When you need to analyze before deciding to submit
+You: "Check task 123"
+
+// Step 1: Load and analyze
+orchestrator.continue_task(123)
+// Agent analyzes proposals, identifies issues
+
+// Step 2: Decide whether to submit
+if (needsRevision) {
+    orchestrator.submit_input(
+        taskId = 123,
+        input = revisedPlan
+    )
+}
 ```
 
 ---

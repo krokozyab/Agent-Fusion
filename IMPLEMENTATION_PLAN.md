@@ -1102,7 +1102,7 @@ TASK-XXX: Brief Description
 
 **Tasks**:
 1. Create `mcp/tools/GetPendingTasksTool.kt`:
-   - Query tasks by agent ID and status
+   - Query tasks by agent ID (with sensible default) and status
    - Format as list of task summaries
    - Include context preview
    - Sort by priority/creation time

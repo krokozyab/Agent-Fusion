@@ -437,7 +437,7 @@ User → AI Agent (Claude Code/Codex CLI) → Orchestrator MCP Server → Coordi
 **Requirements**:
 - FR-702.1: `create_consensus_task(task)` - Create multi-agent task
 - FR-702.2: `create_simple_task(task)` - Create single-agent task
-- FR-702.3: `get_pending_tasks(agentId)` - List pending tasks
+- FR-702.3: `get_pending_tasks(agentId?)` - List pending tasks (defaults to single configured agent)
 - FR-702.4: `submit_input(taskId, input)` - Submit proposal/analysis
 - FR-702.5: `get_task_status(taskId)` - Query task state
 - FR-702.6: `continue_task(taskId)` - Resume with full context
@@ -872,7 +872,7 @@ User → AI Agent (Claude Code/Codex CLI) → Orchestrator MCP Server → Coordi
 **So that** we can work collaboratively on complex problems
 
 **Acceptance Criteria**:
-- Agent calls `get_pending_tasks(my_id)`
+- Agent calls `get_pending_tasks(my_id)` (or omits when only one agent is registered)
 - Orchestrator returns tasks waiting for input
 - Agent calls `submit_input(taskId, proposal)`
 - Orchestrator updates task status

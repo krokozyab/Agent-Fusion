@@ -1,0 +1,216 @@
+package com.orchestrator
+
+import com.orchestrator.config.ConfigLoader
+import com.orchestrator.core.AgentRegistry
+import com.orchestrator.core.EventBus
+import com.orchestrator.mcp.McpServerImpl
+import com.orchestrator.modules.metrics.MetricsModule
+import com.orchestrator.storage.Database
+import com.orchestrator.utils.Logger
+import kotlinx.coroutines.runBlocking
+import java.nio.file.Path
+import kotlin.system.exitProcess
+
+private val log = Logger.logger("com.orchestrator.Main")
+
+class Main {
+    private var mcpServer: McpServerImpl? = null
+    private var metricsModule: MetricsModule? = null
+    
+    fun start(args: Array<String>) {
+        val cliArgs = parseArgs(args)
+        
+        log.info("Starting Codex to Claude Orchestrator...")
+        
+        try {
+            // Load configuration
+            log.info("Loading configuration...")
+            val config = loadConfiguration(cliArgs)
+            log.info("Configuration loaded: server=${config.orchestrator.server.host}:${config.orchestrator.server.port}")
+            
+            // Initialize database
+            log.info("Initializing database...")
+            initializeDatabase()
+            log.info("Database initialized successfully")
+            
+            // Initialize agent registry
+            log.info("Loading agent registry...")
+            val agentRegistry = initializeAgentRegistry(cliArgs)
+            log.info("Loaded ${agentRegistry.getAllAgents().size} agents")
+            
+            // Initialize event bus
+            log.info("Initializing event bus...")
+            val eventBus = EventBus.global
+            
+            // Initialize metrics module
+            log.info("Initializing metrics module...")
+            val metrics = initializeMetrics(eventBus)
+            metricsModule = metrics
+            log.info("Metrics module initialized")
+            
+            // Start MCP server
+            log.info("Starting MCP server...")
+            val server = McpServerImpl(config.orchestrator, agentRegistry)
+            server.start()
+            mcpServer = server
+            log.info("MCP server started on ${config.orchestrator.server.host}:${config.orchestrator.server.port}")
+            
+            // Setup shutdown hook
+            setupShutdownHook()
+            
+            log.info("Orchestrator started successfully")
+            log.info("Press Ctrl+C to stop")
+            
+        } catch (e: Exception) {
+            log.error("Failed to start orchestrator: ${e.message}", e)
+            shutdown()
+            exitProcess(1)
+        }
+    }
+    
+    private fun parseArgs(args: Array<String>): CliArgs {
+        var configPath: String? = null
+        var agentsPath: String? = null
+        var help = false
+        
+        var i = 0
+        while (i < args.size) {
+            when (args[i]) {
+                "-c", "--config" -> {
+                    if (i + 1 < args.size) {
+                        configPath = args[++i]
+                    } else {
+                        throw IllegalArgumentException("Missing value for ${args[i]}")
+                    }
+                }
+                "-a", "--agents" -> {
+                    if (i + 1 < args.size) {
+                        agentsPath = args[++i]
+                    } else {
+                        throw IllegalArgumentException("Missing value for ${args[i]}")
+                    }
+                }
+                "-h", "--help" -> help = true
+                else -> throw IllegalArgumentException("Unknown argument: ${args[i]}")
+            }
+            i++
+        }
+        
+        if (help) {
+            printHelp()
+            exitProcess(0)
+        }
+        
+        return CliArgs(configPath, agentsPath)
+    }
+    
+    private fun printHelp() {
+        println("""
+            Codex to Claude Orchestrator
+            
+            Usage: orchestrator [options]
+            
+            Options:
+              -c, --config <path>   Path to application.conf (default: classpath resource)
+              -a, --agents <path>   Path to agents.toml (default: config/agents.toml)
+              -h, --help            Show this help message
+            
+            Environment Variables:
+              ORCHESTRATOR_HOST     Server host (default: localhost)
+              ORCHESTRATOR_PORT     Server port (default: 8080)
+              DATABASE_PATH         Database file path (default: data/orchestrator.duckdb)
+        """.trimIndent())
+    }
+    
+    private fun loadConfiguration(args: CliArgs): ConfigLoader.ApplicationConfig {
+        return try {
+            val agentsPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("config/agents.toml")
+            ConfigLoader.loadAll(args.configPath, agentsPath)
+        } catch (e: Exception) {
+            log.error("Failed to load configuration: ${e.message}")
+            throw e
+        }
+    }
+    
+    private fun initializeDatabase() {
+        try {
+            val conn = Database.getConnection()
+            if (!Database.isHealthy()) {
+                throw IllegalStateException("Database health check failed")
+            }
+        } catch (e: Exception) {
+            log.error("Failed to initialize database: ${e.message}")
+            throw e
+        }
+    }
+    
+    private fun initializeAgentRegistry(args: CliArgs): AgentRegistry {
+        return try {
+            val agentsPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("config/agents.toml")
+            AgentRegistry.fromConfig(agentsPath)
+        } catch (e: Exception) {
+            log.error("Failed to initialize agent registry: ${e.message}")
+            throw e
+        }
+    }
+    
+    private fun initializeMetrics(eventBus: EventBus): MetricsModule {
+        return try {
+            val metrics = MetricsModule.global
+            metrics.setEventBus(eventBus)
+            metrics.configureAlerts()
+            metrics.start()
+            metrics
+        } catch (e: Exception) {
+            log.error("Failed to initialize metrics module: ${e.message}")
+            throw e
+        }
+    }
+    
+    private fun setupShutdownHook() {
+        Runtime.getRuntime().addShutdownHook(Thread {
+            log.info("Shutdown signal received")
+            shutdown()
+        })
+    }
+    
+    private fun shutdown() {
+        log.info("Shutting down orchestrator...")
+        
+        try {
+            mcpServer?.stop()
+            log.info("MCP server stopped")
+        } catch (e: Exception) {
+            log.error("Error stopping MCP server: ${e.message}")
+        }
+        
+        try {
+            metricsModule?.stop()
+            log.info("Metrics module stopped")
+        } catch (e: Exception) {
+            log.error("Error stopping metrics module: ${e.message}")
+        }
+        
+        try {
+            Database.shutdown()
+            log.info("Database connection closed")
+        } catch (e: Exception) {
+            log.error("Error closing database: ${e.message}")
+        }
+        
+        log.info("Orchestrator shutdown complete")
+    }
+    
+    private data class CliArgs(
+        val configPath: String?,
+        val agentsPath: String?
+    )
+}
+
+fun main(args: Array<String>) {
+    val app = Main()
+    app.start(args)
+    
+    // Keep main thread alive
+    Thread.currentThread().join()
+}
