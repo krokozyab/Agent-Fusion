@@ -44,5 +44,5 @@ local.properties
 *.swo
 logs/
 
-IMPLEMENTATION_PLAN.md
+docs/IMPLEMENTATION_PLAN.md
 docs/CLAUDE.md
