@@ -553,7 +553,7 @@ Implementation complete! All tests passing.
 │         [Designing token flow...]                   │
 │         [Considering edge cases...]                 │
 │                                                     │
-│         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
+│          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
 │                                                     │
 │         # OAuth2 Architecture Plan                  │
 │                                                     │
@@ -681,7 +681,7 @@ Implementation complete! All tests passing.
 │         - [ ] SQL injection prevention              │
 │         - [ ] XSS prevention in redirects           │
 │                                                     │
-│         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
+│          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
 │                                                     │
 │         **Confidence:** 92%                         │
 │         **Reasoning:** Standard OAuth2 with PKCE is │
@@ -819,7 +819,7 @@ Implementation complete! All tests passing.
 │          ✓ Rate limiting configured                 │
 │          ✓ Input validation on all endpoints        │
 │                                                     │
-│          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
+│           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │
 │                                                     │
 │          ✅ Implementation complete!                │
 │                                                     │
@@ -1342,7 +1342,7 @@ function shouldUseConsensus(request):
 │  SCENARIO: Simple task, but user wants review       │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
-│  You: "Refactor the user validation function.      │
+│  You: "Refactor the user validation function.       │
 │        Get Codex to review before merging."         │
 │                                                     │
 │  Claude: [Analyzes: complexity=4, risk=3]           │
