@@ -47,23 +47,25 @@ The system enables two AI agents (Claude Code and Codex CLI) to collaborate on c
 3. **Context Sharing**: The server maintains shared context visible to both agents
 4. **Collaboration**: Agents submit proposals, vote on solutions, and review each other's work
 5. **Routing**: Intelligent routing decides whether tasks need single-agent or multi-agent collaboration
-6. **Persistence**: All interactions, decisions, and metrics are stored in DuckDB
 
 **Key Benefits:**
 - **Bidirectional**: Both agents can initiate tasks and respond to each other
 - **Context Preservation**: Full conversation history and task context maintained centrally
 - **Flexible Workflows**: Supports solo, consensus, sequential, and parallel execution modes
-- **Audit Trail**: Complete decision history with rationale and proposals
 
 ## Features
 
 🎥 **[Watch Demo Video](https://youtu.be/kXkTh0fJ0Lc)** - See consensus collaboration in action
 
-- **Intelligent Routing**: Automatically routes tasks to the best agent based on complexity, risk, and capabilities
-- **Consensus Mode**: Multiple agents collaborate on critical decisions with voting strategies
-- **User Directives**: Control routing with force consensus, agent assignment, and emergency bypass
-- **MCP Server**: Model Context Protocol server for tool-based interactions
-- **Event-Driven**: Async event bus for component communication
+### What Makes This Unique
+
+- **True Bidirectional Collaboration**: Both agents can initiate tasks, respond to each other, and manage workflows - not just sequential handoffs
+- **Consensus-Based Decision Making**: Multiple agents propose solutions and vote on the best approach for critical architectural and security decisions
+- **Intelligent Task Routing**: Automatically determines optimal execution strategy (SOLO, CONSENSUS, SEQUENTIAL, PARALLEL) based on complexity and risk
+- **Persistent Task Queue**: Agents check pending work assigned to them, enabling asynchronous collaboration across sessions
+- **Flexible Workflow Control**: Supports solo execution, multi-agent consensus, direct assignments, and emergency bypass modes
+- **No API Keys Required**: Runs entirely locally using your existing Claude Code and Codex CLI installations
+- **Event-Driven Architecture**: Async event bus enables decoupled, scalable component communication
 
 ## Installation
 
