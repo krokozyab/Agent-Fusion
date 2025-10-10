@@ -144,13 +144,13 @@ Press `Ctrl+C` in the terminal window
 
 Install Java 21+ from https://adoptium.net/
 
-### "Port 8080 already in use"
+### "Port 3000 already in use"
 
 Edit `application.conf` and change the port:
 ```hocon
 orchestrator {
   server {
-    port = 8081
+    port = 3000
   }
 }
 ```
