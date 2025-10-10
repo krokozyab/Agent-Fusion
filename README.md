@@ -69,7 +69,27 @@ The system enables two AI agents (Claude Code and Codex CLI) to collaborate on c
 
 See [Installation Guide](docs/INSTALL.md) for setup instructions.
 
-## Usage Examples
+## Getting Started
+
+### Agent Configuration
+
+For optimal collaboration, it's **highly recommended** to provide the [Agent Orchestrator Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) to your AI agents before starting work. This enables agents to:
+
+- Understand how to create and manage tasks
+- Detect user routing directives from natural language
+- Follow proper handoff workflows between agents
+- Use MCP tools correctly for collaboration
+
+**Recommended approach:**
+
+In your first message to the agent, say:
+```
+"Read and follow the instructions in docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md"
+```
+
+Or include the content as context at the start of your session.
+
+### Usage Examples
 
 For detailed workflow examples, see [Conversation Handoff Workflow](docs/CONVERSATION_HANDOFF_WORKFLOW.md).
 
