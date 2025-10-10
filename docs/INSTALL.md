@@ -11,9 +11,17 @@ java -version
 
 ## Installation Steps
 
-### 1. Extract the Files
+### 1. Download the Distribution
 
-Extract the distribution folder to any location on your computer. You should see:
+Download the latest release from GitHub:
+
+1. Go to [Releases](https://github.com/krokozyab/claude-codex-orchestrator/releases)
+2. Download `codex_to_claude-X.X.X.zip` from the latest release
+3. Save it to your preferred location
+
+### 2. Extract the Files
+
+Extract the downloaded ZIP file to any location on your computer. You should see:
 
 ```
 codex_to_claude/
@@ -24,7 +32,7 @@ codex_to_claude/
   └── start.bat     (Windows)
 ```
 
-### 2. Configure Agents (Optional)
+### 3. Configure Agents (Optional)
 
 Edit `agents.toml` to enable/disable agents:
 
@@ -40,7 +48,7 @@ name = "Codex"
 enabled = true
 ```
 
-### 3. Start the Orchestrator
+### 4. Start the Orchestrator
 
 **Mac/Linux:**
 ```bash
@@ -56,7 +64,7 @@ start.bat
 
 Or double-click `start.bat` in Explorer
 
-### 4. Verify It's Running
+### 5. Verify It's Running
 
 Open your browser and go to:
 ```
