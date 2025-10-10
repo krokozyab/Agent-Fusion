@@ -61,7 +61,7 @@ The system enables two AI agents (Claude Code and Codex CLI) to collaborate on c
 
 - **True Bidirectional Collaboration**: Both agents can initiate tasks, respond to each other, and manage workflows - not just sequential handoffs
 - **Consensus-Based Decision Making**: Multiple agents propose solutions and vote on the best approach for critical architectural and security decisions
-- **Intelligent Task Routing**: Automatically determines optimal execution strategy (SOLO, CONSENSUS, SEQUENTIAL, PARALLEL) based on complexity and risk
+- **Intelligent Task Routing**: Automatically analyzes task complexity and risk to select optimal execution approach - supports solo execution for simple tasks and multi-agent consensus for critical decisions
 - **Persistent Task Queue**: Agents check pending work assigned to them, enabling asynchronous collaboration across sessions
 - **Flexible Workflow Control**: Supports solo execution, multi-agent consensus, direct assignments, and emergency bypass modes
 - **No API Keys Required**: Runs entirely locally using your existing Claude Code and Codex CLI installations
@@ -175,12 +175,16 @@ POST /mcp/tools/call        # Invoke a tool
 
 ### Routing Strategies
 
+The system supports four routing strategies that are automatically determined based on task characteristics:
+
 | Strategy | When Used | Agents | Use Case |
 |----------|-----------|--------|----------|
 | SOLO | Low complexity/risk | 1 | Simple tasks, documentation |
 | CONSENSUS | High risk, critical | 2-3 | Architecture, security |
 | SEQUENTIAL | High complexity | 2-3 | Planning, multi-phase |
 | PARALLEL | Research, testing | 2-3 | Exploration, validation |
+
+**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically upgrade tasks to SEQUENTIAL or PARALLEL strategies based on complexity, risk, and task type analysis.
 
 ### Agent Directives
 
