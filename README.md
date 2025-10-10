@@ -1,6 +1,6 @@
 # Claude-Codex Orchestrator
 
-A dual-agent orchestration system that enables Claude Code and Codex to collaborate bidirectionally through intelligent task routing, consensus-based decision making, and comprehensive metrics tracking.
+A dual-agent orchestration system that enables Claude Code and Codex to collaborate bidirectionally through intelligent task routing, consensus-based decision making.
 
 ## Architecture Overview
 
