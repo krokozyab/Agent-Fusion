@@ -1,26 +1,30 @@
 
-# Agent Instructions: Working with the Orchestrator
+# Agent Orchestrator Protocol
 
-**Target Audience**: AI Agents (Claude Code, Codex CLI, future agents)
-**Purpose**: Step-by-step guide for agents to collaborate through the orchestrator
-**User Context**: Users will provide these instructions to agents before starting work
+**DIRECTIVE**: AI Agents must follow these instructions when collaborating through the orchestrator
+**APPLIES TO**: Claude Code, Codex CLI, and all future agents
+**ENFORCEMENT**: Users will provide these instructions at session start
 
 ---
 
-## Quick Reference for Agents
+## Core Agent Protocol
 
-### Core Principle
-You are **one of multiple AI agents** connected to a shared orchestrator. When tasks require collaboration, you create tasks in the orchestrator, other agents provide input, and you continue with full context.
+### Primary Directive
+As an AI agent in a multi-agent system, you MUST:
+- Create tasks in the orchestrator for collaborative work
+- Submit proposals when other agents request input
+- Continue tasks with full context from other agents
+- Never work in isolation on critical tasks (risk ≥7 or complexity ≥7)
 
-### Your Role
-- **Primary Agent**: You receive user requests and coordinate work
-- **Secondary Agent**: You provide specialized input when requested
-- **Always Collaborative**: Never work in isolation on critical tasks
+### Agent Roles
+- **Primary Agent**: Receives user requests, creates tasks, coordinates work, completes tasks
+- **Secondary Agent**: Responds to pending tasks, submits proposals, does NOT complete tasks created by others
+- **Collaborative Agent**: All agents must collaborate on high-risk/high-complexity work
 
-### Task Metadata Checklist
-- Always populate `title` and a detailed `description` so the next agent has full context without re-asking the user.
-- Set `roleInWorkflow` (e.g., `EXECUTION`, `REVIEW`, `FOLLOW_UP`) when creating or handing off tasks so queues clearly show *why* the work exists.
-- Mirror that intent when submitting proposals—state whether your input is an initial solution, review feedback, or escalation so the orchestrator routes follow-up correctly.
+### Required Task Metadata
+- **MUST** populate `title` and detailed `description` so next agent has full context
+- **MUST** set `roleInWorkflow` (`EXECUTION`, `REVIEW`, `FOLLOW_UP`) when creating tasks
+- **MUST** label proposal role in content (`INITIAL_SOLUTION`, `REVIEW_FEEDBACK`, `ESCALATION`) for routing
 
 ---
 
@@ -38,60 +42,58 @@ You are **one of multiple AI agents** connected to a shared orchestrator. When t
 
 ---
 
-## Understanding the Orchestrator
+## Orchestrator Architecture
 
-### What It Is
-- **Shared state server** running on `localhost:3000`
-- **Task registry** for tracking collaboration
-- **Proposal storage** for agent inputs
-- **Context manager** preserving full conversation history
-- **Decision recorder** for consensus outcomes
+### System Components
+- **Shared state server**: `localhost:3000` - central coordination point
+- **Task registry**: Tracks all collaborative work
+- **Proposal storage**: Stores agent inputs and decisions
+- **Context manager**: Preserves full conversation history
+- **Decision recorder**: Logs consensus outcomes for audit
 
-### What It's NOT
-- NOT an automated dispatcher (user controls switches)
-- NOT a replacement for your judgment
-- NOT required for simple tasks
+### System Constraints
+- Orchestrator does NOT automatically dispatch work (user controls agent switching)
+- Orchestrator does NOT replace agent judgment (agents decide routing)
+- Simple tasks (complexity <7, risk <7) do NOT require orchestrator
 
-### Your Connection
-You are connected as an **MCP client** to the orchestrator's **HTTP MCP server**.
-
-```
-You (Agent) → HTTP → Orchestrator (localhost:3000) ← HTTP ← Other Agent
-```
+### Connection Protocol
+**Architecture**: MCP client (agent) → HTTP → Orchestrator server ← HTTP ← MCP client (other agent)
+**Endpoint**: `http://localhost:3000/mcp`
+**Transport**: HTTP MCP protocol
 
 ---
 
-## When to Use the Orchestrator
+## Task Routing Decision Protocol
 
-### Automatic Triggers (Analyze These)
+### Mandatory Consensus Triggers
 
-**Create consensus task when:**
+**RULE**: Create consensus task when ANY condition is true:
 ```
 Complexity >= 7 OR
 Risk >= 7 OR
-Critical keywords detected: "security", "auth", "payment", "data migration", "critical"
+Critical keyword detected
 ```
 
-**Complexity indicators (1-10 scale):**
-- Architecture decisions → 8-9
-- New system design → 7-9
-- Multi-component refactoring → 6-8
-- Simple bug fix → 1-3
-- Documentation → 1-2
+**Complexity Scale (1-10)**
+- 8-9: Architecture decisions, new system design
+- 6-8: Multi-component refactoring
+- 1-3: Simple bug fixes
+- 1-2: Documentation
 
-**Risk indicators (1-10 scale):**
-- Security-related → 9-10
-- Authentication/authorization → 9
-- Payment processing → 10
-- Data migration → 8-9
-- API changes → 6-7
-- UI tweaks → 1-3
+**Risk Scale (1-10)**
+- 9-10: Security, authentication, authorization
+- 8-9: Payment processing, data migration
+- 6-7: API changes
+- 1-3: UI tweaks
 
-### User Directive Detection
+**Critical Keywords**
+`"security"`, `"auth"`, `"payment"`, `"data migration"`, `"critical"`
 
-**ALWAYS check user requests for these directives:**
+### User Directive Detection Protocol
 
-#### Force Consensus Keywords
+**DIRECTIVE**: Parse EVERY user request for routing signals before analyzing
+
+#### Force Consensus Signals
 ```
 "get {agent}'s input"
 "need consensus"
@@ -101,8 +103,9 @@ Critical keywords detected: "security", "auth", "payment", "data migration", "cr
 "have {agent} look at"
 "consensus required"
 ```
+**ACTION**: Set `forceConsensus: true`, create consensus task regardless of complexity/risk
 
-#### Prevent Consensus Keywords
+#### Prevent Consensus Signals
 ```
 "solo"
 "no consensus"
@@ -114,14 +117,16 @@ Critical keywords detected: "security", "auth", "payment", "data migration", "cr
 "hotfix"
 "NOW"
 ```
+**ACTION**: Set `preventConsensus: true` or `skipConsensus: true`, execute solo with audit log
 
-#### Agent Assignment Keywords
+#### Agent Assignment Signals
 ```
 "ask Codex" / "ask Claude"
 "Codex, ..." / "Claude, ..."
 "have Codex" / "have Claude"
 "get Codex to" / "get Claude to"
 ```
+**ACTION**: Use `assign_task`, set `assignToAgent` directive
 
 ---
 
@@ -207,9 +212,40 @@ Critical keywords detected: "security", "auth", "payment", "data migration", "cr
 
 **Returns**: `{ taskId, status, type, assignees, createdAt, updatedAt }`
 
+#### `respond_to_task` (RECOMMENDED)
+**When**: Responding to a pending task with your input
+**Use**: One-call workflow to load context + submit response
+
+```json
+{
+  "taskId": "task-123",
+  "response": {
+    "content": "Your detailed analysis/plan/review",
+    "inputType": "ARCHITECTURAL_PLAN | CODE_REVIEW | RESEARCH_SUMMARY | etc.",
+    "confidence": 0.85,  // 0.0-1.0
+    "metadata": { "optional": "context" }
+  },
+  "agentId": "codex-cli",  // Optional, defaults to you
+  "maxTokens": 6000  // Optional context limit
+}
+```
+
+**Returns**: Full task context + confirmation of your submission
+- Task details
+- All proposals (including yours)
+- Conversation history
+- File changes
+- Submission status
+
+**Why use this instead of continue_task + submit_input?**
+- Single call = simpler workflow
+- Atomically loads context and submits response
+- Recommended for most use cases
+- Use separate calls only when you need to analyze before deciding to submit
+
 #### `continue_task`
-**When**: Resume work after another agent provided input
-**Use**: Get full context to proceed
+**When**: Resume work after another agent provided input (advanced workflow)
+**Use**: Get full context to proceed - use when you need to analyze before submitting
 
 ```json
 {
@@ -222,6 +258,8 @@ Critical keywords detected: "security", "auth", "payment", "data migration", "cr
 - All proposals submitted
 - Conversation history
 - File changes
+
+**Note**: Use `respond_to_task` instead unless you need separate analysis step
 
 ### Proposal Submission
 
@@ -264,51 +302,56 @@ Critical keywords detected: "security", "auth", "payment", "data migration", "cr
 
 ## Workflow Patterns
 
-### Pattern 1: Solo (You Handle Alone)
+### Pattern 1: Solo Execution
 
 ```
-User: "Fix the login timeout bug"
+User request: "Fix the login timeout bug"
   ↓
-You analyze: complexity=3, risk=2, no critical keywords
+AGENT ACTION: Analyze complexity=3, risk=2, no critical keywords
   ↓
-Decision: SOLO (no orchestrator needed)
+ROUTING DECISION: SOLO (no orchestrator)
   ↓
-You implement and complete
+AGENT ACTION: Implement and complete directly
 ```
 
-**No orchestrator calls needed.**
+**PROTOCOL**: No orchestrator calls required for low-risk/low-complexity tasks
 
-### Pattern 2: Consensus (Need Other Agent)
+### Pattern 2: Consensus Workflow - RECOMMENDED
 
 ```
-User: "Build OAuth2 authentication system"
+User request: "Build OAuth2 authentication system"
   ↓
-You analyze: complexity=8, risk=9, keyword="authentication"
+PRIMARY AGENT: Analyze complexity=8, risk=9, keyword="authentication"
   ↓
-Decision: CONSENSUS needed
+ROUTING DECISION: CONSENSUS required
   ↓
-You: create_consensus_task(...)
+PRIMARY AGENT: create_consensus_task(...)
   ↓
-Orchestrator: Returns task-123, status=PENDING
+ORCHESTRATOR: Returns task-123, status=PENDING
   ↓
-You tell user: "Task #123 created. Switch to Codex CLI for architectural plan."
+PRIMARY AGENT: Inform user "Task #123 created. Switch to Codex for architectural plan."
   ↓
-[User switches to other agent]
+[User switches agents]
   ↓
-Other agent: get_pending_tasks() → finds task-123
-Other agent: Analyzes and submits architectural plan
-Other agent: submit_input(taskId=123, inputType=ARCHITECTURAL_PLAN, ...)
+SECONDARY AGENT: get_pending_tasks() → finds task-123
+SECONDARY AGENT: respond_to_task(taskId=123, response={
+  content=architecturalPlan,
+  inputType=ARCHITECTURAL_PLAN,
+  confidence=0.92
+})
   ↓
-[User switches back to you]
+[User switches back]
   ↓
 User: "Continue task 123"
   ↓
-You: continue_task(123) → receives full plan
-You: Implement based on plan
-You: complete_task(123, decision={...})
+PRIMARY AGENT: continue_task(123) → receives full plan
+PRIMARY AGENT: Implement based on plan
+PRIMARY AGENT: complete_task(123, decision={...})
 ```
 
-### Pattern 3: Review (Sequential Handoff)
+**ALTERNATIVE PROTOCOL**: Use `continue_task` + `submit_input` separately only when agent must analyze before committing to submission
+
+### Pattern 3: Review (Sequential Handoff) - RECOMMENDED WORKFLOW
 
 ```
 You: Implement feature X
@@ -319,8 +362,11 @@ You: assign_task(targetAgent="codex-cli")
 [User switches to Codex]
   ↓
 Codex: get_pending_tasks() → finds review task
-Codex: Reviews code, submits feedback
-Codex: submit_input(inputType=CODE_REVIEW, ...)
+Codex: respond_to_task(taskId=..., response={
+  content=reviewFeedback,
+  inputType=CODE_REVIEW,
+  confidence=0.88
+})
   ↓
 [User switches back]
   ↓
@@ -727,29 +773,29 @@ You tell user:
 
 ---
 
-## Communication Templates
+## User Communication Protocol
 
-### Creating Consensus Task
+### When Creating Consensus Task
 
+**REQUIRED OUTPUT** to user:
 ```
-You tell user:
 "⚠️ This is a critical {task_type} requiring consensus.
 
-I've created Task #{task_id} for review by {other_agent}.
+Task #{task_id} created for review by {other_agent}.
 
 📋 Next Steps:
 1. Switch to {other_agent}
-2. Ask: 'Check pending tasks'
-3. Review and provide {required_input}
+2. Say: 'Check pending tasks'
+3. {other_agent} will provide {required_input}
 4. Return here to continue
 
-I'll wait for the {required_input} before proceeding."
+Waiting for {required_input} before proceeding."
 ```
 
-### Submitting Input (Secondary Agent)
+### When Submitting Input (Secondary Agent)
 
+**REQUIRED OUTPUT** to user:
 ```
-You tell user:
 "✅ {input_type} submitted for Task #{task_id}
 
 Submitted:
@@ -757,42 +803,43 @@ Submitted:
 • {summary_point_2}
 • {summary_point_3}
 
-{primary_agent} can now access this and proceed with implementation.
+{primary_agent} can now access this and proceed.
 
-💡 Tip: Return to {primary_agent} and say 'Continue task {task_id}'"
+💡 Return to {primary_agent} and say 'Continue task {task_id}'"
 ```
 
-### Receiving Input (Primary Agent)
+### When Receiving Input (Primary Agent)
 
+**REQUIRED OUTPUT** to user:
 ```
-You tell user:
 "✅ Received {input_type} from {other_agent}
 
 {Input_Summary}
 
-This is {quality_assessment}. Implementing now..."
+Assessment: {quality_evaluation}
+Proceeding with implementation..."
 ```
 
 ---
 
-## Key Reminders
+## Mandatory Agent Protocols
 
-### DO
-✅ Parse user directives FIRST before analyzing
-✅ Respect user overrides (force/prevent consensus)
-✅ Ask for confirmation on auto-detected high-risk
-✅ Tell user when you detect directives
-✅ Submit input, then STOP (don't complete other agent's tasks)
-✅ Include full context in task descriptions
-✅ Log emergency bypasses for audit
+### REQUIRED ACTIONS
+✅ **MUST** parse user directives BEFORE analyzing complexity/risk
+✅ **MUST** respect user overrides (forceConsensus/preventConsensus/skipConsensus)
+✅ **MUST** ask user confirmation when auto-detecting high-risk (≥7)
+✅ **MUST** inform user when detecting routing directives
+✅ **MUST** stop after submit_input (secondary agents never complete tasks)
+✅ **MUST** include full context in task descriptions (title, description, directives.originalText)
+✅ **MUST** log emergency bypasses with audit trail
 
-### DON'T
-❌ Complete tasks you didn't create
-❌ Ignore user directives
-❌ Create consensus tasks silently without user knowing why
-❌ Skip emergency bypass suggestions (post-fix review)
-❌ Use orchestrator for trivial tasks
-❌ Assume user knows about pending tasks (tell them)
+### PROHIBITED ACTIONS
+❌ **NEVER** complete tasks created by another agent
+❌ **NEVER** ignore user directives
+❌ **NEVER** create consensus tasks without informing user why
+❌ **NEVER** skip post-emergency review suggestions
+❌ **NEVER** use orchestrator for trivial tasks (complexity <7, risk <7)
+❌ **NEVER** assume user knows about pending tasks (always inform)
 
 ---
 
@@ -815,9 +862,25 @@ Parse for directives?
 
 ---
 
-**End of Agent Instructions**
+## Protocol Enforcement
 
-**Users**: Provide this document to your agents before starting collaborative work. You can say:
-- "Follow the instructions in AGENT_ORCHESTRATOR_INSTRUCTIONS.md"
-- "Read docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md before we start"
-- "Use the orchestrator workflow as described in the agent instructions"
+**DIRECTIVE TO AGENTS**: This protocol is mandatory for all collaborative work through the orchestrator.
+
+**NON-COMPLIANCE**: Violating these protocols will result in:
+- Task routing failures
+- Context loss between agents
+- Incomplete audit trails
+- User confusion about workflow state
+
+**COMPLIANCE**: Following these protocols ensures:
+- Seamless agent-to-agent handoffs
+- Complete context preservation
+- Clear audit trails for all decisions
+- Optimal user experience
+
+---
+
+**USER INSTRUCTION**: Provide this protocol to agents at session start:
+- "Follow the protocol in AGENT_ORCHESTRATOR_INSTRUCTIONS.md"
+- "Read docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md before we begin"
+- "Apply orchestrator protocol as specified in agent instructions"
