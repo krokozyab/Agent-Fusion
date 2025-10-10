@@ -45,4 +45,4 @@ local.properties
 logs/
 
 IMPLEMENTATION_PLAN.md
-CLAUDE.md
+docs/CLAUDE.md
