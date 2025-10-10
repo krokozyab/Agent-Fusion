@@ -67,6 +67,8 @@ The system enables two AI agents (Claude Code and Codex CLI) to collaborate on c
 
 ## Installation
 
+**No API keys required** - This system runs entirely locally using your existing Claude Code and Codex CLI installations.
+
 See [Installation Guide](docs/INSTALL.md) for setup instructions.
 
 ## Getting Started
