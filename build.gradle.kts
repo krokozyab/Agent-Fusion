@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm") version "2.2.20"
     id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
     id("application")
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "com.orchestrator"
@@ -59,6 +60,7 @@ dependencies {
 
     // Test
     testImplementation(kotlin("test"))
+    testImplementation("io.mockk:mockk:1.13.12")
 }
 
 application {

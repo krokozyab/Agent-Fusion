@@ -127,21 +127,44 @@ class ConfigLoaderTest {
     }
     
     @Test
-    fun `should require model for certain agent types`(@TempDir tempDir: Path) {
+    fun `should require model for API agent types`(@TempDir tempDir: Path) {
         val tomlFile = tempDir.resolve("agents.toml")
         tomlFile.writeText("""
             [agents.test]
-            type = "CLAUDE_CODE"
+            type = "GPT"
             name = "Test"
         """.trimIndent())
-        
+
         val exception = assertThrows(IllegalArgumentException::class.java) {
             ConfigLoader.loadAgents(tomlFile)
         }
-        
+
         assertTrue(exception.message!!.contains("must specify 'model'"))
     }
-    
+
+    @Test
+    fun `should allow MCP agents without model field`(@TempDir tempDir: Path) {
+        val tomlFile = tempDir.resolve("agents.toml")
+        tomlFile.writeText("""
+            [agents.claude]
+            type = "CLAUDE_CODE"
+            name = "Claude Code"
+
+            [agents.codex]
+            type = "CODEX_CLI"
+            name = "Codex CLI"
+        """.trimIndent())
+
+        // Should not throw - MCP agents don't require model field
+        val agents = ConfigLoader.loadAgents(tomlFile)
+
+        assertEquals(2, agents.size)
+        assertEquals("claude", agents[0].id.value)
+        assertEquals("codex", agents[1].id.value)
+        assertNull(agents[0].config.model)
+        assertNull(agents[1].config.model)
+    }
+
     @Test
     fun `should merge HOCON and TOML configurations`(@TempDir tempDir: Path) {
         val tomlFile = tempDir.resolve("agents.toml")

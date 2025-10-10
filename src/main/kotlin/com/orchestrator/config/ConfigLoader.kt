@@ -138,7 +138,7 @@ object ConfigLoader {
             }
 
             // Additional validations (example: recommend model presence for certain types)
-            if (type in setOf(AgentType.GPT, AgentType.CLAUDE_CODE, AgentType.GEMINI, AgentType.MISTRAL, AgentType.LLAMA) && agentConfig.model.isNullOrBlank()) {
+            if (type in setOf(AgentType.GPT, AgentType.GEMINI, AgentType.MISTRAL, AgentType.LLAMA) && agentConfig.model.isNullOrBlank()) {
                 throw IllegalArgumentException("Agent '$id' (type=$type) must specify 'model'.")
             }
 

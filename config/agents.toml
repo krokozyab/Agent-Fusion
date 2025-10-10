@@ -1,0 +1,8 @@
+[agents.claude-code]
+type = "CLAUDE_CODE"
+name = "Claude"
+
+[agents.codex-cli]
+type = "CODEX_CLI"
+name = "Codex"
+

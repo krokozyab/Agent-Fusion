@@ -73,6 +73,7 @@ class McpServerImplTest {
         assertTrue(body.contains("create_simple_task"), "Tools list should contain create_simple_task. Body: $body")
         assertTrue(body.contains("create_consensus_task"), "Tools list should contain create_consensus_task. Body: $body")
         assertTrue(body.contains("get_task_status"), "Tools list should contain get_task_status. Body: $body")
+        assertTrue(body.contains("respond_to_task"), "Tools list should contain respond_to_task. Body: $body")
     }
 
     @Test

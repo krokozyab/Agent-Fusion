@@ -41,15 +41,14 @@ class RespondToTaskToolTest {
             type = TaskType.IMPLEMENTATION,
             status = TaskStatus.PENDING,
             routing = RoutingStrategy.SOLO,
-            assigneeIds = listOf(agentId),
-            dependencies = emptyList(),
+            assigneeIds = setOf(agentId),
+            dependencies = emptySet(),
             complexity = 5,
             risk = 5,
             createdAt = Instant.now(),
             updatedAt = null,
             dueAt = null,
-            metadata = emptyMap(),
-            result = null
+            metadata = emptyMap()
         )
 
         val proposal = Proposal(
@@ -64,14 +63,15 @@ class RespondToTaskToolTest {
             metadata = emptyMap()
         )
 
-        val context = TaskContext(
+        val context = ContextModule.TaskContext(
+            taskId = taskId,
             history = emptyList(),
             fileHistory = emptyList()
         )
 
         every { TaskRepository.findById(taskId) } returns task
         every { ContextModule.getTaskContext(taskId, any()) } returns context
-        every { ProposalManager.submitProposal(any(), any(), any(), any(), any(), any()) } returns proposal
+        every { ProposalManager.submitProposal(any(), any(), any(), any(), any(), any(), any()) } returns proposal
         every { TaskRepository.update(any()) } returns Unit
         every { ProposalRepository.findByTask(taskId) } returns listOf(proposal)
 
@@ -94,13 +94,15 @@ class RespondToTaskToolTest {
         assertEquals(taskId.value, result.taskId)
         assertEquals(proposal.id.value, result.proposalId)
         assertEquals("IMPLEMENTATION_PLAN", result.inputType)
-        assertEquals("IN_PROGRESS", result.taskStatus)
+        // SOLO tasks auto-complete on response
+        assertEquals("COMPLETED", result.taskStatus)
         assertNotNull(result.task)
         assertEquals(1, result.proposals.size)
         assertNotNull(result.context)
 
-        verify { ProposalManager.submitProposal(taskId, agentId, "Test response", InputType.IMPLEMENTATION_PLAN, 0.8, emptyMap()) }
-        verify { TaskRepository.update(match { it.status == TaskStatus.IN_PROGRESS }) }
+        verify { ProposalManager.submitProposal(taskId, agentId, "Test response", InputType.IMPLEMENTATION_PLAN, 0.8, any(), emptyMap()) }
+        // SOLO tasks should be marked COMPLETED, not IN_PROGRESS
+        verify { TaskRepository.update(match { it.status == TaskStatus.COMPLETED && it.metadata["completedBy"] == agentId.value }) }
     }
 
     @Test
@@ -137,15 +139,14 @@ class RespondToTaskToolTest {
             type = TaskType.IMPLEMENTATION,
             status = TaskStatus.COMPLETED,
             routing = RoutingStrategy.SOLO,
-            assigneeIds = listOf(agentId),
-            dependencies = emptyList(),
+            assigneeIds = setOf(agentId),
+            dependencies = emptySet(),
             complexity = 5,
             risk = 5,
             createdAt = Instant.now(),
             updatedAt = Instant.now(),
             dueAt = null,
-            metadata = emptyMap(),
-            result = "Done"
+            metadata = emptyMap()
         )
 
         every { TaskRepository.findById(taskId) } returns completedTask
@@ -179,15 +180,14 @@ class RespondToTaskToolTest {
             type = TaskType.IMPLEMENTATION,
             status = TaskStatus.PENDING,
             routing = RoutingStrategy.SOLO,
-            assigneeIds = listOf(agentId),
-            dependencies = emptyList(),
+            assigneeIds = setOf(agentId),
+            dependencies = emptySet(),
             complexity = 5,
             risk = 5,
             createdAt = Instant.now(),
             updatedAt = null,
             dueAt = null,
-            metadata = emptyMap(),
-            result = null
+            metadata = emptyMap()
         )
 
         val proposal = Proposal(
@@ -197,16 +197,16 @@ class RespondToTaskToolTest {
             content = "Test",
             inputType = InputType.OTHER,
             confidence = 0.5,
-            tokenUsage = null,
+            tokenUsage = TokenUsage(),
             createdAt = Instant.now(),
             metadata = emptyMap()
         )
 
-        val context = TaskContext(emptyList(), emptyList())
+        val context = ContextModule.TaskContext(taskId, emptyList(), emptyList())
 
         every { TaskRepository.findById(taskId) } returns task
         every { ContextModule.getTaskContext(taskId, 10000) } returns context
-        every { ProposalManager.submitProposal(any(), any(), any(), any(), any(), any()) } returns proposal
+        every { ProposalManager.submitProposal(any(), any(), any(), any(), any(), any(), any()) } returns proposal
         every { TaskRepository.update(any()) } returns Unit
         every { ProposalRepository.findByTask(taskId) } returns listOf(proposal)
 
@@ -239,15 +239,14 @@ class RespondToTaskToolTest {
             type = TaskType.IMPLEMENTATION,
             status = TaskStatus.PENDING,
             routing = RoutingStrategy.SOLO,
-            assigneeIds = emptyList(),
-            dependencies = emptyList(),
+            assigneeIds = emptySet(),
+            dependencies = emptySet(),
             complexity = 5,
             risk = 5,
             createdAt = Instant.now(),
             updatedAt = null,
             dueAt = null,
-            metadata = emptyMap(),
-            result = null
+            metadata = emptyMap()
         )
 
         every { TaskRepository.findById(taskId) } returns task
@@ -277,5 +276,75 @@ class RespondToTaskToolTest {
             tool.execute(params, agentId.value)
         }
         assertTrue(exception.message!!.contains("exceeds policy limit"))
+    }
+
+    @Test
+    fun `execute - consensus task moves to IN_PROGRESS after first response`() {
+        // Given
+        val consensusTask = Task(
+            id = taskId,
+            title = "Consensus task",
+            description = "Test consensus",
+            type = TaskType.IMPLEMENTATION,
+            status = TaskStatus.PENDING,
+            routing = RoutingStrategy.CONSENSUS,
+            assigneeIds = setOf(AgentId("claude-code"), AgentId("codex-cli")),
+            dependencies = emptySet(),
+            complexity = 8,
+            risk = 8,
+            createdAt = Instant.now(),
+            updatedAt = null,
+            dueAt = null,
+            metadata = emptyMap()
+        )
+
+        val proposal = Proposal(
+            id = ProposalId("prop-1"),
+            taskId = taskId,
+            agentId = agentId,
+            content = "Architectural plan",
+            inputType = InputType.ARCHITECTURAL_PLAN,
+            confidence = 0.85,
+            tokenUsage = TokenUsage(100, 200),
+            createdAt = Instant.now(),
+            metadata = emptyMap()
+        )
+
+        val context = ContextModule.TaskContext(
+            taskId = taskId,
+            history = emptyList(),
+            fileHistory = emptyList()
+        )
+
+        every { TaskRepository.findById(taskId) } returns consensusTask
+        every { ContextModule.getTaskContext(taskId, any()) } returns context
+        every { ProposalManager.submitProposal(any(), any(), any(), any(), any(), any(), any()) } returns proposal
+        every { TaskRepository.update(any()) } returns Unit
+        every { ProposalRepository.findByTask(taskId) } returns listOf(proposal)
+
+        val params = RespondToTaskTool.Params(
+            taskId = taskId.value,
+            agentId = null,
+            response = RespondToTaskTool.ResponseContent(
+                content = "Architectural plan",
+                inputType = "ARCHITECTURAL_PLAN",
+                confidence = 0.85,
+                metadata = null
+            ),
+            maxTokens = null
+        )
+
+        // When
+        val result = tool.execute(params, agentId.value)
+
+        // Then
+        assertEquals(taskId.value, result.taskId)
+        assertEquals(proposal.id.value, result.proposalId)
+        // CONSENSUS tasks should move to IN_PROGRESS, NOT auto-complete
+        assertEquals("IN_PROGRESS", result.taskStatus)
+
+        verify { ProposalManager.submitProposal(taskId, agentId, "Architectural plan", InputType.ARCHITECTURAL_PLAN, 0.85, any(), emptyMap()) }
+        // Verify task status was updated to IN_PROGRESS
+        verify { TaskRepository.update(match { it.status == TaskStatus.IN_PROGRESS }) }
     }
 }

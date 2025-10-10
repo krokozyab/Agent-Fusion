@@ -43,8 +43,9 @@ class GetPendingTasksTool {
         require(resolvedAgentId.isNotBlank()) { "agentId cannot be blank" }
         val agentId = AgentId(resolvedAgentId.trim())
 
-        // Parse/validate statuses; default to PENDING only for this tool
-        val statuses: Set<TaskStatus> = (p.statuses?.takeIf { it.isNotEmpty() } ?: listOf("PENDING"))
+        // Parse/validate statuses; default to PENDING, IN_PROGRESS, WAITING_INPUT
+        // (tasks that need agent input/action)
+        val statuses: Set<TaskStatus> = (p.statuses?.takeIf { it.isNotEmpty() } ?: listOf("PENDING", "IN_PROGRESS", "WAITING_INPUT"))
             .map { it.uppercase() }
             .map {
                 runCatching { TaskStatus.valueOf(it) }

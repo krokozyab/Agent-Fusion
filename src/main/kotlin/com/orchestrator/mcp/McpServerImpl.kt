@@ -10,6 +10,8 @@ import com.orchestrator.mcp.tools.*
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
+import io.ktor.serialization.ContentConverter
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
@@ -26,6 +28,8 @@ import io.ktor.server.routing.*
 import io.ktor.server.sse.SSE
 import io.ktor.server.sse.SSEServerContent
 import io.ktor.server.sse.ServerSSESession
+import io.ktor.util.pipeline.PipelineContext
+import io.ktor.utils.io.ByteReadChannel
 import io.modelcontextprotocol.kotlin.sdk.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.Implementation
 import io.modelcontextprotocol.kotlin.sdk.JSONRPCMessage
@@ -160,7 +164,24 @@ class McpServerImpl(
                 allowHeader("Content-Type")
                 allowHeader("X-Request-ID")
             }
-            install(ContentNegotiation) { json(json) }
+            install(ContentNegotiation) {
+                // Allow clients to request Server-Sent Events without triggering 406 from content negotiation
+                register(ContentType.Text.EventStream, object : ContentConverter {
+                    override suspend fun serialize(
+                        contentType: ContentType,
+                        charset: io.ktor.utils.io.charsets.Charset,
+                        typeInfo: io.ktor.util.reflect.TypeInfo,
+                        value: Any?
+                    ): OutgoingContent? = null
+
+                    override suspend fun deserialize(
+                        charset: io.ktor.utils.io.charsets.Charset,
+                        typeInfo: io.ktor.util.reflect.TypeInfo,
+                        content: ByteReadChannel
+                    ): Any? = null
+                })
+                json(json)
+            }
             install(SSE)
             install(StatusPages) {
                 exception<IllegalArgumentException> { call, cause ->
@@ -172,6 +193,20 @@ class McpServerImpl(
                 exception<Throwable> { call, cause ->
                     call.application.environment.log.error("Unhandled error", cause)
                     call.respond(HttpStatusCode.InternalServerError, errorBody("internal_error", cause.message ?: "Internal error"))
+                }
+                status(HttpStatusCode.NotAcceptable) { call, _ ->
+                    val accept = call.request.headers[HttpHeaders.Accept]?.takeIf { it.isNotBlank() }
+                    call.application.environment.log.warn(
+                        "406 Not Acceptable for {} with Accept header {}",
+                        call.request.uri,
+                        accept ?: "<missing>"
+                    )
+                    val message = if (accept.isNullOrBlank()) {
+                        "Client must send an Accept header supporting text/event-stream or application/json"
+                    } else {
+                        "Received unsupported Accept header '$accept'. Expected text/event-stream for SSE or application/json"
+                    }
+                    call.respond(HttpStatusCode.NotAcceptable, errorBody("not_acceptable", message))
                 }
                 status(HttpStatusCode.NotFound) { call, _ ->
                     call.respond(HttpStatusCode.NotFound, errorBody("not_found", "Route not found"))
@@ -1208,10 +1243,11 @@ class McpServerImpl(
     // endregion
 
     // region Tools registration and handlers
-    private fun tools(): List<ToolEntry> = listOf(
-        ToolEntry(
-            name = "create_simple_task",
-            description = """
+    private val toolEntries: List<ToolEntry> by lazy {
+        listOf(
+            ToolEntry(
+                name = "create_simple_task",
+                description = """
                 Create a single-agent task for straightforward implementation work. The orchestrator will still audit
                 metadata and can escalate later, but you are signalling that one agent can carry the work end-to-end.
 
@@ -1725,7 +1761,10 @@ class McpServerImpl(
             """.trimIndent(),
             jsonSchema = RespondToTaskTool.JSON_SCHEMA
         )
-    )
+        )
+    }
+
+    private fun tools(): List<ToolEntry> = toolEntries
     // endregion
 
     // region models

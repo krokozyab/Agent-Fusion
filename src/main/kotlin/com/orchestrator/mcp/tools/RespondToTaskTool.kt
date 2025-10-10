@@ -203,15 +203,29 @@ class RespondToTaskTool {
             metadata = p.response.metadata ?: emptyMap()
         )
 
-        // STEP 7: Update task status to IN_PROGRESS
+        // STEP 7: Update task status
+        // For SOLO routing: auto-complete after response submission (single agent completes the work)
+        // For CONSENSUS/multi-agent: move to IN_PROGRESS (needs coordination/additional inputs)
         val now = Instant.now()
-        val updatedTask = when (task.status) {
-            TaskStatus.PENDING, TaskStatus.WAITING_INPUT -> {
+        val updatedTask = when {
+            // SOLO tasks auto-complete on response
+            task.routing == RoutingStrategy.SOLO -> {
+                val updated = task.copy(
+                    status = TaskStatus.COMPLETED,
+                    updatedAt = now,
+                    metadata = task.metadata + mapOf("completedBy" to agentId.value)
+                )
+                TaskRepository.update(updated)
+                updated
+            }
+            // Multi-agent tasks transition to IN_PROGRESS
+            task.status == TaskStatus.PENDING || task.status == TaskStatus.WAITING_INPUT -> {
                 val updated = task.copy(status = TaskStatus.IN_PROGRESS, updatedAt = now)
                 TaskRepository.update(updated)
                 updated
             }
-            TaskStatus.IN_PROGRESS -> {
+            // Already IN_PROGRESS, just update timestamp
+            task.status == TaskStatus.IN_PROGRESS -> {
                 val updated = task.copy(updatedAt = now)
                 TaskRepository.update(updated)
                 updated
@@ -284,10 +298,13 @@ class RespondToTaskTool {
             )
         }
 
-        val message = if (task.status == TaskStatus.IN_PROGRESS) {
-            "Response submitted successfully (proposal: ${proposal.id.value}). Task status remains ${updatedTask.status.name}"
-        } else {
-            "Response submitted successfully (proposal: ${proposal.id.value}). Task status updated to ${updatedTask.status.name}"
+        val message = when {
+            updatedTask.status == TaskStatus.COMPLETED && task.routing == RoutingStrategy.SOLO ->
+                "Response submitted successfully (proposal: ${proposal.id.value}). SOLO task auto-completed."
+            task.status == updatedTask.status ->
+                "Response submitted successfully (proposal: ${proposal.id.value}). Task status remains ${updatedTask.status.name}"
+            else ->
+                "Response submitted successfully (proposal: ${proposal.id.value}). Task status updated to ${updatedTask.status.name}"
         }
 
         return Result(

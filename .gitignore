@@ -43,3 +43,6 @@ local.properties
 *.swp
 *.swo
 logs/
+
+IMPLEMENTATION_PLAN.md
+CLAUDE.md
