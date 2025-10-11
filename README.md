@@ -141,6 +141,8 @@ POST /mcp/tools/call        # Invoke a tool
 
 ## Architecture
 
+📊 **[View Sequence Diagrams](docs/SEQUENCE_DIAGRAMS.md)** - Detailed workflow visualizations showing task flow from creation to completion
+
 ### Core Components
 
 - **Routing Module**: Classifies tasks and selects optimal routing strategy
@@ -177,15 +179,16 @@ POST /mcp/tools/call        # Invoke a tool
 
 ### Routing Strategies
 
-The system supports three routing strategies that are automatically determined based on task characteristics:
+The system supports four routing strategies that are automatically determined based on task characteristics:
 
 | Strategy | When Used | Agents | Use Case |
 |----------|-----------|--------|----------|
 | SOLO | Low complexity/risk | 1 | Simple tasks, documentation |
-| CONSENSUS | High risk, critical | 2+ | Architecture, security |
-| SEQUENTIAL | High complexity | 2+ | Planning, multi-phase |
+| CONSENSUS | High risk, critical | 2+ | Architecture, security decisions |
+| SEQUENTIAL | High complexity | 2+ | Planning, multi-phase projects |
+| PARALLEL | Research/testing, divisible tasks | 2+ | Code generation, data analysis |
 
-**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically upgrade tasks to SEQUENTIAL strategy based on complexity, risk, and task type analysis.
+**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically select SEQUENTIAL or PARALLEL strategies based on complexity, risk, task type, and natural language signals (e.g., "parallel", "concurrent").
 
 ### Agent Directives
 
