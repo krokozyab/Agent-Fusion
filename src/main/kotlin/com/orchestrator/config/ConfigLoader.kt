@@ -137,10 +137,8 @@ object ConfigLoader {
                 throw IllegalArgumentException("Invalid configuration for agent '$id': ${e.message}", e)
             }
 
-            // Additional validations (example: recommend model presence for certain types)
-            if (type in setOf(AgentType.GPT, AgentType.GEMINI, AgentType.MISTRAL, AgentType.LLAMA) && agentConfig.model.isNullOrBlank()) {
-                throw IllegalArgumentException("Agent '$id' (type=$type) must specify 'model'.")
-            }
+            // No mandatory validations - model, apiKeyRef, temperature, maxTokens are all optional
+            // Agents can use defaults or get configuration from their factories
 
             results += AgentDefinition(id = AgentId(id), type = type, config = agentConfig)
         }

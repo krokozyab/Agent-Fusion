@@ -12,10 +12,10 @@ class ConfigLoaderTest {
     @Test
     fun `should load HOCON configuration from classpath`() {
         val config = ConfigLoader.loadHocon()
-        
+
         assertNotNull(config)
         assertEquals("127.0.0.1", config.server.host)
-        assertEquals(8080, config.server.port)
+        assertEquals(3000, config.server.port)
         assertEquals(Transport.HTTP, config.server.transport)
         assertEquals("data/orchestrator.db", config.storage.databasePath)
     }

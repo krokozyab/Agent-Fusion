@@ -3,25 +3,16 @@
 
 [agents.claude-code]
 type = "CLAUDE_CODE"
-name = "Claude Code"
-model = "claude-3-5-sonnet-20241022"
-apiKeyRef = "${ANTHROPIC_API_KEY}"
-temperature = 0.7
-maxTokens = 4096
+name = "Claude"
 
 [agents.codex-cli]
 type = "CODEX_CLI"
-name = "Codex CLI"
-model = "gpt-4"
-apiKeyRef = "${OPENAI_API_KEY}"
-organization = "${OPENAI_ORG_ID}"
-temperature = 0.5
-maxTokens = 2048
+name = "Codex"
+
+[agents.q-cli]
+type = "Q_CLI"
+name = "Q"
 
 [agents.gemini]
 type = "GEMINI"
-name = "Gemini Pro"
-model = "gemini-pro"
-apiKeyRef = "${GOOGLE_API_KEY}"
-temperature = 0.6
-maxTokens = 2048
+name = "Gemini"

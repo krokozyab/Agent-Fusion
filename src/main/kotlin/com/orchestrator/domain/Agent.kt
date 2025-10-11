@@ -12,6 +12,7 @@ data class AgentId(val value: String) {
 enum class AgentType {
     CLAUDE_CODE,
     CODEX_CLI,
+    Q_CLI,
     GEMINI,
     GPT,
     MISTRAL,
