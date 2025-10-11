@@ -16,7 +16,7 @@ java -version
 Download the latest release from GitHub:
 
 1. Go to [Releases](https://github.com/krokozyab/claude-codex-orchestrator/releases)
-2. Download `codex_to_claude-X.X.X.zip` from the latest release
+2. Download `release.zip` from the latest release
 3. Save it to your preferred location
 
 ### 2. Extract the Files
