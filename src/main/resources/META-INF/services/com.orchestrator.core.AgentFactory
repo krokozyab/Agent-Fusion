@@ -1,2 +1,3 @@
 com.orchestrator.agents.factories.ClaudeCodeAgentFactory
 com.orchestrator.agents.factories.CodexCLIAgentFactory
+com.orchestrator.agents.factories.QCLIAgentFactory

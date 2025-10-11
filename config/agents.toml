@@ -1,8 +1,4 @@
-[agents.claude-code]
-type = "CLAUDE_CODE"
-name = "Claude"
-
-[agents.codex-cli]
+[agents.test-agent]
 type = "CODEX_CLI"
-name = "Codex"
-
+name = "Test Agent"
+model = "gpt-4"

@@ -134,6 +134,60 @@ claude mcp list
 
 You should see the orchestrator server listed with connection status - Connected.
 
+## Configure Amazon Q Developer (IntelliJ)
+
+### 1. Open Amazon Q Chat
+
+In IntelliJ IDEA:
+1. Open the **Amazon Q** tool window (usually on the right side)
+2. In the chat interface, click the **settings/gear icon** or **menu**
+
+### 2. Add MCP Server
+
+1. Navigate to **MCP Servers** or **Model Context Protocol** settings
+2. Click **Add Server** or **+**
+3. Enter server details:
+   - **Name**: `orchestrator`
+   - **Transport**: `HTTP`
+   - **URL**: `http://127.0.0.1:3000/mcp`
+4. Save the configuration
+
+### 3. Verify Connection
+
+In Amazon Q chat, type:
+```
+/mcp
+```
+
+You should see the orchestrator server listed with available tools:
+- assign_task
+- complete_task
+- continue_task
+- create_consensus_task
+- create_simple_task
+- get_pending_tasks
+- get_task_status
+- respond_to_task
+- submit_input
+
+## Configure Gemini Code Assist
+
+### 1. Add MCP Server
+
+Run the following command:
+```bash
+gemini mcp add --transport http orchestrator http://127.0.0.1:3000/mcp
+```
+
+### 2. Verify Connection
+
+List configured MCP servers:
+```bash
+gemini mcp list
+```
+
+You should see the orchestrator server listed with its available tools.
+
 ## Stopping
 
 Press `Ctrl+C` in the terminal window
@@ -169,6 +223,70 @@ Delete the database and restart:
 rm -rf data/
 ./start.sh
 ```
+
+### Agent Not Recognized ("agentId is required")
+
+**How agent identification works:**
+
+1. When an agent connects via MCP, it sends its name in the `initialize` handshake
+2. The orchestrator matches this name to an ID in `agents.toml` (e.g., `[agents.codex-cli]`)
+3. The session is linked to that agent ID automatically
+4. All tool calls from that session know which agent made them
+
+**If automatic detection fails:**
+
+Check orchestrator logs for: `Session abc-123 associated with agent codex-cli`
+
+No log message? The agent name didn't match your `agents.toml`. Fix it by:
+- **Option 1**: Ensure the MCP client sends a name containing your agent ID (e.g., "codex-cli")
+- **Option 2**: Add `agentId` parameter to all tool calls: `{"agentId": "codex-cli"}`
+- **Option 3**: Add to agent system prompt: "Always include agentId parameter in orchestrator calls"
+
+### Agent Not Following Orchestrator Workflow
+
+**Problem:** Agent completes tasks without providing proper analysis, skips steps, or doesn't synthesize results from multiple agents.
+
+**Common issues:**
+
+1. **Consensus tasks closed too quickly** - Agent marks task complete without analyzing all proposals or combining results
+2. **Missing combined analysis** - Agent doesn't summarize what multiple agents said before completing
+3. **Skipping own input** - Agent completes consensus task without submitting their own analysis first
+
+**Why this happens:**
+
+AI agents follow their base instructions, which may not include orchestrator-specific workflows. They need explicit guidance about:
+- When to submit their own analysis before completing tasks
+- How to synthesize multiple agent proposals
+- What information to include in task completion
+
+**Solution: Add workflow instructions to agent prompts**
+
+Add these instructions to your agent's system prompt or give them explicitly when needed:
+
+```
+ORCHESTRATOR WORKFLOW RULES:
+
+For consensus tasks:
+1. First, submit YOUR analysis using respond_to_task() or submit_input()
+2. Wait for other agents to respond (check with get_pending_tasks())
+3. When all agents responded, use continue_task() to load all proposals
+4. SYNTHESIZE and COMPARE all proposals in your completion summary
+5. Use complete_task() with combined results showing:
+   - What each agent proposed
+   - Areas of agreement/disagreement
+   - Your recommendation based on all inputs
+
+Never complete a consensus task without:
+- Analyzing ALL agent proposals
+- Providing a combined summary
+- Explaining your reasoning for the final decision
+```
+
+**Quick reminder format** (when agent forgets):
+
+"Please provide a combined analysis of all proposals before completing the task. Review what Codex and Q-CLI suggested, compare their approaches, and explain which solution you recommend."
+
+**See also:** `docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md` for detailed workflow examples
 
 ## Configuration Files
 
