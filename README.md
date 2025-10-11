@@ -1,55 +1,57 @@
-# Claude-Codex Orchestrator
+# Multi-Agent Orchestrator
 
-A dual-agent orchestration system that enables Claude Code and Codex to collaborate bidirectionally through intelligent task routing, consensus-based decision making.
+A multi-agent orchestration system that enables Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist to collaborate bidirectionally through intelligent task routing and consensus-based decision making.
 
 ## Architecture Overview
 
 ### Core Concept
 
-The system enables two AI agents (Claude Code and Codex CLI) to collaborate on complex tasks through a central MCP (Model Context Protocol) server that maintains shared context and orchestrates their interactions.
+The system enables multiple AI agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) to collaborate on complex tasks through a central MCP (Model Context Protocol) server that maintains shared context and orchestrates their interactions.
 
 ```
-┌─────────────────┐                                    ┌─────────────────┐
-│                 │                                    │                 │
-│  Claude Code    │◄──────────────────────────────────►│   Codex CLI     │
-│   (Agent 1)     │        Bidirectional               │   (Agent 2)     │
-│                 │        Communication               │                 │
-└────────┬────────┘                                    └────────┬────────┘
-         │                                                      │
-         │  MCP Client                                MCP Client│
-         │  Connection                                Connection│
-         │                                                      │
-         ▼                                                      ▼
-    ┌────────────────────────────────────────────────────────────────┐
-    │                                                                │
-    │                   MCP Orchestrator Server                      │
-    │                                                                │
-    │  ┌──────────────────────────────────────────────────────┐      │
-    │  │          Shared Context & Task Queue                 │      │
-    │  │  • Task routing & assignment                         │      │
-    │  │  • Proposals & consensus voting                      │      │
-    │  │  • Conversation history                              │      │
-    │  └──────────────────────────────────────────────────────┘      │
-    │                                                                │
-    │  ┌──────────────────────────────────────────────────────┐      │
-    │  │           Persistent Storage                         │      │
-    │  │  • Tasks, Proposals, Decisions                       │      │
-    │  │  • Context snapshots                                 │      │
-    │  └──────────────────────────────────────────────────────┘      │
-    │                                                                │
-    └────────────────────────────────────────────────────────────────┘
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│              │  │              │  │              │  │              │
+│ Claude Code  │  │  Codex CLI   │  │  Amazon Q    │  │   Gemini     │
+│  (Agent 1)   │  │  (Agent 2)   │  │  (Agent 3)   │  │  (Agent 4)   │
+│              │  │              │  │              │  │              │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                 │                 │
+       │     MCP Client Connections (bidirectional)          │
+       │                 │                 │                 │
+       └─────────────────┼─────────────────┼─────────────────┘
+                         ▼                 ▼
+    ┌─────────────────────────────────────────────────────────────┐
+    │                                                             │
+    │                 MCP Orchestrator Server                     │
+    │                                                             │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │         Shared Context & Task Queue                   │  │
+    │  │  • Task routing & assignment                          │  │
+    │  │  • Proposals & consensus voting                       │  │
+    │  │  • Multi-agent conversation history                   │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    │                                                             │
+    │  ┌───────────────────────────────────────────────────────┐  │
+    │  │          Persistent Storage (DuckDB)                  │  │
+    │  │  • Tasks, Proposals, Decisions                        │  │
+    │  │  • Agent metrics & performance                        │  │
+    │  │  • Context snapshots                                  │  │
+    │  └───────────────────────────────────────────────────────┘  │
+    │                                                             │
+    └─────────────────────────────────────────────────────────────┘
 ```
 
 ### How It Works
 
-1. **Agents Connect**: Both Claude Code and Codex CLI connect to the MCP server as clients
-2. **Task Creation**: Either agent can create tasks (simple, consensus, or assigned)
-3. **Context Sharing**: The server maintains shared context visible to both agents
+1. **Agents Connect**: Multiple AI agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) connect to the MCP server as clients
+2. **Task Creation**: Any agent can create tasks (simple, consensus, or assigned)
+3. **Context Sharing**: The server maintains shared context visible to all agents
 4. **Collaboration**: Agents submit proposals, vote on solutions, and review each other's work
 5. **Routing**: Intelligent routing decides whether tasks need single-agent or multi-agent collaboration
 
 **Key Benefits:**
-- **Bidirectional**: Both agents can initiate tasks and respond to each other
+- **Multi-Agent Support**: Works with Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist
+- **Bidirectional**: All agents can initiate tasks and respond to each other
 - **Context Preservation**: Full conversation history and task context maintained centrally
 - **Flexible Workflows**: Supports solo, consensus, sequential, and parallel execution modes
 
@@ -59,19 +61,19 @@ The system enables two AI agents (Claude Code and Codex CLI) to collaborate on c
 
 ### What Makes This Unique
 
-- **True Bidirectional Collaboration**: Both agents can initiate tasks, respond to each other, and manage workflows - not just sequential handoffs
+- **True Bidirectional Collaboration**: All agents can initiate tasks, respond to each other, and manage workflows - not just sequential handoffs
+- **Multi-Agent Support**: Works with Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist
 - **Consensus-Based Decision Making**: Multiple agents propose solutions and vote on the best approach for critical architectural and security decisions
 - **Intelligent Task Routing**: Automatically analyzes task complexity and risk to select optimal execution approach - supports solo execution for simple tasks and multi-agent consensus for critical decisions
 - **Persistent Task Queue**: Agents check pending work assigned to them, enabling asynchronous collaboration across sessions
 - **Flexible Workflow Control**: Supports solo execution, multi-agent consensus, direct assignments, and emergency bypass modes
-- **No API Keys Required**: Runs entirely locally using your existing Claude Code and Codex CLI installations
 - **Event-Driven Architecture**: Async event bus enables decoupled, scalable component communication
 
 ## Installation
 
-**No API keys required** - This system runs entirely locally using your existing Claude Code and Codex CLI installations.
+**No API keys required** - All agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) run using your existing local installations and connect via MCP.
 
-See [Installation Guide](docs/INSTALL.md) for setup instructions.
+See [Installation Guide](docs/INSTALL.md) for setup instructions for all supported agents.
 
 ## Getting Started
 
@@ -175,16 +177,15 @@ POST /mcp/tools/call        # Invoke a tool
 
 ### Routing Strategies
 
-The system supports four routing strategies that are automatically determined based on task characteristics:
+The system supports three routing strategies that are automatically determined based on task characteristics:
 
 | Strategy | When Used | Agents | Use Case |
 |----------|-----------|--------|----------|
 | SOLO | Low complexity/risk | 1 | Simple tasks, documentation |
-| CONSENSUS | High risk, critical | 2-3 | Architecture, security |
-| SEQUENTIAL | High complexity | 2-3 | Planning, multi-phase |
-| PARALLEL | Research, testing | 2-3 | Exploration, validation |
+| CONSENSUS | High risk, critical | 2+ | Architecture, security |
+| SEQUENTIAL | High complexity | 2+ | Planning, multi-phase |
 
-**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically upgrade tasks to SEQUENTIAL or PARALLEL strategies based on complexity, risk, and task type analysis.
+**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically upgrade tasks to SEQUENTIAL strategy based on complexity, risk, and task type analysis.
 
 ### Agent Directives
 
