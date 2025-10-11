@@ -1,4 +1,4 @@
-# Multi-Agent Orchestrator
+# Agent Fusion
 
 A multi-agent orchestration system that enables Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist to collaborate bidirectionally through intelligent task routing and consensus-based decision making.
 
