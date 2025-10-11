@@ -62,6 +62,7 @@ class OrchestrationEngine(
         registerWorkflow(SoloWorkflow(agentRegistry))
         registerWorkflow(ConsensusWorkflow(agentRegistry))
         registerWorkflow(SequentialWorkflow(agentRegistry))
+        registerWorkflow(ParallelWorkflow(agentRegistry))
     }
 
     /**
