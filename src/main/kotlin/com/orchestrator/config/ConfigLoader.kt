@@ -4,6 +4,8 @@ import com.akuleshov7.ktoml.Toml
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.Config as TypesafeConfig
 import kotlinx.serialization.Serializable
+import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.config.ContextConfigLoader
 import com.orchestrator.domain.AgentConfig
 import com.orchestrator.domain.AgentId
 import com.orchestrator.domain.AgentType
@@ -45,7 +47,8 @@ object ConfigLoader {
     
     data class ApplicationConfig(
         val orchestrator: OrchestratorConfig,
-        val agents: List<AgentDefinition>
+        val agents: List<AgentDefinition>,
+        val context: ContextConfig
     )
 
     /**
@@ -57,11 +60,13 @@ object ConfigLoader {
     fun loadAll(
         hoconPath: String? = null,
         tomlPath: Path = Path.of("config/agents.toml"),
+        contextPath: Path = Path.of("config/context.toml"),
         env: Map<String, String> = System.getenv()
     ): ApplicationConfig {
         val orchestratorConfig = loadHocon(hoconPath, env)
         val agents = loadAgents(tomlPath, env)
-        return ApplicationConfig(orchestratorConfig, agents)
+        val contextConfig = ContextConfigLoader.load(contextPath, env)
+        return ApplicationConfig(orchestratorConfig, agents, contextConfig)
     }
     
     /**
@@ -137,8 +142,16 @@ object ConfigLoader {
                 throw IllegalArgumentException("Invalid configuration for agent '$id': ${e.message}", e)
             }
 
-            // No mandatory validations - model, apiKeyRef, temperature, maxTokens are all optional
-            // Agents can use defaults or get configuration from their factories
+            val requiresModel = when (type) {
+                AgentType.GPT,
+                AgentType.GEMINI,
+                AgentType.MISTRAL,
+                AgentType.LLAMA -> true
+                else -> false
+            }
+            if (requiresModel && agentConfig.model.isNullOrBlank()) {
+                throw IllegalArgumentException("Agent '$id' of type '${type.name.lowercase()}' must specify 'model'")
+            }
 
             results += AgentDefinition(id = AgentId(id), type = type, config = agentConfig)
         }

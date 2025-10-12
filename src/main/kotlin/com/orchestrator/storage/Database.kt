@@ -53,6 +53,8 @@ object Database {
 
         val jdbcUrl = "jdbc:duckdb:$dbPath"
         val conn = DriverManager.getConnection(jdbcUrl)
+        // Enable autoCommit for immediate persistence
+        conn.autoCommit = true
         connection = conn
 
         // Register shutdown hook once
@@ -85,7 +87,15 @@ object Database {
     fun shutdown() {
         try {
             connection?.let { conn ->
-                if (!conn.isClosed) conn.close()
+                if (!conn.isClosed) {
+                    // Force WAL checkpoint before closing to ensure all changes are persisted
+                    try {
+                        conn.createStatement().use { it.execute("CHECKPOINT") }
+                    } catch (e: SQLException) {
+                        System.err.println("Warning: Failed to checkpoint database on shutdown: ${e.message}")
+                    }
+                    conn.close()
+                }
             }
         } catch (_: SQLException) {
             // ignore on shutdown
@@ -111,9 +121,9 @@ object Database {
         try {
             conn.createStatement().use { st ->
                 for (sql in Schema.statements) {
-                    st.addBatch(sql)
+                    if (sql.trimStart().startsWith("COMMENT ON", ignoreCase = true)) continue
+                    st.execute(sql)
                 }
-                st.executeBatch()
             }
             conn.commit()
         } catch (e: SQLException) {

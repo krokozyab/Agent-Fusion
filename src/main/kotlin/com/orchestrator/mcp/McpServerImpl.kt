@@ -157,7 +157,6 @@ class McpServerImpl(
             }
             install(CallLogging) {
                 callIdMdc("requestId")
-                disableDefaultColors()
             }
             install(CORS) {
                 anyHost()
@@ -1950,18 +1949,28 @@ class McpServerImpl(
         // Treat common aliases as the active single agent when unambiguous
         val wantsDefault = trimmed == null || normalized == "user" || normalized == "me"
         if (wantsDefault) {
+            log.debug("Resolving default agent. Requested: '$requestedRaw', agents count: ${agents.size}")
+            
             if (agents.size == 1) {
-                return agents.first().id.value
+                val agent = agents.first()
+                log.info("Single agent configuration detected. Defaulting to: ${agent.id.value}")
+                return agent.id.value
             }
 
             // Check if we have session-based agent identity in multi-agent setup
             val sessionId = currentSessionId.get()
+            log.debug("Multi-agent setup. Checking session ID: $sessionId")
+            
             if (sessionId != null) {
                 val sessionAgent = sessionToAgent[sessionId]
                 if (sessionAgent != null) {
-                    log.debug("Resolved agentId from session $sessionId: ${sessionAgent.value}")
+                    log.info("Resolved agentId from session $sessionId: ${sessionAgent.value}")
                     return sessionAgent.value
+                } else {
+                    log.warn("Session $sessionId found but no agent mapping exists. Available mappings: ${sessionToAgent.keys}")
                 }
+            } else {
+                log.warn("No session ID available for agent resolution")
             }
 
             throw IllegalArgumentException(
@@ -1971,13 +1980,21 @@ class McpServerImpl(
             )
         }
 
+        log.debug("Resolving explicit agent: '$trimmed'")
+        
         // Exact match on id
         runCatching { AgentId(trimmed!!) }.getOrNull()?.let { candidate ->
-            agentRegistry.getAgent(candidate)?.let { return it.id.value }
+            agentRegistry.getAgent(candidate)?.let { 
+                log.info("Resolved agent by exact ID match: ${it.id.value}")
+                return it.id.value 
+            }
         }
 
         // Match on display name for convenience
-        agents.firstOrNull { it.displayName.equals(trimmed, ignoreCase = true) }?.let { return it.id.value }
+        agents.firstOrNull { it.displayName.equals(trimmed, ignoreCase = true) }?.let { 
+            log.info("Resolved agent by display name match: ${it.id.value}")
+            return it.id.value 
+        }
 
         throw IllegalArgumentException("Unknown agentId '${requestedRaw?.trim()}'. Available: ${availableAgents()}")
     }
@@ -2001,15 +2018,35 @@ class McpServerImpl(
             val params = message.params as? JsonObject ?: return null
             val clientInfo = params["clientInfo"] as? JsonObject ?: return null
             val clientName = (clientInfo["name"] as? JsonPrimitive)?.contentOrNull ?: return null
+            
+            log.info("Extracting agent ID from initialize request. Client name: '$clientName'")
 
             // Try to match client name to registered agent IDs or display names
             val agents = agentRegistry.getAllAgents()
-            agents.firstOrNull { agent ->
+            
+            // Normalize client name for matching
+            val normalizedClientName = clientName.lowercase().replace(Regex("[\\s-_]"), "")
+            
+            val matchedAgent = agents.firstOrNull { agent ->
+                val normalizedAgentId = agent.id.value.lowercase().replace(Regex("[\\s-_]"), "")
+                val normalizedDisplayName = agent.displayName.lowercase().replace(Regex("[\\s-_]"), "")
+                
+                // Check various matching strategies
                 agent.id.value.equals(clientName, ignoreCase = true) ||
                 agent.displayName.equals(clientName, ignoreCase = true) ||
-                clientName.contains(agent.id.value, ignoreCase = true) ||
-                clientName.contains(agent.displayName, ignoreCase = true)
-            }?.id
+                normalizedClientName.contains(normalizedAgentId) ||
+                normalizedClientName.contains(normalizedDisplayName) ||
+                normalizedAgentId.contains(normalizedClientName) ||
+                normalizedDisplayName.contains(normalizedClientName)
+            }
+            
+            if (matchedAgent != null) {
+                log.info("Matched client '$clientName' to agent '${matchedAgent.id.value}' (${matchedAgent.displayName})")
+            } else {
+                log.warn("Could not match client '$clientName' to any registered agent. Available agents: ${agents.map { "${it.id.value} (${it.displayName})" }}")
+            }
+            
+            matchedAgent?.id
         } catch (e: Exception) {
             log.warn("Failed to extract agent ID from initialize request", e)
             null

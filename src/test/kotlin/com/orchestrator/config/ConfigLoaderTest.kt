@@ -67,10 +67,11 @@ class ConfigLoaderTest {
         """.trimIndent())
         
         val appConfig = ConfigLoader.loadAll(tomlPath = tomlFile)
-        
+
         assertNotNull(appConfig.orchestrator)
         assertEquals(1, appConfig.agents.size)
         assertEquals("test-agent", appConfig.agents[0].id.value)
+        assertTrue(appConfig.context.enabled)
     }
     
     @Test
@@ -176,14 +177,15 @@ class ConfigLoaderTest {
         """.trimIndent())
         
         val appConfig = ConfigLoader.loadAll(tomlPath = tomlFile)
-        
+
         // HOCON config
         assertNotNull(appConfig.orchestrator.server)
         assertNotNull(appConfig.orchestrator.storage)
-        
+
         // TOML config
         assertEquals(1, appConfig.agents.size)
         assertEquals("test", appConfig.agents[0].id.value)
+        assertNotNull(appConfig.context)
     }
     
     @Test

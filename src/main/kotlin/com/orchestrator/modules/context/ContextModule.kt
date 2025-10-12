@@ -1,5 +1,6 @@
 package com.orchestrator.modules.context
 
+import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.domain.AgentId
 import com.orchestrator.domain.TaskId
 import com.orchestrator.modules.context.FileRegistry.Operation
@@ -7,6 +8,7 @@ import com.orchestrator.modules.context.FileRegistry.FileOperation
 import com.orchestrator.modules.context.MemoryManager.ConversationMessage
 import com.orchestrator.modules.context.MemoryManager.Role
 import com.orchestrator.storage.Transaction
+import com.orchestrator.utils.Logger
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
 
@@ -23,6 +25,17 @@ interface ContextService {
 }
 
 object ContextModule {
+    private val log = Logger.logger("com.orchestrator.modules.context.ContextModule")
+
+    @Volatile
+    private var moduleConfig: ContextConfig = ContextConfig()
+
+    fun configure(config: ContextConfig) {
+        moduleConfig = config
+        log.info("Context module configured (enabled={}, mode={})", config.enabled, config.mode)
+    }
+
+    fun configuration(): ContextConfig = moduleConfig
 
     // -------- Public API types --------
 

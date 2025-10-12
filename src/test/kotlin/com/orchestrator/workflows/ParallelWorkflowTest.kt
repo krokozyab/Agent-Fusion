@@ -10,6 +10,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlin.test.*
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 class ParallelWorkflowTest {
 
@@ -67,7 +70,7 @@ class ParallelWorkflowTest {
         val task = sampleTask("t-parallel-1")
         TaskRepository.insert(task)
 
-        val executedAgents = mutableListOf<String>()
+        val executedAgents = CopyOnWriteArrayList<String>()
 
         val workflow = ParallelWorkflow(
             agentRegistry = registry,
@@ -107,7 +110,7 @@ class ParallelWorkflowTest {
         val task = sampleTask("t-parallel-2")
         TaskRepository.insert(task)
 
-        val executedAgents = mutableListOf<String>()
+        val executedAgents = CopyOnWriteArrayList<String>()
 
         val workflow = ParallelWorkflow(
             agentRegistry = registry,
@@ -281,7 +284,7 @@ class ParallelWorkflowTest {
         val task = sampleTask("t-parallel-8", assignees = assignedAgents)
         TaskRepository.insert(task)
 
-        val executedAgents = mutableListOf<String>()
+        val executedAgents = CopyOnWriteArrayList<String>()
 
         val workflow = ParallelWorkflow(
             agentRegistry = registry,
@@ -429,15 +432,15 @@ class ParallelWorkflowTest {
         val task = sampleTask("t-parallel-12")
         TaskRepository.insert(task)
 
-        var executionCount = 0
+        val executionCount = AtomicInteger(0)
 
         val workflow = ParallelWorkflow(
             agentRegistry = registry,
             stateStore = InMemoryWorkflowStateStore(),
             maxAgents = 2,
             agentTaskRunner = { _, a ->
-                executionCount++
-                "Execution $executionCount from ${a.displayName}"
+                val count = executionCount.incrementAndGet()
+                "Execution $count from ${a.displayName}"
             }
         )
 
@@ -446,12 +449,12 @@ class ParallelWorkflowTest {
         // First execution
         val step1 = workflow.execute(runtime)
         assertTrue(step1 is WorkflowStep.Success)
-        assertEquals(2, executionCount) // 2 agents
+        assertEquals(2, executionCount.get()) // 2 agents
 
         // Resume (re-executes all agents)
         val step2 = workflow.resume(runtime, checkpointId = null)
         assertTrue(step2 is WorkflowStep.Success)
-        assertEquals(4, executionCount) // 2 agents again
+        assertEquals(4, executionCount.get()) // 2 agents again
     }
 
     @Test
@@ -491,8 +494,8 @@ class ParallelWorkflowTest {
         val task = sampleTask("t-parallel-14")
         TaskRepository.insert(task)
 
-        val startTimes = mutableMapOf<String, Long>()
-        val endTimes = mutableMapOf<String, Long>()
+        val startTimes = ConcurrentHashMap<String, Long>()
+        val endTimes = ConcurrentHashMap<String, Long>()
 
         val workflow = ParallelWorkflow(
             agentRegistry = registry,

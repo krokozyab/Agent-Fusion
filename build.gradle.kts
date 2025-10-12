@@ -1,9 +1,8 @@
-
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "2.2.20"
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.20"
-    id("application")
+    kotlin("jvm") version "2.2.10"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.2.10"
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    application
 }
 
 group = "com.orchestrator"
@@ -13,19 +12,14 @@ repositories {
     mavenCentral()
 }
 
-val coroutinesVersion = "1.9.0"
-val serializationVersion = "1.7.3"
-val ktorVersion = "3.0.3"
-val duckdbVersion = "1.4.0.0"
-val mcpSdkVersion = "0.7.2"
-
 dependencies {
-    // Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-stdlib")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serializationVersion")
+    val ktorVersion = "3.3.0"
 
-    // Ktor server
+    // Kotlin
+    implementation(kotlin("stdlib"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+    // Ktor Server (aligned with embedded MCP SDK)
     implementation("io.ktor:ktor-server-core:$ktorVersion")
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
@@ -33,34 +27,48 @@ dependencies {
     implementation("io.ktor:ktor-server-call-id:$ktorVersion")
     implementation("io.ktor:ktor-server-call-logging:$ktorVersion")
     implementation("io.ktor:ktor-server-default-headers:$ktorVersion")
-    implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-cors:$ktorVersion")
+    implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-sse:$ktorVersion")
 
-    // DuckDB JDBC
-    implementation("org.duckdb:duckdb_jdbc:$duckdbVersion")
-
-    // HOCON (Typesafe Config)
-    implementation("com.typesafe:config:1.4.3")
-
-    // MCP Kotlin SDK (bidirectional transport support)
-    implementation("io.modelcontextprotocol:kotlin-sdk:$mcpSdkVersion")
-
-    // TOML parser (ktoml)
-    val ktomlVersion = "0.5.1"
-    implementation("com.akuleshov7:ktoml-core:$ktomlVersion")
-    implementation("com.akuleshov7:ktoml-file:$ktomlVersion")
-
-    // ULID (time-sortable unique identifiers)
-    implementation("io.azam.ulidj:ulidj:2.0.0")
-
+    // Database (upgrade to fix duplicate-key failures in DuckDB 0.9.x)
+    implementation("org.duckdb:duckdb_jdbc:1.4.0.0")
+    
     // Logging
-    implementation("org.slf4j:slf4j-api:2.0.9")
-    implementation("ch.qos.logback:logback-classic:1.4.14")
+    implementation("ch.qos.logback:logback-classic:1.4.11")
+    implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
+    
+    // Configuration
+    implementation("com.typesafe:config:1.4.3")
+    implementation("com.moandjiezana.toml:toml4j:0.7.2")
+    implementation("com.akuleshov7:ktoml-core:0.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    // Test
+    // UUID
+    implementation("app.softwork:kotlinx-uuid-core:0.0.22")
+    implementation("io.azam.ulidj:ulidj:1.0.0")
+
+    // MCP Kotlin SDK
+    implementation("io.modelcontextprotocol:kotlin-sdk:0.1.3")
+    implementation("io.modelcontextprotocol:kotlin-sdk-core:0.1.3")
+    implementation("io.modelcontextprotocol:kotlin-sdk-server:0.1.3")
+    implementation("io.modelcontextprotocol:kotlin-sdk-client:0.1.3")
+
+    // Java Parser for chunking
+    implementation("com.github.javaparser:javaparser-core:3.25.7")
+    
+    // YAML Parser for chunking
+    implementation("org.yaml:snakeyaml:2.2")
+    
+    // ONNX Runtime for embeddings
+    implementation("com.microsoft.onnxruntime:onnxruntime:1.16.3")
+    
+    // Testing
     testImplementation(kotlin("test"))
-    testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("io.mockk:mockk:1.13.9")
 }
 
 application {
@@ -73,4 +81,10 @@ tasks.test {
 
 kotlin {
     jvmToolchain(21)
+}
+
+tasks.shadowJar {
+    archiveBaseName.set("orchestrator")
+    archiveClassifier.set("all")
+    mergeServiceFiles()
 }

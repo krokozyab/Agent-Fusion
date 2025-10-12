@@ -99,43 +99,13 @@ Or include the content as context at the start of your session.
 
 For detailed workflow examples, see [Conversation Handoff Workflow](docs/CONVERSATION_HANDOFF_WORKFLOW.md).
 
-## MCP Server Endpoints
+## Developer Resources
 
-### Health Check
-```
-GET /healthz
-```
+### API Documentation
+📚 **[MCP Server API Reference](docs/API_REFERENCE.md)** - Complete documentation of MCP server endpoints, tools, and resources
 
-### Tools
-```
-GET /mcp/tools              # List available tools
-POST /mcp/tools/call        # Invoke a tool
-```
-
-**Available Tools:**
-- `create_simple_task` - Create a single-agent task
-- `create_consensus_task` - Create a multi-agent consensus task
-- `assign_task` - Assign task to specific agent
-- `continue_task` - Load task context for continuation
-- `respond_to_task` - Load task context and submit response in one operation (recommended)
-- `complete_task` - Mark task as completed
-- `get_pending_tasks` - Get pending tasks for an agent
-- `get_task_status` - Get task status
-- `submit_input` - Submit agent input/proposal
-
-## Project Structure
-
-- `src/main/kotlin/com/orchestrator/`
-  - `Main.kt` - Application entry point
-  - `config/` - Configuration loading
-  - `core/` - Core components (AgentRegistry, EventBus)
-  - `domain/` - Domain models (Task, Agent, Proposal, Decision)
-  - `modules/` - Feature modules (routing, consensus, metrics, MCP)
-  - `storage/` - Database and repositories
-  - `utils/` - Utilities (Logger, IdGenerator)
-- `src/test/kotlin` - Tests
-- `config/` - Configuration files
-- `build.gradle.kts` - Gradle build script
+### Development Guide
+🛠️ **[Development Guide](docs/DEVELOPMENT.md)** - Project structure, setup instructions, testing, and contribution guidelines
 
 
 

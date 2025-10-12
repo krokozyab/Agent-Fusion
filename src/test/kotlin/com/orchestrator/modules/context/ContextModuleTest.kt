@@ -1,10 +1,13 @@
 package com.orchestrator.modules.context
 
+import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.config.DeploymentMode
 import com.orchestrator.domain.*
 import com.orchestrator.modules.context.FileRegistry.Operation
 import com.orchestrator.modules.context.FileRegistry.OperationType
 import com.orchestrator.modules.context.MemoryManager.Role
 import com.orchestrator.storage.repositories.TaskRepository
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -13,6 +16,11 @@ import kotlin.test.assertTrue
 import java.time.Instant
 
 class ContextModuleTest {
+
+    @BeforeTest
+    fun resetConfig() {
+        ContextModule.configure(ContextConfig())
+    }
 
     private fun newTask(id: String = "T-CTX-1"): Task {
         val task = Task(
@@ -93,5 +101,20 @@ class ContextModuleTest {
         )
         assertEquals(1, conflict.fileOperations.size)
         assertTrue(conflict.fileOperations.first().conflict)
+    }
+
+    @Test
+    fun configure_updates_configuration() {
+        val baseline = ContextModule.configuration()
+        val updated = baseline.copy(enabled = !baseline.enabled, mode = DeploymentMode.HYBRID)
+
+        ContextModule.configure(updated)
+
+        val applied = ContextModule.configuration()
+        assertEquals(updated.enabled, applied.enabled)
+        assertEquals(DeploymentMode.HYBRID, applied.mode)
+
+        // Restore baseline for subsequent tests
+        ContextModule.configure(baseline)
     }
 }

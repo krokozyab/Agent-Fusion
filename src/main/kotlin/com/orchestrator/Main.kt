@@ -4,7 +4,9 @@ import com.orchestrator.config.ConfigLoader
 import com.orchestrator.core.AgentRegistry
 import com.orchestrator.core.EventBus
 import com.orchestrator.mcp.McpServerImpl
+import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.modules.metrics.MetricsModule
+import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
 import kotlinx.coroutines.runBlocking
@@ -27,11 +29,25 @@ class Main {
             log.info("Loading configuration...")
             val config = loadConfiguration(cliArgs)
             log.info("Configuration loaded: server=${config.orchestrator.server.host}:${config.orchestrator.server.port}")
+
+            // Configure context module
+            ContextModule.configure(config.context)
+            log.info("Context module configured: enabled=${config.context.enabled}, mode=${config.context.mode}")
+
+            // Initialize context database
+            log.info("Initializing context database...")
+            ContextDatabase.initialize(config.context.storage)
+            log.info("Context database initialized at ${config.context.storage.dbPath}")
             
             // Initialize database
             log.info("Initializing database...")
             initializeDatabase()
             log.info("Database initialized successfully")
+
+            // Load active tasks from database
+            log.info("Loading active tasks from database...")
+            val activeTasksCount = loadActiveTasks()
+            log.info("Loaded $activeTasksCount active task(s) from database")
             
             // Initialize agent registry
             log.info("Loading agent registry...")
@@ -71,6 +87,7 @@ class Main {
     private fun parseArgs(args: Array<String>): CliArgs {
         var configPath: String? = null
         var agentsPath: String? = null
+        var contextPath: String? = null
         var help = false
         
         var i = 0
@@ -90,6 +107,13 @@ class Main {
                         throw IllegalArgumentException("Missing value for ${args[i]}")
                     }
                 }
+                "-x", "--context-config" -> {
+                    if (i + 1 < args.size) {
+                        contextPath = args[++i]
+                    } else {
+                        throw IllegalArgumentException("Missing value for ${args[i]}")
+                    }
+                }
                 "-h", "--help" -> help = true
                 else -> throw IllegalArgumentException("Unknown argument: ${args[i]}")
             }
@@ -101,7 +125,7 @@ class Main {
             exitProcess(0)
         }
         
-        return CliArgs(configPath, agentsPath)
+        return CliArgs(configPath, agentsPath, contextPath)
     }
     
     private fun printHelp() {
@@ -111,9 +135,10 @@ class Main {
             Usage: orchestrator [options]
             
             Options:
-              -c, --config <path>   Path to application.conf (default: classpath resource)
-              -a, --agents <path>   Path to agents.toml (default: config/agents.toml)
-              -h, --help            Show this help message
+              -c, --config <path>        Path to application.conf (default: classpath resource)
+              -a, --agents <path>        Path to agents.toml (default: config/agents.toml)
+              -x, --context-config <path> Path to context.toml (default: config/context.toml)
+              -h, --help                 Show this help message
             
             Environment Variables:
               ORCHESTRATOR_HOST     Server host (default: localhost)
@@ -125,12 +150,14 @@ class Main {
     private fun loadConfiguration(args: CliArgs): ConfigLoader.ApplicationConfig {
         return try {
             val agentsPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("config/agents.toml")
-            ConfigLoader.loadAll(args.configPath, agentsPath)
+            val contextPath = args.contextPath?.let { Path.of(it) } ?: Path.of("config/context.toml")
+            ConfigLoader.loadAll(args.configPath, agentsPath, contextPath)
         } catch (e: Exception) {
             log.error("Failed to load configuration: ${e.message}")
             throw e
         }
     }
+
     
     private fun initializeDatabase() {
         try {
@@ -141,6 +168,35 @@ class Main {
         } catch (e: Exception) {
             log.error("Failed to initialize database: ${e.message}")
             throw e
+        }
+    }
+
+    private fun loadActiveTasks(): Int {
+        return try {
+            val taskRepository = com.orchestrator.storage.repositories.TaskRepository
+            val activeTasks = taskRepository.findAllActive()
+
+            // Restore StateMachine state for active tasks
+            val stateMachine = com.orchestrator.core.StateMachine
+            activeTasks.forEach { task ->
+                // Record current state in StateMachine
+                if (task.status != com.orchestrator.domain.TaskStatus.PENDING) {
+                    // For non-PENDING tasks, record the transition from PENDING to current status
+                    // This helps maintain transition history
+                    stateMachine.transition(
+                        task.id,
+                        com.orchestrator.domain.TaskStatus.PENDING,
+                        task.status,
+                        mapOf("restored" to "true", "restoredAt" to java.time.Instant.now().toString())
+                    )
+                }
+            }
+
+            log.info("Restored StateMachine state for ${activeTasks.size} active tasks")
+            activeTasks.size
+        } catch (e: Exception) {
+            log.error("Failed to load active tasks: ${e.message}", e)
+            0
         }
     }
     
@@ -190,7 +246,14 @@ class Main {
         } catch (e: Exception) {
             log.error("Error stopping metrics module: ${e.message}")
         }
-        
+
+        try {
+            ContextDatabase.shutdown()
+            log.info("Context database closed")
+        } catch (e: Exception) {
+            log.error("Error closing context database: ${e.message}")
+        }
+
         try {
             Database.shutdown()
             log.info("Database connection closed")
@@ -203,7 +266,8 @@ class Main {
     
     private data class CliArgs(
         val configPath: String?,
-        val agentsPath: String?
+        val agentsPath: String?,
+        val contextPath: String?
     )
 }
 
