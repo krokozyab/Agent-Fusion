@@ -14,6 +14,7 @@ import com.orchestrator.domain.Task
 import com.orchestrator.utils.Logger
 import java.time.Duration
 import java.time.Instant
+import java.util.Locale
 import kotlin.math.max
 
 /**
@@ -93,30 +94,31 @@ class ContextRetrievalModule(
         val query = task.description?.takeIf { it.isNotBlank() } ?: task.title
         val scope = ContextScope()
 
-        val enabledProviders = ContextProviderRegistry.getAllProviders()
-            .filter { provider ->
-                config.providers[provider.id]?.enabled ?: true
+        val providers = ContextProviderRegistry.getAllProviders()
+            .map { provider -> providerKey(provider) to provider }
+            .filter { (providerId, _) ->
+                config.providers[providerId]?.enabled ?: true
             }
 
-        for (provider in enabledProviders) {
+        for ((providerId, provider) in providers) {
             val providerStart = Instant.now()
             try {
                 val snippets = provider.getContext(query, scope, budget)
                 val optimised = optimise(provider, query, snippets, budget)
-                val annotated = optimised.map { annotateSnippet(it, provider.id) }
+                val annotated = optimised.map { annotateSnippet(it, providerId) }
                 aggregated += annotated
                 val duration = Duration.between(providerStart, Instant.now())
-                providerMetrics[provider.id] = ProviderStats(
-                    providerId = provider.id,
+                providerMetrics[providerId] = ProviderStats(
+                    providerId = providerId,
                     providerType = provider.type,
                     snippetCount = annotated.size,
                     durationMs = duration.toMillis().toDouble(),
                     isFallback = false
                 )
             } catch (t: Throwable) {
-                logger.warn("Provider {} failed: {}", provider.id, t.message ?: t::class.simpleName ?: "error")
-                providerMetrics[provider.id] = ProviderStatsFailure(
-                    providerId = provider.id,
+                logger.warn("Provider {} failed: {}", providerId, t.message ?: t::class.simpleName ?: "error")
+                providerMetrics[providerId] = ProviderStatsFailure(
+                    providerId = providerId,
                     providerType = provider.type,
                     error = t.message ?: t::class.simpleName ?: "error"
                 )
@@ -130,14 +132,15 @@ class ContextRetrievalModule(
             val fallbackId = config.providers.keys.firstOrNull { it.equals("semantic", ignoreCase = true) }
             val fallback = fallbackId?.let { ContextProviderRegistry.getProvider(it) }
             if (fallback != null) {
+                val resolvedFallbackId = providerKey(fallback)
                 val fallbackStart = Instant.now()
                 val snippets = fallback.getContext(query, scope, budget)
                 val optimised = optimise(fallback, query, snippets, budget)
-                val annotated = optimised.map { annotateSnippet(it, fallback.id) }
+                val annotated = optimised.map { annotateSnippet(it, resolvedFallbackId) }
                 aggregated += annotated
                 val duration = Duration.between(fallbackStart, Instant.now())
-                providerMetrics[fallback.id] = ProviderStats(
-                    providerId = fallback.id,
+                providerMetrics[resolvedFallbackId] = ProviderStats(
+                    providerId = resolvedFallbackId,
                     providerType = fallback.type,
                     snippetCount = annotated.size,
                     durationMs = duration.toMillis().toDouble(),
@@ -145,7 +148,7 @@ class ContextRetrievalModule(
                 )
                 if (annotated.isNotEmpty()) {
                     fallbackUsed = true
-                    fallbackProvider = fallback.id
+                    fallbackProvider = resolvedFallbackId
                 }
             }
         }
@@ -259,6 +262,14 @@ class ContextRetrievalModule(
         return unique.values.toList()
     }
 
+    private fun providerKey(provider: ContextProvider): String {
+        val resolved = runCatching { provider.id }.getOrNull()
+        if (!resolved.isNullOrBlank()) {
+            return resolved
+        }
+        return provider.type.name.lowercase(Locale.US)
+    }
+
     private fun mergeSources(a: String?, b: String?): String =
         listOfNotNull(a, b)
             .flatMap { it.split(',') }
@@ -275,8 +286,8 @@ class ContextRetrievalModule(
         fileId = chunkId,
         ordinal = ordinal,
         kind = kind,
-        startLine = offsets?.first ?: 0,
-        endLine = offsets?.last ?: 0,
+        startLine = offsets?.first ?: 1,
+        endLine = offsets?.last ?: (offsets?.first ?: 1),
         tokenEstimate = estimateTokens(this),
         content = text,
         summary = label,

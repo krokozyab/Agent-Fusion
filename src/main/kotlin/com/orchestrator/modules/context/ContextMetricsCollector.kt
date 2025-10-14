@@ -36,7 +36,8 @@ class ContextMetricsCollector : ContextMetricsRecorder {
 
     override fun record(task: Task, agentId: AgentId, context: TaskContext, duration: Duration) {
         val snippetCount = context.snippets.size
-        val totalTokens = context.snippets.sumOf { estimateTokens(it) }.toLong()
+        val tokensFromSnippets = context.snippets.sumOf { estimateTokens(it) }
+        val totalTokens = max(context.diagnostics.tokensUsed, tokensFromSnippets).toLong()
         val latencyMs = duration.toMillis().toInt()
 
         ContextDatabase.transaction { conn ->

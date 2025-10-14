@@ -130,7 +130,6 @@ class SymbolIndexBuilder(
             }
         }
 
-        println("PYTHON SYMBOLS: $symbols")
         return symbols
     }
 

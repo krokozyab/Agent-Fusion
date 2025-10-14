@@ -61,16 +61,20 @@ object TaskContextRenderer {
         val builder = StringBuilder()
         builder.append("""<?xml version="1.0" encoding="UTF-8"?>""").append(newline)
 
-        val attributes = mutableListOf("task_id" to context.taskId)
-        if (context.diagnostics.fallbackUsed) {
-            context.diagnostics.fallbackProvider?.let { attributes += "fallback_provider" to it }
-        }
+        builder.append("<project_context>").append(newline)
 
-        builder.append("<project_context")
-        attributes.forEach { (key, value) ->
-            builder.append(" ").append(key).append("=\"").append(escapeAttribute(value)).append("\"")
+        builder.append(indent).append("<context_info>").append(newline)
+        builder.append(indent).append(indent).append("<task_id>")
+            .append(escapeText(context.taskId))
+            .append("</task_id>").append(newline)
+        if (context.diagnostics.fallbackUsed) {
+            context.diagnostics.fallbackProvider?.let { providerId ->
+                builder.append(indent).append(indent).append("<fallback_provider>")
+                    .append(escapeText(providerId))
+                    .append("</fallback_provider>").append(newline)
+            }
         }
-        builder.append(">").append(newline)
+        builder.append(indent).append("</context_info>").append(newline)
 
         if (context.metadata.isNotEmpty()) {
             builder.append(indent).append("<metadata>").append(newline)
@@ -107,14 +111,14 @@ object TaskContextRenderer {
                     .append("<snippet")
                     .append(" label=\"").append(escapeAttribute(snippet.label ?: ""))
                     .append("\" kind=\"").append(snippet.kind.name)
-                    .append("\" score=\"").append(String.format(Locale.US, "%.3f", snippet.score))
+                    .append("\" score=\"").append(String.format(Locale.US, "%.3f", snippet.score)).append("\"")
                 snippet.offsets?.let { range ->
-                    builder.append("\" lines=\"").append(range.first).append("-").append(range.last)
+                    builder.append(" lines=\"").append(range.first).append("-").append(range.last).append("\"")
                 }
                 snippet.metadata["token_estimate"]?.let {
-                    builder.append("\" token_estimate=\"").append(it)
+                    builder.append(" token_estimate=\"").append(escapeAttribute(it)).append("\"")
                 }
-                builder.append("\">").append(newline)
+                builder.append(">").append(newline)
 
                 builder.append(indent).append(indent).append(indent).append(indent)
                     .append("<content><![CDATA[").append(snippet.text).append("]]></content>")
@@ -171,8 +175,6 @@ object TaskContextRenderer {
         return if (pretty) builder.toString() else builder.toString().replace("\n", "")
     }
 
-    private data class BudgetResult(val snippets: List<ContextSnippet>)
-
     private fun applyBudget(
         snippets: List<ContextSnippet>,
         requestedTokens: Int,
@@ -185,7 +187,11 @@ object TaskContextRenderer {
         var tokensUsed = 0
 
         for (snippet in snippets) {
-            val tokenEstimate = snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4
+            val baseEstimate = snippet.metadata["token_estimate"]?.toIntOrNull()
+            val tokenEstimate = when {
+                baseEstimate != null -> max(1, baseEstimate)
+                else -> max(1, snippet.text.length / 4 + 20)
+            }
             if (tokensUsed + tokenEstimate > budget) break
             tokensUsed += tokenEstimate
             result += snippet

@@ -3,8 +3,13 @@ package com.orchestrator.context.chunking
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import java.time.Instant
+import java.util.Locale
 
 class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
+
+    private val routineStartRegex = Regex("""\bCREATE\s+(?:FUNCTION|PROCEDURE|TRIGGER)\b""", RegexOption.IGNORE_CASE)
+    private val beginRegex = Regex("""\bBEGIN\b""", RegexOption.IGNORE_CASE)
+    private val endRegex = Regex("""\bEND\b""", RegexOption.IGNORE_CASE)
     
     override fun chunk(content: String, filePath: String): List<Chunk> {
         if (content.isBlank()) return emptyList()
@@ -28,10 +33,13 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
         val currentStatement = StringBuilder()
         val lines = content.lines()
         var inBlockComment = false
-        var pendingComments = StringBuilder()
+        val pendingComments = StringBuilder()
+        var insideRoutine = false
+        var routineDepth = 0
         
         for (line in lines) {
             val trimmed = line.trim()
+            val upperTrimmed = trimmed.uppercase(Locale.US)
             
             // Handle block comments
             if (trimmed.startsWith("/*")) {
@@ -65,23 +73,48 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
             // Add pending comments to current statement
             if (pendingComments.isNotEmpty() && trimmed.isNotEmpty()) {
                 currentStatement.append(pendingComments)
-                pendingComments.clear()
+                pendingComments.setLength(0)
             }
             
             currentStatement.append(line).append("\n")
-            
+
+            if (!insideRoutine && routineStartRegex.containsMatchIn(upperTrimmed)) {
+                insideRoutine = true
+                routineDepth = 0
+            }
+
+            if (insideRoutine) {
+                if (beginRegex.containsMatchIn(upperTrimmed)) {
+                    routineDepth += 1
+                }
+                if (endRegex.containsMatchIn(upperTrimmed)) {
+                    routineDepth = (routineDepth - 1).coerceAtLeast(0)
+                }
+            }
+
             // Check for statement terminator
-            if (line.trimEnd().endsWith(";")) {
+            val lineEndsWithSemicolon = line.trimEnd().endsWith(";")
+            val shouldTerminate = when {
+                !insideRoutine -> lineEndsWithSemicolon
+                else -> lineEndsWithSemicolon && routineDepth == 0 && endRegex.containsMatchIn(upperTrimmed)
+            }
+
+            if (shouldTerminate) {
                 statements.add(currentStatement.toString().trim())
-                currentStatement.clear()
+                currentStatement.setLength(0)
+                pendingComments.setLength(0)
+                if (insideRoutine) {
+                    insideRoutine = false
+                    routineDepth = 0
+                }
             }
         }
-        
+
         // Add remaining statement if any
         if (currentStatement.isNotEmpty()) {
             statements.add(currentStatement.toString().trim())
         }
-        
+
         return statements
     }
     
@@ -91,8 +124,6 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
             .replace(Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL), "")
             .replace(Regex("--.*"), "")
             .trim()
-        
-        val upperStatement = cleanStatement.uppercase()
         
         // Extract statement type and table/object name
         val patterns = listOf(
@@ -110,12 +141,14 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
         for (pattern in patterns) {
             val match = pattern.find(cleanStatement)
             if (match != null) {
-                val type = match.groupValues[1].replace(Regex("\\s+"), " ")
+                val type = match.groupValues[1]
+                    .replace(Regex("\\s+"), " ")
+                    .uppercase(Locale.US)
                 val name = if (match.groupValues.size > 2) match.groupValues[2] else ""
                 return if (name.isNotEmpty()) "$type $name" else type
             }
         }
-        
+
         // Fallback: use first word
         val firstWord = cleanStatement.split(Regex("\\s+")).firstOrNull() ?: "SQL"
         return firstWord.take(20)

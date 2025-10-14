@@ -24,9 +24,7 @@ class SymbolContextProvider(
         if (tokens.isEmpty()) return emptyList()
 
         val (sql, params) = buildQuery(tokens, scope)
-        val snippets = mutableListOf<ContextSnippet>()
-        var tokensUsed = 0
-        val tokenBudget = budget.availableForSnippets.coerceAtLeast(0)
+        val candidates = mutableListOf<SymbolCandidate>()
 
         ContextDatabase.withConnection { conn ->
             conn.prepareStatement(sql).use { ps ->
@@ -34,53 +32,76 @@ class SymbolContextProvider(
                     ps.setString(index + 1, param)
                 }
                 ps.executeQuery().use { rs ->
-                    while (rs.next() && snippets.size < maxResults) {
+                    while (rs.next()) {
                         val chunkId = rs.getLong("chunk_id")
                         val symbolId = rs.getLong("symbol_id")
                         val content = rs.getString("content") ?: continue
                         val summary = rs.getString("signature")
                         val name = rs.getString("name")
-                        val kind = rs.getString("symbol_type")
+                        val qualified = rs.getString("qualified_name")
+                        val symbolType = rs.getString("symbol_type") ?: "UNKNOWN"
                         val path = rs.getString("rel_path") ?: continue
-                        val language = rs.getString("file_language")
-                        val chunkKind = rs.getString("kind")?.let { runCatching { ChunkKind.valueOf(it) }.getOrNull() } ?: ChunkKind.CODE_BLOCK
+                        val language = rs.getString("language") ?: rs.getString("file_language")
+                        val chunkKind = rs.getString("kind")
+                            ?.let { runCatching { ChunkKind.valueOf(it) }.getOrNull() }
+                            ?: chunkKindForSymbol(symbolType, ChunkKind.CODE_BLOCK)
                         val tokenCount = rs.getInt("token_count").takeIf { !rs.wasNull() }
                         val tokenEstimate = tokenCount ?: content.length / 4
 
-                        val weight = typeWeight(kind)
-                        val relevance = keywordMatchScore(name, tokens)
-                        val score = (weight + relevance) / 2.0
-
                         val tokensNeeded = max(1, tokenEstimate)
-                        if (tokenBudget > 0 && tokensUsed + tokensNeeded > tokenBudget) {
-                            continue
+                        val weight = typeWeight(symbolType)
+                        val relevance = keywordMatchScore(name ?: "", qualified, tokens)
+                        val exactMatchBoost = if (isExactMatch(name, qualified, tokens)) 0.15 else 0.0
+                        val combinedScore = (weight * 0.7 + relevance * 0.3 + exactMatchBoost)
+                            .coerceIn(0.0, 1.0)
+                        val offsets = rs.getInt("start_line").takeIf { !rs.wasNull() }?.let { start ->
+                            val end = rs.getInt("end_line").takeIf { !rs.wasNull() } ?: start
+                            start..end
                         }
-                        tokensUsed += tokensNeeded
 
-                        val snippet = ContextSnippet(
+                        val label = (summary ?: name).orEmpty()
+                        if (label.isEmpty()) continue
+
+                        candidates += SymbolCandidate(
                             chunkId = chunkId,
-                            score = score.coerceIn(0.0, 1.0),
-                            filePath = path,
-                            label = summary ?: name,
+                            symbolId = symbolId,
+                            label = label,
                             kind = chunkKind,
                             text = content,
                             language = language,
-                            offsets = rs.getInt("start_line").takeIf { !rs.wasNull() }?.let { start ->
-                                val end = rs.getInt("end_line").takeIf { !rs.wasNull() } ?: start
-                                start..end
-                            },
-                            metadata = mapOf(
-                                "provider" to id,
-                                "sources" to id,
-                                "symbol_id" to symbolId.toString(),
-                                "symbol_type" to kind,
-                                "token_estimate" to tokensNeeded.toString()
-                            )
+                            filePath = path,
+                            offsets = offsets,
+                            symbolType = symbolType,
+                            score = combinedScore,
+                            tokensNeeded = tokensNeeded
                         )
-                        snippets += snippet
                     }
                 }
             }
+        }
+
+        if (candidates.isEmpty()) {
+            return emptyList()
+        }
+
+        val ordered = candidates
+            .sortedWith(
+                compareByDescending<SymbolCandidate> { it.score }
+                    .thenBy { it.tokensNeeded }
+                    .thenBy { it.label.lowercase(Locale.US) }
+                    .thenBy { it.filePath }
+            )
+
+        val snippets = mutableListOf<ContextSnippet>()
+        var tokensUsed = 0
+        val tokenBudget = budget.availableForSnippets.coerceAtLeast(0)
+
+        for (candidate in ordered) {
+            if (snippets.size >= maxResults) break
+            if (tokenBudget > 0 && tokensUsed + candidate.tokensNeeded > tokenBudget) continue
+
+            tokensUsed += candidate.tokensNeeded
+            snippets += candidate.toSnippet(id)
         }
 
         return snippets
@@ -152,12 +173,22 @@ class SymbolContextProvider(
         return SqlBundle(sql, params)
     }
 
-    private fun keywordMatchScore(name: String, symbols: List<String>): Double {
-        val lowered = name.lowercase(Locale.US)
-        return symbols.count { lowered.contains(it.lowercase(Locale.US)) }
-            .coerceAtLeast(1)
-            .toDouble()
-            .coerceAtMost(5.0) / 5.0
+    private fun keywordMatchScore(name: String, qualified: String?, symbols: List<String>): Double {
+        if (symbols.isEmpty()) return 0.0
+
+        val loweredName = name.lowercase(Locale.US)
+        val loweredQualified = qualified?.lowercase(Locale.US)
+
+        var matches = 0
+        for (symbol in symbols) {
+            val candidate = symbol.lowercase(Locale.US)
+            if (loweredName.contains(candidate) || (loweredQualified?.contains(candidate) == true)) {
+                matches++
+            }
+        }
+
+        if (matches == 0) return 0.0
+        return matches.coerceAtMost(5).toDouble() / 5.0
     }
 
     private fun typeWeight(type: String): Double = when (type.uppercase(Locale.US)) {
@@ -165,5 +196,61 @@ class SymbolContextProvider(
         "METHOD", "FUNCTION" -> 0.85
         "PROPERTY", "VARIABLE", "CONSTANT" -> 0.75
         else -> 0.6
+    }
+
+    private fun chunkKindForSymbol(symbolType: String, fallback: ChunkKind): ChunkKind = when (symbolType.uppercase(Locale.US)) {
+        "CLASS" -> ChunkKind.CODE_CLASS
+        "INTERFACE" -> ChunkKind.CODE_INTERFACE
+        "ENUM" -> ChunkKind.CODE_ENUM
+        "METHOD" -> ChunkKind.CODE_METHOD
+        "FUNCTION" -> ChunkKind.CODE_FUNCTION
+        "CONSTRUCTOR" -> ChunkKind.CODE_CONSTRUCTOR
+        "PROPERTY", "VARIABLE", "FIELD", "CONSTANT" -> ChunkKind.CODE_BLOCK
+        else -> fallback
+    }
+
+    private fun isExactMatch(name: String?, qualified: String?, symbols: List<String>): Boolean {
+        if (name.isNullOrBlank() && qualified.isNullOrBlank()) return false
+        val loweredName = name?.lowercase(Locale.US)
+        val loweredQualified = qualified?.lowercase(Locale.US)
+        return symbols.any { symbol ->
+            val candidate = symbol.lowercase(Locale.US)
+            candidate == loweredName || candidate == loweredQualified
+        }
+    }
+
+    private data class SymbolCandidate(
+        val chunkId: Long,
+        val symbolId: Long,
+        val label: String,
+        val kind: ChunkKind,
+        val text: String,
+        val language: String?,
+        val filePath: String,
+        val offsets: IntRange?,
+        val symbolType: String,
+        val score: Double,
+        val tokensNeeded: Int
+    ) {
+        fun toSnippet(providerId: String): ContextSnippet {
+            return ContextSnippet(
+                chunkId = chunkId,
+                score = score.coerceIn(0.0, 1.0),
+                filePath = filePath,
+                label = label,
+                kind = kind,
+                text = text,
+                language = language,
+                offsets = offsets,
+                metadata = mapOf(
+                    "provider" to providerId,
+                    "sources" to providerId,
+                    "symbol_id" to symbolId.toString(),
+                    "symbol_type" to symbolType,
+                    "token_estimate" to tokensNeeded.toString(),
+                    "score" to "%.3f".format(score)
+                )
+            )
+        }
     }
 }

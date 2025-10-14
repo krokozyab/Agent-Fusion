@@ -36,12 +36,13 @@ class SemanticContextProvider(
 
         val vector = embedder.embed(query)
         val k = max(1, minOf(64, budget.availableForSnippets.coerceAtLeast(64)))
+        val model = embedder.getModel()
         val filters = VectorSearchEngine.Filters(
             languages = scope.languages,
             kinds = scope.kinds,
             paths = scope.paths.toSet()
         )
-        val initial = searchEngine.search(vector, k, filters, embedder.getModel())
+        val initial = searchEngine.search(vector, k, filters)
         val reranked = reranker.rerank(initial, lambda = 0.6, budget = budget)
 
         if (reranked.isEmpty()) return emptyList()
@@ -79,6 +80,7 @@ class SemanticContextProvider(
                 metadata = mapOf(
                     "provider" to id,
                     "sources" to id,
+                    "model" to model,
                     "embedding_id" to result.embeddingId.toString(),
                     "score" to "%.3f".format(result.score),
                     "token_estimate" to tokens.toString()

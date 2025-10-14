@@ -44,6 +44,9 @@ object ContextDatabase {
      * Configure and initialize the context database. Idempotent.
      */
     fun initialize(config: StorageConfig) {
+        if (::storageConfig.isInitialized && storageConfig.dbPath != config.dbPath) {
+            shutdown()
+        }
         storageConfig = config
         ensureDriverLoaded()
         guard.withLock {

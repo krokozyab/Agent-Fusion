@@ -75,8 +75,8 @@ class GetContextStatsToolTest {
 
     @Test
     fun `execute returns storage and performance stats`() {
-        insertFileState("src/App.kt", language = "kotlin", size = 512)
-        insertChunk(100L, fileId = 1L)
+        val fileId = insertFileState("src/App.kt", language = "kotlin", size = 512)
+        insertChunk(100L, fileId = fileId)
         insertEmbedding(chunkId = 100L)
 
         val task = Task(
@@ -130,8 +130,8 @@ class GetContextStatsToolTest {
         assertTrue(performance.totalContextTokens > 0)
     }
 
-    private fun insertFileState(path: String, language: String?, size: Long) {
-        FileStateRepository.insert(
+    private fun insertFileState(path: String, language: String?, size: Long): Long {
+        val persisted = FileStateRepository.insert(
             FileState(
                 id = 0,
                 relativePath = path,
@@ -145,6 +145,7 @@ class GetContextStatsToolTest {
                 isDeleted = false
             )
         )
+        return persisted.id
     }
 
     private fun insertChunk(chunkId: Long, fileId: Long) {
