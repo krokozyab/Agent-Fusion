@@ -166,6 +166,7 @@ object ContextDatabase {
             "CREATE SEQUENCE IF NOT EXISTS chunks_seq START 1",
             "CREATE SEQUENCE IF NOT EXISTS embeddings_seq START 1",
             "CREATE SEQUENCE IF NOT EXISTS links_seq START 1",
+            "CREATE SEQUENCE IF NOT EXISTS symbols_seq START 1",
             "CREATE SEQUENCE IF NOT EXISTS usage_metrics_seq START 1",
             """
             CREATE TABLE IF NOT EXISTS file_state (
@@ -218,6 +219,23 @@ object ContextDatabase {
                 score                 DOUBLE,
                 created_at            TIMESTAMP NOT NULL,
                 FOREIGN KEY(source_chunk_id) REFERENCES chunks(chunk_id)
+            )
+            """.trimIndent(),
+            """
+            CREATE TABLE IF NOT EXISTS symbols (
+                symbol_id            BIGINT PRIMARY KEY,
+                file_id              BIGINT NOT NULL,
+                chunk_id             BIGINT,
+                symbol_type          VARCHAR NOT NULL,
+                name                 VARCHAR NOT NULL,
+                qualified_name       VARCHAR,
+                signature            TEXT,
+                language             VARCHAR,
+                start_line           INTEGER,
+                end_line             INTEGER,
+                created_at           TIMESTAMP NOT NULL,
+                FOREIGN KEY(file_id) REFERENCES file_state(file_id),
+                FOREIGN KEY(chunk_id) REFERENCES chunks(chunk_id)
             )
             """.trimIndent(),
             """

@@ -93,7 +93,8 @@ private val log = LoggerFactory.getLogger(McpServerImpl::class.java)
  */
 class McpServerImpl(
     private val config: OrchestratorConfig,
-    private val agentRegistry: AgentRegistry
+    private val agentRegistry: AgentRegistry,
+    private val contextConfig: com.orchestrator.context.config.ContextConfig = com.orchestrator.context.config.ContextConfig()
 ) {
     private var engine: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 

@@ -32,21 +32,12 @@ class VectorSearchEngine(
         }
     }
 
-    data class ScoredChunk(
-        val chunk: Chunk,
-        val path: String,
-        val language: String?,
-        val score: Float,
-        val embeddingId: Long,
-        val vector: FloatArray
-    )
-
     fun search(
         queryVector: FloatArray,
         k: Int,
         filters: Filters = Filters.NONE,
         model: String? = null
-    ): List<ScoredChunk> {
+    ): List<SearchResult> {
         require(k > 0) { "k must be positive" }
         if (queryVector.isEmpty()) return emptyList()
 
@@ -97,4 +88,13 @@ class VectorSearchEngine(
         }
         return abs(sum - 1.0) < 1e-4
     }
+
+    data class ScoredChunk(
+        val chunk: Chunk,
+        val score: Float,
+        val embeddingId: Long,
+        val path: String = "(unknown)",
+        val language: String? = null,
+        val vector: FloatArray = floatArrayOf(score)
+    )
 }

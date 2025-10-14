@@ -1,7 +1,6 @@
 package com.orchestrator.context.search
 
 import com.orchestrator.context.domain.TokenBudget
-import com.orchestrator.context.search.VectorSearchEngine.ScoredChunk
 import com.orchestrator.context.embedding.VectorOps
 import com.orchestrator.utils.TokenEstimator
 
@@ -13,10 +12,10 @@ class MmrReranker(
 ) {
 
     fun rerank(
-        results: List<ScoredChunk>,
+        results: List<SearchResult>,
         lambda: Double,
         budget: TokenBudget
-    ): List<ScoredChunk> {
+    ): List<SearchResult> {
         require(lambda in 0.0..1.0) { "lambda must be between 0.0 and 1.0" }
         if (results.isEmpty()) return emptyList()
 
@@ -28,10 +27,10 @@ class MmrReranker(
         }
 
         val candidates = results.sortedByDescending { it.score }.toMutableList()
-        val selected = mutableListOf<ScoredChunk>()
+        val selected = mutableListOf<SearchResult>()
         var tokensUsed = 0
 
-        fun fitsBudget(candidate: ScoredChunk): Boolean {
+        fun fitsBudget(candidate: SearchResult): Boolean {
             val tokens = tokenCounts[candidate] ?: return false
             return tokensUsed + tokens <= availableTokens && tokens > 0
         }
@@ -43,7 +42,7 @@ class MmrReranker(
         candidates.remove(seed)
 
         while (candidates.isNotEmpty()) {
-            var bestCandidate: ScoredChunk? = null
+            var bestCandidate: SearchResult? = null
             var bestScore = Double.NEGATIVE_INFINITY
 
             for (candidate in candidates) {
