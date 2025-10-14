@@ -32,4 +32,7 @@ class ContextDataService(
     /** Retrieve context snippets clipped to the provided token budget. */
     fun buildSnippets(scope: ContextScope, budget: TokenBudget): List<ContextSnippet> =
         repository.fetchSnippets(scope, budget)
+
+    /** Delete all persisted artefacts for the provided file path. */
+    fun deleteFile(relativePath: String): Boolean = repository.deleteFileArtifacts(relativePath)
 }

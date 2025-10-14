@@ -11,7 +11,9 @@ import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.storage.ContextDatabase
 import java.sql.Connection
 import java.sql.ResultSet
+import java.sql.SQLException
 import java.sql.Timestamp
+import java.util.Locale
 import kotlin.math.max
 
 /**
@@ -173,6 +175,27 @@ object ContextRepository {
                 }
                 files
             }
+        }
+    }
+
+    fun deleteFileArtifacts(relativePath: String): Boolean = ContextDatabase.withConnection { conn ->
+        conn.autoCommit = false
+        try {
+            val state = getFileStateByPath(conn, relativePath)
+            if (state == null) {
+                conn.rollback()
+                return@withConnection false
+            }
+            cascadeDeleteFile(conn, state.id)
+            val updatedState = state.copy(isDeleted = true)
+            updateFileState(conn, updatedState)
+            conn.commit()
+            true
+        } catch (throwable: Throwable) {
+            conn.rollback()
+            throw throwable
+        } finally {
+            conn.autoCommit = true
         }
     }
 
@@ -475,11 +498,37 @@ object ContextRepository {
     }
 
     private fun deleteUsageMetrics(conn: Connection, fileId: Long, chunkIds: List<Long>) {
-        val placeholders = chunkIds.joinToString(",") { "?" }
-        val sql = "DELETE FROM usage_metrics WHERE file_id = ? OR chunk_id IN ($placeholders)"
+        if (!hasTable(conn, "usage_metrics")) return
+        val hasFileColumn = hasColumn(conn, "usage_metrics", "file_id")
+        val hasChunkColumn = hasColumn(conn, "usage_metrics", "chunk_id")
+        if (!hasFileColumn && (!hasChunkColumn || chunkIds.isEmpty())) return
+
+        val clauses = ArrayList<String>()
+        val parameters = ArrayList<Long>()
+
+        if (hasFileColumn) {
+            clauses += "file_id = ?"
+            parameters += fileId
+        }
+        if (hasChunkColumn && chunkIds.isNotEmpty()) {
+            val placeholder = chunkIds.joinToString(",") { "?" }
+            clauses += "chunk_id IN ($placeholder)"
+            parameters.addAll(chunkIds)
+        }
+        if (clauses.isEmpty()) return
+
+        val sql = "DELETE FROM usage_metrics WHERE ${clauses.joinToString(" OR ")}"
+        conn.prepareStatement(sql).use { ps ->
+            parameters.forEachIndexed { index, value -> ps.setLong(index + 1, value) }
+            ps.executeUpdate()
+        }
+    }
+
+    private fun deleteUsageMetricsForFile(conn: Connection, fileId: Long) {
+        if (!hasTable(conn, "usage_metrics") || !hasColumn(conn, "usage_metrics", "file_id")) return
+        val sql = "DELETE FROM usage_metrics WHERE file_id = ?"
         conn.prepareStatement(sql).use { ps ->
             ps.setLong(1, fileId)
-            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 2, id) }
             ps.executeUpdate()
         }
     }
@@ -489,6 +538,73 @@ object ContextRepository {
         conn.prepareStatement(sql).use { ps ->
             ps.setLong(1, fileId)
             ps.executeUpdate()
+        }
+    }
+
+    private fun deleteSymbols(conn: Connection, fileId: Long, chunkIds: List<Long>) {
+        if (!hasTable(conn, "symbols")) return
+        val baseSql = if (chunkIds.isEmpty()) {
+            "DELETE FROM symbols WHERE file_id = ?"
+        } else {
+            val placeholders = chunkIds.joinToString(",") { "?" }
+            "DELETE FROM symbols WHERE file_id = ? OR chunk_id IN ($placeholders)"
+        }
+        conn.prepareStatement(baseSql).use { ps ->
+            ps.setLong(1, fileId)
+            if (chunkIds.isNotEmpty()) {
+                chunkIds.forEachIndexed { index, id -> ps.setLong(index + 2, id) }
+            }
+            ps.executeUpdate()
+        }
+    }
+
+    private fun deleteLinksByTargetFile(conn: Connection, fileId: Long) {
+        val sql = "DELETE FROM links WHERE target_file_id = ?"
+        conn.prepareStatement(sql).use { ps ->
+            ps.setLong(1, fileId)
+            ps.executeUpdate()
+        }
+    }
+
+    private fun deleteFileStateRow(conn: Connection, fileId: Long) {
+        val sql = "DELETE FROM file_state WHERE file_id = ?"
+        conn.prepareStatement(sql).use { ps ->
+            ps.setLong(1, fileId)
+            ps.executeUpdate()
+        }
+    }
+
+    private fun cascadeDeleteFile(conn: Connection, fileId: Long) {
+        val chunkIds = getChunkIdsForFile(conn, fileId)
+        if (chunkIds.isNotEmpty()) {
+            replaceChunksInternal(conn, fileId, emptyList())
+            deleteEmbeddings(conn, chunkIds)
+            deleteLinks(conn, chunkIds)
+        }
+        deleteUsageMetricsForFile(conn, fileId)
+        deleteSymbols(conn, fileId, chunkIds)
+        deleteLinksByTargetFile(conn, fileId)
+    }
+
+    private fun hasTable(conn: Connection, tableName: String): Boolean {
+        val sql = "SELECT 1 FROM information_schema.tables WHERE lower(table_name) = ? LIMIT 1"
+        conn.prepareStatement(sql).use { ps ->
+            ps.setString(1, tableName.lowercase(Locale.US))
+            ps.executeQuery().use { rs -> return rs.next() }
+        }
+    }
+
+    private fun hasColumn(conn: Connection, tableName: String, columnName: String): Boolean {
+        if (!hasTable(conn, tableName)) return false
+        val sql = """
+            SELECT 1 FROM information_schema.columns
+            WHERE lower(table_name) = ? AND lower(column_name) = ?
+            LIMIT 1
+        """.trimIndent()
+        conn.prepareStatement(sql).use { ps ->
+            ps.setString(1, tableName.lowercase(Locale.US))
+            ps.setString(2, columnName.lowercase(Locale.US))
+            ps.executeQuery().use { rs -> return rs.next() }
         }
     }
 
