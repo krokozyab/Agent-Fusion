@@ -178,24 +178,37 @@ object ContextRepository {
         }
     }
 
-    fun deleteFileArtifacts(relativePath: String): Boolean = ContextDatabase.withConnection { conn ->
-        conn.autoCommit = false
-        try {
-            val state = getFileStateByPath(conn, relativePath)
-            if (state == null) {
-                conn.rollback()
-                return@withConnection false
+    fun deleteFileArtifacts(relativePath: String): Boolean {
+        val state = ContextDatabase.withConnection { conn -> getFileStateByPath(conn, relativePath) } ?: return true
+        val artifacts = fetchFileArtifactsByPath(relativePath) ?: FileArtifacts(state, emptyList())
+        val fileId = artifacts.file.id
+        val chunkIds = artifacts.chunks.map { it.chunk.id }
+
+        return try {
+            ContextDatabase.transaction { conn ->
+                if (chunkIds.isNotEmpty()) {
+                    deleteEmbeddings(conn, chunkIds)
+                    deleteLinks(conn, chunkIds)
+                    deleteUsageMetrics(conn, fileId, chunkIds)
+                    deleteSymbolsByChunkIds(conn, chunkIds)
+                }
+                deleteUsageMetricsForFile(conn, fileId)
+                deleteSymbolsByFile(conn, fileId)
+                deleteLinksByTargetFile(conn, fileId)
             }
-            cascadeDeleteFile(conn, state.id)
-            val updatedState = state.copy(isDeleted = true)
-            updateFileState(conn, updatedState)
-            conn.commit()
+
+            ContextDatabase.transaction { conn ->
+                deleteChunks(conn, fileId)
+            }
+
+            ContextDatabase.transaction { conn ->
+                deleteFileStateRow(conn, fileId)
+            }
+
             true
-        } catch (throwable: Throwable) {
-            conn.rollback()
-            throw throwable
-        } finally {
-            conn.autoCommit = true
+        } catch (t: Throwable) {
+            restoreArtifacts(artifacts)
+            throw t
         }
     }
 
@@ -485,6 +498,16 @@ object ContextRepository {
         }
     }
 
+    private fun deleteSymbolsByChunkIds(conn: Connection, chunkIds: List<Long>) {
+        if (chunkIds.isEmpty() || !hasTable(conn, "symbols") || !hasColumn(conn, "symbols", "chunk_id")) return
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        val sql = "DELETE FROM symbols WHERE chunk_id IN ($placeholders)"
+        conn.prepareStatement(sql).use { ps ->
+            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+            ps.executeUpdate()
+        }
+    }
+
     private fun deleteLinks(conn: Connection, chunkIds: List<Long>) {
         val placeholders = chunkIds.joinToString(",") { "?" }
         val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
@@ -533,6 +556,33 @@ object ContextRepository {
         }
     }
 
+    private fun deleteSymbolsByFile(conn: Connection, fileId: Long) {
+        if (!hasTable(conn, "symbols")) return
+        val hasFileColumn = hasColumn(conn, "symbols", "file_id")
+        val hasChunkColumn = hasColumn(conn, "symbols", "chunk_id")
+        if (!hasFileColumn && !hasChunkColumn) return
+
+        val conditions = ArrayList<String>()
+        val parameters = ArrayList<Long>()
+
+        if (hasFileColumn) {
+            conditions += "file_id = ?"
+            parameters += fileId
+        }
+        if (hasChunkColumn) {
+            conditions += "chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ?)"
+            parameters += fileId
+        }
+        if (conditions.isEmpty()) return
+
+        val whereClause = conditions.joinToString(" OR ")
+        val sql = "DELETE FROM symbols WHERE $whereClause"
+        conn.prepareStatement(sql).use { ps ->
+            parameters.forEachIndexed { index, value -> ps.setLong(index + 1, value) }
+            ps.executeUpdate()
+        }
+    }
+
     private fun deleteChunks(conn: Connection, fileId: Long) {
         val sql = "DELETE FROM chunks WHERE file_id = ?"
         conn.prepareStatement(sql).use { ps ->
@@ -574,16 +624,30 @@ object ContextRepository {
         }
     }
 
-    private fun cascadeDeleteFile(conn: Connection, fileId: Long) {
-        val chunkIds = getChunkIdsForFile(conn, fileId)
-        if (chunkIds.isNotEmpty()) {
-            replaceChunksInternal(conn, fileId, emptyList())
-            deleteEmbeddings(conn, chunkIds)
-            deleteLinks(conn, chunkIds)
+    private fun restoreArtifacts(artifacts: FileArtifacts) {
+        ContextDatabase.transaction { conn ->
+            val existingFile = getFileStateById(conn, artifacts.file.id)
+            val restoredFile = if (existingFile == null) {
+                insertFileState(conn, artifacts.file)
+            } else {
+                updateFileState(conn, artifacts.file)
+            }
+
+            val existingChunkIds = getChunkIdsForFile(conn, restoredFile.id).toHashSet()
+
+            artifacts.chunks.forEach { chunkArtifacts ->
+                val chunk = chunkArtifacts.chunk.copy(fileId = restoredFile.id)
+                if (!existingChunkIds.contains(chunk.id)) {
+                    insertChunk(conn, chunk)
+                }
+                if (chunkArtifacts.embeddings.isNotEmpty()) {
+                    insertEmbeddings(conn, chunk.id, chunkArtifacts.embeddings)
+                }
+                if (chunkArtifacts.links.isNotEmpty()) {
+                    insertLinks(conn, chunk.id, restoredFile.id, chunkArtifacts.links)
+                }
+            }
         }
-        deleteUsageMetricsForFile(conn, fileId)
-        deleteSymbols(conn, fileId, chunkIds)
-        deleteLinksByTargetFile(conn, fileId)
     }
 
     private fun hasTable(conn: Connection, tableName: String): Boolean {
