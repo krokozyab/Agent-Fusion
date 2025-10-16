@@ -40,21 +40,12 @@ object ContextRepository {
 
     // region Public API
 
-    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts = ContextDatabase.withConnection { conn ->
-        val previousAutoCommit = conn.autoCommit
-        conn.autoCommit = false
-        try {
+    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts =
+        ContextDatabase.transaction { conn ->
             val persistedFile = upsertFileState(conn, fileState)
             val persistedChunks = replaceChunksInternal(conn, persistedFile.id, chunkArtifacts)
-            conn.commit()
             FileArtifacts(persistedFile, persistedChunks)
-        } catch (t: Throwable) {
-            conn.rollback()
-            throw t
-        } finally {
-            conn.autoCommit = previousAutoCommit
         }
-    }
 
     fun fetchFileArtifactsByPath(relativePath: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
         val file = getFileStateByPath(conn, relativePath) ?: return@withConnection null

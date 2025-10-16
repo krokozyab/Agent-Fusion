@@ -26,6 +26,7 @@ object ContextDatabase {
 
     private val initialized = AtomicBoolean(false)
     private val guard = ReentrantLock()
+    private val connectionLock = ReentrantLock()
 
     @Volatile
     private var connection: Connection? = null
@@ -84,12 +85,18 @@ object ContextDatabase {
     /** Convenience helper to work with the connection. */
     fun <T> withConnection(block: (Connection) -> T): T {
         val conn = getConnection()
-        return block(conn)
+        connectionLock.lock()
+        return try {
+            block(conn)
+        } finally {
+            connectionLock.unlock()
+        }
     }
 
     /** Execute [block] within a JDBC transaction on the context database. */
     fun <T> transaction(block: (Connection) -> T): T {
         val conn = getConnection()
+        connectionLock.lock()
         val previous = conn.autoCommit
         conn.autoCommit = false
         return try {
@@ -105,6 +112,7 @@ object ContextDatabase {
             throw t
         } finally {
             conn.autoCommit = previous
+            connectionLock.unlock()
         }
     }
 

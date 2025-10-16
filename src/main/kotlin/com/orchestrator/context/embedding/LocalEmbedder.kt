@@ -141,10 +141,19 @@ class LocalEmbedder(
     }
 
     private fun tokenize(text: String): IntArray {
+        val vocabSize = 30522
+        val reservedOffset = 1000
+        val availableRange = vocabSize - reservedOffset
+
         val tokens = text.lowercase()
             .split(Regex("\\s+"))
             .filter { it.isNotEmpty() }
-            .map { (it.hashCode() and 0x7FFF) % 30000 + 1000 }
+            .map { token ->
+                val hash = token.hashCode()
+                val positive = hash and Int.MAX_VALUE
+                reservedOffset + (positive % availableRange)
+            }
+
         return intArrayOf(101) + tokens.toIntArray() + intArrayOf(102)
     }
 

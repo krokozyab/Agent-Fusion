@@ -28,13 +28,13 @@ class BootstrapProgressTracker {
      */
     fun initProgress(files: List<Path>) {
         ContextDatabase.withConnection { conn ->
-            conn.createStatement().use { it.execute("DELETE FROM $TABLE_NAME") }
+            conn.createStatement().use { it.execute("DELETE FROM " + TABLE_NAME) }
         }
         if (files.isNotEmpty()) {
             ContextDatabase.withConnection { conn ->
                 conn.autoCommit = false
                 try {
-                    conn.prepareStatement("INSERT INTO $TABLE_NAME (path, status) VALUES (?, 'PENDING')").use { ps ->
+                    conn.prepareStatement("INSERT INTO " + TABLE_NAME + " (path, status) VALUES (?, 'PENDING')").use { ps ->
                         for (file in files) {
                             ps.setString(1, file.toAbsolutePath().normalize().toString())
                             ps.addBatch()
@@ -70,7 +70,7 @@ class BootstrapProgressTracker {
 
     /** Returns a summary of the current progress. */
     fun getProgress(): ProgressStats = ContextDatabase.withConnection { conn ->
-        conn.prepareStatement("SELECT status, COUNT(*) FROM $TABLE_NAME GROUP BY status").use { ps ->
+        conn.prepareStatement("SELECT status, COUNT(*) FROM " + TABLE_NAME + " GROUP BY status").use { ps ->
             ps.executeQuery().use { rs ->
                 val counts = mutableMapOf<String, Int>()
                 while (rs.next()) {
@@ -89,7 +89,7 @@ class BootstrapProgressTracker {
 
     /** Returns the list of file paths that have not yet been successfully processed. */
     fun getRemaining(): List<Path> = ContextDatabase.withConnection { conn ->
-        conn.prepareStatement("SELECT path FROM $TABLE_NAME WHERE status != 'COMPLETED'").use { ps ->
+        conn.prepareStatement("SELECT path FROM " + TABLE_NAME + " WHERE status != 'COMPLETED'").use { ps ->
             ps.executeQuery().use { rs ->
                 val remaining = mutableListOf<Path>()
                 while (rs.next()) {
@@ -102,9 +102,9 @@ class BootstrapProgressTracker {
 
     private fun updateStatus(path: Path, status: String, error: String? = null) = ContextDatabase.withConnection { conn ->
         val sql = if (error != null) {
-            "UPDATE $TABLE_NAME SET status = ?, error = ? WHERE path = ?"
+            "UPDATE " + TABLE_NAME + " SET status = ?, error = ? WHERE path = ?"
         } else {
-            "UPDATE $TABLE_NAME SET status = ? WHERE path = ?"
+            "UPDATE " + TABLE_NAME + " SET status = ? WHERE path = ?"
         }
         conn.prepareStatement(sql).use { ps ->
             ps.setString(1, status)
@@ -120,10 +120,10 @@ class BootstrapProgressTracker {
 
     private fun recreateTable(conn: Connection) {
         conn.createStatement().use { stmt ->
-            stmt.execute("DROP TABLE IF EXISTS $TABLE_NAME")
+            stmt.execute("DROP TABLE IF EXISTS " + TABLE_NAME)
             stmt.execute(
                 """
-                CREATE TABLE $TABLE_NAME (
+                CREATE TABLE ${TABLE_NAME} (
                     path VARCHAR PRIMARY KEY,
                     status VARCHAR NOT NULL,
                     error VARCHAR
