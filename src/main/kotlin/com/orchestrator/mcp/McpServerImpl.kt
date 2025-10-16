@@ -123,6 +123,7 @@ class McpServerImpl(
     private val queryContextTool by lazy { QueryContextTool(contextConfig) }
     private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
     private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
+    private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
@@ -892,6 +893,7 @@ class McpServerImpl(
         }
         "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
         "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
+        "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
         else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
@@ -907,6 +909,7 @@ class McpServerImpl(
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
         is QueryContextTool.Result -> queryContextResultToJson(result)
         is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
+        is RefreshContextTool.Result -> refreshContextResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1310,6 +1313,62 @@ class McpServerImpl(
                 put("totalContextTokens", JsonPrimitive(result.performance.totalContextTokens))
                 put("averageLatencyMs", JsonPrimitive(result.performance.averageLatencyMs))
             })
+        }
+    }
+
+    private fun refreshContextResultToJson(result: RefreshContextTool.Result): JsonObject = buildJsonObject {
+        put("mode", JsonPrimitive(result.mode))
+        put("status", JsonPrimitive(result.status))
+        if (result.jobId == null) {
+            put("jobId", JsonNull)
+        } else {
+            put("jobId", JsonPrimitive(result.jobId))
+        }
+        if (result.newFiles == null) {
+            put("newFiles", JsonNull)
+        } else {
+            put("newFiles", JsonPrimitive(result.newFiles))
+        }
+        if (result.modifiedFiles == null) {
+            put("modifiedFiles", JsonNull)
+        } else {
+            put("modifiedFiles", JsonPrimitive(result.modifiedFiles))
+        }
+        if (result.deletedFiles == null) {
+            put("deletedFiles", JsonNull)
+        } else {
+            put("deletedFiles", JsonPrimitive(result.deletedFiles))
+        }
+        if (result.unchangedFiles == null) {
+            put("unchangedFiles", JsonNull)
+        } else {
+            put("unchangedFiles", JsonPrimitive(result.unchangedFiles))
+        }
+        if (result.indexingFailures == null) {
+            put("indexingFailures", JsonNull)
+        } else {
+            put("indexingFailures", JsonPrimitive(result.indexingFailures))
+        }
+        if (result.deletionFailures == null) {
+            put("deletionFailures", JsonNull)
+        } else {
+            put("deletionFailures", JsonPrimitive(result.deletionFailures))
+        }
+        if (result.durationMs == null) {
+            put("durationMs", JsonNull)
+        } else {
+            put("durationMs", JsonPrimitive(result.durationMs))
+        }
+        put("startedAt", JsonPrimitive(result.startedAt.toString()))
+        if (result.completedAt == null) {
+            put("completedAt", JsonNull)
+        } else {
+            put("completedAt", JsonPrimitive(result.completedAt.toString()))
+        }
+        if (result.message == null) {
+            put("message", JsonNull)
+        } else {
+            put("message", JsonPrimitive(result.message))
         }
     }
 
@@ -1926,6 +1985,59 @@ class McpServerImpl(
                 5. Debug recent context retrieval issues
             """.trimIndent(),
             jsonSchema = GetContextStatsTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "refresh_context",
+            description = """
+                Manually trigger re-indexing of files to update the context database. Supports both
+                synchronous (blocking) and asynchronous (background) execution modes.
+
+                ## Use When
+                - Files have been modified outside the watcher's scope
+                - Need to force re-indexing of specific paths
+                - Want to manually refresh context after bulk file operations
+                - Testing or debugging indexing pipeline
+                - After restoring from backup or changing configuration
+
+                ## Parameters
+                - paths (optional): List of file/directory paths to refresh. If null, uses config watch paths.
+                - force (optional): Force re-indexing even if files haven't changed (default: false)
+                - async (optional): Run in background and return jobId immediately (default: false)
+                - parallelism (optional): Number of parallel workers for indexing
+
+                ## Execution Modes
+
+                ### Synchronous (async=false)
+                - Blocks until indexing completes
+                - Returns immediate results with file counts and duration
+                - Use for small refreshes or when you need to wait for completion
+
+                ### Asynchronous (async=true)
+                - Returns jobId immediately
+                - Indexing runs in background
+                - Use getJobStatus() to check progress
+                - Use for large refreshes or when you don't want to block
+
+                ## Returns
+                - mode: "sync" or "async"
+                - status: "completed", "completed_with_errors", "running", "failed", or "error"
+                - jobId: Job identifier for async mode (null for sync)
+                - newFiles: Number of new files indexed
+                - modifiedFiles: Number of modified files re-indexed
+                - deletedFiles: Number of deleted files removed
+                - unchangedFiles: Number of unchanged files skipped
+                - indexingFailures: Number of files that failed to index
+                - deletionFailures: Number of deletions that failed
+                - durationMs: Time taken in milliseconds (null for async until complete)
+                - message: Human-readable status message
+
+                ## Example Use Cases
+                1. Refresh specific directory: `paths: ["/src/components"]`
+                2. Force complete re-index: `paths: null, force: true`
+                3. Background refresh: `async: true` then poll with getJobStatus()
+                4. Fast parallel refresh: `parallelism: 8`
+            """.trimIndent(),
+            jsonSchema = RefreshContextTool.JSON_SCHEMA
         )
         )
     }
@@ -2280,6 +2392,16 @@ class McpServerImpl(
         val o = el.asObj()
         return GetContextStatsTool.Params(
             recentLimit = o.int("recentLimit") ?: 10
+        )
+    }
+
+    private fun mapRefreshContextParams(el: JsonElement): RefreshContextTool.Params {
+        val o = el.asObj()
+        return RefreshContextTool.Params(
+            paths = o.listStr("paths"),
+            force = o.bool("force") ?: false,
+            async = o.bool("async") ?: false,
+            parallelism = o.int("parallelism")
         )
     }
 
