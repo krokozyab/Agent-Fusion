@@ -72,14 +72,7 @@ data class IndexingConfig(
         ".yaml",
         ".yml"
     ),
-    val blockedExtensions: List<String> = listOf(
-        ".exe",
-        ".bin",
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".zip"
-    ),
+    val blockedExtensions: List<String> = emptyList(),
     val maxFileSizeMb: Int = 5,
     val warnFileSizeMb: Int = 2,
     val sizeExceptions: List<String> = emptyList(),

@@ -119,13 +119,34 @@ object ContextConfigLoader {
         if (table == null) return defaults
         val allowed = table.getList<Any>("allowed_extensions")?.map { it.toString().expandEnv(env) }
         val blocked = table.getList<Any>("blocked_extensions")?.map { it.toString().expandEnv(env) }
+        val allowSpecified = allowed != null
+        val blockSpecified = blocked != null
+
+        if (allowSpecified && blockSpecified && (allowed!!.isNotEmpty() || blocked!!.isNotEmpty())) {
+            throw IllegalArgumentException(
+                "context.indexing cannot specify both allowed_extensions and blocked_extensions at the same time"
+            )
+        }
+
         val sizeExceptions = table.getList<Any>("size_exceptions")?.map { it.toString().expandEnv(env) }
         val detection = table.getString("binary_detection")?.let { value ->
             runCatching { BinaryDetectionMode.valueOf(value.trim().uppercase()) }.getOrNull()
         }
+
+        val allowedExtensions = when {
+            allowSpecified -> allowed!!
+            blockSpecified -> emptyList()
+            else -> defaults.allowedExtensions
+        }
+        val blockedExtensions = when {
+            blockSpecified -> blocked!!
+            allowSpecified -> emptyList()
+            else -> defaults.blockedExtensions
+        }
+
         return IndexingConfig(
-            allowedExtensions = allowed ?: defaults.allowedExtensions,
-            blockedExtensions = blocked ?: defaults.blockedExtensions,
+            allowedExtensions = allowedExtensions,
+            blockedExtensions = blockedExtensions,
             maxFileSizeMb = table.getLong("max_file_size_mb")?.toInt() ?: defaults.maxFileSizeMb,
             warnFileSizeMb = table.getLong("warn_file_size_mb")?.toInt() ?: defaults.warnFileSizeMb,
             sizeExceptions = sizeExceptions ?: defaults.sizeExceptions,

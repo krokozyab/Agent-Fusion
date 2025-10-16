@@ -33,7 +33,7 @@ class ContextConfigTest {
         assertEquals(2, config.indexing.warnFileSizeMb)
         assertEquals(BinaryDetectionMode.ALL, config.indexing.binaryDetection)
         assertTrue(config.indexing.allowedExtensions.contains(".kt"))
-        assertTrue(config.indexing.blockedExtensions.contains(".exe"))
+        assertTrue(config.indexing.blockedExtensions.isEmpty())
 
         assertEquals("sentence-transformers/all-MiniLM-L6-v2", config.embedding.model)
         assertEquals(384, config.embedding.dimension)
