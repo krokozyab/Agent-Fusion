@@ -124,6 +124,7 @@ class McpServerImpl(
     private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
     private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
     private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
+    private val rebuildContextTool by lazy { RebuildContextTool(contextConfig) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
@@ -894,6 +895,7 @@ class McpServerImpl(
         "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
         "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
         "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
+        "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
         else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
@@ -910,6 +912,7 @@ class McpServerImpl(
         is QueryContextTool.Result -> queryContextResultToJson(result)
         is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
         is RefreshContextTool.Result -> refreshContextResultToJson(result)
+        is RebuildContextTool.Result -> rebuildContextResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1369,6 +1372,71 @@ class McpServerImpl(
             put("message", JsonNull)
         } else {
             put("message", JsonPrimitive(result.message))
+        }
+    }
+
+    private fun mapRebuildContextParams(el: JsonElement): RebuildContextTool.Params {
+        val o = el.asObj()
+        return RebuildContextTool.Params(
+            confirm = o.bool("confirm") ?: false,
+            async = o.bool("async") ?: false,
+            paths = o.listStr("paths"),
+            validateOnly = o.bool("validateOnly") ?: false,
+            parallelism = o.int("parallelism")
+        )
+    }
+
+    private fun rebuildContextResultToJson(result: RebuildContextTool.Result): JsonObject = buildJsonObject {
+        put("mode", JsonPrimitive(result.mode))
+        put("status", JsonPrimitive(result.status))
+        if (result.jobId == null) {
+            put("jobId", JsonNull)
+        } else {
+            put("jobId", JsonPrimitive(result.jobId))
+        }
+        put("phase", JsonPrimitive(result.phase))
+        if (result.totalFiles == null) {
+            put("totalFiles", JsonNull)
+        } else {
+            put("totalFiles", JsonPrimitive(result.totalFiles))
+        }
+        if (result.processedFiles == null) {
+            put("processedFiles", JsonNull)
+        } else {
+            put("processedFiles", JsonPrimitive(result.processedFiles))
+        }
+        if (result.successfulFiles == null) {
+            put("successfulFiles", JsonNull)
+        } else {
+            put("successfulFiles", JsonPrimitive(result.successfulFiles))
+        }
+        if (result.failedFiles == null) {
+            put("failedFiles", JsonNull)
+        } else {
+            put("failedFiles", JsonPrimitive(result.failedFiles))
+        }
+        if (result.durationMs == null) {
+            put("durationMs", JsonNull)
+        } else {
+            put("durationMs", JsonPrimitive(result.durationMs))
+        }
+        put("startedAt", JsonPrimitive(result.startedAt.toString()))
+        if (result.completedAt == null) {
+            put("completedAt", JsonNull)
+        } else {
+            put("completedAt", JsonPrimitive(result.completedAt.toString()))
+        }
+        if (result.message == null) {
+            put("message", JsonNull)
+        } else {
+            put("message", JsonPrimitive(result.message))
+        }
+        if (result.validationErrors == null) {
+            put("validationErrors", JsonNull)
+        } else {
+            put("validationErrors", buildJsonArray {
+                result.validationErrors.forEach { add(JsonPrimitive(it)) }
+            })
         }
     }
 
@@ -2038,6 +2106,71 @@ class McpServerImpl(
                 4. Fast parallel refresh: `parallelism: 8`
             """.trimIndent(),
             jsonSchema = RefreshContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "rebuild_context",
+            description = """
+                Perform a complete rebuild of the context database. This is a DESTRUCTIVE operation that
+                clears all existing context data and re-indexes from scratch.
+
+                ## SAFETY CHECKS
+                - Requires explicit `confirm: true` to execute (safety check against accidental deletion)
+                - Blocks if another rebuild is already in progress
+                - Validates all paths before starting destructive operations
+                - Supports dry-run mode (`validateOnly: true`) to test before executing
+
+                ## Use When
+                - Context database is corrupted or inconsistent
+                - Major configuration changes (new embedding model, chunking strategy)
+                - After significant codebase restructuring
+                - Migrating to new database version
+                - Starting fresh with clean state
+
+                ## Parameters
+                - confirm (REQUIRED): Must be `true` to execute. Safety check to prevent accidental data loss.
+                - async (optional): Run in background and return jobId immediately (default: false)
+                - paths (optional): Paths to rebuild. If null, rebuilds all watched paths.
+                - validateOnly (optional): Dry-run mode. Validates without executing (default: false)
+                - parallelism (optional): Number of parallel workers for indexing
+
+                ## Process Flow
+                1. **Validation Phase**: Verify confirm=true, check for in-progress rebuild, validate paths
+                2. **Pre-rebuild Phase**: Create job record, acquire rebuild lock
+                3. **Destructive Phase**: Clear all context data (chunks, embeddings, file_state, etc.)
+                4. **Rebuild Phase**: Run full bootstrap indexing from scratch
+                5. **Post-rebuild Phase**: Optimize database (VACUUM, ANALYZE), release lock
+
+                ## Async Mode
+                - Returns immediately with jobId
+                - Poll status with `getJobStatus(jobId)`
+                - Job status tracks current phase: validation, pre-rebuild, destructive, rebuild, post-rebuild
+                - Returns progress counts: totalFiles, processedFiles, successfulFiles, failedFiles
+
+                ## Response Format
+                - mode: "sync" or "async"
+                - status: "validated", "completed", "completed_with_errors", "running", "failed", "error"
+                - jobId: Job identifier for async mode (null for sync)
+                - phase: Current phase (validation, pre-rebuild, destructive, rebuild, post-rebuild, completed)
+                - totalFiles: Total number of files to index
+                - processedFiles: Number of files processed so far
+                - successfulFiles: Number of files successfully indexed
+                - failedFiles: Number of files that failed
+                - durationMs: Time taken in milliseconds
+                - message: Human-readable status message
+                - validationErrors: List of validation errors (if any)
+
+                ## Example Use Cases
+                1. Dry-run validation: `validateOnly: true` (checks paths without executing)
+                2. Full rebuild with confirmation: `confirm: true, paths: null` (rebuilds everything)
+                3. Partial rebuild: `confirm: true, paths: ["/src"]` (rebuilds only /src)
+                4. Background rebuild: `confirm: true, async: true` (non-blocking execution)
+                5. Fast rebuild: `confirm: true, parallelism: 8` (use 8 workers)
+
+                ## WARNING
+                This operation deletes ALL existing context data. Always use `validateOnly: true` first
+                to verify paths and configuration before executing. Ensure you have backups if needed.
+            """.trimIndent(),
+            jsonSchema = RebuildContextTool.JSON_SCHEMA
         )
         )
     }
