@@ -171,6 +171,7 @@ object ContextDatabase {
             "CREATE SEQUENCE IF NOT EXISTS links_seq START 1",
             "CREATE SEQUENCE IF NOT EXISTS symbols_seq START 1",
             "CREATE SEQUENCE IF NOT EXISTS usage_metrics_seq START 1",
+            "CREATE SEQUENCE IF NOT EXISTS project_config_seq START 1",
             """
             CREATE TABLE IF NOT EXISTS file_state (
                 file_id               BIGINT PRIMARY KEY,
@@ -249,6 +250,17 @@ object ContextDatabase {
                 total_tokens          INTEGER,
                 retrieval_latency_ms  INTEGER,
                 created_at            TIMESTAMP NOT NULL
+            )
+            """.trimIndent(),
+            """
+            CREATE TABLE IF NOT EXISTS project_config (
+                config_id             BIGINT PRIMARY KEY DEFAULT nextval('project_config_seq'),
+                scope                 TEXT NOT NULL,
+                include_globs         JSON,
+                exclude_globs         JSON,
+                root_paths            JSON,
+                created_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at            TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """.trimIndent()
         )

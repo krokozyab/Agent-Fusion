@@ -27,6 +27,7 @@ class ConsensusWorkflowTest {
                 st.executeUpdate("DELETE FROM proposals")
                 st.executeUpdate("DELETE FROM metrics_timeseries")
                 st.executeUpdate("DELETE FROM tasks")
+                st.executeUpdate("DROP TABLE IF EXISTS project_config")
                 st.executeUpdate("DROP TABLE IF EXISTS bootstrap_progress")
             }
         }
