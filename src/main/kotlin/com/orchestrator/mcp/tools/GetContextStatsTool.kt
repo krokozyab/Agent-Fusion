@@ -159,4 +159,18 @@ class GetContextStatsTool(
             performance = performance
         )
     }
+
+    companion object {
+        const val JSON_SCHEMA: String = """
+        {
+          "${'$'}schema": "http://json-schema.org/draft-07/schema#",
+          "title": "get_context_stats params",
+          "type": "object",
+          "properties": {
+            "recentLimit": {"type": ["integer", "null"], "minimum": 1, "default": 10}
+          },
+          "additionalProperties": false
+        }
+        """
+    }
 }

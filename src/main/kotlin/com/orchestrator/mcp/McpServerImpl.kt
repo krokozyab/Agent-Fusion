@@ -121,6 +121,8 @@ class McpServerImpl(
     private val submitInputTool by lazy { SubmitInputTool() }
     private val respondToTaskTool by lazy { RespondToTaskTool() }
     private val queryContextTool by lazy { QueryContextTool(contextConfig) }
+    private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
+    private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
@@ -889,6 +891,7 @@ class McpServerImpl(
             respondToTaskTool.execute(p, resolvedId)
         }
         "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
+        "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
         else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
@@ -903,6 +906,7 @@ class McpServerImpl(
         is SubmitInputTool.Result -> submitInputResultToJson(result)
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
         is QueryContextTool.Result -> queryContextResultToJson(result)
+        is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1252,6 +1256,61 @@ class McpServerImpl(
             }
         })
         put("metadata", anyToJsonElement(result.metadata))
+    }
+
+    private fun getContextStatsResultToJson(result: GetContextStatsTool.Result): JsonObject = buildJsonObject {
+        put("providerStatus", buildJsonArray {
+            result.providerStatus.forEach { provider ->
+                add(buildJsonObject {
+                    put("id", JsonPrimitive(provider.id))
+                    put("enabled", JsonPrimitive(provider.enabled))
+                    put("weight", JsonPrimitive(provider.weight))
+                    if (provider.type == null) {
+                        put("type", JsonNull)
+                    } else {
+                        put("type", JsonPrimitive(provider.type))
+                    }
+                })
+            }
+        })
+        put("storage", buildJsonObject {
+            put("files", JsonPrimitive(result.storage.files))
+            put("chunks", JsonPrimitive(result.storage.chunks))
+            put("embeddings", JsonPrimitive(result.storage.embeddings))
+            put("totalSizeBytes", JsonPrimitive(result.storage.totalSizeBytes))
+        })
+        put("languageDistribution", buildJsonArray {
+            result.languageDistribution.forEach { stat ->
+                add(buildJsonObject {
+                    put("language", JsonPrimitive(stat.language))
+                    put("fileCount", JsonPrimitive(stat.fileCount))
+                })
+            }
+        })
+        put("recentActivity", buildJsonArray {
+            result.recentActivity.forEach { activity ->
+                add(buildJsonObject {
+                    if (activity.taskId == null) {
+                        put("taskId", JsonNull)
+                    } else {
+                        put("taskId", JsonPrimitive(activity.taskId))
+                    }
+                    put("snippets", JsonPrimitive(activity.snippets))
+                    put("tokens", JsonPrimitive(activity.tokens))
+                    put("latencyMs", JsonPrimitive(activity.latencyMs))
+                    put("recordedAt", JsonPrimitive(activity.recordedAt.toString()))
+                })
+            }
+        })
+        if (result.performance == null) {
+            put("performance", JsonNull)
+        } else {
+            put("performance", buildJsonObject {
+                put("totalRecords", JsonPrimitive(result.performance.totalRecords))
+                put("totalContextTokens", JsonPrimitive(result.performance.totalContextTokens))
+                put("averageLatencyMs", JsonPrimitive(result.performance.averageLatencyMs))
+            })
+        }
     }
 
     private fun anyToJsonElement(value: Any?): JsonElement = when (value) {
@@ -1835,6 +1894,38 @@ class McpServerImpl(
                 - metadata: Query statistics (total hits, tokens used, provider stats)
             """.trimIndent(),
             jsonSchema = QueryContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "get_context_stats",
+            description = """
+                Return comprehensive statistics about the context system including provider status,
+                storage metrics, performance data, language distribution, and recent activity.
+
+                ## Use When
+                - Need to understand the current state of the context system
+                - Debugging context retrieval issues
+                - Monitoring storage usage and performance
+                - Checking which providers are enabled and configured
+                - Analyzing recent context query patterns
+
+                ## Parameters
+                - recentLimit (optional): Number of recent activity entries to return (default: 10)
+
+                ## Returns
+                - providerStatus: List of all configured providers with enabled status, weight, and type
+                - storage: Storage statistics (file count, chunk count, embeddings, total size)
+                - languageDistribution: Breakdown of files by programming language
+                - recentActivity: Recent context queries with task ID, snippets returned, tokens used, latency
+                - performance: Aggregate performance metrics (total records, total tokens, average latency)
+
+                ## Example Use Cases
+                1. Check which providers are currently enabled
+                2. Monitor storage growth over time
+                3. Identify performance bottlenecks
+                4. Understand which languages dominate the codebase
+                5. Debug recent context retrieval issues
+            """.trimIndent(),
+            jsonSchema = GetContextStatsTool.JSON_SCHEMA
         )
         )
     }
@@ -2182,6 +2273,13 @@ class McpServerImpl(
             kinds = o.listStr("kinds"),
             excludePatterns = o.listStr("excludePatterns"),
             providers = o.listStr("providers")
+        )
+    }
+
+    private fun mapGetContextStatsParams(el: JsonElement): GetContextStatsTool.Params {
+        val o = el.asObj()
+        return GetContextStatsTool.Params(
+            recentLimit = o.int("recentLimit") ?: 10
         )
     }
 
