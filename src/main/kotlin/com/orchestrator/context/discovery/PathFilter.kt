@@ -29,16 +29,20 @@ class PathFilter private constructor(
     }
 
     companion object {
-        private val ignoreFileNames = listOf(".contextignore", ".gitignore", ".dockerignore")
-
         fun fromSources(
             root: Path,
             configPatterns: List<String> = emptyList(),
-            caseInsensitive: Boolean = true
+            caseInsensitive: Boolean = true,
+            includeGitignore: Boolean = true,
+            includeContextignore: Boolean = true,
+            includeDockerignore: Boolean = true
         ): PathFilter {
             val collected = mutableListOf<String>()
             configPatterns.forEach { collected.addAll(expandPattern(it)) }
-            ignoreFileNames.forEach { name ->
+
+            val ignoreFiles = buildIgnoreFileList(includeGitignore, includeContextignore, includeDockerignore)
+
+            ignoreFiles.forEach { name ->
                 val file = root.resolve(name)
                 if (Files.exists(file) && file.isRegularFile()) {
                     Files.lines(file).use { lines ->
@@ -53,6 +57,18 @@ class PathFilter private constructor(
                 .map { preprocess(it) }
                 .map { globToRegex(it, caseInsensitive) }
             return PathFilter(matchers, caseInsensitive)
+        }
+
+        private fun buildIgnoreFileList(
+            includeGitignore: Boolean,
+            includeContextignore: Boolean,
+            includeDockerignore: Boolean
+        ): List<String> {
+            val files = mutableListOf<String>()
+            if (includeContextignore) files += ".contextignore"
+            if (includeGitignore) files += ".gitignore"
+            if (includeDockerignore) files += ".dockerignore"
+            return files
         }
 
         private fun expandPattern(pattern: String): List<String> {
