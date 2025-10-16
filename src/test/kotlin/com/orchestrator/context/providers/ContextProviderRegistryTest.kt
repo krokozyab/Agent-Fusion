@@ -18,8 +18,8 @@ class ContextProviderRegistryTest {
         val providerCount = ContextProviderRegistry.getProviderCount()
         assertTrue(providerCount > 0, "Registry should discover at least one provider")
 
-        // We expect 4 providers: semantic, symbol, full_text, hybrid
-        assertEquals(4, providerCount, "Should discover exactly 4 providers")
+        // We expect 5 providers: semantic, symbol, full_text, git-history, hybrid
+        assertEquals(5, providerCount, "Should discover exactly 5 providers")
     }
 
     @Test
@@ -29,7 +29,7 @@ class ContextProviderRegistryTest {
 
         assertNotNull(providers)
         assertTrue(providers.isNotEmpty(), "Should have at least one provider")
-        assertEquals(4, providers.size, "Should have 4 providers")
+        assertEquals(5, providers.size, "Should have 5 providers")
     }
 
     @Test
@@ -99,11 +99,12 @@ class ContextProviderRegistryTest {
     }
 
     @Test
-    @DisplayName("getProvidersByType returns empty list for unused type")
-    fun `getProvidersByType returns empty list for unused type`() {
+    @DisplayName("getProvidersByType returns correct providers for GIT_HISTORY type")
+    fun `getProvidersByType returns correct providers for GIT_HISTORY type`() {
         val gitProviders = ContextProviderRegistry.getProvidersByType(ContextProviderType.GIT_HISTORY)
         assertNotNull(gitProviders)
-        assertTrue(gitProviders.isEmpty(), "Should return empty list for GIT_HISTORY (not yet implemented)")
+        assertEquals(1, gitProviders.size, "Should have 1 git history provider")
+        assertTrue(gitProviders.all { it.type == ContextProviderType.GIT_HISTORY })
     }
 
     @Test
@@ -112,11 +113,12 @@ class ContextProviderRegistryTest {
         val ids = ContextProviderRegistry.getProviderIds()
 
         assertNotNull(ids)
-        assertEquals(4, ids.size, "Should have 4 provider IDs")
+        assertEquals(5, ids.size, "Should have 5 provider IDs")
 
         assertTrue(ids.contains("semantic"), "Should contain 'semantic'")
         assertTrue(ids.contains("symbol"), "Should contain 'symbol'")
         assertTrue(ids.contains("full_text"), "Should contain 'full_text'")
+        assertTrue(ids.contains("git-history"), "Should contain 'git-history'")
         assertTrue(ids.contains("hybrid"), "Should contain 'hybrid'")
     }
 
@@ -164,7 +166,7 @@ class ContextProviderRegistryTest {
         val results = (1..10).map {
             Thread {
                 val count = ContextProviderRegistry.getProviderCount()
-                assertEquals(4, count)
+                assertEquals(5, count)
             }
         }
 
@@ -172,7 +174,7 @@ class ContextProviderRegistryTest {
         results.forEach { it.join() }
 
         // Should still have same providers after concurrent access
-        assertEquals(4, ContextProviderRegistry.getProviderCount())
+        assertEquals(5, ContextProviderRegistry.getProviderCount())
     }
 
     @Test

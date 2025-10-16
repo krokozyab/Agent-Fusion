@@ -24,9 +24,10 @@ object ContextProviderRegistry {
             val semantic = SemanticContextProvider()
             val symbol = SymbolContextProvider()
             val fullText = FullTextContextProvider()
+            val gitHistory = GitHistoryContextProvider()
             val hybrid = HybridContextProvider(listOf(semantic, symbol, fullText))
 
-            val ordered = listOf(semantic, symbol, fullText, hybrid)
+            val ordered = listOf(semantic, symbol, fullText, gitHistory, hybrid)
             cachedProviders = ordered.associateBy { it.id.lowercase() }
             return cachedProviders!!
         }
