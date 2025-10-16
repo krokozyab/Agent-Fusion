@@ -27,6 +27,7 @@ class ConsensusWorkflowTest {
                 st.executeUpdate("DELETE FROM proposals")
                 st.executeUpdate("DELETE FROM metrics_timeseries")
                 st.executeUpdate("DELETE FROM tasks")
+                st.executeUpdate("DROP TABLE IF EXISTS bootstrap_progress")
             }
         }
         // Clear internal ProposalManager signals to avoid cross-test interference
