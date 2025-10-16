@@ -3,9 +3,9 @@ package com.orchestrator.context.providers
 /**
  * Thread-safe singleton registry for context providers.
  *
- * The registry currently wires providers explicitly instead of relying on a ServiceLoader to keep
- * the reference implementation lightweight for tests. The public API mirrors the intended SPI so
- * the implementation can be swapped without impacting callers.
+ * Uses Java ServiceLoader SPI to discover all ContextProvider implementations
+ * from META-INF/services/com.orchestrator.context.providers.ContextProvider.
+ * This provides zero-hardcoding plugin-style extensibility.
  */
 object ContextProviderRegistry {
 
@@ -21,14 +21,11 @@ object ContextProviderRegistry {
             val refreshed = cachedProviders
             if (refreshed != null) return refreshed
 
-            val semantic = SemanticContextProvider()
-            val symbol = SymbolContextProvider()
-            val fullText = FullTextContextProvider()
-            val gitHistory = GitHistoryContextProvider()
-            val hybrid = HybridContextProvider(listOf(semantic, symbol, fullText))
+            // Use ServiceLoader to discover all ContextProvider implementations
+            val loader = java.util.ServiceLoader.load(ContextProvider::class.java)
+            val discovered = loader.toList()
 
-            val ordered = listOf(semantic, symbol, fullText, gitHistory, hybrid)
-            cachedProviders = ordered.associateBy { it.id.lowercase() }
+            cachedProviders = discovered.associateBy { it.id.lowercase() }
             return cachedProviders!!
         }
     }
