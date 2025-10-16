@@ -65,8 +65,6 @@ class FileWatcher(
 
     private val keyRoots = ConcurrentHashMap<WatchKey, Path>()
     private val registeredDirectories = ConcurrentHashMap.newKeySet<Path>()
-    private val lastEmitted = ConcurrentHashMap<Path, Long>()
-    private val debounceMillis = config.debounceMs
     private val recursive = true
     private val sensitivityModifiers: Array<WatchEvent.Modifier> = loadSensitivityModifiers()
 
@@ -76,6 +74,13 @@ class FileWatcher(
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
     val events: SharedFlow<FileWatchEvent> = _events.asSharedFlow()
+
+    private val debouncer = EventDebouncer(scope, debounceMillis = config.debounceMs, dispatcher = dispatcher)
+    private val debouncerJob: Job = scope.launch(dispatcher) {
+        debouncer.events.collect { event ->
+            _events.emit(event)
+        }
+    }
 
     /**
      * Begin watching the configured directories. Calling [start] multiple times is a no-op.
@@ -185,14 +190,7 @@ class FileWatcher(
     }
 
     private fun emitEvent(event: FileWatchEvent) {
-        if (debounceMillis > 0) {
-            val now = System.currentTimeMillis()
-            val previous = lastEmitted.put(event.path, now)
-            if (previous != null && now - previous < debounceMillis) {
-                return
-            }
-        }
-        _events.tryEmit(event)
+        debouncer.submit(event)
     }
 
     private fun registerRecursively(directory: Path, root: Path) {
@@ -261,6 +259,8 @@ class FileWatcher(
         runCatching { watchService.close() }
         watcherJob?.cancel()
         watcherJob = null
+        debouncerJob.cancel()
+        debouncer.close()
         registeredDirectories.clear()
         keyRoots.clear()
     }
