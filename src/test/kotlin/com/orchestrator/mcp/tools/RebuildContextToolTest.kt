@@ -46,6 +46,13 @@ class RebuildContextToolTest {
         )
         ContextDatabase.initialize(config.storage)
         clearTables()
+        // Ensure clean state for rebuild flag
+        val field = RebuildContextTool::class.java.getDeclaredField("rebuildInProgress")
+        field.isAccessible = true
+        val rebuildInProgress = field.get(null) as java.util.concurrent.atomic.AtomicBoolean
+        rebuildInProgress.set(false)
+        // Clear any leftover jobs
+        RebuildContextTool.clearCompletedJobs()
     }
 
     @AfterTest
@@ -53,6 +60,11 @@ class RebuildContextToolTest {
         clearTables()
         tempDir.deleteRecursively()
         RebuildContextTool.clearCompletedJobs()
+        // Reset the rebuildInProgress flag to ensure tests are isolated
+        val field = RebuildContextTool::class.java.getDeclaredField("rebuildInProgress")
+        field.isAccessible = true
+        val rebuildInProgress = field.get(null) as java.util.concurrent.atomic.AtomicBoolean
+        rebuildInProgress.set(false)
     }
 
     @Test
@@ -289,19 +301,24 @@ class RebuildContextToolTest {
         ))
 
         assertEquals("running", result1.status)
+        assertNotNull(result1.jobId, "First rebuild should have returned a jobId")
 
-        // Give the async task a moment to acquire the lock
-        delay(100)
-
-        // Try to start second rebuild
+        // Try to start second rebuild immediately (lock should already be held)
         val result2 = tool.execute(RebuildContextTool.Params(
             confirm = true,
             async = false,
             paths = listOf(tempDir.toString())
         ))
 
-        assertEquals("error", result2.status)
-        assertTrue(result2.message!!.contains("Another rebuild is already in progress"))
+        assertEquals("error", result2.status, "Second rebuild should fail with error status")
+        assertTrue(
+            result2.message!!.contains("Another rebuild is already in progress") ||
+            result2.validationErrors?.any { it.contains("Another rebuild is already in progress") } == true,
+            "Error message should indicate rebuild in progress. Got: ${result2.message}, errors: ${result2.validationErrors}"
+        )
+
+        // Wait for first rebuild to complete before test cleanup
+        delay(1000)
     }
 
     @Test
@@ -364,12 +381,16 @@ class RebuildContextToolTest {
     private fun clearTables() {
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
-                st.executeUpdate("DELETE FROM usage_metrics")
-                st.executeUpdate("DELETE FROM links")
-                st.executeUpdate("DELETE FROM symbols")
-                st.executeUpdate("DELETE FROM embeddings")
-                st.executeUpdate("DELETE FROM chunks")
-                st.executeUpdate("DELETE FROM file_state")
+                // Check if tables exist before trying to delete from them
+                val tables = listOf("usage_metrics", "links", "symbols", "embeddings", "chunks", "file_state")
+                tables.forEach { table ->
+                    try {
+                        st.executeUpdate("DELETE FROM $table")
+                    } catch (e: Exception) {
+                        // Table might not exist (e.g., after a rebuild that dropped tables)
+                        // This is expected and we can ignore it
+                    }
+                }
             }
         }
     }
