@@ -62,7 +62,10 @@ dependencies {
     
     // ONNX Runtime for embeddings
     implementation("com.microsoft.onnxruntime:onnxruntime:1.16.3")
-    
+
+    // JGit for git history analysis
+    implementation("org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r")
+
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
