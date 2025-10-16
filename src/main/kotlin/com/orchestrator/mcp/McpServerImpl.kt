@@ -125,6 +125,7 @@ class McpServerImpl(
     private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
     private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
     private val rebuildContextTool by lazy { RebuildContextTool(contextConfig) }
+    private val getRebuildStatusTool by lazy { GetRebuildStatusTool(contextConfig) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
@@ -896,6 +897,7 @@ class McpServerImpl(
         "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
         "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
         "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
+        "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
         else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
@@ -913,6 +915,7 @@ class McpServerImpl(
         is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
         is RefreshContextTool.Result -> refreshContextResultToJson(result)
         is RebuildContextTool.Result -> rebuildContextResultToJson(result)
+        is GetRebuildStatusTool.Result -> getRebuildStatusResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1436,6 +1439,71 @@ class McpServerImpl(
         } else {
             put("validationErrors", buildJsonArray {
                 result.validationErrors.forEach { add(JsonPrimitive(it)) }
+            })
+        }
+    }
+
+    private fun mapGetRebuildStatusParams(el: JsonElement): GetRebuildStatusTool.Params {
+        val o = el.asObj()
+        return GetRebuildStatusTool.Params(
+            jobId = o.str("jobId") ?: throw IllegalArgumentException("jobId is required"),
+            includeLogs = o.bool("includeLogs") ?: false
+        )
+    }
+
+    private fun getRebuildStatusResultToJson(result: GetRebuildStatusTool.Result): JsonObject = buildJsonObject {
+        put("jobId", JsonPrimitive(result.jobId))
+        put("status", JsonPrimitive(result.status))
+        put("phase", JsonPrimitive(result.phase))
+
+        if (result.progress == null) {
+            put("progress", JsonNull)
+        } else {
+            put("progress", buildJsonObject {
+                put("totalFiles", JsonPrimitive(result.progress.totalFiles))
+                put("processedFiles", JsonPrimitive(result.progress.processedFiles))
+                put("successfulFiles", JsonPrimitive(result.progress.successfulFiles))
+                put("failedFiles", JsonPrimitive(result.progress.failedFiles))
+                put("percentComplete", JsonPrimitive(result.progress.percentComplete))
+            })
+        }
+
+        put("timing", buildJsonObject {
+            put("startedAt", JsonPrimitive(result.timing.startedAt.toString()))
+            if (result.timing.completedAt == null) {
+                put("completedAt", JsonNull)
+            } else {
+                put("completedAt", JsonPrimitive(result.timing.completedAt.toString()))
+            }
+            if (result.timing.durationMs == null) {
+                put("durationMs", JsonNull)
+            } else {
+                put("durationMs", JsonPrimitive(result.timing.durationMs))
+            }
+            if (result.timing.estimatedRemainingMs == null) {
+                put("estimatedRemainingMs", JsonNull)
+            } else {
+                put("estimatedRemainingMs", JsonPrimitive(result.timing.estimatedRemainingMs))
+            }
+        })
+
+        if (result.error == null) {
+            put("error", JsonNull)
+        } else {
+            put("error", JsonPrimitive(result.error))
+        }
+
+        if (result.logs == null) {
+            put("logs", JsonNull)
+        } else {
+            put("logs", buildJsonArray {
+                result.logs.forEach { log ->
+                    add(buildJsonObject {
+                        put("timestamp", JsonPrimitive(log.timestamp.toString()))
+                        put("level", JsonPrimitive(log.level))
+                        put("message", JsonPrimitive(log.message))
+                    })
+                }
             })
         }
     }
@@ -2171,6 +2239,65 @@ class McpServerImpl(
                 to verify paths and configuration before executing. Ensure you have backups if needed.
             """.trimIndent(),
             jsonSchema = RebuildContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "get_rebuild_status",
+            description = """
+                Check the status of a background rebuild job started by rebuild_context.
+
+                This tool provides real-time progress updates for async rebuild operations, including:
+                - Current execution phase and status
+                - File processing progress (total, processed, successful, failed)
+                - Timing information (started, duration, estimated remaining time)
+                - Optional execution logs for debugging
+
+                ## When to Use
+                - After starting an async rebuild (`rebuild_context` with `async: true`)
+                - To monitor long-running rebuild operations
+                - To check if a rebuild has completed before performing other operations
+                - To troubleshoot rebuild failures with detailed logs
+
+                ## Parameters
+                - **jobId** (required): Job ID returned from `rebuild_context` when `async: true`
+                - **includeLogs** (optional, default: false): Include execution logs in response
+
+                ## Response Fields
+                - **jobId**: The job identifier
+                - **status**: Current status (running, completed, completed_with_errors, failed, not_found)
+                - **phase**: Current phase (pre-rebuild, destructive, rebuild, post-rebuild, completed)
+                - **progress**: File processing progress (null if not started)
+                  - totalFiles: Total files to index
+                  - processedFiles: Files processed so far
+                  - successfulFiles: Files successfully indexed
+                  - failedFiles: Files that failed
+                  - percentComplete: Progress percentage (0-100)
+                - **timing**: Timing information
+                  - startedAt: When the job started
+                  - completedAt: When the job finished (null if still running)
+                  - durationMs: Time elapsed in milliseconds
+                  - estimatedRemainingMs: Estimated time remaining (null if complete or can't estimate)
+                - **error**: Error message if status is 'failed' (null otherwise)
+                - **logs**: Execution logs if includeLogs is true (null otherwise)
+
+                ## Example Use Cases
+                1. Poll for completion: Call periodically until status is 'completed' or 'failed'
+                2. Show progress: Display percentComplete and estimatedRemainingMs to user
+                3. Debug failures: Use `includeLogs: true` to see what went wrong
+                4. Check before operations: Ensure no rebuild is running before performing other tasks
+
+                ## Status Values
+                - **running**: Rebuild is in progress
+                - **completed**: Rebuild finished successfully
+                - **completed_with_errors**: Rebuild finished but some files failed
+                - **failed**: Rebuild encountered a fatal error
+                - **not_found**: Job ID doesn't exist (may have been cleaned up)
+
+                ## Notes
+                - Job statuses are kept in memory and will be lost on server restart
+                - Completed jobs may be periodically cleaned up to save memory
+                - For sync rebuilds, use the immediate response from rebuild_context instead
+            """.trimIndent(),
+            jsonSchema = GetRebuildStatusTool.JSON_SCHEMA
         )
         )
     }
