@@ -120,6 +120,7 @@ class McpServerImpl(
     private val getTaskStatusTool by lazy { GetTaskStatusTool() }
     private val submitInputTool by lazy { SubmitInputTool() }
     private val respondToTaskTool by lazy { RespondToTaskTool() }
+    private val queryContextTool by lazy { QueryContextTool(contextConfig) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
@@ -887,6 +888,7 @@ class McpServerImpl(
             val (p, resolvedId) = mapRespondToTaskParams(params)
             respondToTaskTool.execute(p, resolvedId)
         }
+        "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
         else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
@@ -900,6 +902,7 @@ class McpServerImpl(
         is GetTaskStatusTool.Result -> getTaskStatusResultToJson(result)
         is SubmitInputTool.Result -> submitInputResultToJson(result)
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
+        is QueryContextTool.Result -> queryContextResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1211,6 +1214,44 @@ class McpServerImpl(
                 }
             })
         })
+    }
+
+    private fun queryContextResultToJson(result: QueryContextTool.Result): JsonObject = buildJsonObject {
+        put("hits", buildJsonArray {
+            result.hits.forEach { hit ->
+                add(buildJsonObject {
+                    put("chunkId", JsonPrimitive(hit.chunkId))
+                    put("score", JsonPrimitive(hit.score))
+                    put("filePath", JsonPrimitive(hit.filePath))
+                    if (hit.label == null) {
+                        put("label", JsonNull)
+                    } else {
+                        put("label", JsonPrimitive(hit.label))
+                    }
+                    put("kind", JsonPrimitive(hit.kind))
+                    put("text", JsonPrimitive(hit.text))
+                    if (hit.language == null) {
+                        put("language", JsonNull)
+                    } else {
+                        put("language", JsonPrimitive(hit.language))
+                    }
+                    if (hit.startLine == null) {
+                        put("startLine", JsonNull)
+                    } else {
+                        put("startLine", JsonPrimitive(hit.startLine))
+                    }
+                    if (hit.endLine == null) {
+                        put("endLine", JsonNull)
+                    } else {
+                        put("endLine", JsonPrimitive(hit.endLine))
+                    }
+                    put("metadata", buildJsonObject {
+                        hit.metadata.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
+                    })
+                })
+            }
+        })
+        put("metadata", anyToJsonElement(result.metadata))
     }
 
     private fun anyToJsonElement(value: Any?): JsonElement = when (value) {
@@ -1760,6 +1801,40 @@ class McpServerImpl(
                 3. Done! Task updated, other agents can see your response
             """.trimIndent(),
             jsonSchema = RespondToTaskTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "query_context",
+            description = """
+                Explicit context query tool for agents to retrieve relevant code snippets
+                based on a natural language query with optional filters and scoping.
+
+                ## Use When
+                - Need to find relevant code snippets for a task or question
+                - Want to understand implementation details before making changes
+                - Need to gather context about specific files, languages, or code types
+                - Building context for multi-step tasks or consensus proposals
+
+                ## Parameters
+                - query (required): Natural language query describing what code/context you need
+                - k (optional): Maximum number of results to return (default: 10)
+                - maxTokens (optional): Token budget for results (default: 4000)
+                - paths (optional): Filter to specific file paths (e.g., ["src/main/kotlin/"])
+                - languages (optional): Filter to specific languages (e.g., ["kotlin", "java"])
+                - kinds (optional): Filter to specific chunk types (e.g., ["CODE_CLASS", "CODE_METHOD"])
+                - excludePatterns (optional): Exclude files matching patterns (e.g., ["test/", "*.md"])
+                - providers (optional): Use specific providers (e.g., ["semantic", "symbol"])
+
+                ## Example Queries
+                1. "Find authentication implementation"
+                2. "Show me database connection handling"
+                3. "Classes implementing ContextProvider interface"
+                4. "Error handling in task processing"
+
+                ## Returns
+                - hits: List of code snippets with score, file path, text, metadata
+                - metadata: Query statistics (total hits, tokens used, provider stats)
+            """.trimIndent(),
+            jsonSchema = QueryContextTool.JSON_SCHEMA
         )
         )
     }
@@ -2094,6 +2169,20 @@ class McpServerImpl(
 
         val resolvedId = resolveAgentIdOrDefault(params.agentId)
         return params to resolvedId
+    }
+
+    private fun mapQueryContextParams(el: JsonElement): QueryContextTool.Params {
+        val o = el.asObj()
+        return QueryContextTool.Params(
+            query = o.reqStr("query"),
+            k = o.int("k"),
+            maxTokens = o.int("maxTokens"),
+            paths = o.listStr("paths"),
+            languages = o.listStr("languages"),
+            kinds = o.listStr("kinds"),
+            excludePatterns = o.listStr("excludePatterns"),
+            providers = o.listStr("providers")
+        )
     }
 
     // JsonObject helpers
