@@ -2,6 +2,7 @@ package com.orchestrator.context.watcher
 
 import com.orchestrator.context.config.IndexingConfig
 import com.orchestrator.context.config.WatcherConfig
+import com.orchestrator.context.discovery.DirectoryScanner
 import com.orchestrator.context.discovery.ExtensionFilter
 import com.orchestrator.context.discovery.PathFilter
 import com.orchestrator.context.discovery.PathValidator
@@ -88,6 +89,35 @@ class WatcherDaemon(
             log.warn("Watcher daemon has no watch roots; disabling.")
             running.set(false)
             return
+        }
+
+        // Perform initial scan to catch files created while watcher was stopped
+        runBlocking {
+            try {
+                log.info("Performing startup scan to detect files created while watcher was stopped...")
+                val scanner = DirectoryScanner(pathValidator, parallel = false)
+                val discoveredFiles = scanner.scan(watchRoots)
+
+                if (discoveredFiles.isNotEmpty()) {
+                    log.info("Startup scan found {} file(s), triggering incremental indexing...", discoveredFiles.size)
+                    val result = incrementalIndexer.updateAsync(discoveredFiles)
+                    log.info(
+                        "Startup scan indexed: new={}, modified={}, deleted={}, unchanged={}, failures={}",
+                        result.newCount,
+                        result.modifiedCount,
+                        result.deletedCount,
+                        result.unchangedCount,
+                        result.indexingFailures + result.deletionFailures
+                    )
+                    onUpdate?.invoke(result)
+                } else {
+                    log.info("Startup scan found no files to index")
+                }
+            } catch (throwable: Throwable) {
+                log.error("Startup scan failed: {}", throwable.message, throwable)
+                onError?.invoke(throwable)
+                // Continue anyway - watcher will catch future changes
+            }
         }
 
         val watcher = runCatching {

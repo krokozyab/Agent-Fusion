@@ -275,6 +275,8 @@ object ContextRepository {
             deleteEmbeddings(conn, existingChunkIds)
             deleteLinks(conn, existingChunkIds)
             deleteUsageMetrics(conn, fileId, existingChunkIds)
+            deleteSymbolsByChunkIds(conn, existingChunkIds)
+            deleteLinksByTargetFile(conn, fileId)
             deleteChunks(conn, fileId)
         }
 

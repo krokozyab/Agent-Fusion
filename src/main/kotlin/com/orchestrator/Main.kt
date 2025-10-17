@@ -7,10 +7,20 @@ import com.orchestrator.mcp.McpServerImpl
 import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.modules.metrics.MetricsModule
 import com.orchestrator.context.storage.ContextDatabase
+import com.orchestrator.context.watcher.WatcherDaemon
+import com.orchestrator.context.indexing.IncrementalIndexer
+import com.orchestrator.context.indexing.ChangeDetector
+import com.orchestrator.context.indexing.BatchIndexer
+import com.orchestrator.context.indexing.FileIndexer
+import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.system.exitProcess
 
 private val log = Logger.logger("com.orchestrator.Main")
@@ -18,6 +28,8 @@ private val log = Logger.logger("com.orchestrator.Main")
 class Main {
     private var mcpServer: McpServerImpl? = null
     private var metricsModule: MetricsModule? = null
+    private var watcherDaemon: WatcherDaemon? = null
+    private val watcherScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     fun start(args: Array<String>) {
         val cliArgs = parseArgs(args)
@@ -38,7 +50,18 @@ class Main {
             log.info("Initializing context database...")
             ContextDatabase.initialize(config.context.storage)
             log.info("Context database initialized at ${config.context.storage.dbPath}")
-            
+
+            // Initialize and start file watcher
+            if (config.context.watcher.enabled) {
+                log.info("Initializing file watcher...")
+                val watcher = initializeWatcher(config)
+                watcherDaemon = watcher
+                watcher.start()
+                log.info("File watcher started, monitoring ${config.context.watcher.watchPaths}")
+            } else {
+                log.info("File watcher disabled by configuration")
+            }
+
             // Initialize database
             log.info("Initializing database...")
             initializeDatabase()
@@ -222,6 +245,43 @@ class Main {
             throw e
         }
     }
+
+    private fun initializeWatcher(config: ConfigLoader.ApplicationConfig): WatcherDaemon {
+        return try {
+            val projectRoot = Paths.get("").toAbsolutePath()
+            val embedder = LocalEmbedder(
+                modelPath = null, // Will use default path
+                modelName = config.context.embedding.model,
+                dimension = config.context.embedding.dimension,
+                normalize = config.context.embedding.normalize,
+                maxBatchSize = config.context.embedding.batchSize
+            )
+            val fileIndexer = FileIndexer(embedder, projectRoot)
+            val changeDetector = ChangeDetector(projectRoot)
+            val batchIndexer = BatchIndexer(fileIndexer)
+            val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)
+
+            WatcherDaemon(
+                scope = watcherScope,
+                projectRoot = projectRoot,
+                watcherConfig = config.context.watcher,
+                indexingConfig = config.context.indexing,
+                incrementalIndexer = incrementalIndexer,
+                onUpdate = { result ->
+                    log.info(
+                        "File watcher indexed: new=${result.newCount}, modified=${result.modifiedCount}, " +
+                        "deleted=${result.deletedCount}, failures=${result.indexingFailures + result.deletionFailures}"
+                    )
+                },
+                onError = { error ->
+                    log.error("File watcher error: ${error.message}", error)
+                }
+            )
+        } catch (e: Exception) {
+            log.error("Failed to initialize file watcher: ${e.message}")
+            throw e
+        }
+    }
     
     private fun setupShutdownHook() {
         Runtime.getRuntime().addShutdownHook(Thread {
@@ -232,19 +292,26 @@ class Main {
     
     private fun shutdown() {
         log.info("Shutting down orchestrator...")
-        
+
         try {
             mcpServer?.stop()
             log.info("MCP server stopped")
         } catch (e: Exception) {
             log.error("Error stopping MCP server: ${e.message}")
         }
-        
+
         try {
             metricsModule?.stop()
             log.info("Metrics module stopped")
         } catch (e: Exception) {
             log.error("Error stopping metrics module: ${e.message}")
+        }
+
+        try {
+            watcherDaemon?.stop()
+            log.info("File watcher stopped")
+        } catch (e: Exception) {
+            log.error("Error stopping file watcher: ${e.message}")
         }
 
         try {
@@ -260,7 +327,7 @@ class Main {
         } catch (e: Exception) {
             log.error("Error closing database: ${e.message}")
         }
-        
+
         log.info("Orchestrator shutdown complete")
     }
     
