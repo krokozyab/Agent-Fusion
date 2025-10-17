@@ -40,12 +40,66 @@ object ContextRepository {
 
     // region Public API
 
-    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts =
-        ContextDatabase.transaction { conn ->
-            val persistedFile = upsertFileState(conn, fileState)
-            val persistedChunks = replaceChunksInternal(conn, persistedFile.id, chunkArtifacts)
-            FileArtifacts(persistedFile, persistedChunks)
+    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts {
+        // Stage 0: Find existing file and collect chunk IDs for deletion
+        val (existingFile, existingChunkIds) = ContextDatabase.withConnection { conn ->
+            val existing = if (fileState.id > 0) {
+                getFileStateById(conn, fileState.id)
+            } else {
+                getFileStateByPath(conn, fileState.relativePath)
+            }
+            val chunkIds = if (existing != null) {
+                getChunkIdsForFile(conn, existing.id)
+            } else {
+                emptyList()
+            }
+            Pair(existing, chunkIds)
         }
+
+        // Stage 1: Delete embeddings and other child artifacts in separate transaction
+        // DuckDB enforces foreign keys immediately, so we need to delete in separate transactions
+        if (existingFile != null && existingChunkIds.isNotEmpty()) {
+            ContextDatabase.transaction { conn ->
+                deleteEmbeddings(conn, existingChunkIds)
+                deleteLinks(conn, existingChunkIds)
+                deleteUsageMetrics(conn, existingFile.id, existingChunkIds)
+                deleteSymbolsByChunkIds(conn, existingChunkIds)
+                deleteLinksByTargetFile(conn, existingFile.id)
+            }
+
+            // Stage 2: Delete chunks after embeddings are gone
+            ContextDatabase.transaction { conn ->
+                deleteChunks(conn, existingFile.id)
+            }
+        }
+
+        // Stage 3: Upsert file state
+        val persistedFile = ContextDatabase.transaction { conn ->
+            upsertFileState(conn, fileState)
+        }
+
+        // Stage 4: Insert new chunks and their artifacts
+        val persistedChunks = ContextDatabase.transaction { conn ->
+            val persisted = ArrayList<ChunkArtifacts>(chunkArtifacts.size)
+            chunkArtifacts.forEach { artifact ->
+                // Always generate new chunk IDs to avoid conflicts with old embeddings
+                val chunkId = nextId(conn, "chunks_seq")
+                insertChunk(conn, artifact.chunk.copy(id = chunkId, fileId = persistedFile.id))
+                val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
+                val links = insertLinks(conn, chunkId, persistedFile.id, artifact.links)
+                persisted.add(
+                    ChunkArtifacts(
+                        chunk = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id),
+                        embeddings = embeddings,
+                        links = links
+                    )
+                )
+            }
+            persisted
+        }
+
+        return FileArtifacts(persistedFile, persistedChunks)
+    }
 
     fun fetchFileArtifactsByPath(relativePath: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
         val file = getFileStateByPath(conn, relativePath) ?: return@withConnection null
@@ -269,33 +323,6 @@ object ContextRepository {
         return state
     }
 
-    private fun replaceChunksInternal(conn: Connection, fileId: Long, chunkArtifacts: List<ChunkArtifacts>): List<ChunkArtifacts> {
-        val existingChunkIds = getChunkIdsForFile(conn, fileId)
-        if (existingChunkIds.isNotEmpty()) {
-            deleteEmbeddings(conn, existingChunkIds)
-            deleteLinks(conn, existingChunkIds)
-            deleteUsageMetrics(conn, fileId, existingChunkIds)
-            deleteSymbolsByChunkIds(conn, existingChunkIds)
-            deleteLinksByTargetFile(conn, fileId)
-            deleteChunks(conn, fileId)
-        }
-
-        val persisted = ArrayList<ChunkArtifacts>(chunkArtifacts.size)
-        chunkArtifacts.forEach { artifact ->
-            val chunkId = if (artifact.chunk.id > 0) artifact.chunk.id else nextId(conn, "chunks_seq")
-            insertChunk(conn, artifact.chunk.copy(id = chunkId, fileId = fileId))
-            val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
-            val links = insertLinks(conn, chunkId, fileId, artifact.links)
-            persisted.add(
-                ChunkArtifacts(
-                    chunk = artifact.chunk.copy(id = chunkId, fileId = fileId),
-                    embeddings = embeddings,
-                    links = links
-                )
-            )
-        }
-        return persisted
-    }
 
     private fun insertChunk(conn: Connection, chunk: Chunk) {
         val sql = """

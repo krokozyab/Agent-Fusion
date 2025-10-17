@@ -47,6 +47,7 @@ class WatcherDaemon(
     private val log = Logger.logger("com.orchestrator.context.watcher.WatcherDaemon")
     private val running = AtomicBoolean(false)
     private val watchRoots: List<Path> = resolveWatchRoots(projectRoot, watcherConfig.watchPaths)
+    private val loggedSkippedPaths = mutableSetOf<Path>()
 
     private val pathFilter: PathFilter = PathFilter.fromSources(
         projectRoot.toAbsolutePath().normalize(),
@@ -57,7 +58,7 @@ class WatcherDaemon(
     )
     private val extensionFilter: ExtensionFilter = ExtensionFilter.fromConfig(
         indexingConfig.allowedExtensions,
-        if (indexingConfig.allowedExtensions.isNotEmpty()) emptyList() else indexingConfig.blockedExtensions
+        indexingConfig.blockedExtensions
     )
 
     private val pathValidator: PathValidator = PathValidator(
@@ -170,12 +171,16 @@ class WatcherDaemon(
         }
         val validation = pathValidator.validate(event.path)
         if (!validation.valid) {
-            log.debug(
-                "Skipping {} due to validation failure {} ({})",
-                event.path,
-                validation.code,
-                validation.message
-            )
+            // Only log the first time we skip a particular path to avoid log spam
+            val normalizedPath = event.path.toAbsolutePath().normalize()
+            if (loggedSkippedPaths.add(normalizedPath)) {
+                log.debug(
+                    "Skipping {} due to validation failure {} ({})",
+                    event.path,
+                    validation.code,
+                    validation.message
+                )
+            }
             return
         }
         enqueue(event.path)

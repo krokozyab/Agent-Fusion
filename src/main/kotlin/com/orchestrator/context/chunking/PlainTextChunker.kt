@@ -236,13 +236,15 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
         endLine: Int,
         timestamp: Instant
     ): Chunk {
+        val normalizedStartLine = startLine.coerceAtLeast(1)
+        val normalizedEndLine = endLine.coerceAtLeast(normalizedStartLine)
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = ChunkKind.PARAGRAPH,
-            startLine = startLine.coerceAtLeast(1),
-            endLine = endLine.coerceAtLeast(1),
+            startLine = normalizedStartLine,
+            endLine = normalizedEndLine,
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = null,
