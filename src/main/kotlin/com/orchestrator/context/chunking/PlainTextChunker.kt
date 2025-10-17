@@ -4,6 +4,12 @@ import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import java.time.Instant
 
+private data class ParagraphInfo(
+    val text: String,
+    val startLine: Int,
+    val endLine: Int
+)
+
 class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
 
     private val sentenceSplitRegex = Regex("(?<=[.!?])\\s+")
@@ -18,23 +24,67 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
     
     override fun chunk(content: String, filePath: String, language: String): List<Chunk> {
         if (content.isBlank()) return emptyList()
-        
-        val paragraphs = content.split(Regex("\n\n+"))
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-        
+
+        val lines = content.lines()
+        val paragraphs = mutableListOf<ParagraphInfo>()
+        var currentParagraph = StringBuilder()
+        var paragraphStartLine = 1
+        var currentLine = 1
+
+        // Track paragraph boundaries with line numbers
+        for (line in lines) {
+            if (line.isBlank()) {
+                if (currentParagraph.isNotEmpty()) {
+                    paragraphs.add(ParagraphInfo(
+                        currentParagraph.toString().trim(),
+                        paragraphStartLine,
+                        currentLine - 1
+                    ))
+                    currentParagraph.clear()
+                }
+                paragraphStartLine = currentLine + 1
+            } else {
+                if (currentParagraph.isNotEmpty()) {
+                    currentParagraph.append('\n')
+                }
+                currentParagraph.append(line)
+            }
+            currentLine++
+        }
+
+        // Add final paragraph if exists
+        if (currentParagraph.isNotEmpty()) {
+            paragraphs.add(ParagraphInfo(
+                currentParagraph.toString().trim(),
+                paragraphStartLine,
+                lines.size
+            ))
+        }
+
         val chunks = mutableListOf<Chunk>()
         var ordinal = 0
         val createdAt = Instant.now()
 
-        for (paragraph in paragraphs) {
-            val tokens = estimateTokens(paragraph)
+        for (paragraphInfo in paragraphs) {
+            val tokens = estimateTokens(paragraphInfo.text)
 
             if (tokens <= maxTokens) {
-                chunks.add(createChunk(paragraph.trim(), ordinal++, createdAt))
+                chunks.add(createChunk(
+                    paragraphInfo.text,
+                    ordinal++,
+                    paragraphInfo.startLine,
+                    paragraphInfo.endLine,
+                    createdAt
+                ))
             } else {
                 // Split large paragraphs by sentences, lines and words while respecting the token budget
-                val subChunks = splitLargeParagraph(paragraph, ordinal, createdAt)
+                val subChunks = splitLargeParagraph(
+                    paragraphInfo.text,
+                    ordinal,
+                    paragraphInfo.startLine,
+                    paragraphInfo.endLine,
+                    createdAt
+                )
                 chunks.addAll(subChunks)
                 ordinal = chunks.size
             }
@@ -45,15 +95,27 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
     
     override fun estimateTokens(text: String): Int = text.length / 4
     
-    private fun splitLargeParagraph(text: String, startOrdinal: Int, timestamp: Instant): List<Chunk> {
+    private fun splitLargeParagraph(
+        text: String,
+        startOrdinal: Int,
+        startLine: Int,
+        endLine: Int,
+        timestamp: Instant
+    ): List<Chunk> {
         val chunks = mutableListOf<Chunk>()
         var ordinal = startOrdinal
         val maxLength = (maxTokens * 4).coerceAtLeast(1)
 
-        fun addChunk(content: String) {
+        val totalLines = text.lines().size
+        val lineRatio = (endLine - startLine + 1).toDouble() / totalLines.coerceAtLeast(1)
+
+        fun addChunk(content: String, approximateLineOffset: Int) {
             val cleaned = content.trim()
             if (cleaned.isNotEmpty()) {
-                chunks += createChunk(cleaned, ordinal++, timestamp)
+                val chunkLines = cleaned.lines().size
+                val chunkStartLine = (startLine + approximateLineOffset * lineRatio).toInt().coerceAtLeast(1)
+                val chunkEndLine = (chunkStartLine + chunkLines - 1).coerceAtLeast(chunkStartLine)
+                chunks += createChunk(cleaned, ordinal++, chunkStartLine, chunkEndLine, timestamp)
             }
         }
 
@@ -62,11 +124,12 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
             .filter { it.isNotEmpty() }
 
         if (sentences.isEmpty()) {
-            splitByWords(text, ordinal, timestamp, maxLength, chunks)
+            splitByWords(text, ordinal, startLine, endLine, timestamp, maxLength, chunks)
             return chunks
         }
 
         val buffer = StringBuilder()
+        var lineOffset = 0
         for (sentence in sentences) {
             val candidateLength = if (buffer.isEmpty()) {
                 sentence.length
@@ -79,24 +142,26 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
                 buffer.append(sentence)
             } else {
                 if (buffer.isNotEmpty()) {
-                    addChunk(buffer.toString())
+                    addChunk(buffer.toString(), lineOffset)
+                    lineOffset += buffer.toString().lines().size
                     buffer.setLength(0)
                 }
 
                 if (sentence.length <= maxLength) {
                     buffer.append(sentence)
                 } else {
-                    ordinal = splitByWords(sentence, ordinal, timestamp, maxLength, chunks)
+                    ordinal = splitByWords(sentence, ordinal, startLine + lineOffset, endLine, timestamp, maxLength, chunks)
+                    lineOffset += sentence.lines().size
                 }
             }
         }
 
         if (buffer.isNotEmpty()) {
-            addChunk(buffer.toString())
+            addChunk(buffer.toString(), lineOffset)
         }
 
         if (chunks.isEmpty()) {
-            splitByWords(text, startOrdinal, timestamp, maxLength, chunks)
+            splitByWords(text, startOrdinal, startLine, endLine, timestamp, maxLength, chunks)
         }
 
         return chunks
@@ -105,6 +170,8 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
     private fun splitByWords(
         text: String,
         startOrdinal: Int,
+        startLine: Int,
+        endLine: Int,
         timestamp: Instant,
         maxLength: Int,
         target: MutableList<Chunk>
@@ -118,10 +185,15 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
         }
 
         val buffer = StringBuilder()
+        var currentLine = startLine
 
         fun flush() {
             if (buffer.isNotEmpty()) {
-                target += createChunk(buffer.toString().trim(), ordinal++, timestamp)
+                val content = buffer.toString().trim()
+                val lines = content.lines().size
+                val chunkEndLine = (currentLine + lines - 1).coerceAtLeast(currentLine).coerceAtMost(endLine)
+                target += createChunk(content, ordinal++, currentLine, chunkEndLine, timestamp)
+                currentLine = chunkEndLine + 1
                 buffer.setLength(0)
             }
         }
@@ -145,7 +217,8 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
                     while (index < word.length) {
                         val end = (index + maxLength).coerceAtMost(word.length)
                         val part = word.substring(index, end)
-                        target += createChunk(part, ordinal++, timestamp)
+                        target += createChunk(part, ordinal++, currentLine, currentLine, timestamp)
+                        currentLine++
                         index = end
                     }
                 }
@@ -156,14 +229,20 @@ class PlainTextChunker(private val maxTokens: Int = 600) : Chunker {
         return ordinal
     }
 
-    private fun createChunk(text: String, ordinal: Int, timestamp: Instant): Chunk {
+    private fun createChunk(
+        text: String,
+        ordinal: Int,
+        startLine: Int,
+        endLine: Int,
+        timestamp: Instant
+    ): Chunk {
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = ChunkKind.PARAGRAPH,
-            startLine = null,
-            endLine = null,
+            startLine = startLine.coerceAtLeast(1),
+            endLine = endLine.coerceAtLeast(1),
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = null,

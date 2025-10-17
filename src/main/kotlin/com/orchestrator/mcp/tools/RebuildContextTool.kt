@@ -442,6 +442,7 @@ class RebuildContextTool(
                 st.execute("DROP TABLE IF EXISTS links CASCADE")
                 st.execute("DROP TABLE IF EXISTS chunks CASCADE")
                 st.execute("DROP TABLE IF EXISTS file_state CASCADE")
+                st.execute("DROP TABLE IF EXISTS project_config CASCADE")
 
                 // Drop sequences
                 st.execute("DROP SEQUENCE IF EXISTS file_state_seq")

@@ -73,25 +73,36 @@ class MarkdownChunker(
         flushSection()
 
         val now = Instant.now()
-        return chunkInputs
+        val prepared = chunkInputs
             .flatMap { it.ensureWithinLimit(maxTokens, estimator) }
-            .mapIndexed { ordinal, input ->
+            .mapNotNull { input ->
                 val text = input.lines.joinToString("\n") { it.text }
-                val start = input.lines.firstOrNull()?.number
-                val end = input.lines.lastOrNull()?.number
-                Chunk(
-                    id = 0,
-                    fileId = 0,
-                    ordinal = ordinal,
-                    kind = input.kind,
-                    startLine = start,
-                    endLine = end,
-                    tokenEstimate = estimator.estimate(text),
-                    content = text,
-                    summary = input.label,
-                    createdAt = now
-                )
+                if (text.isBlank()) {
+                    null
+                } else {
+                    Triple(input, text, Pair(input.lines.firstOrNull()?.number, input.lines.lastOrNull()?.number))
+                }
             }
+
+        return prepared.mapIndexedNotNull { ordinal, (input, text, span) ->
+            val start = span.first
+            val end = span.second
+            if (start == null || end == null) {
+                return@mapIndexedNotNull null
+            }
+            Chunk(
+                id = 0,
+                fileId = 0,
+                ordinal = ordinal,
+                kind = input.kind,
+                startLine = start,
+                endLine = end,
+                tokenEstimate = estimator.estimate(text),
+                content = text,
+                summary = input.label,
+                createdAt = now
+            )
+        }
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)

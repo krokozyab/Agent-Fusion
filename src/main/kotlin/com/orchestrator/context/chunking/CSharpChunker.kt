@@ -313,13 +313,16 @@ class CSharpChunker(
         endLine: Int?
     ): Chunk {
         val estimate = estimateTokens(text)
+        // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
+        val validStartLine = startLine?.coerceAtLeast(1) ?: 1
+        val validEndLine = endLine?.coerceAtLeast(1) ?: 1
         return Chunk(
             id = 0L,
             fileId = 0L,
             ordinal = ordinal,
             kind = kind,
-            startLine = startLine,
-            endLine = endLine,
+            startLine = validStartLine,
+            endLine = validEndLine,
             tokenEstimate = estimate,
             content = text,
             summary = label,

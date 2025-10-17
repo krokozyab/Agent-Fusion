@@ -155,13 +155,16 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
     }
     
     private fun createChunk(text: String, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+        // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
+        val validStartLine = startLine?.coerceAtLeast(1) ?: 1
+        val validEndLine = endLine?.coerceAtLeast(1) ?: 1
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = ChunkKind.SQL_STATEMENT,
-            startLine = startLine,
-            endLine = endLine,
+            startLine = validStartLine,
+            endLine = validEndLine,
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,

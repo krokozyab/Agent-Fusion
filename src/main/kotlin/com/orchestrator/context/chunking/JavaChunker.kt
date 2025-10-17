@@ -130,20 +130,23 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         if (tokens <= maxTokens) {
             return listOf(createChunk(text, kind, label, ordinal, startLine, endLine))
         }
-        
+
         // Split by lines with overlap
         val lines = text.lines()
         val chunks = mutableListOf<Chunk>()
         val tokensPerLine = (tokens.toDouble() / lines.size).coerceAtLeast(1.0)
         val linesPerChunk = maxOf(1, (maxTokens / tokensPerLine).toInt())
         val overlapLines = maxOf(1, (linesPerChunk * (overlapPercent / 100.0)).toInt())
-        
+
         var start = 0
         var chunkOrdinal = ordinal
         while (start < lines.size) {
             val end = (start + linesPerChunk).coerceAtMost(lines.size)
             val chunkText = lines.subList(start, end).joinToString("\n")
-            chunks.add(createChunk(chunkText, kind, "$label[${chunkOrdinal - ordinal}]", chunkOrdinal++, startLine + start, startLine + end))
+            // Calculate absolute line numbers correctly
+            val chunkStartLine = startLine + start
+            val chunkEndLine = startLine + (end - 1)  // end is exclusive, so subtract 1
+            chunks.add(createChunk(chunkText, kind, "$label[${chunkOrdinal - ordinal}]", chunkOrdinal++, chunkStartLine, chunkEndLine))
             start = (end - overlapLines).coerceAtLeast(start + 1)
             if (start >= lines.size) break
         }
@@ -152,13 +155,17 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
     }
     
     private fun createChunk(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+        // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
+        val validStartLine = startLine?.coerceAtLeast(1) ?: 1
+        val validEndLine = endLine?.coerceAtLeast(1) ?: 1
+
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = kind,
-            startLine = startLine?.takeIf { it > 0 },
-            endLine = endLine?.takeIf { it > 0 },
+            startLine = validStartLine,
+            endLine = validEndLine,
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,

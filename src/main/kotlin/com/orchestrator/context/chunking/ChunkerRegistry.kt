@@ -14,6 +14,7 @@ object ChunkerRegistry {
         "java" to SimpleChunkerAdapter(JavaChunker()),
         "cs" to SimpleChunkerAdapter(CSharpChunker()),
         "kt" to SimpleChunkerAdapter(KotlinChunker()),
+        "kts" to SimpleChunkerAdapter(KotlinChunker()),
         "yaml" to SimpleChunkerAdapter(YamlChunker()),
         "yml" to SimpleChunkerAdapter(YamlChunker()),
         "sql" to SimpleChunkerAdapter(SqlChunker())
