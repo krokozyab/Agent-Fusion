@@ -267,47 +267,10 @@ class RebuildContextTool(
         }
 
         return try {
-            // Phase 2: Pre-rebuild
-            log.info("Pre-rebuild: preparing database for rebuild")
-
-            // Phase 3: Destructive phase
-            log.info("Destructive phase: clearing existing context data")
-            clearContextData()
-
-            // Phase 4: Rebuild phase
-            log.info("Rebuild phase: running bootstrap for {} paths", paths.size)
-            val bootstrapResult = runBlocking { runBootstrap(paths, params.parallelism) }
-
-            // Phase 5: Post-rebuild
-            log.info("Post-rebuild: optimizing database")
-            optimizeDatabase()
-
-            val completedAt = Instant.now()
-            val durationMs = completedAt.toEpochMilli() - startedAt.toEpochMilli()
-
-            log.info(
-                "Rebuild completed: total={} successful={} failed={} duration={}ms",
-                bootstrapResult.totalFiles,
-                bootstrapResult.successfulFiles,
-                bootstrapResult.failedFiles,
-                durationMs
-            )
-
-            Result(
-                mode = "sync",
-                status = if (bootstrapResult.success) "completed" else "completed_with_errors",
-                jobId = null,
-                phase = "post-rebuild",
-                totalFiles = bootstrapResult.totalFiles,
-                processedFiles = bootstrapResult.totalFiles,
-                successfulFiles = bootstrapResult.successfulFiles,
-                failedFiles = bootstrapResult.failedFiles,
-                durationMs = durationMs,
-                startedAt = startedAt,
-                completedAt = completedAt,
-                message = buildSuccessMessage(bootstrapResult),
-                validationErrors = null
-            )
+            // Use runBlocking but ensure we're using async methods internally
+            runBlocking {
+                executeSyncInternal(paths, params, startedAt)
+            }
         } catch (e: Exception) {
             val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
             log.error("Rebuild failed: $errorMessage", e)
@@ -330,6 +293,50 @@ class RebuildContextTool(
         } finally {
             rebuildInProgress.set(false)
         }
+    }
+
+    private suspend fun executeSyncInternal(paths: List<Path>, params: Params, startedAt: Instant): Result {
+        // Phase 2: Pre-rebuild
+        log.info("Pre-rebuild: preparing database for rebuild")
+
+        // Phase 3: Destructive phase
+        log.info("Destructive phase: clearing existing context data")
+        clearContextData()
+
+        // Phase 4: Rebuild phase
+        log.info("Rebuild phase: running bootstrap for {} paths", paths.size)
+        val bootstrapResult = runBootstrap(paths, params.parallelism)
+
+        // Phase 5: Post-rebuild
+        log.info("Post-rebuild: optimizing database")
+        optimizeDatabase()
+
+        val completedAt = Instant.now()
+        val durationMs = completedAt.toEpochMilli() - startedAt.toEpochMilli()
+
+        log.info(
+            "Rebuild completed: total={} successful={} failed={} duration={}ms",
+            bootstrapResult.totalFiles,
+            bootstrapResult.successfulFiles,
+            bootstrapResult.failedFiles,
+            durationMs
+        )
+
+        return Result(
+            mode = "sync",
+            status = if (bootstrapResult.success) "completed" else "completed_with_errors",
+            jobId = null,
+            phase = "post-rebuild",
+            totalFiles = bootstrapResult.totalFiles,
+            processedFiles = bootstrapResult.totalFiles,
+            successfulFiles = bootstrapResult.successfulFiles,
+            failedFiles = bootstrapResult.failedFiles,
+            durationMs = durationMs,
+            startedAt = startedAt,
+            completedAt = completedAt,
+            message = buildSuccessMessage(bootstrapResult),
+            validationErrors = null
+        )
     }
 
     private fun executeAsync(paths: List<Path>, params: Params, startedAt: Instant): Result {
@@ -573,7 +580,9 @@ class RebuildContextTool(
         val fileIndexer = FileIndexer(
             embedder = embedder,
             projectRoot = projectRoot,
-            embeddingBatchSize = config.embedding.batchSize
+            embeddingBatchSize = config.embedding.batchSize,
+            maxFileSizeMb = config.indexing.maxFileSizeMb,
+            warnFileSizeMb = config.indexing.warnFileSizeMb
         )
 
         // Create batch indexer

@@ -132,7 +132,7 @@ class McpServerImpl(
     private val metricsResource by lazy { MetricsResource() }
 
     private val sseSessions = ConcurrentHashMap<String, SseServerTransport>()
-    private val streamableSessions = StreamableHttpSessionManager(::createMcpServer, STREAMABLE_REQUEST_TIMEOUT_MS)
+    private val streamableSessions = StreamableHttpSessionManager({ sessionId -> createMcpServer(sessionId) }, STREAMABLE_REQUEST_TIMEOUT_MS)
 
     // Track session -> agent mapping for automatic agent identification
     private val sessionToAgent = ConcurrentHashMap<String, AgentId>()
@@ -314,19 +314,23 @@ class McpServerImpl(
     // ---- Transport handlers ----
 
     private suspend fun ApplicationCall.handleSseGet() {
+        log.info("Handling SSE GET request")
         respond(SSEServerContent(this) {
             val transport = SseServerTransport(SSE_POST_ENDPOINT, this)
+            val sessionId = transport.sessionId
+            log.info("[Session: $sessionId] Created SSE transport")
             val closed = AtomicBoolean(false)
             val cleanup = {
                 if (closed.compareAndSet(false, true)) {
-                    sseSessions.remove(transport.sessionId)
+                    sseSessions.remove(sessionId)
+                    log.info("[Session: $sessionId] Cleaned up SSE session")
                 }
             }
 
-            sseSessions[transport.sessionId] = transport
+            sseSessions[sessionId] = transport
             transport.onClose(cleanup)
 
-            val server = createMcpServer()
+            val server = createMcpServer(sessionId)
             server.onClose(cleanup)
 
             try {
@@ -391,6 +395,7 @@ class McpServerImpl(
     }
 
     private suspend fun ApplicationCall.handleStreamableHandshake(message: JSONRPCMessage) {
+        log.info("Handling Streamable HTTP handshake request")
         if (message !is JSONRPCRequest || message.method != INITIALIZE_METHOD) {
             respond(HttpStatusCode.BadRequest, errorBody("invalid_request", "First message must be an initialize request"))
             return
@@ -403,6 +408,8 @@ class McpServerImpl(
             respond(HttpStatusCode.InternalServerError, errorBody("internal_error", "Unable to create session"))
             return
         }
+
+        log.info("Created Streamable HTTP session with ID: ${session.sessionId}")
 
         // Extract agent identity from initialize request if available
         extractAgentIdFromInitialize(message)?.let { agentId ->
@@ -454,20 +461,21 @@ class McpServerImpl(
     }
 
     private inner class StreamableHttpSessionManager(
-        private val serverFactory: () -> Server,
+        private val serverFactory: (String) -> Server,
         private val requestTimeoutMs: Long
     ) {
         private val sessions = ConcurrentHashMap<String, StreamableHttpSession>()
 
         suspend fun createSession(): StreamableHttpSession {
             val transport = StreamableHttpServerTransport(requestTimeoutMs)
-            val server = serverFactory()
+            val sessionId = transport.sessionId  // Use the transport's session ID
+            val server = serverFactory(sessionId)
             val session = StreamableHttpSession(server, transport) { id -> sessions.remove(id) }
-            sessions[session.sessionId] = session
+            sessions[sessionId] = session
             try {
                 session.connect()
             } catch (t: Throwable) {
-                sessions.remove(session.sessionId)
+                sessions.remove(sessionId)
                 throw t
             }
             return session
@@ -689,7 +697,8 @@ class McpServerImpl(
         }
     }
 
-    private fun createMcpServer(): Server {
+    private fun createMcpServer(sessionId: String): Server {
+        log.info("[Session: $sessionId] Creating new MCP Server instance (Thread: ${Thread.currentThread().name})")
         val server = Server(
             serverInfo = Implementation(
                 name = "codex-to-claude-orchestrator",
@@ -704,14 +713,16 @@ class McpServerImpl(
             instructions = "Use orchestrator tools to manage tasks and submit work products."
         )
 
-        registerTools(server)
+        registerTools(server, sessionId)
         registerResources(server)
+        log.info("[Session: $sessionId] MCP Server instance created with ${tools().size} tools registered")
 
         return server
     }
 
-    private fun registerTools(server: Server) {
+    private fun registerTools(server: Server, sessionId: String) {
         tools().forEach { entry ->
+            log.info("[Session: $sessionId] Registering tool: ${entry.name}")
             val inputSchema = toolInputFromJsonSchema(entry.jsonSchema)
             server.addTool(
                 name = entry.name,

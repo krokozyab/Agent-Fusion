@@ -256,7 +256,13 @@ class Main {
                 normalize = config.context.embedding.normalize,
                 maxBatchSize = config.context.embedding.batchSize
             )
-            val fileIndexer = FileIndexer(embedder, projectRoot)
+            val fileIndexer = FileIndexer(
+                embedder = embedder,
+                projectRoot = projectRoot,
+                embeddingBatchSize = config.context.embedding.batchSize,
+                maxFileSizeMb = config.context.indexing.maxFileSizeMb,
+                warnFileSizeMb = config.context.indexing.warnFileSizeMb
+            )
             val changeDetector = ChangeDetector(projectRoot)
             val batchIndexer = BatchIndexer(fileIndexer)
             val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)

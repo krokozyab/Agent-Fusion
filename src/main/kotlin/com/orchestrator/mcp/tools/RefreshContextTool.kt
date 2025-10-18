@@ -44,7 +44,9 @@ class RefreshContextTool(
             val fileIndexer = com.orchestrator.context.indexing.FileIndexer(
                 embedder = embedder,
                 projectRoot = projectRoot,
-                embeddingBatchSize = config.embedding.batchSize
+                embeddingBatchSize = config.embedding.batchSize,
+                maxFileSizeMb = config.indexing.maxFileSizeMb,
+                warnFileSizeMb = config.indexing.warnFileSizeMb
             )
 
             // Create batch indexer
@@ -180,10 +182,12 @@ class RefreshContextTool(
 
     private fun executeSync(paths: List<Path>, params: Params, startedAt: Instant): Result {
         return try {
-            val updateResult = indexer.update(
-                paths = paths,
-                parallelism = params.parallelism
-            )
+            val updateResult = runBlocking {
+                indexer.updateAsync(
+                    paths = paths,
+                    parallelism = params.parallelism
+                )
+            }
 
             val completedAt = Instant.now()
 

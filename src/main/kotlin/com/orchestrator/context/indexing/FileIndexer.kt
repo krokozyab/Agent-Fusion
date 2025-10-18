@@ -35,15 +35,21 @@ class FileIndexer(
     private val chunkerRegistry: ChunkerRegistry = ChunkerRegistry,
     private val tokenEstimator: TokenEstimator = TokenEstimator,
     private val readCharset: Charset = StandardCharsets.UTF_8,
-    private val embeddingBatchSize: Int = 64
+    private val embeddingBatchSize: Int = 64,
+    private val maxFileSizeMb: Int = 5,
+    private val warnFileSizeMb: Int = 2
 ) {
 
     init {
         require(embeddingBatchSize > 0) { "embeddingBatchSize must be positive" }
+        require(maxFileSizeMb > 0) { "maxFileSizeMb must be positive" }
+        require(warnFileSizeMb > 0) { "warnFileSizeMb must be positive" }
     }
 
     private val log = Logger.logger("com.orchestrator.context.indexing.FileIndexer")
     private val root: Path = projectRoot.toAbsolutePath().normalize()
+    private val maxFileSizeBytes = maxFileSizeMb * 1024L * 1024L
+    private val warnFileSizeBytes = warnFileSizeMb * 1024L * 1024L
 
     /**
      * Index the provided file path synchronously.
@@ -78,6 +84,27 @@ class FileIndexer(
         return runCatching {
             val metadata = metadataExtractor.extractMetadata(absolutePath)
             coroutineContext.ensureActive()
+
+            // Check file size before reading
+            val fileSizeBytes = metadata.sizeBytes
+            if (fileSizeBytes > maxFileSizeBytes) {
+                val sizeMb = fileSizeBytes / (1024.0 * 1024.0)
+                val message = "File exceeds maximum size limit: ${String.format("%.2f", sizeMb)} MB > $maxFileSizeMb MB"
+                log.warn("Skipping $relativePath: $message")
+                return IndexResult(
+                    success = false,
+                    relativePath = relativePath,
+                    chunkCount = 0,
+                    embeddingCount = 0,
+                    error = message
+                )
+            }
+
+            if (fileSizeBytes > warnFileSizeBytes) {
+                val sizeMb = fileSizeBytes / (1024.0 * 1024.0)
+                log.warn("Indexing large file $relativePath (${String.format("%.2f", sizeMb)} MB). This may take a while...")
+            }
+
             val content = readFile(absolutePath)
             coroutineContext.ensureActive()
 
@@ -86,6 +113,10 @@ class FileIndexer(
             val chunkLanguage = languageHint ?: "text"
             val rawChunks = chunker.chunk(content, relativePath, chunkLanguage)
             val normalizedChunks = normalizeChunks(rawChunks, chunker)
+
+            if (normalizedChunks.size > 50) {
+                log.info("Chunked {} into {} chunks, starting embedding generation...", relativePath, normalizedChunks.size)
+            }
 
             coroutineContext.ensureActive()
             val embeddings = generateEmbeddings(normalizedChunks)
@@ -166,8 +197,14 @@ class FileIndexer(
 
     private suspend fun generateEmbeddings(chunks: List<Chunk>): List<Embedding> {
         if (chunks.isEmpty()) return emptyList()
+
+        val chunkCount = chunks.size
+        if (chunkCount > 10) {
+            log.debug("Generating embeddings for {} chunks", chunkCount)
+        }
+
         val texts = chunks.map { it.content }
-        val vectors = embedInBatches(texts)
+        val vectors = embedInBatches(texts, chunkCount)
         if (vectors.size != chunks.size) {
             throw IllegalStateException("Embedding count ${vectors.size} does not match chunk count ${chunks.size}")
         }
@@ -189,14 +226,24 @@ class FileIndexer(
         }
     }
 
-    private suspend fun embedInBatches(texts: List<String>): List<FloatArray> {
+    private suspend fun embedInBatches(texts: List<String>, totalChunks: Int): List<FloatArray> {
         if (texts.isEmpty()) return emptyList()
         val results = ArrayList<FloatArray>(texts.size)
         var index = 0
+        var batchNumber = 0
+        val totalBatches = (texts.size + embeddingBatchSize - 1) / embeddingBatchSize
+
         while (index < texts.size) {
             coroutineContext.ensureActive()
             val end = min(index + embeddingBatchSize, texts.size)
             val batch = texts.subList(index, end)
+            batchNumber++
+
+            // Log progress for large files
+            if (totalBatches > 5) {
+                log.debug("Processing embedding batch {}/{} ({} chunks)", batchNumber, totalBatches, batch.size)
+            }
+
             val batchResult = embedder.embedBatch(batch)
             if (batchResult.size != batch.size) {
                 throw IllegalStateException("Embedder returned ${batchResult.size} vectors for batch of size ${batch.size}")
@@ -204,6 +251,11 @@ class FileIndexer(
             results.addAll(batchResult)
             index = end
         }
+
+        if (totalBatches > 5) {
+            log.debug("Completed all {} batches ({} total embeddings)", totalBatches, results.size)
+        }
+
         return results
     }
 
