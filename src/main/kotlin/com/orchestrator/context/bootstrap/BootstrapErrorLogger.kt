@@ -19,7 +19,7 @@ class BootstrapErrorLogger {
 
     init {
         ContextDatabase.withConnection { conn ->
-            recreateTable(conn)
+            ensureTable(conn)
         }
     }
 
@@ -70,6 +70,28 @@ class BootstrapErrorLogger {
         return paths
     }
 
+    /**
+     * Ensures the bootstrap_errors table exists without dropping existing data.
+     */
+    private fun ensureTable(conn: Connection) {
+        conn.createStatement().use { stmt ->
+            stmt.execute(
+                """
+                CREATE TABLE IF NOT EXISTS $TABLE_NAME (
+                    path VARCHAR PRIMARY KEY,
+                    error_message VARCHAR NOT NULL,
+                    stack_trace VARCHAR NOT NULL,
+                    timestamp TIMESTAMP NOT NULL
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * Drops and recreates the bootstrap_errors table.
+     * Only use this when you need to completely reset error state.
+     */
     private fun recreateTable(conn: Connection) {
         conn.createStatement().use { stmt ->
             stmt.execute("DROP TABLE IF EXISTS $TABLE_NAME")

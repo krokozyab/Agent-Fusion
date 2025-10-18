@@ -69,36 +69,86 @@ object BinaryDetector {
     fun detectByContent(path: Path): Boolean {
         if (!Files.isRegularFile(path)) return false
         val maxBytes = 8 * 1024
-        val buffer = ByteArray(1024)
+        val bytes = ByteArray(maxBytes)
         var totalRead = 0
-        var nonAscii = 0
 
         try {
             Files.newInputStream(path).use { input ->
-                while (totalRead < maxBytes) {
-                    val toRead = min(buffer.size, maxBytes - totalRead)
-                    val read = input.read(buffer, 0, toRead)
+                var offset = 0
+                while (offset < maxBytes) {
+                    val read = input.read(bytes, offset, maxBytes - offset)
                     if (read <= 0) break
-
-                    for (i in 0 until read) {
-                        val b = buffer[i].toInt() and 0xFF
-                        if (b == 0) {
-                            return true
-                        }
-                        if (!b.isLikelyText()) {
-                            nonAscii++
-                        }
-                    }
-                    totalRead += read
+                    offset += read
                 }
+                totalRead = offset
             }
         } catch (_: IOException) {
             return false
         }
 
         if (totalRead == 0) return false
-        val ratio = nonAscii.toDouble() / totalRead.toDouble()
-        return ratio > 0.30
+
+        // Check for null bytes (strong indicator of binary content)
+        for (i in 0 until totalRead) {
+            if (bytes[i].toInt() and 0xFF == 0) {
+                return true
+            }
+        }
+
+        // Try to decode as UTF-8. If it's valid UTF-8 with mostly printable characters, it's text
+        return !isValidUtf8Text(bytes, totalRead)
+    }
+
+    /**
+     * Check if byte array is valid UTF-8 text with acceptable ratio of printable characters.
+     * Returns true if the content is likely text, false if likely binary.
+     */
+    private fun isValidUtf8Text(bytes: ByteArray, length: Int): Boolean {
+        try {
+            // Attempt UTF-8 decoding
+            val text = String(bytes, 0, length, Charsets.UTF_8)
+
+            // Count characters that are printable or common whitespace
+            var printableCount = 0
+            var replacementCharCount = 0
+            var totalChars = 0
+
+            for (char in text) {
+                totalChars++
+                val codePoint = char.code
+
+                // Check for replacement character (indicates invalid UTF-8 sequences)
+                if (codePoint == 0xFFFD) {
+                    replacementCharCount++
+                }
+
+                // Consider as printable:
+                // - Common whitespace: space, tab, newline, carriage return
+                // - ASCII printable: 32-126
+                // - Valid Unicode beyond ASCII (but exclude control characters and replacement char)
+                when {
+                    codePoint in 32..126 -> printableCount++  // ASCII printable
+                    codePoint == 9 || codePoint == 10 || codePoint == 13 -> printableCount++  // Tab, LF, CR
+                    codePoint > 127 && codePoint != 0xFFFD && !Character.isISOControl(codePoint) -> printableCount++  // Unicode printable
+                }
+            }
+
+            if (totalChars == 0) return false
+
+            // If there are too many replacement characters, it's likely binary
+            val replacementRatio = replacementCharCount.toDouble() / totalChars.toDouble()
+            if (replacementRatio > 0.05) {
+                return false  // More than 5% replacement characters suggests binary
+            }
+
+            // If more than 85% of characters are printable, consider it text
+            val printableRatio = printableCount.toDouble() / totalChars.toDouble()
+            return printableRatio > 0.85
+
+        } catch (_: Exception) {
+            // If UTF-8 decoding fails, it's likely binary
+            return false
+        }
     }
 
     fun isBinary(path: Path): Boolean {
@@ -106,9 +156,6 @@ object BinaryDetector {
         if (detectByMimeType(path)) return true
         return detectByContent(path)
     }
-
-    private fun Int.isLikelyText(): Boolean =
-        this == 9 || this == 10 || this == 12 || this == 13 || (this in 32..126)
 
     private fun tryProbeContentType(path: Path): String? = try {
         Files.probeContentType(path)

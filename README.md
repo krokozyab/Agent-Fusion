@@ -101,6 +101,12 @@ For detailed workflow examples, see [Conversation Handoff Workflow](docs/CONVERS
 
 ## Developer Resources
 
+### Build Dependencies
+- Gradle with JDK 21+
+- Ktor server modules (`ktor-server-core`, `ktor-server-netty`, `ktor-server-content-negotiation`, `ktor-server-cors`, `ktor-server-compression`, `ktor-server-sse`, `ktor-server-html-builder`)
+- `kotlinx-html` for server-side rendering
+- DuckDB JDBC driver
+
 ### API Documentation
 📚 **[MCP Server API Reference](docs/API_REFERENCE.md)** - Complete documentation of MCP server endpoints, tools, and resources
 

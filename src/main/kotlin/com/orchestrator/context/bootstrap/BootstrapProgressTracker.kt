@@ -18,7 +18,7 @@ class BootstrapProgressTracker {
 
     init {
         ContextDatabase.withConnection { conn ->
-            recreateTable(conn)
+            ensureTable(conn)
         }
     }
 
@@ -118,6 +118,28 @@ class BootstrapProgressTracker {
         }
     }
 
+    /**
+     * Ensures the bootstrap_progress table exists without dropping existing data.
+     * This allows the service to resume interrupted indexing operations.
+     */
+    private fun ensureTable(conn: Connection) {
+        conn.createStatement().use { stmt ->
+            stmt.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+                    path VARCHAR PRIMARY KEY,
+                    status VARCHAR NOT NULL,
+                    error VARCHAR
+                )
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * Drops and recreates the bootstrap_progress table.
+     * Only use this when you need to completely reset bootstrap state.
+     */
     private fun recreateTable(conn: Connection) {
         conn.createStatement().use { stmt ->
             stmt.execute("DROP TABLE IF EXISTS " + TABLE_NAME)
@@ -131,6 +153,16 @@ class BootstrapProgressTracker {
                 """.trimIndent()
             )
         }
+    }
+
+    /**
+     * Clears all bootstrap progress. Use this to force a complete reindex.
+     */
+    fun reset() {
+        ContextDatabase.withConnection { conn ->
+            recreateTable(conn)
+        }
+        log.info("Bootstrap progress reset - next startup will do full reindex")
     }
 }
 

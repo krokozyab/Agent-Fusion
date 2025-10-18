@@ -17,6 +17,7 @@ object ChunkerRegistry {
         "kts" to SimpleChunkerAdapter(KotlinChunker()),
         "yaml" to SimpleChunkerAdapter(YamlChunker()),
         "yml" to SimpleChunkerAdapter(YamlChunker()),
+        "json" to SimpleChunkerAdapter(JsonChunker()),
         "sql" to SimpleChunkerAdapter(SqlChunker())
     )
     

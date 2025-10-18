@@ -13,6 +13,7 @@ enum class ChunkKind {
     CODE_FUNCTION,
     MARKDOWN_SECTION,
     YAML_BLOCK,
+    JSON_BLOCK,
     SQL_STATEMENT,
     DOCSTRING,
     COMMENT

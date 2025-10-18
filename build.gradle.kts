@@ -30,6 +30,8 @@ dependencies {
     implementation("io.ktor:ktor-server-cors:$ktorVersion")
     implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
     implementation("io.ktor:ktor-server-sse:$ktorVersion")
+    implementation("io.ktor:ktor-server-compression:$ktorVersion")
+    implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
 
     // Database (upgrade to fix duplicate-key failures in DuckDB 0.9.x)
     implementation("org.duckdb:duckdb_jdbc:1.4.0.0")
@@ -43,6 +45,7 @@ dependencies {
     implementation("com.moandjiezana.toml:toml4j:0.7.2")
     implementation("com.akuleshov7:ktoml-core:0.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-html-jvm:0.11.0")
 
     // UUID
     implementation("app.softwork:kotlinx-uuid-core:0.0.22")
