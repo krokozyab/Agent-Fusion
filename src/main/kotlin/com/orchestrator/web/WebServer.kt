@@ -8,7 +8,9 @@ import com.orchestrator.web.plugins.configureStatusPages
 import com.orchestrator.web.plugins.configureStaticContent
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.sse.SSE
+import io.ktor.serialization.kotlinx.json.json
 
 /**
  * Entry point for building the web dashboard Ktor application.
@@ -22,6 +24,9 @@ object WebServer {
 
 fun Application.configureWebApplication(config: WebServerConfig) {
     install(SSE)
+    install(ContentNegotiation) {
+        json()
+    }
     configureMonitoring()
     configureCompression()
     configureCors(config)

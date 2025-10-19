@@ -1,5 +1,8 @@
 package com.orchestrator.web
 
+import com.orchestrator.web.routes.HealthCheckResult
+import com.orchestrator.web.routes.HealthResponse
+import com.orchestrator.web.routes.installHealthChecker
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.options
@@ -17,18 +20,32 @@ class WebServerTest {
     @Test
     fun `health endpoint responds OK`() = testApplication {
         application {
+            installHealthChecker {
+                HealthResponse(
+                    status = "UP",
+                    version = "test",
+                    uptimeSeconds = 1,
+                    durationMillis = 1,
+                    checks = mapOf("database" to HealthCheckResult.up())
+                )
+            }
             configureWebApplication(WebServerConfig())
         }
 
         val response = client.get("/health")
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals("OK", response.bodyAsText())
+        assertTrue(response.bodyAsText().contains("\"status\":\"UP\""))
     }
 
     @Test
     fun `cors headers applied for allowed origins`() = testApplication {
         val config = WebServerConfig(corsAllowedOrigins = listOf("http://localhost:3000"))
-        application { configureWebApplication(config) }
+        application {
+            installHealthChecker {
+                HealthResponse("UP", "test", 1, 1, mapOf("database" to HealthCheckResult.up()))
+            }
+            configureWebApplication(config)
+        }
 
         val response = client.options("/health") {
             header(HttpHeaders.Origin, "http://localhost:3000")
