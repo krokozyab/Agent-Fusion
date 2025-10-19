@@ -33,6 +33,11 @@ internal fun Application.configureStaticContent() {
                 resourcePath = "static/js/theme-toggle.js",
                 contentType = ContentType.Application.JavaScript
             )
+            serveVersionedAsset(
+                slug = "js/navigation.js",
+                resourcePath = "static/js/navigation.js",
+                contentType = ContentType.Application.JavaScript
+            )
 
             // CSS
             serveVersionedAsset(
