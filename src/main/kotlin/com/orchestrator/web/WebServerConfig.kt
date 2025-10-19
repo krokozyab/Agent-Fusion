@@ -16,7 +16,8 @@ data class WebServerConfig(
     val staticPath: String = "static",
     val corsEnabled: Boolean = true,
     val corsAllowedOrigins: List<String> = listOf("http://localhost:8081", "http://127.0.0.1:8081"),
-    val ssl: SslConfig = SslConfig()
+    val ssl: SslConfig = SslConfig(),
+    val autoLaunchBrowser: Boolean = true
 ) {
 
     init {
@@ -41,17 +42,19 @@ data class WebServerConfig(
 
     companion object {
         fun load(config: Config = ConfigFactory.load(), env: Map<String, String> = System.getenv()): WebServerConfig {
-            if (!config.hasPath("web")) return WebServerConfig()
+            val defaults = WebServerConfig()
+
+            if (!config.hasPath("web")) return defaults
 
             val section = config.getConfig("web")
 
-            val host = section.getOptionalString("host", env) ?: WebServerConfig().host
-            val port = section.getOptionalInt("port") ?: WebServerConfig().port
-            val staticPath = section.getOptionalString("staticPath", env) ?: WebServerConfig().staticPath
-            val corsEnabled = section.getOptionalBoolean("cors.enabled") ?: WebServerConfig().corsEnabled
+            val host = section.getOptionalString("host", env) ?: defaults.host
+            val port = section.getOptionalInt("port") ?: defaults.port
+            val staticPath = section.getOptionalString("staticPath", env) ?: defaults.staticPath
+            val corsEnabled = section.getOptionalBoolean("cors.enabled") ?: defaults.corsEnabled
             val corsAllowed = when {
                 section.hasPath("cors.allowedOrigins") -> section.getStringList("cors.allowedOrigins").map { it.expandEnv(env) }
-                else -> WebServerConfig().corsAllowedOrigins
+                else -> defaults.corsAllowedOrigins
             }
 
             val sslSection = if (section.hasPath("ssl")) section.getConfig("ssl") else null
@@ -66,13 +69,16 @@ data class WebServerConfig(
                 SslConfig()
             }
 
+            val autoLaunchBrowser = section.getOptionalBoolean("autoLaunchBrowser") ?: defaults.autoLaunchBrowser
+
             return WebServerConfig(
                 host = host,
                 port = port,
                 staticPath = staticPath,
                 corsEnabled = corsEnabled,
                 corsAllowedOrigins = corsAllowed,
-                ssl = ssl
+                ssl = ssl,
+                autoLaunchBrowser = autoLaunchBrowser
             )
         }
 

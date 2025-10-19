@@ -19,6 +19,7 @@ class WebServerModule(
 
     private val log = Logger.logger("com.orchestrator.web.WebServer")
     private var engine: EmbeddedServer<*, *>? = null
+    private val browserLauncher = BrowserLauncher(config)
 
     fun start() {
         if (engine != null) {
@@ -37,6 +38,7 @@ class WebServerModule(
         embedded.start(wait = false)
         engine = embedded
         log.info("Web dashboard server started")
+        browserLauncher.launchIfEnabled()
     }
 
     fun stop(gracePeriodMillis: Long = 3_000, timeoutMillis: Long = 10_000) {
