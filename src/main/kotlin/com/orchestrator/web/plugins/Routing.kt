@@ -4,6 +4,7 @@ import com.orchestrator.config.ConfigLoader
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.web.WebServerConfig
 import com.orchestrator.web.routes.healthRoutes
+import com.orchestrator.web.routes.homeRoutes
 import com.orchestrator.web.routes.taskRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
@@ -27,15 +28,8 @@ internal fun Application.configureRouting(config: WebServerConfig) {
         )
 
     routing {
-        get("/") {
-            call.respondHtml {
-                head { title { +"Agent Fusion Dashboard" } }
-                body {
-                    h1 { +"Agent Fusion Dashboard" }
-                    p { +"Welcome to the orchestration control panel." }
-                }
-            }
-        }
+        // Home page routes
+        homeRoutes()
 
         healthRoutes(appConfig)
 
