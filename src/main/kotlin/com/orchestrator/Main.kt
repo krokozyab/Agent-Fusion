@@ -29,6 +29,7 @@ class Main {
     private var mcpServer: McpServerImpl? = null
     private var metricsModule: MetricsModule? = null
     private var watcherDaemon: WatcherDaemon? = null
+    private var webServerModule: com.orchestrator.web.WebServerModule? = null
     private val watcherScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     fun start(args: Array<String>) {
@@ -86,6 +87,17 @@ class Main {
             val metrics = initializeMetrics(eventBus)
             metricsModule = metrics
             log.info("Metrics module initialized")
+
+            // Start web dashboard server
+            runCatching {
+                log.info("Starting web dashboard server on ${config.web.host}:${config.web.port} (autoLaunchBrowser=${config.web.autoLaunchBrowser})")
+                val webServer = com.orchestrator.web.WebServer.create(config.web)
+                webServer.start()
+                webServerModule = webServer
+                log.info("Web dashboard server started")
+            }.onFailure { throwable ->
+                log.warn("Failed to start web dashboard server: ${throwable.message}", throwable)
+            }
             
             // Start MCP server
             log.info("Starting MCP server...")
@@ -311,6 +323,13 @@ class Main {
             log.info("Metrics module stopped")
         } catch (e: Exception) {
             log.error("Error stopping metrics module: ${e.message}")
+        }
+
+        try {
+            webServerModule?.stop()
+            log.info("Web dashboard server stopped")
+        } catch (e: Exception) {
+            log.error("Error stopping web dashboard server: ${e.message}")
         }
 
         try {

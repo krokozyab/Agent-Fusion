@@ -113,6 +113,9 @@ For detailed workflow examples, see [Conversation Handoff Workflow](docs/CONVERS
 ### Development Guide
 🛠️ **[Development Guide](docs/DEVELOPMENT.md)** - Project structure, setup instructions, testing, and contribution guidelines
 
+### Deployment Notes
+📦 **[Deployment Notes](docs/DEPLOYMENT_NOTES.md)** - Runtime configuration flags and operational considerations for different environments
+
 
 
 ## Architecture
