@@ -1,0 +1,280 @@
+/**
+ * Dark Mode Styles for Orchestrator Dashboard
+ *
+ * Provides dark theme colors and overrides.
+ * Applied when [data-theme="dark"] is set on <html> or via prefers-color-scheme.
+ */
+
+/* ============================================
+   DARK MODE COLOR OVERRIDES
+   ============================================ */
+
+[data-theme="dark"],
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* Brand Colors - Adjusted for dark backgrounds */
+    --orchestrator-primary: #60a5fa;
+    --orchestrator-primary-hover: #3b82f6;
+    --orchestrator-secondary: #94a3b8;
+    --orchestrator-accent: #a78bfa;
+
+    /* Status Colors - Brighter for dark mode */
+    --status-pending: #fbbf24;
+    --status-in-progress: #60a5fa;
+    --status-waiting-input: #f472b6;
+    --status-completed: #34d399;
+    --status-failed: #f87171;
+
+    /* Task Type Colors - Brighter for dark mode */
+    --type-implementation: #60a5fa;
+    --type-architecture: #a78bfa;
+    --type-review: #f472b6;
+    --type-research: #22d3ee;
+    --type-testing: #34d399;
+    --type-documentation: #94a3b8;
+    --type-planning: #fbbf24;
+    --type-bugfix: #f87171;
+
+    /* Routing Strategy Colors */
+    --routing-solo: #94a3b8;
+    --routing-consensus: #a78bfa;
+    --routing-sequential: #22d3ee;
+    --routing-parallel: #fbbf24;
+
+    /* Neutral Colors - Inverted */
+    --gray-50: #0f172a;
+    --gray-100: #1e293b;
+    --gray-200: #334155;
+    --gray-300: #475569;
+    --gray-400: #64748b;
+    --gray-500: #94a3b8;
+    --gray-600: #cbd5e1;
+    --gray-700: #e2e8f0;
+    --gray-800: #f1f5f9;
+    --gray-900: #f8fafc;
+
+    /* Background Colors */
+    --background-color: #0f172a;
+    --card-background-color: #1e293b;
+    --muted-color: #94a3b8;
+    --muted-border-color: #334155;
+
+    /* Text Colors */
+    --color: #f1f5f9;
+    --h1-color: #f8fafc;
+    --h2-color: #f8fafc;
+    --h3-color: #f8fafc;
+
+    /* Shadows - Softer for dark mode */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ============================================
+   DARK MODE COMPONENT ADJUSTMENTS
+   ============================================ */
+
+[data-theme="dark"] .main-header,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .main-header {
+    border-bottom-color: var(--gray-200);
+    background: var(--gray-100);
+  }
+}
+
+[data-theme="dark"] .data-table__head,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .data-table__head {
+    background: var(--gray-100);
+    border-bottom-color: var(--gray-200);
+  }
+}
+
+[data-theme="dark"] .data-table__head th,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .data-table__head th {
+    color: var(--gray-700);
+  }
+}
+
+[data-theme="dark"] .data-table__body tr:hover,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .data-table__body tr:hover {
+    background-color: var(--gray-100);
+  }
+}
+
+[data-theme="dark"] .data-table__footer,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .data-table__footer {
+    background: var(--gray-100);
+    border-top-color: var(--gray-200);
+  }
+}
+
+[data-theme="dark"] .data-table__page-button,
+[data-theme="dark"] .data-table__page-number,
+[data-theme="dark"] .data-table__page-size-button,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .data-table__page-button,
+  :root:not([data-theme="light"]) .data-table__page-number,
+  :root:not([data-theme="light"]) .data-table__page-size-button {
+    background: var(--gray-200);
+    border-color: var(--gray-300);
+    color: var(--gray-700);
+  }
+}
+
+/* Badge Adjustments for Dark Mode */
+[data-theme="dark"] .badge-agent,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .badge-agent {
+    background-color: var(--gray-200);
+    color: var(--gray-700);
+    border-color: var(--gray-300);
+  }
+}
+
+/* Progress Bar Adjustments */
+[data-theme="dark"] .progress,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .progress {
+    background: var(--gray-200);
+  }
+}
+
+[data-theme="dark"] .progress__text,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .progress__text {
+    color: var(--gray-100);
+    font-weight: 700;
+  }
+}
+
+/* Card Adjustments */
+[data-theme="dark"] .card,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .card {
+    background: var(--card-background-color);
+    border-color: var(--gray-200);
+  }
+}
+
+[data-theme="dark"] .card-header,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .card-header {
+    border-bottom-color: var(--gray-200);
+  }
+}
+
+/* ============================================
+   DARK MODE TOGGLE BUTTON
+   ============================================ */
+
+.theme-toggle {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  border: 1px solid var(--muted-border-color);
+  background: var(--card-background-color);
+  color: var(--color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+  z-index: 1000;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle__icon {
+  font-size: 1.25rem;
+}
+
+/* Hide/show icons based on theme */
+[data-theme="light"] .theme-toggle__icon--moon {
+  display: block;
+}
+
+[data-theme="light"] .theme-toggle__icon--sun {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle__icon--moon {
+  display: none;
+}
+
+[data-theme="dark"] .theme-toggle__icon--sun {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .theme-toggle__icon--moon {
+    display: none;
+  }
+
+  :root:not([data-theme]) .theme-toggle__icon--sun {
+    display: block;
+  }
+}
+
+/* ============================================
+   DARK MODE PRINT ADJUSTMENTS
+   ============================================ */
+
+@media print {
+  .theme-toggle {
+    display: none;
+  }
+
+  /* Force light colors for print */
+  [data-theme="dark"] {
+    color-scheme: light;
+  }
+
+  [data-theme="dark"] * {
+    background: white !important;
+    color: black !important;
+    border-color: #ccc !important;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY - Dark Mode
+   ============================================ */
+
+[data-theme="dark"] *:focus-visible,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) *:focus-visible {
+    outline-color: var(--orchestrator-primary);
+  }
+}
+
+/* Ensure sufficient contrast in dark mode */
+[data-theme="dark"] a,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) a {
+    color: var(--orchestrator-primary);
+  }
+}
+
+[data-theme="dark"] a:hover,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) a:hover {
+    color: var(--orchestrator-primary-hover);
+  }
+}

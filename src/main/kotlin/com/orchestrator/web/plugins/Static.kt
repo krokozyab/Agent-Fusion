@@ -17,6 +17,7 @@ private const val ONE_YEAR_SECONDS = 365 * 24 * 60 * 60
 internal fun Application.configureStaticContent() {
     routing {
         route("/static") {
+            // JavaScript
             serveVersionedAsset(
                 slug = "js/htmx.min.js",
                 resourcePath = "static/js/htmx.min.js",
@@ -28,11 +29,34 @@ internal fun Application.configureStaticContent() {
                 contentType = ContentType.Application.JavaScript
             )
             serveVersionedAsset(
+                slug = "js/theme-toggle.js",
+                resourcePath = "static/js/theme-toggle.js",
+                contentType = ContentType.Application.JavaScript
+            )
+
+            // CSS
+            serveVersionedAsset(
+                slug = "css/base.css",
+                resourcePath = "static/css/base.css",
+                contentType = ContentType.Text.CSS
+            )
+            serveVersionedAsset(
+                slug = "css/orchestrator.css",
+                resourcePath = "static/css/orchestrator.css",
+                contentType = ContentType.Text.CSS
+            )
+            serveVersionedAsset(
+                slug = "css/dark-mode.css",
+                resourcePath = "static/css/dark-mode.css",
+                contentType = ContentType.Text.CSS
+            )
+            serveVersionedAsset(
                 slug = "css/styles.css",
                 resourcePath = "static/css/styles.css",
                 contentType = ContentType.Text.CSS
             )
 
+            // Fallback for any other static resources
             staticResources("", "static")
         }
     }
