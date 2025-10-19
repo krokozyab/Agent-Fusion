@@ -82,11 +82,35 @@ object HomePage {
      */
     private fun HTML.pageLayout(config: Config) {
         val navConfig = Navigation.Config(
+            title = "Orchestrator",
+            titleHref = "/",
+            enableHtmxBoost = true,
             links = listOf(
-                Navigation.Link(label = "Home", href = "/", active = true),
-                Navigation.Link(label = "Tasks", href = "/tasks"),
-                Navigation.Link(label = "Index Status", href = "/index"),
-                Navigation.Link(label = "Metrics", href = "/metrics")
+                Navigation.Link(
+                    label = "Home",
+                    href = "/",
+                    active = true,
+                    ariaLabel = "Go to home page",
+                    icon = "🏠"
+                ),
+                Navigation.Link(
+                    label = "Tasks",
+                    href = "/tasks",
+                    ariaLabel = "View and manage tasks",
+                    icon = "📋"
+                ),
+                Navigation.Link(
+                    label = "Index Status",
+                    href = "/index",
+                    ariaLabel = "View index status and file browser",
+                    icon = "📁"
+                ),
+                Navigation.Link(
+                    label = "Metrics",
+                    href = "/metrics",
+                    ariaLabel = "View metrics and analytics",
+                    icon = "📊"
+                )
             )
         )
 

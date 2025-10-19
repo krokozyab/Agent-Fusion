@@ -5,6 +5,8 @@ import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.web.WebServerConfig
 import com.orchestrator.web.routes.healthRoutes
 import com.orchestrator.web.routes.homeRoutes
+import com.orchestrator.web.routes.indexRoutes
+import com.orchestrator.web.routes.metricsRoutes
 import com.orchestrator.web.routes.taskRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
@@ -31,11 +33,19 @@ internal fun Application.configureRouting(config: WebServerConfig) {
         // Home page routes
         homeRoutes()
 
+        // Health check routes
         healthRoutes(appConfig)
 
         // Task management routes
         taskRoutes()
 
+        // Index status routes
+        indexRoutes()
+
+        // Metrics dashboard routes
+        metricsRoutes()
+
+        // Internal error endpoint for testing
         get("/__internal/error") {
             error("Synthetic failure for monitoring tests.")
         }
