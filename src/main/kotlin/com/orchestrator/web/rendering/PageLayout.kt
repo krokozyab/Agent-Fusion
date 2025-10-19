@@ -31,6 +31,7 @@ object PageLayout {
         footer {
             p { +"© ${Year.now()} Agent Fusion" }
         }
+        script(src = "/static/js/filter-presets.js") {}
         script {
             unsafe {
                 +"""
