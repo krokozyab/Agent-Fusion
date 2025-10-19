@@ -33,8 +33,9 @@ dependencies {
     implementation("io.ktor:ktor-server-compression:$ktorVersion")
     implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
 
-    // Database (upgrade to fix duplicate-key failures in DuckDB 0.9.x)
+    // Database (DuckDB + connection pooling)
     implementation("org.duckdb:duckdb_jdbc:1.4.0.0")
+    implementation("com.zaxxer:HikariCP:5.1.0")
     
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.11")

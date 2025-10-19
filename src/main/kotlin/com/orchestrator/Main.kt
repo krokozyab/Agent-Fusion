@@ -196,7 +196,7 @@ class Main {
     
     private fun initializeDatabase() {
         try {
-            val conn = Database.getConnection()
+            Database.withConnection { /* trigger initialization */ }
             if (!Database.isHealthy()) {
                 throw IllegalStateException("Database health check failed")
             }
