@@ -1,6 +1,7 @@
 package com.orchestrator.config
 
 import com.akuleshov7.ktoml.Toml
+import com.orchestrator.web.WebServerConfig
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.Config as TypesafeConfig
 import kotlinx.serialization.Serializable
@@ -47,6 +48,7 @@ object ConfigLoader {
     
     data class ApplicationConfig(
         val orchestrator: OrchestratorConfig,
+        val web: WebServerConfig,
         val agents: List<AgentDefinition>,
         val context: ContextConfig
     )
@@ -63,24 +65,19 @@ object ConfigLoader {
         contextPath: Path = Path.of("config/context.toml"),
         env: Map<String, String> = System.getenv()
     ): ApplicationConfig {
-        val orchestratorConfig = loadHocon(hoconPath, env)
+        val config = resolveHocon(hoconPath)
+        val orchestratorConfig = parseOrchestratorConfig(config, env)
+        val webConfig = WebServerConfig.load(config, env)
         val agents = loadAgents(tomlPath, env)
         val contextConfig = ContextConfigLoader.load(contextPath, env)
-        return ApplicationConfig(orchestratorConfig, agents, contextConfig)
+        return ApplicationConfig(orchestratorConfig, webConfig, agents, contextConfig)
     }
     
     /**
      * Load orchestrator configuration from HOCON.
      */
     fun loadHocon(path: String? = null, env: Map<String, String> = System.getenv()): OrchestratorConfig {
-        val config = if (path != null) {
-            ConfigFactory.parseFile(File(path))
-                .withFallback(ConfigFactory.load())
-                .resolve()
-        } else {
-            ConfigFactory.load()
-        }
-        
+        val config = resolveHocon(path)
         return parseOrchestratorConfig(config, env)
     }
     
@@ -207,6 +204,16 @@ object ConfigLoader {
         } else ConsensusConfig.fromEnv(env)
         
         return OrchestratorConfig(server, storage, routing, consensus).validate()
+    }
+
+    private fun resolveHocon(path: String?): TypesafeConfig {
+        return if (path != null) {
+            ConfigFactory.parseFile(File(path))
+                .withFallback(ConfigFactory.load())
+                .resolve()
+        } else {
+            ConfigFactory.load()
+        }
     }
 
     private fun parseNestedAgents(content: String): Map<String, AgentToml> {
