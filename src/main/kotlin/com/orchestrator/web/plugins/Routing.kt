@@ -4,6 +4,7 @@ import com.orchestrator.config.ConfigLoader
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.web.WebServerConfig
 import com.orchestrator.web.routes.healthRoutes
+import com.orchestrator.web.routes.taskRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.html.respondHtml
@@ -37,6 +38,9 @@ internal fun Application.configureRouting(config: WebServerConfig) {
         }
 
         healthRoutes(appConfig)
+
+        // Task management routes
+        taskRoutes()
 
         get("/__internal/error") {
             error("Synthetic failure for monitoring tests.")
