@@ -1,0 +1,30 @@
+/* Minimal dashboard placeholder styles */
+:root {
+    color-scheme: light dark;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+}
+
+body {
+    margin: 0;
+    padding: 2rem;
+    background: radial-gradient(circle at top, #f5f7fa, #e4ecf4);
+    color: #1f2933;
+}
+
+main {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+header {
+    margin-bottom: 2rem;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 15px 35px rgba(15, 23, 42, 0.12);
+}

@@ -5,6 +5,7 @@ import com.orchestrator.web.plugins.configureCors
 import com.orchestrator.web.plugins.configureMonitoring
 import com.orchestrator.web.plugins.configureRouting
 import com.orchestrator.web.plugins.configureStatusPages
+import com.orchestrator.web.plugins.configureStaticContent
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.sse.SSE
@@ -26,4 +27,5 @@ fun Application.configureWebApplication(config: WebServerConfig) {
     configureCors(config)
     configureStatusPages()
     configureRouting(config)
+    configureStaticContent()
 }
