@@ -95,16 +95,22 @@ class TaskRoutesTest {
         assertContains(body, "Review code for module Y")
 
         // Should contain status badges
-        assertContains(body, "PENDING")
-        assertContains(body, "IN_PROGRESS")
+        assertContains(body, "Pending")
+        assertContains(body, "In Progress")
+        assertContains(body, "badge--default")
 
         // Should contain type information
-        assertContains(body, "IMPLEMENTATION")
-        assertContains(body, "REVIEW")
+        assertContains(body, "Implementation")
+        assertContains(body, "Review")
+        assertContains(body, "badge--info")
 
-        // Should contain routing strategy
-        assertContains(body, "SOLO")
-        assertContains(body, "CONSENSUS")
+        // Should contain routing strategy meta
+        assertContains(body, "Solo")
+        assertContains(body, "Consensus")
+
+        // Should include action buttons
+        assertContains(body, "task-row__action--view")
+        assertContains(body, "task-row__action--edit")
     }
 
     @Test

@@ -62,7 +62,8 @@ object DataTable {
         val id: String? = null,
         val ariaLabel: String? = null,
         val href: String? = null,
-        val cells: List<Cell>
+        val cells: List<Cell>,
+        val attributes: Map<String, String> = emptyMap()
     )
 
     data class Cell(
@@ -74,6 +75,8 @@ object DataTable {
 
     class RowBuilder {
         private val cells = mutableListOf<Cell>()
+        private val attributes = linkedMapOf<String, String>()
+        var href: String? = null
 
         fun cell(
             text: String,
@@ -96,7 +99,24 @@ object DataTable {
             )
         }
 
+        fun rawCell(
+            content: String,
+            header: Boolean = false,
+            numeric: Boolean = false
+        ) {
+            cells += Cell(header = header, numeric = numeric, content = content, raw = true)
+        }
+
+        fun attribute(name: String, value: String) {
+            attributes[name] = value
+        }
+
+        fun href(link: String) {
+            href = link
+        }
+
         internal fun build(): List<Cell> = cells.toList()
+        internal fun buildAttributes(): Map<String, String> = attributes.toMap()
     }
 
     data class EmptyState(
@@ -111,7 +131,14 @@ object DataTable {
         build: RowBuilder.() -> Unit
     ): Row {
         val rowBuilder = RowBuilder().apply(build)
-        return Row(id = id, ariaLabel = ariaLabel, href = href, cells = rowBuilder.build())
+        val builderHref = rowBuilder.href ?: href
+        return Row(
+            id = id,
+            ariaLabel = ariaLabel,
+            href = builderHref,
+            cells = rowBuilder.build(),
+            attributes = rowBuilder.buildAttributes()
+        )
     }
 
     fun render(
@@ -326,6 +353,9 @@ object DataTable {
             row.id?.let { attributes["id"] = it }
             row.ariaLabel?.let { attributes["aria-label"] = it }
             row.href?.let { attributes["data-href"] = it }
+            row.attributes.forEach { (key, value) ->
+                attributes[key] = value
+            }
 
             if (row.cells.isEmpty()) {
                 td {
