@@ -197,3 +197,102 @@ header {
     background: rgba(29, 78, 216, 0.18);
     border-color: rgba(29, 78, 216, 0.4);
 }
+
+/* Task Detail Component */
+.task-detail {
+    padding: 1.5rem;
+}
+
+.task-detail__header {
+    margin-bottom: 1.5rem;
+}
+
+.task-detail__title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.task-detail__id-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.task-detail__id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.task-detail__copy-button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #e5e7eb;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+}
+
+.task-detail__timestamps {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.task-detail__section {
+    margin-bottom: 1.5rem;
+}
+
+.task-detail__section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.task-detail__metadata-list {
+    list-style: none;
+    padding: 0;
+}
+
+.task-detail__indicators {
+    display: flex;
+    gap: 1rem;
+}
+
+.task-detail__proposal, .task-detail__decision {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.task-detail__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.task-detail__action-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid #d1d5db;
+    background-color: #f3f4f6;
+    cursor: pointer;
+}
+
+.task-detail__action-button--danger {
+    background-color: #fee2e2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+@media (max-width: 640px) {
+    .task-detail {
+        padding: 1rem;
+    }
+
+    .task-detail__title {
+        font-size: 1.25rem;
+    }
+}
