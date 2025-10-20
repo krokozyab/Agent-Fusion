@@ -21,15 +21,16 @@ class TaskRoutesTest {
 
     @BeforeEach
     fun setUp() {
-        // Database initialization happens automatically on first access
-        // Ensure we have a fresh connection and clear existing data
-        val conn = Database.getConnection()
+        // Use an in-memory database for each test to ensure isolation
+        Database.overrideForTests()
 
-        // Clear all tasks before each test
-        conn.createStatement().use { stmt ->
-            stmt.execute("DELETE FROM tasks")
-            stmt.execute("DELETE FROM proposals")
-            stmt.execute("DELETE FROM decisions")
+        // Even with in-memory, clear tables for safety between tests in the same suite
+        Database.withConnection { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute("DELETE FROM decisions")
+                stmt.execute("DELETE FROM proposals")
+                stmt.execute("DELETE FROM tasks")
+            }
         }
     }
 
@@ -454,5 +455,38 @@ class TaskRoutesTest {
         val body = response.bodyAsText()
 
         assertTrue(body.isNotEmpty())
+    }
+
+    @Test
+    fun `GET task detail page returns 200 OK for existing task`() = testApplication {
+        application {
+            configureRouting(WebServerConfig())
+        }
+
+        val task = Task(
+            id = TaskId("TASK-999"),
+            title = "Detail Page Test Task",
+            type = TaskType.TESTING,
+            status = TaskStatus.COMPLETED
+        )
+        TaskRepository.insert(task)
+
+        val response = client.get("/tasks/TASK-999")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "Detail Page Test Task")
+        assertContains(body, "aria-label=\"Breadcrumb navigation\"")
+    }
+
+    @Test
+    fun `GET task detail page returns 404 for missing task`() = testApplication {
+        application {
+            configureRouting(WebServerConfig())
+        }
+
+        val response = client.get("/tasks/TASK-DOES-NOT-EXIST")
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
     }
 }

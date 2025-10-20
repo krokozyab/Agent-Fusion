@@ -92,6 +92,25 @@ object Database {
         return getConnection().use { conn -> block(conn) }
     }
 
+    /**
+     * FOR TESTING ONLY: Overrides the default database path to enable isolated in-memory testing.
+     * This is not thread-safe and should only be called from test `setUp` methods.
+     */
+    fun overrideForTests(dbPath: String = "") {
+        shutdown()
+        val hikariConfig = HikariConfig().apply {
+            jdbcUrl = "jdbc:duckdb:$dbPath"
+            driverClassName = DuckDBDriver::class.qualifiedName
+            maximumPoolSize = 1
+            poolName = "orchestrator-duckdb-test"
+        }
+        val dataSource = HikariDataSource(hikariConfig)
+        if (schemaInitialized.compareAndSet(false, true)) {
+            dataSource.connection.use { initializeSchema(it) }
+        }
+        dataSourceRef.set(dataSource)
+    }
+
     private fun initializeSchema(conn: Connection) {
         // Execute all schema DDL in a transaction for atomicity
         val prevAutoCommit = conn.autoCommit

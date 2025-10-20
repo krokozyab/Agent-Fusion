@@ -3,8 +3,11 @@ package com.orchestrator.web.routes
 import com.orchestrator.domain.AgentId
 import com.orchestrator.domain.RoutingStrategy
 import com.orchestrator.domain.Task
+import com.orchestrator.domain.TaskId
 import com.orchestrator.domain.TaskStatus
 import com.orchestrator.domain.TaskType
+import com.orchestrator.storage.repositories.DecisionRepository
+import com.orchestrator.storage.repositories.ProposalRepository
 import com.orchestrator.storage.repositories.TaskRepository
 import com.orchestrator.web.components.DataTable
 import com.orchestrator.web.components.Pagination
@@ -12,6 +15,7 @@ import com.orchestrator.web.components.StatusBadge
 import com.orchestrator.web.components.StatusBadge.Tone
 import com.orchestrator.web.components.TaskRow
 import com.orchestrator.web.dto.toTaskDTO
+import com.orchestrator.web.pages.TaskDetailPage
 import com.orchestrator.web.rendering.Fragment
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
@@ -174,6 +178,33 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
         call.response.headers.append("X-Total-Count", totalCount.toString())
 
+        call.respondText(html, io.ktor.http.ContentType.Text.Html)
+    }
+
+    get("/tasks/{id}") {
+        val id = call.parameters["id"]?.let { TaskId(it) }
+        if (id == null) {
+            call.respondText("Invalid task ID", status = HttpStatusCode.BadRequest)
+            return@get
+        }
+
+        val task = TaskRepository.findById(id)
+        if (task == null) {
+            call.respondText("Task not found", status = HttpStatusCode.NotFound)
+            return@get
+        }
+
+        val proposals = ProposalRepository.findByTask(id)
+        val decision = DecisionRepository.findByTask(id)
+
+        val config = TaskDetailPage.Config(
+            task = task,
+            proposals = proposals,
+            decision = decision,
+            clock = clock
+        )
+
+        val html = TaskDetailPage.render(config)
         call.respondText(html, io.ktor.http.ContentType.Text.Html)
     }
 }
