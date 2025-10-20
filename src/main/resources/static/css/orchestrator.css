@@ -649,6 +649,149 @@
 }
 
 /* ============================================
+   PROPOSAL COMPONENTS
+   ============================================ */
+
+.proposal-list-container {
+  margin-top: var(--spacing-xl);
+}
+
+.proposal-list__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--muted-border-color);
+  padding-bottom: var(--spacing-md);
+}
+
+.proposal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.proposal-list--empty {
+  text-align: center;
+  padding: var(--spacing-xl);
+  background: var(--gray-50);
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--muted-border-color);
+}
+
+.proposal-card {
+  background: var(--card-background-color);
+  border: 1px solid var(--muted-border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+}
+
+.proposal-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.proposal-card--winner {
+  border-color: var(--orchestrator-primary);
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
+}
+
+.proposal-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--muted-border-color);
+  background: var(--gray-50);
+}
+
+.proposal-card__agent {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 600;
+}
+
+.proposal-card__agent-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--gray-200);
+}
+
+.proposal-card__timestamp {
+  font-size: 0.875rem;
+  color: var(--muted-color);
+}
+
+.proposal-card__body {
+  padding: var(--spacing-lg);
+  flex-grow: 1;
+}
+
+.proposal-card__content {
+  line-height: 1.6;
+}
+
+.proposal-card__content pre {
+  background: var(--gray-100);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-sm);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+}
+
+.proposal-card__expand-button {
+  background: none;
+  border: none;
+  color: var(--orchestrator-primary);
+  cursor: pointer;
+  padding: 0;
+  margin-top: var(--spacing-sm);
+  font-weight: 600;
+}
+
+.proposal-card__full-content {
+  margin-top: var(--spacing-md);
+}
+
+.proposal-card__footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--muted-border-color);
+  background: var(--gray-50);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.proposal-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.proposal-card__confidence strong {
+  font-weight: 700;
+}
+
+.proposal-card__winner-indicator {
+  background: var(--orchestrator-primary);
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+
+/* ============================================
    RESPONSIVE DESIGN
    ============================================ */
 
