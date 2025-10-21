@@ -26,21 +26,15 @@ class ProposalCardTest {
             agentAvatarUrl = "/static/images/agent-avatar.png",
         )
 
-                        assertTrue(html.contains("proposal-card"))
+        val html = ProposalCard.render(model)
 
-                        assertTrue(html.contains("Test Agent"))
-
-                        assertTrue(html.contains("/static/images/agent-avatar.png"))
-
-                        assertTrue(html.contains("Here is the implementation plan."))
-
-                        assertTrue(html.contains("Confidence: "))
-
-                        assertTrue(html.contains("0.85"))
-
-                        assertTrue(html.contains("Tokens: 300"))
-
-                
+        assertTrue(html.contains("proposal-card"))
+        assertTrue(html.contains("Test Agent"))
+        assertTrue(html.contains("/static/images/agent-avatar.png"))
+        assertTrue(html.contains("Here is the implementation plan."))
+        assertTrue(html.contains("Confidence: "))
+        assertTrue(html.contains("0.85"))
+        assertTrue(html.contains("Tokens: 300"))
     }
 
     @Test

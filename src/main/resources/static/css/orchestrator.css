@@ -649,6 +649,246 @@
 }
 
 /* ============================================
+   DECISION COMPONENT
+   ============================================ */
+
+.decision-container {
+  margin-top: var(--spacing-xl);
+}
+
+.decision__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--muted-border-color);
+  padding-bottom: var(--spacing-md);
+}
+
+.decision-card {
+  background: var(--card-background-color);
+  border: 1px solid var(--muted-border-color);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.decision-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--muted-border-color);
+  background: var(--gray-50);
+}
+
+.decision-card__status-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.decision-card__status-badge {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid currentColor;
+}
+
+.decision-card__status-badge--success {
+  color: var(--status-completed);
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.decision-card__status-badge--warning {
+  color: var(--status-pending);
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.decision-card__timestamp {
+  font-size: 0.875rem;
+  color: var(--muted-color);
+}
+
+.consensus-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--gray-600);
+}
+
+.consensus-indicator__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.consensus-indicator--voting {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--type-implementation);
+}
+
+.consensus-indicator--reasoning {
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.35);
+  color: var(--type-architecture);
+}
+
+.consensus-indicator--custom {
+  background: rgba(6, 182, 212, 0.12);
+  border-color: rgba(6, 182, 212, 0.35);
+  color: var(--type-research);
+}
+
+.consensus-indicator--default {
+  background: rgba(100, 116, 139, 0.12);
+  border-color: rgba(100, 116, 139, 0.35);
+  color: var(--gray-600);
+}
+
+.decision-card__body {
+  padding: var(--spacing-lg);
+  flex-grow: 1;
+}
+
+.decision-card__metrics {
+  display: grid;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--muted-border-color);
+  background: var(--gray-50);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.decision-card__metric {
+  background: var(--card-background-color);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  box-shadow: var(--shadow-sm);
+}
+
+.decision-card__metric--tokens {
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.decision-card__metric-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-color);
+}
+
+.decision-card__metric-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.decision-card__metric-subtitle {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.decision-card__rationale {
+  line-height: 1.6;
+  margin-bottom: var(--spacing-lg);
+}
+
+.decision-card__rationale p {
+  margin-top: var(--spacing-xs);
+}
+
+.decision-card__winner {
+  font-weight: 600;
+}
+
+.decision-card__winner-highlight {
+  border-left: 4px solid var(--orchestrator-primary);
+  background: rgba(37, 99, 235, 0.08);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.15);
+}
+
+.decision-card__winner-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--orchestrator-primary);
+}
+
+.decision-card__winner-id {
+  margin: var(--spacing-xs) 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.decision-card__winner-meta {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--spacing-xs);
+}
+
+.decision-card__winner-meta li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  font-size: 0.9rem;
+  color: var(--gray-700);
+}
+
+.decision-card__strategy-trail {
+  margin-top: var(--spacing-md);
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.decision-card__footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--muted-border-color);
+  background: var(--gray-50);
+  font-size: 0.875rem;
+}
+
+.decision-card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.decision-card__agreement strong,
+.decision-card__token-savings strong {
+  font-weight: 700;
+}
+
+
+/* ============================================
    PROPOSAL COMPONENTS
    ============================================ */
 

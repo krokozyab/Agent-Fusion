@@ -5,6 +5,7 @@ import com.orchestrator.domain.Decision
 import com.orchestrator.domain.Proposal
 import com.orchestrator.domain.Task
 import com.orchestrator.web.components.Breadcrumbs
+import com.orchestrator.web.components.DecisionComponent
 import com.orchestrator.web.components.Navigation
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -83,7 +84,7 @@ object TaskDetailPage {
                 proposalsSection(config.proposals)
 
                 // Decision Section
-                config.decision?.let { decisionSection(it) }
+                config.decision?.let { decisionSection(it, config.clock) }
 
                 // Mermaid Diagram
                 mermaidDiagram()
@@ -144,16 +145,14 @@ object TaskDetailPage {
         }
     }
 
-    private fun FlowContent.decisionSection(decision: Decision) {
-        div(classes = "card mb-lg") {
-            div(classes = "card-header") { h3(classes = "card-title") { +"Decision" } }
-            div(classes = "card-body") {
-                ul(classes = "details-list") {
-                    li { strong { +"Winning Proposal:" }; span { +(decision.winnerProposalId?.value ?: "N/A") } }
-                    li { strong { +"Agreement Rate:" }; span { +"${decision.agreementRate ?: "N/A"}" } }
-                    li { strong { +"Rationale:" }; p { +(decision.rationale ?: "No rationale provided.") } }
-                }
-            }
+    private fun FlowContent.decisionSection(decision: Decision, clock: Clock) {
+        consumer.onTagContentUnsafe {
+            +DecisionComponent.render(
+                DecisionComponent.Model(
+                    decision = decision,
+                    zoneId = clock.zone
+                )
+            )
         }
     }
 
