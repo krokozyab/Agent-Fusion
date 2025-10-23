@@ -14,8 +14,11 @@ import com.orchestrator.web.components.Pagination
 import com.orchestrator.web.components.StatusBadge
 import com.orchestrator.web.components.StatusBadge.Tone
 import com.orchestrator.web.components.TaskRow
+import com.orchestrator.web.components.displayName
+import com.orchestrator.web.components.toTone
 import com.orchestrator.web.dto.toTaskDTO
 import com.orchestrator.web.pages.TaskDetailPage
+import com.orchestrator.web.pages.TasksPage
 import com.orchestrator.web.rendering.Fragment
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
@@ -95,6 +98,7 @@ fun Parameters.toTaskQueryParams(): TaskQueryParams {
     val sortOrder = when (this["sortOrder"]?.lowercase()) {
         "asc" -> DataTable.SortDirection.ASC
         "desc" -> DataTable.SortDirection.DESC
+        "none" -> DataTable.SortDirection.NONE
         else -> DataTable.SortDirection.DESC
     }
 
@@ -121,6 +125,14 @@ fun Parameters.toTaskQueryParams(): TaskQueryParams {
 }
 
 fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
+
+    /**
+     * GET /tasks - Main tasks list page
+     */
+    get("/tasks") {
+        val html = TasksPage.render()
+        call.respondText(html, io.ktor.http.ContentType.Text.Html)
+    }
 
     /**
      * GET /tasks/table - Returns HTML fragment for task table body
@@ -163,8 +175,8 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
         // Build current URL for sorting/pagination
         val baseUrl = "/tasks/table"
 
-        // Render table body fragment
-        val html = renderTaskTableBody(
+        // Render complete table
+        val html = renderCompleteTaskTable(
             tasks = tasks,
             params = params,
             currentPage = params.page,
@@ -271,26 +283,28 @@ private fun queryTasks(params: TaskQueryParams): Pair<List<Task>, Int> {
     }
 
     // Sort
-    filtered = when (params.sortBy) {
-        "id" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.id.value } else filtered.sortedByDescending { it.id.value }
-        "title" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.title } else filtered.sortedByDescending { it.title }
-        "status" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.status.ordinal } else filtered.sortedByDescending { it.status.ordinal }
-        "type" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.type.ordinal } else filtered.sortedByDescending { it.type.ordinal }
-        "updated_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.updatedAt ?: it.createdAt } else filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
-        "routing" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.routing.ordinal } else filtered.sortedByDescending { it.routing.ordinal }
-        "risk" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.risk } else filtered.sortedByDescending { it.risk }
-        "complexity" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.complexity } else filtered.sortedByDescending { it.complexity }
-        "created_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
-            filtered.sortedBy { it.createdAt } else filtered.sortedByDescending { it.createdAt }
-        else -> filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
+    if (params.sortOrder != DataTable.SortDirection.NONE) {
+        filtered = when (params.sortBy) {
+            "id" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.id.value } else filtered.sortedByDescending { it.id.value }
+            "title" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.title } else filtered.sortedByDescending { it.title }
+            "status" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.status.ordinal } else filtered.sortedByDescending { it.status.ordinal }
+            "type" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.type.ordinal } else filtered.sortedByDescending { it.type.ordinal }
+            "updated_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.updatedAt ?: it.createdAt } else filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
+            "routing" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.routing.ordinal } else filtered.sortedByDescending { it.routing.ordinal }
+            "risk" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.risk } else filtered.sortedByDescending { it.risk }
+            "complexity" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.complexity } else filtered.sortedByDescending { it.complexity }
+            "created_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.createdAt } else filtered.sortedByDescending { it.createdAt }
+            else -> filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
+        }
     }
 
     val filteredTotal = filtered.size
@@ -303,9 +317,9 @@ private fun queryTasks(params: TaskQueryParams): Pair<List<Task>, Int> {
 }
 
 /**
- * Render task table body (tbody) as HTML fragment
+ * Render complete task table with header, body, and pagination
  */
-private fun renderTaskTableBody(
+private fun renderCompleteTaskTable(
     tasks: List<Task>,
     params: TaskQueryParams,
     currentPage: Int,
@@ -331,8 +345,9 @@ private fun renderTaskTableBody(
             makePageUrl = Pagination.PageUrlBuilder { page, pageSize ->
                 buildPaginationUrlForPage(baseUrl, params, page, pageSize)
             },
-            hxTargetId = "tasks-table-body",
-            hxIndicatorId = "tasks-table-indicator"
+            hxTargetId = "tasks-table-container",
+            hxIndicatorId = "tasks-table-indicator",
+            hxSwap = "innerHTML"
         )
     } else null
 
@@ -350,8 +365,9 @@ private fun renderTaskTableBody(
                     }
                 ),
                 pagination = paginationConfig,
-                hxTargetId = "tasks-table-body",
-                hxIndicatorId = "tasks-table-indicator"
+                hxTargetId = "tasks-table-container",
+                hxIndicatorId = "tasks-table-indicator",
+                hxSwapStrategy = "innerHTML"
             )
         }
     }
@@ -365,7 +381,8 @@ private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): Lis
             sortable = true,
             sortLinks = DataTable.SortLinks(
                 ascending = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.DESC)
+                descending = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.DESC),
+                unsorted = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.NONE)
             ),
             ariaLabel = "Sort by ID"
         ),
@@ -375,7 +392,8 @@ private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): Lis
             sortable = true,
             sortLinks = DataTable.SortLinks(
                 ascending = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.DESC)
+                descending = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.DESC),
+                unsorted = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.NONE)
             )
         ),
         DataTable.Column(
@@ -384,7 +402,8 @@ private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): Lis
             sortable = true,
             sortLinks = DataTable.SortLinks(
                 ascending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.DESC)
+                descending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.DESC),
+                unsorted = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.NONE)
             )
         ),
         DataTable.Column(
@@ -393,7 +412,8 @@ private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): Lis
             sortable = true,
             sortLinks = DataTable.SortLinks(
                 ascending = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.DESC)
+                descending = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.DESC),
+                unsorted = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.NONE)
             )
         ),
         DataTable.Column(
@@ -407,7 +427,8 @@ private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): Lis
             sortable = true,
             sortLinks = DataTable.SortLinks(
                 ascending = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.DESC)
+                descending = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.DESC),
+                unsorted = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.NONE)
             )
         ),
         DataTable.Column(
@@ -425,11 +446,11 @@ private fun buildTaskRow(task: Task, clock: Clock): DataTable.Row {
         id = task.id.value,
         title = task.title,
         status = TaskRow.Status(
-            label = formatDisplay(task.status.name),
+            label = task.status.displayName,
             tone = task.status.toTone()
         ),
         type = TaskRow.Type(
-            label = formatDisplay(task.type.name),
+            label = task.type.displayName,
             tone = task.type.toTone()
         ),
         routing = formatDisplay(task.routing.name),
@@ -448,6 +469,13 @@ private fun buildTaskRow(task: Task, clock: Clock): DataTable.Row {
     return TaskRow.toRow(model)
 }
 
+private fun formatDisplay(value: String): String =
+    value.lowercase(Locale.getDefault())
+        .split('_')
+        .joinToString(" ") { part ->
+            part.replaceFirstChar { ch -> ch.titlecase(Locale.getDefault()) }
+        }
+
 private fun buildSortUrl(baseUrl: String, params: TaskQueryParams, sortBy: String, direction: DataTable.SortDirection): String {
     val queryParams = mutableListOf<String>()
 
@@ -465,8 +493,10 @@ private fun buildSortUrl(baseUrl: String, params: TaskQueryParams, sortBy: Strin
     params.createdBefore?.let { queryParams += "createdBefore=$it" }
 
     // Add sort parameters
-    queryParams += "sortBy=$sortBy"
-    queryParams += "sortOrder=${direction.name.lowercase()}"
+    if (direction != DataTable.SortDirection.NONE) {
+        queryParams += "sortBy=$sortBy"
+        queryParams += "sortOrder=${direction.name.lowercase()}"
+    }
 
     // Preserve pagination
     queryParams += "page=${params.page}"
@@ -498,30 +528,4 @@ private fun buildPaginationUrlForPage(baseUrl: String, params: TaskQueryParams, 
     queryParams += "pageSize=$pageSize"
 
     return "$baseUrl?${queryParams.joinToString("&")}"
-}
-
-private fun formatDisplay(value: String): String =
-    value.lowercase(Locale.getDefault())
-        .split('_')
-        .joinToString(" ") { part ->
-            part.replaceFirstChar { ch -> ch.titlecase(Locale.getDefault()) }
-        }
-
-private fun TaskStatus.toTone(): Tone = when (this) {
-    TaskStatus.COMPLETED -> Tone.SUCCESS
-    TaskStatus.IN_PROGRESS -> Tone.INFO
-    TaskStatus.WAITING_INPUT -> Tone.WARNING
-    TaskStatus.FAILED -> Tone.DANGER
-    TaskStatus.PENDING -> Tone.DEFAULT
-}
-
-private fun TaskType.toTone(): Tone = when (this) {
-    TaskType.BUGFIX -> Tone.DANGER
-    TaskType.REVIEW -> Tone.INFO
-    TaskType.RESEARCH -> Tone.INFO
-    TaskType.ARCHITECTURE -> Tone.INFO
-    TaskType.TESTING -> Tone.WARNING
-    TaskType.PLANNING -> Tone.DEFAULT
-    TaskType.DOCUMENTATION -> Tone.DEFAULT
-    TaskType.IMPLEMENTATION -> Tone.SUCCESS
 }

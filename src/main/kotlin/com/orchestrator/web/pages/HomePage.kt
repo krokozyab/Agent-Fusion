@@ -5,6 +5,9 @@ import com.orchestrator.domain.TaskStatus
 import com.orchestrator.domain.TaskType
 import com.orchestrator.web.components.Breadcrumbs
 import com.orchestrator.web.components.Navigation
+import com.orchestrator.web.components.StatusBadge
+import com.orchestrator.web.components.displayName
+import com.orchestrator.web.components.toTone
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import java.time.Duration
@@ -355,12 +358,8 @@ object HomePage {
             attributes["role"] = "listitem"
 
             div(classes = "task-item__header") {
-                span(classes = "badge badge-type-${task.type.name.lowercase()}") {
-                    +task.type.displayName
-                }
-                span(classes = "badge badge-status-${task.status.name.lowercase()}") {
-                    +task.status.displayName
-                }
+                unsafe { +StatusBadge.render(StatusBadge.Config(label = task.type.displayName, tone = task.type.toTone(), outline = true)) }
+                unsafe { +StatusBadge.render(StatusBadge.Config(label = task.status.displayName, tone = task.status.toTone())) }
             }
 
             a(href = "/tasks/${task.id.value}", classes = "task-item__title") {
@@ -383,27 +382,7 @@ object HomePage {
         }
     }
 
-    // Helper extensions for enum display names
-    private val TaskStatus.displayName: String
-        get() = when (this) {
-            TaskStatus.PENDING -> "Pending"
-            TaskStatus.IN_PROGRESS -> "In Progress"
-            TaskStatus.WAITING_INPUT -> "Waiting Input"
-            TaskStatus.COMPLETED -> "Completed"
-            TaskStatus.FAILED -> "Failed"
-        }
 
-    private val TaskType.displayName: String
-        get() = when (this) {
-            TaskType.IMPLEMENTATION -> "Implementation"
-            TaskType.ARCHITECTURE -> "Architecture"
-            TaskType.REVIEW -> "Review"
-            TaskType.RESEARCH -> "Research"
-            TaskType.TESTING -> "Testing"
-            TaskType.DOCUMENTATION -> "Documentation"
-            TaskType.PLANNING -> "Planning"
-            TaskType.BUGFIX -> "Bug Fix"
-        }
 
     private val ActivityType.badgeClass: String
         get() = when (this) {

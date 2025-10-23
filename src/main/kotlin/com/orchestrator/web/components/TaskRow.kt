@@ -52,6 +52,29 @@ object TaskRow {
             )
         }
 
+        val statusContent = buildString {
+            append("<span class=\"task-row__status\">")
+            append(StatusBadge.render(StatusBadge.Config(
+                label = model.status.label,
+                tone = model.status.tone,
+                ariaLabel = "Status ${model.status.label}"
+            )))
+            append("<span class=\"task-row__status-text\">${model.status.label}</span>")
+            append("</span>")
+        }
+
+        val typeContent = buildString {
+            append("<span class=\"task-row__type\">")
+            append(StatusBadge.render(StatusBadge.Config(
+                label = model.type.label,
+                tone = model.type.tone,
+                ariaLabel = "Task type ${model.type.label}",
+                outline = true
+            )))
+            append("<span class=\"task-row__type-text\">${model.type.label}</span>")
+            append("</span>")
+        }
+
         return DataTable.row(
             id = "task-row-${model.id}",
             ariaLabel = "${model.title}, status ${model.status.label}"
@@ -82,25 +105,8 @@ object TaskRow {
                     }
                 }
             }
-            rawCell(
-                content = StatusBadge.render(
-                    StatusBadge.Config(
-                        label = model.status.label,
-                        tone = model.status.tone,
-                        ariaLabel = "Status ${model.status.label}"
-                    )
-                )
-            )
-            rawCell(
-                content = StatusBadge.render(
-                    StatusBadge.Config(
-                        label = model.type.label,
-                        tone = model.type.tone,
-                        ariaLabel = "Task type ${model.type.label}",
-                        outline = true
-                    )
-                )
-            )
+            rawCell(content = statusContent)
+            rawCell(content = typeContent)
             cell {
                 val agents = if (model.assignees.isEmpty()) listOf("Unassigned") else model.assignees
                 div(classes = "task-row__agents") {

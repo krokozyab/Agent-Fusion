@@ -14,7 +14,8 @@ class DataTableTest {
                 sortable = true,
                 sortLinks = DataTable.SortLinks(
                     ascending = "/tasks?sort=id&direction=asc",
-                    descending = "/tasks?sort=id&direction=desc"
+                    descending = "/tasks?sort=id&direction=desc",
+                    unsorted = "/tasks?sort=id&direction=none"
                 )
             ),
             DataTable.Column(
@@ -23,7 +24,8 @@ class DataTableTest {
                 sortable = true,
                 sortLinks = DataTable.SortLinks(
                     ascending = "/tasks?sort=name&direction=asc",
-                    descending = "/tasks?sort=name&direction=desc"
+                    descending = "/tasks?sort=name&direction=desc",
+                    unsorted = "/tasks?sort=name&direction=none"
                 )
             )
         )

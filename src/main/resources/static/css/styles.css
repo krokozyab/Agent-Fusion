@@ -138,6 +138,21 @@ header {
     color: rgba(55, 65, 81, 0.7);
 }
 
+.task-row__status,
+.task-row__type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.task-row__status-text,
+.task-row__type-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(55, 65, 81, 0.9);
+    text-transform: capitalize;
+}
+
 .task-row__meta-item {
     padding: 0.15rem 0.55rem;
     border-radius: 999px;

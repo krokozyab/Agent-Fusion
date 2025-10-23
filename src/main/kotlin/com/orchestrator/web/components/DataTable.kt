@@ -22,9 +22,14 @@ import kotlinx.html.unsafe
 object DataTable {
     enum class SortDirection {
         ASC,
-        DESC;
+        DESC,
+        NONE;
 
-        fun toggle(): SortDirection = if (this == ASC) DESC else ASC
+        fun toggle(): SortDirection = when (this) {
+            ASC -> DESC
+            DESC -> NONE
+            NONE -> ASC
+        }
     }
 
     data class SortState(
@@ -49,12 +54,14 @@ object DataTable {
 
     data class SortLinks(
         val ascending: String,
-        val descending: String
+        val descending: String,
+        val unsorted: String
     ) {
         fun urlFor(direction: SortDirection): String =
             when (direction) {
                 SortDirection.ASC -> ascending
                 SortDirection.DESC -> descending
+                SortDirection.NONE -> unsorted
             }
     }
 
@@ -273,6 +280,7 @@ object DataTable {
             val ariaSort = when (currentSortDirection) {
                 SortDirection.ASC -> "ascending"
                 SortDirection.DESC -> "descending"
+                SortDirection.NONE -> "none"
                 null -> "none"
             }
             attributes["aria-sort"] = ariaSort
@@ -320,6 +328,7 @@ object DataTable {
                     when (currentDirection) {
                         SortDirection.ASC -> +SORT_ASC_SYMBOL
                         SortDirection.DESC -> +SORT_DESC_SYMBOL
+                        SortDirection.NONE -> +SORT_NEUTRAL_SYMBOL
                         null -> +SORT_NEUTRAL_SYMBOL
                     }
                 }

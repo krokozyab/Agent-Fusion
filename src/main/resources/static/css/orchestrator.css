@@ -163,85 +163,34 @@
 }
 
 /* Status Badges */
-.badge-status-pending {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: var(--status-pending);
-  border: 1px solid rgba(245, 158, 11, 0.2);
+.badge--default {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: var(--gray-600);
+    border: 1px solid rgba(100, 116, 139, 0.2);
 }
 
-.badge-status-in_progress,
-.badge-status-in-progress {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: var(--status-in-progress);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+.badge--success {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--status-completed);
+    border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.badge-status-waiting_input,
-.badge-status-waiting-input {
-  background-color: rgba(236, 72, 153, 0.1);
-  color: var(--status-waiting-input);
-  border: 1px solid rgba(236, 72, 153, 0.2);
+.badge--warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--status-pending);
+    border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
-.badge-status-completed {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--status-completed);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+.badge--danger {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--status-failed);
+    border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.badge-status-failed {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--status-failed);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-/* Type Badges */
-.badge-type-implementation {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: var(--type-implementation);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.badge-type-architecture {
-  background-color: rgba(139, 92, 246, 0.1);
-  color: var(--type-architecture);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-}
-
-.badge-type-review {
-  background-color: rgba(236, 72, 153, 0.1);
-  color: var(--type-review);
-  border: 1px solid rgba(236, 72, 153, 0.2);
-}
-
-.badge-type-research {
-  background-color: rgba(6, 182, 212, 0.1);
-  color: var(--type-research);
-  border: 1px solid rgba(6, 182, 212, 0.2);
-}
-
-.badge-type-testing {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--type-testing);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.badge-type-documentation {
-  background-color: rgba(100, 116, 139, 0.1);
-  color: var(--type-documentation);
-  border: 1px solid rgba(100, 116, 139, 0.2);
-}
-
-.badge-type-planning {
-  background-color: rgba(245, 158, 11, 0.1);
-  color: var(--type-planning);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.badge-type-bugfix {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--type-bugfix);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+.badge--info {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--status-in-progress);
+    border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 /* Agent Badges */
