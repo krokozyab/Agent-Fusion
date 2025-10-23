@@ -7,6 +7,7 @@ import com.orchestrator.domain.Task
 import com.orchestrator.web.components.Breadcrumbs
 import com.orchestrator.web.components.DecisionComponent
 import com.orchestrator.web.components.Navigation
+import com.orchestrator.web.utils.MermaidGenerator
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 import java.time.Clock
@@ -50,7 +51,6 @@ object TaskDetailPage {
             link(rel = "stylesheet", href = "/static/css/orchestrator.css")
             link(rel = "stylesheet", href = "/static/css/dark-mode.css")
             script(src = "/static/js/htmx.min.js") {}
-            script(src = "https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js") {}
         }
 
         body(classes = "dashboard-layout") {
@@ -87,16 +87,53 @@ object TaskDetailPage {
                 config.decision?.let { decisionSection(it, config.clock) }
 
                 // Mermaid Diagram
-                mermaidDiagram()
+                mermaidDiagram(config)
             }
 
             // Footer
             footer(classes = "main-footer") {
                 small { +"Orchestrator Dashboard © 2025" }
             }
+
+            // Load Mermaid from local resources with onload handler
+            script {
+                unsafe {
+                    +"""
+                        (function() {
+                            var mermaidScript = document.createElement('script');
+                            mermaidScript.src = '/static/js/mermaid.min.js';
+                            mermaidScript.onload = function() {
+                                console.log('Mermaid library loaded');
+                                if (typeof mermaid !== 'undefined') {
+                                    mermaid.initialize({
+                                        startOnLoad: false,
+                                        theme: 'default',
+                                        securityLevel: 'loose'
+                                    });
+                                    // Manually trigger rendering for elements already in DOM
+                                    mermaid.run({
+                                        querySelector: '.mermaid'
+                                    }).then(function() {
+                                        console.log('Mermaid diagrams rendered successfully');
+                                    }).catch(function(error) {
+                                        console.error('Mermaid rendering error:', error);
+                                    });
+                                } else {
+                                    console.error('Mermaid is undefined after load');
+                                }
+                            };
+                            mermaidScript.onerror = function() {
+                                console.error('Failed to load Mermaid library');
+                            };
+                            document.head.appendChild(mermaidScript);
+                        })();
+                    """.trimIndent()
+                }
+            }
+
+            script(src = "/static/js/app.js") {}
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
-            script { unsafe { +"mermaid.initialize({startOnLoad:true});" } }
         }
     }
 
@@ -156,13 +193,17 @@ object TaskDetailPage {
         }
     }
 
-    private fun FlowContent.mermaidDiagram() {
+    private fun FlowContent.mermaidDiagram(config: Config) {
+        val diagram = MermaidGenerator.buildTaskSequence(config.task, config.proposals, config.decision)
+        val diagramId = "mermaid-${config.task.id.value.replace(Regex("[^a-zA-Z0-9_-]"), "-")}"
         div(classes = "card") {
             div(classes = "card-header") { h3(classes = "card-title") { +"Task Flow" } }
             div(classes = "card-body") {
                 div(classes = "mermaid") {
-                    // Placeholder for Mermaid diagram
-                    +"\n                    graph TD\n                        A[Task Created] --> B{Routing};\n                        B --> C[Agent 1];\n                        B --> D[Agent 2];\n                        C --> E{Consensus};\n                        D --> E;\n                        E --> F[Decision];\n                        F --> G[Task Completed];\n                    ".trimIndent()
+                    attributes["id"] = diagramId
+                    if (diagram.isNotBlank()) {
+                        consumer.onTagContentUnsafe { +diagram }
+                    }
                 }
             }
         }

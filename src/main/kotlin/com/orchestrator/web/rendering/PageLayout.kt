@@ -57,21 +57,7 @@ object PageLayout {
             }
         }
 
-        // Initialize HTMX and Mermaid
-        script {
-            unsafe {
-                +"""
-                    document.addEventListener('DOMContentLoaded', function () {
-                        if (window.htmx) {
-                            window.htmx.config.defaultSwapStyle = 'outerHTML';
-                        }
-                        if (window.mermaid) {
-                            window.mermaid.initialize({ startOnLoad: true });
-                        }
-                    });
-                """.trimIndent()
-            }
-        }
+        script(src = "/static/js/app.js") {}
     }
 
     /**

@@ -43,6 +43,11 @@ internal fun Application.configureStaticContent() {
                 resourcePath = "static/js/pagination.js",
                 contentType = ContentType.Application.JavaScript
             )
+            serveVersionedAsset(
+                slug = "js/mermaid.min.js",
+                resourcePath = "static/js/mermaid.min.js",
+                contentType = ContentType.Application.JavaScript
+            )
 
             // CSS
             serveVersionedAsset(

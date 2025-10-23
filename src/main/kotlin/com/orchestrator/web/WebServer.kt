@@ -4,6 +4,7 @@ import com.orchestrator.web.plugins.configureCompression
 import com.orchestrator.web.plugins.configureCors
 import com.orchestrator.web.plugins.configureMonitoring
 import com.orchestrator.web.plugins.configureRouting
+import com.orchestrator.web.plugins.configureSecurity
 import com.orchestrator.web.plugins.configureStatusPages
 import com.orchestrator.web.plugins.configureStaticContent
 import io.ktor.server.application.Application
@@ -27,6 +28,7 @@ fun Application.configureWebApplication(config: WebServerConfig) {
     install(ContentNegotiation) {
         json()
     }
+    configureSecurity()
     configureMonitoring()
     configureCompression()
     configureCors(config)
