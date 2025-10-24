@@ -30,6 +30,7 @@ object TasksPage {
             link(rel = "stylesheet", href = "/static/css/dark-mode.css")
             link(rel = "stylesheet", href = "/static/css/modal.css")
             link(rel = "stylesheet", href = "/static/css/sse-status.css")
+            link(rel = "stylesheet", href = "/static/css/animations.css")
 
             // HTMX
             script(src = "/static/js/htmx.min.js") {}
@@ -174,7 +175,7 @@ object TasksPage {
                             div {
                                 id = "tasks-table-container"
                                 attributes["hx-get"] = "/tasks/table"
-                                attributes["hx-trigger"] = "load"
+                                attributes["hx-trigger"] = "revealed"
                                 attributes["hx-swap"] = "innerHTML"
                                 attributes["hx-indicator"] = "#tasks-table-indicator"
                                 attributes["sse-swap"] = "taskUpdated"
@@ -217,6 +218,43 @@ object TasksPage {
             script(src = "/static/js/navigation.js") {}
             script(src = "/static/js/modal.js") {}
             script(src = "/static/js/sse-status.js") {}
+            script(src = "/static/js/task-updates.js") {}
+
+            // Fallback: Ensure table loads even if hx-trigger:revealed doesn't fire
+            script {
+                unsafe {
+                    +"""
+                        (function() {
+                            function ensureTableLoaded() {
+                                const container = document.getElementById('tasks-table-container');
+                                if (!container) return;
+
+                                // Check if table is already loaded
+                                if (container.querySelector('table')) return;
+
+                                // If still showing loading text, trigger load
+                                if (window.htmx && container.textContent.includes('Loading')) {
+                                    htmx.ajax('GET', '/tasks/table', {
+                                        target: container,
+                                        swap: 'innerHTML',
+                                        indicator: '#tasks-table-indicator'
+                                    });
+                                }
+                            }
+
+                            // Try on DOMContentLoaded
+                            if (document.readyState === 'loading') {
+                                document.addEventListener('DOMContentLoaded', ensureTableLoaded);
+                            } else {
+                                setTimeout(ensureTableLoaded, 100);
+                            }
+
+                            // Also try after a short delay as backup
+                            setTimeout(ensureTableLoaded, 500);
+                        })();
+                    """.trimIndent()
+                }
+            }
         }
     }.let { "<!DOCTYPE html>\n$it" }
 }

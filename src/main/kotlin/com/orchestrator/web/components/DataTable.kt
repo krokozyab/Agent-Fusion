@@ -345,6 +345,8 @@ object DataTable {
         tbody(classes = "data-table__body") {
             attributes["id"] = bodyId
             attributes["role"] = "rowgroup"
+            // SSE swap for new tasks (prepend to top)
+            attributes["sse-swap"] = "taskCreated swap:afterbegin"
             if (rows.isEmpty()) {
                 emptyRow(columns = columns, emptyState = emptyState)
             } else {

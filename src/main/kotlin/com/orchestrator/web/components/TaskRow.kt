@@ -87,6 +87,8 @@ object TaskRow {
             attribute("data-task-id", model.id)
             attribute("class", "data-table__row task-row")
             model.hxIndicator?.let { attribute("hx-indicator", it) }
+            // SSE swap for task updates
+            attribute("sse-swap", "taskUpdated swap:outerHTML")
 
             cell(header = true) {
                 span(classes = "task-row__id") {
