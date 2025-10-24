@@ -23,12 +23,16 @@ object IndexPage {
                 link(rel = "stylesheet", href = "/static/css/base.css")
                 link(rel = "stylesheet", href = "/static/css/orchestrator.css")
                 link(rel = "stylesheet", href = "/static/css/dark-mode.css")
+                link(rel = "stylesheet", href = "/static/css/sse-status.css")
 
                 // HTMX
                 script(src = "/static/js/htmx.min.js") {}
             }
 
             body(classes = "dashboard-layout") {
+                attributes["hx-ext"] = "sse"
+                attributes["sse-connect"] = "/sse/index"
+
                 with(PageLayout) {
                     dashboardShell(
                         pageTitle = "Index Status",
@@ -42,8 +46,11 @@ object IndexPage {
                             }
                         }
 
-                        // Placeholder content
+                        // Placeholder content with SSE swap
                         div(classes = "card") {
+                            id = "index-status-container"
+                            attributes["sse-swap"] = "indexProgress"
+
                             h2 { +"Coming Soon" }
                             p {
                                 +"The Index Status page is currently under development. "
@@ -60,9 +67,24 @@ object IndexPage {
                     }
                 }
 
+                // Status indicator for SSE
+                div(classes = "sse-status") {
+                    id = "sse-status-indicator"
+                    attributes["hx-swap-oob"] = "true"
+                    div(classes = "sse-status__light") {
+                        id = "sse-status-light"
+                        attributes["class"] = "sse-status__light sse-status__light--disconnected"
+                    }
+                    span(classes = "sse-status__text") {
+                        id = "sse-status-text"
+                        +"Connecting..."
+                    }
+                }
+
                 // JavaScript
                 script(src = "/static/js/theme-toggle.js") {}
                 script(src = "/static/js/navigation.js") {}
+                script(src = "/static/js/sse-status.js") {}
             }
         }
         return "<!DOCTYPE html>\n$htmlContent"

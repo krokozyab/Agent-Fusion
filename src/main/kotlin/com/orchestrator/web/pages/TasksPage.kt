@@ -29,12 +29,16 @@ object TasksPage {
             link(rel = "stylesheet", href = "/static/css/orchestrator.css")
             link(rel = "stylesheet", href = "/static/css/dark-mode.css")
             link(rel = "stylesheet", href = "/static/css/modal.css")
+            link(rel = "stylesheet", href = "/static/css/sse-status.css")
 
             // HTMX
             script(src = "/static/js/htmx.min.js") {}
         }
 
         body(classes = "dashboard-layout") {
+            attributes["hx-ext"] = "sse"
+            attributes["sse-connect"] = "/sse/tasks"
+
             with(PageLayout) {
                 dashboardShell(
                     pageTitle = "Tasks",
@@ -166,13 +170,14 @@ object TasksPage {
                                 +"Loading..."
                             }
 
-                            // Table container with HTMX
+                            // Table container with HTMX and SSE
                             div {
                                 id = "tasks-table-container"
                                 attributes["hx-get"] = "/tasks/table"
                                 attributes["hx-trigger"] = "load"
                                 attributes["hx-swap"] = "innerHTML"
                                 attributes["hx-indicator"] = "#tasks-table-indicator"
+                                attributes["sse-swap"] = "taskUpdated"
 
                                 // Placeholder content while loading
                                 div(classes = "text-center text-muted p-xl") {
@@ -193,10 +198,25 @@ object TasksPage {
                 // Empty by default, populated by HTMX
             }
 
+            // SSE connection status indicator
+            div(classes = "sse-status") {
+                id = "sse-status-indicator"
+                attributes["hx-swap-oob"] = "true"
+                div(classes = "sse-status__light") {
+                    id = "sse-status-light"
+                    attributes["class"] = "sse-status__light sse-status__light--disconnected"
+                }
+                span(classes = "sse-status__text") {
+                    id = "sse-status-text"
+                    +"Connecting..."
+                }
+            }
+
             // JavaScript
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
             script(src = "/static/js/modal.js") {}
+            script(src = "/static/js/sse-status.js") {}
         }
     }.let { "<!DOCTYPE html>\n$it" }
 }
