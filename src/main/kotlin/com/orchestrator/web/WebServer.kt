@@ -7,6 +7,7 @@ import com.orchestrator.web.plugins.configureRouting
 import com.orchestrator.web.plugins.configureSecurity
 import com.orchestrator.web.plugins.configureStatusPages
 import com.orchestrator.web.plugins.configureStaticContent
+import com.orchestrator.web.sse.installEventBusSubscriber
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
@@ -34,5 +35,6 @@ fun Application.configureWebApplication(config: WebServerConfig) {
     configureCors(config)
     configureStatusPages()
     configureRouting(config)
+    installEventBusSubscriber()
     configureStaticContent()
 }
