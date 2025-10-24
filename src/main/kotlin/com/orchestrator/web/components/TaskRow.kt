@@ -79,8 +79,8 @@ object TaskRow {
             id = "task-row-${model.id}",
             ariaLabel = "${model.title}, status ${model.status.label}"
         ) {
-            attribute("hx-get", model.detailUrl)
-            attribute("hx-target", model.hxTarget)
+            attribute("hx-get", "/tasks/${model.id}/modal")
+            attribute("hx-target", "#modal-container")
             attribute("hx-trigger", "click")
             attribute("hx-swap", model.hxSwap)
             attribute("hx-push-url", "false")

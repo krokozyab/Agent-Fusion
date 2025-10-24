@@ -28,6 +28,7 @@ object TasksPage {
             link(rel = "stylesheet", href = "/static/css/base.css")
             link(rel = "stylesheet", href = "/static/css/orchestrator.css")
             link(rel = "stylesheet", href = "/static/css/dark-mode.css")
+            link(rel = "stylesheet", href = "/static/css/modal.css")
 
             // HTMX
             script(src = "/static/js/htmx.min.js") {}
@@ -183,9 +184,19 @@ object TasksPage {
                 }
             }
 
+            // Modal container for task details
+            div {
+                id = "modal-container"
+                attributes["role"] = "dialog"
+                attributes["aria-modal"] = "true"
+                attributes["aria-hidden"] = "true"
+                // Empty by default, populated by HTMX
+            }
+
             // JavaScript
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
+            script(src = "/static/js/modal.js") {}
         }
     }.let { "<!DOCTYPE html>\n$it" }
 }

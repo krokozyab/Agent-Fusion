@@ -489,4 +489,34 @@ class TaskRoutesTest {
 
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
+
+    @Test
+    fun `GET task detail modal returns 200 OK for existing task`() = testApplication {
+        application {
+            configureRouting(WebServerConfig())
+        }
+
+        val task = Task(
+            id = TaskId("TASK-MODAL"),
+            title = "Modal Test Task",
+            type = TaskType.TESTING,
+            status = TaskStatus.PENDING,
+            description = "This is a test description for the modal.",
+            complexity = 4,
+            risk = 2
+        )
+        TaskRepository.insert(task)
+
+        val response = client.get("/tasks/TASK-MODAL/modal")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertContains(body, "id=\"task-detail-modal\"")
+        assertContains(body, "#TASK-MODAL: Modal Test Task")
+        assertContains(body, "This is a test description for the modal.")
+        assertContains(body, "Complexity: 4")
+        assertContains(body, "Risk: 2")
+        assertContains(body, "Pending")
+        assertContains(body, "Testing")
+    }
 }

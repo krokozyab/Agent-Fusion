@@ -38,7 +38,7 @@ object MermaidGenerator {
         val routerDisplay = "Routing (${task.routing.name.lowercase(Locale.US).replaceFirstChar { it.titlecase(Locale.US) }})"
         val consensusDisplay = "Consensus Engine"
         val decisionDisplay = "Decision Record"
-        val completionDisplay = "Task Completed"
+        val completionDisplay = "Status: ${task.status.name.lowercase(Locale.US).replaceFirstChar { it.titlecase(Locale.US) }}"
 
         appendParticipant(builder, taskAlias, taskDisplay)
         appendParticipant(builder, routerAlias, routerDisplay)
@@ -69,7 +69,14 @@ object MermaidGenerator {
         }
 
         if (decision == null) {
-            builder.appendLine(message(routerAlias, completionAlias, "Awaiting completion (${task.status.name.lowercase(Locale.US)})"))
+            val statusMsg = when {
+                task.status.name == "COMPLETED" -> "Task completed successfully"
+                task.status.name == "FAILED" -> "Task failed"
+                task.status.name == "IN_PROGRESS" -> "Work in progress"
+                task.status.name == "WAITING_INPUT" -> "Waiting for input"
+                else -> "Awaiting completion"
+            }
+            builder.appendLine(message(routerAlias, completionAlias, statusMsg))
         } else {
             val winnerLabel = decision.winnerProposalId?.value ?: "No winner"
             val rationale = decision.rationale?.let { truncate(it, 80) }
@@ -80,7 +87,12 @@ object MermaidGenerator {
             if (noteLines.isNotEmpty()) {
                 builder.appendLine(noteOver(decisionAlias, noteLines.joinToString("\\n")))
             }
-            builder.appendLine(message(decisionAlias, completionAlias, "Mark task ${task.status.name.lowercase(Locale.US)}"))
+            val statusMsg = when {
+                task.status.name == "COMPLETED" -> "Finalized as completed"
+                task.status.name == "FAILED" -> "Finalized as failed"
+                else -> "Decision recorded"
+            }
+            builder.appendLine(message(decisionAlias, completionAlias, statusMsg))
         }
 
         if (agentParticipants.total > MAX_AGENT_PARTICIPANTS) {

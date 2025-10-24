@@ -126,6 +126,8 @@ object HomePage {
                 link(rel = "stylesheet", href = "/static/css/base.css")
                 link(rel = "stylesheet", href = "/static/css/orchestrator.css")
                 link(rel = "stylesheet", href = "/static/css/dark-mode.css")
+                link(rel = "stylesheet", href = "/static/css/modal.css")
+                link(rel = "stylesheet", href = "/static/css/modal.css")
 
                 // HTMX
                 script(src = "/static/js/htmx.min.js") {}
@@ -141,6 +143,10 @@ object HomePage {
                 main(classes = "main-content") {
                     attributes["id"] = "main-content"
                     attributes["role"] = "main"
+
+                    div { id = "modal-container" }
+
+                    div { id = "modal-container" }
 
                     // Page header
                     pageHeader()
@@ -168,6 +174,8 @@ object HomePage {
                 // JavaScript
                 script(src = "/static/js/theme-toggle.js") {}
                 script(src = "/static/js/navigation.js") {}
+                script(src = "/static/js/modal.js") {}
+                script(src = "/static/js/modal.js") {}
 
                 // Auto-refresh script (HTMX)
                 if (config.refreshInterval > 0) {

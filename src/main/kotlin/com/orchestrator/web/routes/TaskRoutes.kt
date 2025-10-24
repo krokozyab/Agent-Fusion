@@ -19,6 +19,7 @@ import com.orchestrator.web.components.toTone
 import com.orchestrator.web.dto.toTaskDTO
 import com.orchestrator.web.pages.TaskDetailPage
 import com.orchestrator.web.pages.TasksPage
+import com.orchestrator.web.routes.renderTaskModal
 import com.orchestrator.web.rendering.Fragment
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Parameters
@@ -103,7 +104,7 @@ fun Parameters.toTaskQueryParams(): TaskQueryParams {
     }
 
     val page = this["page"]?.toIntOrNull()?.coerceIn(1, 1000) ?: 1
-    val pageSize = this["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 50
+    val pageSize = this["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 20
 
     return TaskQueryParams(
         search = search,
@@ -219,6 +220,26 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
         val html = TaskDetailPage.render(config)
         call.respondText(html, io.ktor.http.ContentType.Text.Html)
     }
+
+    get("/tasks/{id}/modal") {
+        val id = call.parameters["id"]?.let { TaskId(it) }
+        if (id == null) {
+            call.respondText("Invalid task ID", status = HttpStatusCode.BadRequest)
+            return@get
+        }
+
+        val task = TaskRepository.findById(id)
+        if (task == null) {
+            call.respondText("Task not found", status = HttpStatusCode.NotFound)
+            return@get
+        }
+
+        val proposals = ProposalRepository.findByTask(id)
+        val decision = DecisionRepository.findByTask(id)
+
+        val html = renderTaskModal(task, proposals, decision)
+        call.respondText(html, io.ktor.http.ContentType.Text.Html)
+    }
 }
 
 /**
@@ -293,6 +314,8 @@ private fun queryTasks(params: TaskQueryParams): Pair<List<Task>, Int> {
                 filtered.sortedBy { it.status.ordinal } else filtered.sortedByDescending { it.status.ordinal }
             "type" -> if (params.sortOrder == DataTable.SortDirection.ASC)
                 filtered.sortedBy { it.type.ordinal } else filtered.sortedByDescending { it.type.ordinal }
+            "agents" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+                filtered.sortedBy { it.assigneeIds.firstOrNull()?.value } else filtered.sortedByDescending { it.assigneeIds.firstOrNull()?.value }
             "updated_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
                 filtered.sortedBy { it.updatedAt ?: it.createdAt } else filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
             "routing" -> if (params.sortOrder == DataTable.SortDirection.ASC)
@@ -336,20 +359,18 @@ private fun renderCompleteTaskTable(
         direction = params.sortOrder
     )
 
-    val paginationConfig = if (totalPages > 1) {
-        Pagination.Config(
-            page = currentPage,
-            pageSize = params.pageSize,
-            totalCount = totalCount.toLong(),
-            perPageOptions = listOf(10, 25, 50, 100, 200),
-            makePageUrl = Pagination.PageUrlBuilder { page, pageSize ->
-                buildPaginationUrlForPage(baseUrl, params, page, pageSize)
-            },
-            hxTargetId = "tasks-table-container",
-            hxIndicatorId = "tasks-table-indicator",
-            hxSwap = "innerHTML"
-        )
-    } else null
+    val paginationConfig = Pagination.Config(
+        page = currentPage,
+        pageSize = params.pageSize,
+        totalCount = totalCount.toLong(),
+        perPageOptions = listOf(10, 20, 50, 100),
+        makePageUrl = Pagination.PageUrlBuilder { page, pageSize ->
+            buildPaginationUrlForPage(baseUrl, params, page, pageSize)
+        },
+        hxTargetId = "tasks-table-container",
+        hxIndicatorId = "tasks-table-indicator",
+        hxSwap = "innerHTML"
+    )
 
     return Fragment.render {
         with(DataTable) {
@@ -419,7 +440,12 @@ private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): Lis
         DataTable.Column(
             id = "agents",
             title = "Agents",
-            sortable = false
+            sortable = true,
+            sortLinks = DataTable.SortLinks(
+                ascending = buildSortUrl(baseUrl, params, "agents", DataTable.SortDirection.ASC),
+                descending = buildSortUrl(baseUrl, params, "agents", DataTable.SortDirection.DESC),
+                unsorted = buildSortUrl(baseUrl, params, "agents", DataTable.SortDirection.NONE)
+            )
         ),
         DataTable.Column(
             id = "updated_at",
@@ -457,12 +483,14 @@ private fun buildTaskRow(task: Task, clock: Clock): DataTable.Row {
         assignees = dto.assigneeIds,
         complexity = task.complexity,
         risk = task.risk,
-        detailUrl = "/tasks/${task.id.value}",
+        detailUrl = "/tasks/${task.id.value}/modal",
         editUrl = "/tasks/${task.id.value}/edit",
         updatedAt = task.updatedAt,
         createdAt = task.createdAt,
         referenceInstant = Instant.now(clock),
         zoneId = clock.zone,
+        hxTarget = "#modal-container",
+        hxSwap = "innerHTML",
         hxIndicator = "#tasks-table-indicator"
     )
 
