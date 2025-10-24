@@ -3,6 +3,8 @@ package com.orchestrator.modules.context
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.domain.AgentId
 import com.orchestrator.domain.TaskId
+import com.orchestrator.context.bootstrap.BootstrapProgressTracker
+import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.modules.context.FileRegistry.Operation
 import com.orchestrator.modules.context.FileRegistry.FileOperation
 import com.orchestrator.modules.context.MemoryManager.ConversationMessage
@@ -10,7 +12,9 @@ import com.orchestrator.modules.context.MemoryManager.Role
 import com.orchestrator.storage.Transaction
 import com.orchestrator.utils.Logger
 import kotlinx.coroutines.runBlocking
+import java.nio.file.Paths
 import java.time.Instant
+import java.util.Locale
 
 /**
  * ContextModule
@@ -69,6 +73,28 @@ object ContextModule {
         val appendedMessageIds: List<Long>,
         val snapshotId: Long?,
         val fileOperations: List<FileOperation>
+    )
+
+    enum class IndexHealthStatus { HEALTHY, DEGRADED, CRITICAL }
+
+    enum class FileIndexStatus { INDEXED, OUTDATED, PENDING, ERROR }
+
+    data class FileIndexEntry(
+        val path: String,
+        val status: FileIndexStatus,
+        val sizeBytes: Long,
+        val lastModified: Instant?,
+        val chunkCount: Int
+    )
+
+    data class IndexStatusSnapshot(
+        val totalFiles: Int,
+        val indexedFiles: Int,
+        val pendingFiles: Int,
+        val failedFiles: Int,
+        val lastRefresh: Instant?,
+        val health: IndexHealthStatus,
+        val files: List<FileIndexEntry>
     )
 
     // -------- Retrieval --------
@@ -130,6 +156,150 @@ object ContextModule {
             fileOperations = recordedOps
         )
     }
+
+    fun getIndexStatus(limit: Int? = null): IndexStatusSnapshot {
+        val entriesByPath = linkedMapOf<String, FileIndexEntry>()
+        var maxIndexedAt: Instant? = null
+
+        ContextDatabase.withConnection { conn ->
+            val sql = buildString {
+                append(
+                    """
+                    SELECT fs.rel_path,
+                           fs.size_bytes,
+                           fs.mtime_ns,
+                           fs.indexed_at,
+                           COUNT(c.chunk_id) AS chunk_count
+                    FROM file_state fs
+                    LEFT JOIN chunks c ON c.file_id = fs.file_id
+                    WHERE fs.is_deleted = FALSE
+                    GROUP BY fs.rel_path, fs.size_bytes, fs.mtime_ns, fs.indexed_at
+                    ORDER BY fs.rel_path
+                    """.trimIndent()
+                )
+                if (limit != null && limit > 0) {
+                    append(" LIMIT ?")
+                }
+            }
+
+            conn.prepareStatement(sql).use { ps ->
+                if (limit != null && limit > 0) {
+                    ps.setInt(1, limit)
+                }
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        val path = rs.getString("rel_path") ?: continue
+                        val size = rs.getLong("size_bytes")
+                        val modifiedNs = rs.getLong("mtime_ns")
+                        val indexedAt = rs.getTimestamp("indexed_at")?.toInstant()
+                        val chunkCount = rs.getInt("chunk_count")
+
+                        val lastModified = toInstantOrNull(modifiedNs)
+                        val status = when {
+                            indexedAt == null -> FileIndexStatus.PENDING
+                            lastModified != null && lastModified.isAfter(indexedAt) -> FileIndexStatus.OUTDATED
+                            else -> FileIndexStatus.INDEXED
+                        }
+
+                        entriesByPath[path] = FileIndexEntry(
+                            path = path,
+                            status = status,
+                            sizeBytes = size,
+                            lastModified = lastModified,
+                            chunkCount = chunkCount
+                        )
+
+                        if (indexedAt != null) {
+                            maxIndexedAt = when {
+                                maxIndexedAt == null -> indexedAt
+                                indexedAt.isAfter(maxIndexedAt) -> indexedAt
+                                else -> maxIndexedAt
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        runCatching {
+            ContextDatabase.withConnection { conn ->
+                conn.prepareStatement(
+                    "SELECT path, status FROM ${BootstrapProgressTracker.TABLE_NAME}"
+                ).use { ps ->
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            val rawPath = rs.getString("path") ?: continue
+                            val status = rs.getString("status")?.uppercase(Locale.US) ?: continue
+                            val normalized = normalizePath(rawPath)
+                            when (status) {
+                                "FAILED" -> {
+                                    val existing = entriesByPath[normalized]
+                                    val entry = (existing?.copy(status = FileIndexStatus.ERROR))
+                                        ?: FileIndexEntry(
+                                            path = normalized,
+                                            status = FileIndexStatus.ERROR,
+                                            sizeBytes = 0,
+                                            lastModified = null,
+                                            chunkCount = 0
+                                        )
+                                    entriesByPath[normalized] = entry
+                                }
+                                "PENDING", "PROCESSING" -> {
+                                    entriesByPath.putIfAbsent(
+                                        normalized,
+                                        FileIndexEntry(
+                                            path = normalized,
+                                            status = FileIndexStatus.PENDING,
+                                            sizeBytes = 0,
+                                            lastModified = null,
+                                            chunkCount = 0
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }.onFailure { throwable ->
+            log.debug("Bootstrap progress table unavailable: {}", throwable.message)
+        }
+
+        val files = entriesByPath.values.sortedBy { it.path }
+        val totalFiles = files.size
+        val indexedFiles = files.count { it.status == FileIndexStatus.INDEXED }
+        val pendingFiles = files.count { it.status == FileIndexStatus.PENDING }
+        val failedFiles = files.count { it.status == FileIndexStatus.ERROR }
+
+        val health = when {
+            failedFiles > 0 -> IndexHealthStatus.CRITICAL
+            files.any { it.status == FileIndexStatus.OUTDATED } || pendingFiles > 0 -> IndexHealthStatus.DEGRADED
+            else -> IndexHealthStatus.HEALTHY
+        }
+
+        return IndexStatusSnapshot(
+            totalFiles = totalFiles,
+            indexedFiles = indexedFiles,
+            pendingFiles = pendingFiles,
+            failedFiles = failedFiles,
+            lastRefresh = maxIndexedAt,
+            health = health,
+            files = files
+        )
+    }
+
+    private fun toInstantOrNull(nanosSinceEpoch: Long): Instant? {
+        if (nanosSinceEpoch <= 0L) return null
+        val seconds = nanosSinceEpoch / 1_000_000_000L
+        val nanos = (nanosSinceEpoch % 1_000_000_000L).toInt()
+        return runCatching { Instant.ofEpochSecond(seconds, nanos.toLong()) }.getOrNull()
+    }
+
+    private fun normalizePath(rawPath: String): String = runCatching {
+        val absolute = Paths.get(rawPath).toAbsolutePath().normalize()
+        val root = Paths.get("").toAbsolutePath().normalize()
+        if (absolute.startsWith(root)) root.relativize(absolute).toString() else absolute.toString()
+    }.getOrElse { rawPath }
 }
 
 class DefaultContextService : ContextService {

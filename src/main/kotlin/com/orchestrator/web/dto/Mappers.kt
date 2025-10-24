@@ -3,11 +3,13 @@ package com.orchestrator.web.dto
 import com.orchestrator.domain.Decision
 import com.orchestrator.domain.Proposal
 import com.orchestrator.domain.Task
+import com.orchestrator.modules.context.ContextModule
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val isoFormatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC)
 
@@ -118,6 +120,24 @@ private fun Decision.toDTO(): TaskDetailDTO.DecisionDTO = TaskDetailDTO.Decision
     },
     tokenSavingsAbsolute = tokenSavingsAbsolute,
     tokenSavingsPercent = tokenSavingsPercent
+)
+
+fun ContextModule.IndexStatusSnapshot.toDTO(): IndexStatusDTO = IndexStatusDTO(
+    totalFiles = totalFiles,
+    indexedFiles = indexedFiles,
+    pendingFiles = pendingFiles,
+    failedFiles = failedFiles,
+    lastRefresh = lastRefresh?.let(isoFormatter::format),
+    health = health.name.lowercase(Locale.US),
+    files = files.map { it.toDTO() }
+)
+
+private fun ContextModule.FileIndexEntry.toDTO(): FileStateDTO = FileStateDTO(
+    path = path,
+    status = status.name.lowercase(Locale.US),
+    sizeBytes = sizeBytes,
+    lastModified = lastModified?.let(isoFormatter::format),
+    chunkCount = chunkCount
 )
 
 private fun Duration.humanize(): String {
