@@ -7,6 +7,7 @@ import com.orchestrator.web.routes.healthRoutes
 import com.orchestrator.web.routes.homeRoutes
 import com.orchestrator.web.routes.indexRoutes
 import com.orchestrator.web.routes.metricsRoutes
+import com.orchestrator.web.routes.sseRoutes
 import com.orchestrator.web.routes.taskRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
@@ -44,6 +45,9 @@ internal fun Application.configureRouting(config: WebServerConfig) {
 
         // Metrics dashboard routes
         metricsRoutes()
+
+        // Server-Sent Events routes
+        sseRoutes()
 
         // Internal error endpoint for testing
         get("/__internal/error") {
