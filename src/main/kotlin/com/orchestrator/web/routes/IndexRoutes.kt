@@ -1,30 +1,114 @@
 package com.orchestrator.web.routes
 
-import com.orchestrator.web.pages.IndexPage
+import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.config.ProviderConfig
+import com.orchestrator.context.providers.ContextProviderRegistry
+import com.orchestrator.modules.context.ContextModule
+import com.orchestrator.web.dto.toDTO
+import com.orchestrator.web.pages.IndexStatusPage
+import com.orchestrator.web.plugins.ApplicationConfigKey
 import io.ktor.http.ContentType
 import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.application
+import java.time.Clock
+import java.time.Instant
+import java.util.Locale
 
 /**
- * Index status routes for the Orchestrator dashboard
+ * Index status routes for the Orchestrator dashboard.
  */
-fun Route.indexRoutes() {
-
-    /**
-     * GET /index - Index status page
-     *
-     * Displays:
-     * - File index statistics
-     * - File browser with search
-     * - Index health status
-     * - Admin actions (refresh, rebuild)
-     */
+fun Route.indexRoutes(clock: Clock = Clock.systemUTC()) {
     get("/index") {
-        val html = IndexPage.render()
+        val pageConfig = buildIndexStatusConfig(clock)
+        val html = IndexStatusPage.render(pageConfig)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
         call.respondText(html, ContentType.Text.Html)
     }
+}
+
+private fun Route.buildIndexStatusConfig(clock: Clock): IndexStatusPage.Config {
+    val snapshotDto = ContextModule.getIndexStatus().toDTO()
+    val providerStatuses = buildProviderStatuses()
+    val actions = defaultAdminActions()
+
+    return IndexStatusPage.Config(
+        status = snapshotDto,
+        providers = providerStatuses,
+        actions = actions,
+        generatedAt = Instant.now(clock)
+    )
+}
+
+private fun Route.buildProviderStatuses(): List<IndexStatusPage.ProviderStatus> {
+    val appConfig = application.attributes.getOrNull(ApplicationConfigKey)
+    val contextConfig = appConfig?.context ?: ContextConfig()
+
+    val providerConfigs = contextConfig.providers.ifEmpty {
+        // Fallback to discovered providers if config is empty
+        ContextProviderRegistry.getAllProviders().associate { provider ->
+            provider.id to ProviderConfig(enabled = true, weight = 1.0)
+        }
+    }
+
+    if (providerConfigs.isEmpty()) {
+        return emptyList()
+    }
+
+    return providerConfigs.entries.map { (rawId, cfg) ->
+        val providerId = rawId.lowercase(Locale.US)
+        val provider = ContextProviderRegistry.getProvider(providerId)
+        val providerType = provider?.type?.name?.lowercase(Locale.US)
+        val health = when {
+            !cfg.enabled -> IndexStatusPage.ProviderHealth.DISABLED
+            provider == null -> IndexStatusPage.ProviderHealth.UNAVAILABLE
+            else -> IndexStatusPage.ProviderHealth.HEALTHY
+        }
+
+        IndexStatusPage.ProviderStatus(
+            id = providerId,
+            displayName = formatProviderName(rawId),
+            type = providerType,
+            weight = cfg.weight,
+            health = health
+        )
+    }.sortedBy { it.displayName.lowercase(Locale.US) }
+}
+
+private fun defaultAdminActions(): List<IndexStatusPage.AdminAction> = listOf(
+    IndexStatusPage.AdminAction(
+        id = "refresh",
+        label = "Refresh Index",
+        description = "Run an incremental update for modified files.",
+        hxPost = "/index/refresh",
+        icon = "\uD83D\uDD04"
+    ),
+    IndexStatusPage.AdminAction(
+        id = "rebuild",
+        label = "Rebuild Index",
+        description = "Recreate the entire context index from scratch.",
+        hxPost = "/index/rebuild",
+        icon = "\uD83D\uDD28",
+        confirm = "Rebuild will clear and re-index all data. Continue?"
+    ),
+    IndexStatusPage.AdminAction(
+        id = "optimize",
+        label = "Optimize Database",
+        description = "Compact database files to reclaim space.",
+        hxPost = "/index/optimize",
+        icon = "⚙️"
+    )
+)
+
+private fun formatProviderName(id: String): String {
+    return id.split('-', '_')
+        .filter { it.isNotBlank() }
+        .joinToString(" ") { token ->
+            token.lowercase(Locale.US).replaceFirstChar { ch ->
+                if (ch.isLowerCase()) ch.titlecase(Locale.US) else ch.toString()
+            }
+        }
 }
