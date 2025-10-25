@@ -429,6 +429,14 @@ object IndexStatusPage {
     private fun DIV.populateContainer(config: Config) {
         attributes["id"] = "index-status-container"
         pageHeader(config)
+
+        // Progress indicator container for rebuild operations
+        div {
+            attributes["id"] = "index-progress"
+            attributes["sse-swap"] = "indexProgress"
+            attributes["hx-swap"] = "outerHTML"
+        }
+
         summarySection(config)
         adminActions(config.actions)
         providerSection(config.providers)

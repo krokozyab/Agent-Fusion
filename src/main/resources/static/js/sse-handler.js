@@ -89,9 +89,9 @@
   const originalError = window.onerror;
   window.onerror = function(msg, url, lineNo, columnNo, error) {
     // Only log if it's related to dispatchEvent or swap-related errors
-    if (msg && (msg.includes('dispatchEvent') || msg.includes('undefined'))) {
+    if (msg && (msg.includes('dispatchEvent') || msg.includes('Cannot read properties of null'))) {
       console.warn('Caught HTMX-related error:', msg);
-      if (msg.includes('dispatchEvent')) {
+      if (msg && msg.includes('dispatchEvent')) {
         console.warn('This usually means an SSE swap target element does not exist in the DOM');
       }
       console.debug('Full error:', error);

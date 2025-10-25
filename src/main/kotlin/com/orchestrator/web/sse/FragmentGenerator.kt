@@ -75,7 +75,10 @@ class FragmentGenerator(
         val formatter = NumberFormat.getIntegerInstance(locale)
 
         return createHTML().div {
+            attributes["id"] = "index-progress"
             attributes["class"] = "index-progress"
+            attributes["sse-swap"] = "indexProgress"
+            attributes["hx-swap"] = "outerHTML"
             attributes["data-operation-id"] = event.operationId
             attributes["data-timestamp"] = event.timestamp.toString()
 
