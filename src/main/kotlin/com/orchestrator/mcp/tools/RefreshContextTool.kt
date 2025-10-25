@@ -147,7 +147,10 @@ class RefreshContextTool(
         }
     }
 
-    fun execute(params: Params = Params()): Result {
+    fun execute(
+        params: Params = Params(),
+        onProgress: ((com.orchestrator.context.indexing.BatchProgress) -> Unit)? = null
+    ): Result {
         val startedAt = Instant.now()
 
         // Resolve paths
@@ -176,16 +179,22 @@ class RefreshContextTool(
         return if (params.async) {
             executeAsync(targetPaths, params, startedAt)
         } else {
-            executeSync(targetPaths, params, startedAt)
+            executeSync(targetPaths, params, startedAt, onProgress)
         }
     }
 
-    private fun executeSync(paths: List<Path>, params: Params, startedAt: Instant): Result {
+    private fun executeSync(
+        paths: List<Path>,
+        params: Params,
+        startedAt: Instant,
+        onProgress: ((com.orchestrator.context.indexing.BatchProgress) -> Unit)?
+    ): Result {
         return try {
             val updateResult = runBlocking {
                 indexer.updateAsync(
                     paths = paths,
-                    parallelism = params.parallelism
+                    parallelism = params.parallelism,
+                    onProgress = onProgress
                 )
             }
 

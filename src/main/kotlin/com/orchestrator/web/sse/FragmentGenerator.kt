@@ -75,7 +75,7 @@ class FragmentGenerator(
         val formatter = NumberFormat.getIntegerInstance(locale)
 
         return createHTML().div {
-            attributes["id"] = "index-progress"
+            attributes["id"] = "index-progress-region"
             attributes["class"] = "index-progress"
             attributes["sse-swap"] = "indexProgress"
             attributes["hx-swap"] = "outerHTML"

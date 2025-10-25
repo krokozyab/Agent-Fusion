@@ -105,7 +105,19 @@ private class DefaultIndexOperationsService(
 
             try {
                 val result = withContext(Dispatchers.IO) {
-                    refreshTool.execute(RefreshParams(async = false))
+                    refreshTool.execute(RefreshParams(async = false)) { progress ->
+                        val total = progress.totalFiles
+                        val processed = progress.processedFiles
+                        val percentage = if (total > 0) (processed * 100) / total else 10
+                        publishProgress(
+                            operationId = operationId,
+                            percentage = percentage.coerceIn(0, 95),
+                            processed = processed,
+                            total = total,
+                            title = "Context Refresh",
+                            message = progress.lastPath?.let { "Indexing $it" } ?: "Indexing files"
+                        )
+                    }
                 }
 
                 publishProgress(
@@ -170,59 +182,25 @@ private class DefaultIndexOperationsService(
                             async = true,
                             validateOnly = false
                         )
-                    )
+                    ) { progress ->
+                        val total = progress.totalFiles
+                        val processed = progress.processedFiles
+                        val percentage = if (total > 0) (processed * 100) / total else 10
+                        publishProgress(
+                            operationId = operationId,
+                            percentage = percentage.coerceIn(5, 95),
+                            processed = processed,
+                            total = total,
+                            title = "Context Rebuild",
+                            message = progress.lastProcessedFile?.let { "Indexed $it" } ?: "Rebuilding..."
+                        )
+                    }
                 }
 
                 // If async, poll for job completion
                 if (result.jobId != null) {
                     logger.info("Rebuild job started: ${result.jobId}")
-                    var isComplete = false
-                    var pollCount = 0
-                    val maxPollAttempts = 2400 // 40 minutes with 1 second polls
-
-                    while (!isComplete && pollCount < maxPollAttempts) {
-                        delay(1000) // Poll every second
-                        pollCount++
-
-                        val statusResult = withContext(Dispatchers.IO) {
-                            rebuildTool.getJobStatus(result.jobId)
-                        }
-
-                        if (statusResult != null) {
-                            // Update progress based on job status
-                            val percentage = when (statusResult.status.lowercase()) {
-                                "running" -> minOf(50 + (pollCount / 10), 95)
-                                "completed" -> 100
-                                "completed_with_errors" -> 100
-                                "failed" -> 100
-                                else -> 50
-                            }
-
-                            publishProgress(
-                                operationId = operationId,
-                                percentage = percentage,
-                                processed = statusResult.processedFiles,
-                                total = statusResult.totalFiles,
-                                title = "Context Rebuild",
-                                message = statusResult.message ?: "Rebuilding..."
-                            )
-
-                            isComplete = statusResult.status.lowercase() in listOf("completed", "completed_with_errors", "failed")
-                        } else {
-                            logger.warn("Rebuild job status not found for jobId: ${result.jobId}")
-                            isComplete = true
-                        }
-                    }
-
-                    if (!isComplete) {
-                        logger.warn("Rebuild job polling timeout after $maxPollAttempts attempts")
-                        publishProgress(
-                            operationId = operationId,
-                            percentage = 100,
-                            title = "Context Rebuild",
-                            message = "Rebuild timeout - operation may still be running in background"
-                        )
-                    }
+                    monitorRebuildJob(result.jobId, operationId)
                 } else {
                     // Synchronous result (shouldn't happen with async=true but handle it)
                     val statusMessage = result.message ?: when (result.status.lowercase()) {
@@ -240,6 +218,8 @@ private class DefaultIndexOperationsService(
                         title = "Context Rebuild",
                         message = statusMessage
                     )
+                    publishSummary()
+                    rebuildActive.set(false)
                 }
             } catch (t: Throwable) {
                 logger.error("Context rebuild failed: ${t.message}", t)
@@ -249,7 +229,6 @@ private class DefaultIndexOperationsService(
                     title = "Context Rebuild",
                     message = "Rebuild failed: ${t.message ?: t::class.simpleName ?: "error"}"
                 )
-            } finally {
                 publishSummary()
                 rebuildActive.set(false)
             }
@@ -313,6 +292,72 @@ private class DefaultIndexOperationsService(
             accepted = true,
             message = "Database optimization started."
         )
+    }
+
+    private fun monitorRebuildJob(jobId: String, operationId: String) {
+        scope.launch {
+            try {
+                var isComplete = false
+                var lastPhase: String? = null
+
+                while (!isComplete) {
+                    delay(1000)
+
+                    val statusResult = withContext(Dispatchers.IO) {
+                        rebuildTool.getJobStatus(jobId)
+                    }
+
+                    if (statusResult == null) {
+                        logger.warn("Rebuild job status not found for jobId: $jobId")
+                        break
+                    }
+
+                    val phase = statusResult.phase ?: "rebuild"
+                    val normalizedStatus = statusResult.status.lowercase()
+                    val percentage = phaseToPercentage(phase, normalizedStatus)
+
+                    if (phase != lastPhase || normalizedStatus != "running") {
+                        publishProgress(
+                            operationId = operationId,
+                            percentage = percentage,
+                            processed = statusResult.processedFiles,
+                            total = statusResult.totalFiles,
+                            title = "Context Rebuild",
+                            message = statusResult.message ?: "Phase: ${phase.replace('-', ' ')}"
+                        )
+                        lastPhase = phase
+                    }
+
+                    isComplete = normalizedStatus in listOf("completed", "completed_with_errors", "failed")
+
+                    if (isComplete) {
+                        publishProgress(
+                            operationId = operationId,
+                            percentage = 100,
+                            processed = statusResult.processedFiles,
+                            total = statusResult.totalFiles,
+                            title = "Context Rebuild",
+                            message = statusResult.message ?: "Rebuild ${normalizedStatus.replace('_', ' ')}"
+                        )
+                    }
+                }
+            } finally {
+                publishSummary()
+                rebuildActive.set(false)
+            }
+        }
+    }
+
+    private fun phaseToPercentage(phase: String, status: String): Int = when (status) {
+        "completed", "completed_with_errors", "failed" -> 100
+        else -> when (phase.lowercase()) {
+            "validation" -> 5
+            "pre-rebuild" -> 10
+            "destructive" -> 25
+            "rebuild" -> 60
+            "post-rebuild" -> 90
+            else -> 50
+        }
     }
 
     fun shutdown() {

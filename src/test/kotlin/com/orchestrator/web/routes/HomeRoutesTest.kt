@@ -9,6 +9,8 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import io.ktor.server.application.install
+import io.ktor.server.sse.SSE
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -21,6 +23,7 @@ class HomeRoutesTest {
 
     @BeforeEach
     fun setup() {
+        Database.overrideForTests()
         // Database initialization happens automatically on first access
         val conn = Database.getConnection()
 
@@ -30,6 +33,7 @@ class HomeRoutesTest {
             stmt.execute("DELETE FROM proposals")
             stmt.execute("DELETE FROM decisions")
         }
+        conn.close()
     }
 
     @AfterEach
@@ -41,11 +45,13 @@ class HomeRoutesTest {
             stmt.execute("DELETE FROM proposals")
             stmt.execute("DELETE FROM decisions")
         }
+        conn.close()
     }
 
     @Test
     fun `GET slash returns home page with navigation`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -76,6 +82,7 @@ class HomeRoutesTest {
     @Test
     fun `home page includes quick stats grid`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -98,6 +105,7 @@ class HomeRoutesTest {
     @Test
     fun `home page includes activity feed and tasks`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -117,6 +125,7 @@ class HomeRoutesTest {
     @Test
     fun `home page includes HTMX for live updates`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -133,6 +142,7 @@ class HomeRoutesTest {
     @Test
     fun `home page displays task statistics correctly`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -177,6 +187,7 @@ class HomeRoutesTest {
     @Test
     fun `GET api stats returns stats fragment`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -201,6 +212,7 @@ class HomeRoutesTest {
     @Test
     fun `GET api activity returns activity fragment`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -223,6 +235,7 @@ class HomeRoutesTest {
     @Test
     fun `api activity includes task activities`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -257,6 +270,7 @@ class HomeRoutesTest {
     @Test
     fun `home page includes required assets`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 
@@ -277,6 +291,7 @@ class HomeRoutesTest {
     @Test
     fun `home page has accessibility attributes`() = testApplication {
         application {
+            install(SSE)
             configureRouting(WebServerConfig())
         }
 

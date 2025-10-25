@@ -1,3 +1,5 @@
+console.log("sse-handler.js loaded");
+
 /**
  * SSE Event Handler
  *
@@ -7,6 +9,29 @@
 
 (function() {
   'use strict';
+
+  function patchHtmxTrigger() {
+    if (!window.htmx || typeof window.htmx.trigger !== 'function' || window.htmx.__safeTriggerPatched) {
+      return;
+    }
+
+    var originalTrigger = window.htmx.trigger;
+    window.htmx.trigger = function(elt, eventName, detail) {
+      if (!elt) {
+        console.warn('Skipping htmx.trigger for missing element', eventName);
+        return;
+      }
+      return originalTrigger.call(this, elt, eventName, detail);
+    };
+
+    window.htmx.__safeTriggerPatched = true;
+  }
+
+  if (window.htmx) {
+    patchHtmxTrigger();
+  } else {
+    document.addEventListener('DOMContentLoaded', patchHtmxTrigger, { once: true });
+  }
 
   // Add global error handling for HTMX dispatchEvent errors
   document.addEventListener('htmx:sseMessage', function(event) {
@@ -45,4 +70,13 @@
       return originalError(msg, url, lineNo, columnNo, error);
     }
   };
+
+  // Add a handler for unhandled promise rejections
+  window.addEventListener('unhandledrejection', function(event) {
+    if (event.reason && event.reason.message && (event.reason.message.includes('dispatchEvent') || event.reason.message.includes('Cannot read properties of null'))) {
+      console.warn('Caught unhandled promise rejection (likely HTMX-related):', event.reason.message);
+      console.debug('Full rejection event:', event);
+      event.preventDefault(); // Prevent the error from being logged to the console as an uncaught rejection
+    }
+  });
 })();

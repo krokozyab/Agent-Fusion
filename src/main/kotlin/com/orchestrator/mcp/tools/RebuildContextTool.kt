@@ -2,6 +2,7 @@ package com.orchestrator.mcp.tools
 
 import com.orchestrator.context.bootstrap.BootstrapOrchestrator
 import com.orchestrator.context.bootstrap.BootstrapErrorLogger
+import com.orchestrator.context.bootstrap.BootstrapProgress
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
 import com.orchestrator.context.bootstrap.FilePrioritizer
 import com.orchestrator.context.config.BootstrapConfig
@@ -125,7 +126,10 @@ class RebuildContextTool(
         }
     }
 
-    fun execute(params: Params = Params()): Result {
+    fun execute(
+        params: Params = Params(),
+        onProgress: ((BootstrapProgress) -> Unit)? = null
+    ): Result {
         val startedAt = Instant.now()
 
         // Phase 1: Validation
@@ -190,9 +194,9 @@ class RebuildContextTool(
         log.info("Starting context rebuild for {} paths (confirm={}, async={})", targetPaths.size, params.confirm, params.async)
 
         return if (params.async) {
-            executeAsync(targetPaths, params, startedAt)
+            executeAsync(targetPaths, params, startedAt, onProgress)
         } else {
-            executeSync(targetPaths, params, startedAt)
+            executeSync(targetPaths, params, startedAt, onProgress)
         }
     }
 
@@ -247,7 +251,12 @@ class RebuildContextTool(
         }
     }
 
-    private fun executeSync(paths: List<Path>, params: Params, startedAt: Instant): Result {
+    private fun executeSync(
+        paths: List<Path>,
+        params: Params,
+        startedAt: Instant,
+        onProgress: ((BootstrapProgress) -> Unit)?
+    ): Result {
         if (!rebuildInProgress.compareAndSet(false, true)) {
             return Result(
                 mode = "sync",
@@ -269,7 +278,7 @@ class RebuildContextTool(
         return try {
             // Use runBlocking but ensure we're using async methods internally
             runBlocking {
-                executeSyncInternal(paths, params, startedAt)
+                executeSyncInternal(paths, params, startedAt, onProgress)
             }
         } catch (e: Exception) {
             val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
@@ -295,21 +304,53 @@ class RebuildContextTool(
         }
     }
 
-    private suspend fun executeSyncInternal(paths: List<Path>, params: Params, startedAt: Instant): Result {
+    private suspend fun executeSyncInternal(
+        paths: List<Path>,
+        params: Params,
+        startedAt: Instant,
+        onProgress: ((BootstrapProgress) -> Unit)?
+    ): Result {
         // Phase 2: Pre-rebuild
         log.info("Pre-rebuild: preparing database for rebuild")
+        onProgress?.invoke(
+            BootstrapProgress(
+                totalFiles = 0,
+                processedFiles = 0,
+                successfulFiles = 0,
+                failedFiles = 0,
+                lastProcessedFile = null
+            )
+        )
 
         // Phase 3: Destructive phase
         log.info("Destructive phase: clearing existing context data")
         clearContextData()
+        onProgress?.invoke(
+            BootstrapProgress(
+                totalFiles = 0,
+                processedFiles = 0,
+                successfulFiles = 0,
+                failedFiles = 0,
+                lastProcessedFile = null
+            )
+        )
 
         // Phase 4: Rebuild phase
         log.info("Rebuild phase: running bootstrap for {} paths", paths.size)
-        val bootstrapResult = runBootstrap(paths, params.parallelism)
+        val bootstrapResult = runBootstrap(paths, params.parallelism, onProgress)
 
         // Phase 5: Post-rebuild
         log.info("Post-rebuild: optimizing database")
         optimizeDatabase()
+        onProgress?.invoke(
+            BootstrapProgress(
+                totalFiles = bootstrapResult.totalFiles,
+                processedFiles = bootstrapResult.totalFiles,
+                successfulFiles = bootstrapResult.successfulFiles,
+                failedFiles = bootstrapResult.failedFiles,
+                lastProcessedFile = null
+            )
+        )
 
         val completedAt = Instant.now()
         val durationMs = completedAt.toEpochMilli() - startedAt.toEpochMilli()
@@ -339,7 +380,12 @@ class RebuildContextTool(
         )
     }
 
-    private fun executeAsync(paths: List<Path>, params: Params, startedAt: Instant): Result {
+    private fun executeAsync(
+        paths: List<Path>,
+        params: Params,
+        startedAt: Instant,
+        onProgress: ((BootstrapProgress) -> Unit)?
+    ): Result {
         if (!rebuildInProgress.compareAndSet(false, true)) {
             return Result(
                 mode = "async",
@@ -376,6 +422,15 @@ class RebuildContextTool(
                 // Phase 2: Pre-rebuild
                 log.info("Async rebuild (job={}): Pre-rebuild phase", jobId)
                 job.phase = "pre-rebuild"
+                onProgress?.invoke(
+                    BootstrapProgress(
+                        totalFiles = job.totalFiles,
+                        processedFiles = 0,
+                        successfulFiles = 0,
+                        failedFiles = 0,
+                        lastProcessedFile = null
+                    )
+                )
 
                 // Phase 3: Destructive phase
                 log.info("Async rebuild (job={}): Destructive phase", jobId)
@@ -385,7 +440,15 @@ class RebuildContextTool(
                 // Phase 4: Rebuild phase
                 log.info("Async rebuild (job={}): Rebuild phase", jobId)
                 job.phase = "rebuild"
-                val bootstrapResult = runBootstrap(paths, params.parallelism)
+                val progressCallback: (BootstrapProgress) -> Unit = { progress ->
+                    job.totalFiles = progress.totalFiles
+                    job.processedFiles = progress.processedFiles
+                    job.successfulFiles = progress.successfulFiles
+                    job.failedFiles = progress.failedFiles
+                    onProgress?.invoke(progress)
+                }
+
+                val bootstrapResult = runBootstrap(paths, params.parallelism, progressCallback)
 
                 job.totalFiles = bootstrapResult.totalFiles
                 job.processedFiles = bootstrapResult.totalFiles
@@ -399,6 +462,15 @@ class RebuildContextTool(
 
                 job.status = JobStatus.COMPLETED
                 job.phase = "completed"
+                onProgress?.invoke(
+                    BootstrapProgress(
+                        totalFiles = job.totalFiles,
+                        processedFiles = job.processedFiles,
+                        successfulFiles = job.successfulFiles,
+                        failedFiles = job.failedFiles,
+                        lastProcessedFile = null
+                    )
+                )
 
                 log.info(
                     "Async rebuild completed (job={}): total={} successful={} failed={}",
@@ -564,7 +636,8 @@ class RebuildContextTool(
 
     private suspend fun runBootstrap(
         paths: List<Path>,
-        parallelism: Int?
+        parallelism: Int?,
+        onProgress: ((BootstrapProgress) -> Unit)?
     ): com.orchestrator.context.bootstrap.BootstrapResult {
         // Determine project root from paths
         val projectRoot = paths.first()
@@ -649,7 +722,7 @@ class RebuildContextTool(
         progressTracker.reset()
 
         // Run bootstrap
-        return orchestrator.bootstrap()
+        return orchestrator.bootstrap(onProgress)
     }
 
     private fun optimizeDatabase() {

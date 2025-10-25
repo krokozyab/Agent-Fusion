@@ -5,11 +5,19 @@
  * with visual feedback animations
  */
 
+var TaskUpdatesConfig = window.TaskUpdatesConfig = window.TaskUpdatesConfig || {
+    FLASH_CLASS: 'flash',
+    NEW_CLASS: 'new',
+    DELETING_CLASS: 'deleting',
+    SLIDE_IN_CLASS: 'slide-in'
+};
+
+var FLASH_CLASS = TaskUpdatesConfig.FLASH_CLASS;
+var NEW_CLASS = TaskUpdatesConfig.NEW_CLASS;
+var DELETING_CLASS = TaskUpdatesConfig.DELETING_CLASS;
+var SLIDE_IN_CLASS = TaskUpdatesConfig.SLIDE_IN_CLASS;
+
 document.addEventListener('DOMContentLoaded', function() {
-    const FLASH_CLASS = 'flash';
-    const NEW_CLASS = 'new';
-    const DELETING_CLASS = 'deleting';
-    const SLIDE_IN_CLASS = 'slide-in';
 
     /**
      * Apply flash animation to updated row
