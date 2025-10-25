@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat build/reports/tests/test/classes/com.orchestrator.web.routes.TaskRoutesTest.html)",
+      "Bash(./gradlew build --console=plain)",
+      "mcp__orchestrator__create_consensus_task",
+      "mcp__orchestrator__create_simple_task",
+      "mcp__orchestrator__assign_task",
+      "mcp__orchestrator__submit_input",
+      "mcp__orchestrator__respond_to_task",
+      "mcp__orchestrator__complete_task",
+      "Bash(./gradlew build:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(cat:*)",
+      "Bash(java:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(./gradlew shadowJar:*)",
+      "Bash(lsof:*)",
+      "Bash(awk:*)",
+      "Bash(for page in \"/\" \"/tasks/task-pending\" \"/index\" \"/metrics\")",
+      "Bash(do echo \"=== Checking $page ===\" curl -s \"http://localhost:8081$page\")",
+      "mcp__orchestrator__get_pending_tasks",
+      "mcp__orchestrator__get_context_stats",
+      "Bash(./gradlew:*)",
+      "Read(//private/tmp/**)",
+      "Bash(timeout 2 curl:*)",
+      "Bash(for page in \"/tasks\" \"/index\" \"/metrics\")",
+      "Bash(do echo \"=== $page ===\")",
+      "Bash(done)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nDASH-036: Fix SSE event routing - Send HTML directly with proper event names\n\nChanged SSE event handling to properly support HTMX''s out-of-band swap mechanism:\n\n1. Modified SSERoutes.toServerSentEvent() to extract event name from JSON data\n   - When htmlFragment exists, send the fragment as the data field\n   - Use the event name (indexSummary, indexProgress, etc.) as the SSE event type\n   - This allows HTMX to route events by name and match sse-swap attributes\n\n2. Removed unnecessary JSON wrapping logic\n   - Deleted buildJsonPayload() and escapeForJson() functions  \n   - No longer wrap htmlFragment in JSON structure\n   - Send HTML directly, making it compatible with standard HTMX SSE handling\n\n3. Simplified htmx-sse.min.js extension\n   - Removed complex custom event handlers\n   - Rely on HTMX''s native sse-swap attribute matching\n   - Cleaner code with less chance of conflicts\n\nResult: Summary statistics now update automatically without console errors.\nHTMX natively recognizes the event type and sse-swap attributes to perform swaps.\n\n🤖 Generated with Claude Code\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

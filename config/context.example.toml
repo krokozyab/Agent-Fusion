@@ -1,0 +1,524 @@
+# ==============================================================================
+# Context System - Complete Configuration Example
+# ==============================================================================
+# This file demonstrates ALL available configuration options for the context
+# subsystem with explanations. Copy and modify as needed for your project.
+#
+# Current config location: config/context.toml
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [context] - Top-level context system settings
+# ------------------------------------------------------------------------------
+
+# Enable or disable the entire context subsystem
+# Default: true
+# context.enabled = true
+
+# Deployment mode for the context engine
+# Options: EMBEDDED (in-process), STANDALONE (separate service), HYBRID (both)
+# Default: EMBEDDED
+# context.mode = "EMBEDDED"
+
+# Enable fallback to alternative providers if primary fails
+# Default: true
+# context.fallback_enabled = true
+
+
+# ------------------------------------------------------------------------------
+# [context.engine] - Context engine server/client settings
+# ------------------------------------------------------------------------------
+
+[context.engine]
+# Host address for standalone context engine
+# Default: "localhost"
+host = "localhost"
+
+# Port for standalone context engine
+# Default: 9090
+port = 9090
+
+# Timeout in milliseconds for context queries
+# Default: 10000 (10 seconds)
+timeout_ms = 10000
+
+# Number of retry attempts for failed queries
+# Default: 3
+retry_attempts = 3
+
+
+# ------------------------------------------------------------------------------
+# [context.storage] - Database and persistence settings
+# ------------------------------------------------------------------------------
+
+[context.storage]
+# Path to DuckDB database file
+# Default: "./context.duckdb"
+db_path = "./context.duckdb"
+
+# Enable automatic database backups
+# Default: false
+backup_enabled = false
+
+# Interval between automatic backups (in hours)
+# Default: 24
+backup_interval_hours = 24
+
+
+# ------------------------------------------------------------------------------
+# [context.watcher] - File system watcher configuration
+# ------------------------------------------------------------------------------
+
+[context.watcher]
+# Enable file system watching for automatic re-indexing
+# Default: true
+enabled = true
+
+# Debounce delay in milliseconds before processing file changes
+# Default: 500
+debounce_ms = 500
+
+# Paths to watch for changes
+# Use "auto" to automatically detect project root
+# Default: ["auto"]
+watch_paths = ["auto"]
+# watch_paths = ["src", "lib", "docs"]  # Example: specific paths
+
+# Patterns to ignore during watching
+# Default: [".git", "node_modules", "build", "dist", ".venv", "target"]
+ignore_patterns = [
+    ".git",
+    "node_modules",
+    "build",
+    "dist",
+    ".venv",
+    "target",
+    ".idea",
+    ".vscode"
+]
+
+# Maximum file size (MB) to watch
+# Files larger than this won't trigger re-indexing via watcher
+# Default: 5
+max_file_size_mb = 5
+
+# Use .gitignore patterns for watching
+# Default: true
+use_gitignore = true
+
+# Use .contextignore patterns for watching
+# Default: true
+use_contextignore = true
+
+
+# ------------------------------------------------------------------------------
+# [context.indexing] - File indexing and filtering settings
+# ------------------------------------------------------------------------------
+
+[context.indexing]
+# File extensions to index (whitelist)
+# Only files with these extensions will be processed
+# Default: [".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".md", ".yaml", ".yml"]
+allowed_extensions = [
+    ".kt",      # Kotlin (has dedicated chunker)
+    ".kts",     # Kotlin script (has dedicated chunker)
+    ".java",    # Java (has dedicated chunker)
+    ".py",      # Python (has dedicated chunker)
+    ".ts",      # TypeScript (has dedicated chunker)
+    ".tsx",     # TypeScript React (has dedicated chunker)
+    ".js",      # JavaScript (uses TypeScript chunker)
+    ".jsx",     # JavaScript React (uses TypeScript chunker)
+    ".md",      # Markdown (has dedicated chunker)
+    ".yaml",    # YAML (has dedicated chunker)
+    ".yml",     # YAML (has dedicated chunker)
+    ".json",    # JSON (has dedicated chunker)
+    ".sql",     # SQL (has dedicated chunker)
+    ".cs",      # C# (has dedicated chunker)
+    ".toml",    # TOML
+    ".xml",     # XML
+    ".html",    # HTML
+    ".css",     # CSS
+    ".scss",    # SASS/SCSS
+    ".sh",      # Shell scripts
+    ".rs",      # Rust
+    ".go",      # Go
+    ".c",       # C
+    ".cpp",     # C++
+    ".h",       # C/C++ header
+    ".txt",     # Plain text
+    ".csv",     # CSV
+    ".docx"     # Word documents
+]
+
+# File extensions to explicitly block (blacklist)
+# Takes precedence over allowed_extensions
+# Default: []
+blocked_extensions = [
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".bin"
+]
+
+# Maximum file size (MB) to index
+# Files larger than this will be skipped
+# Default: 5
+max_file_size_mb = 200
+
+# File size (MB) threshold for warnings
+# Indexing large files may be slow
+# Default: 2
+warn_file_size_mb = 10
+
+# Files that are exempt from size limits
+# Specify full paths or patterns
+# Default: []
+size_exceptions = [
+    "docs/large_spec.md",
+    "data/*.csv"
+]
+
+# Follow symbolic links during indexing
+# Default: false (for security and to avoid infinite loops)
+follow_symlinks = false
+
+# Maximum depth to follow symlinks
+# Only used if follow_symlinks = true
+# Default: 3
+max_symlink_depth = 3
+
+# Binary file detection mode
+# Options: EXTENSION (use file extension), MIME (use MIME type),
+#          CONTENT (scan file content), ALL (use all methods)
+# Default: ALL
+binary_detection = "ALL"
+
+# Percentage of non-text bytes to consider a file binary
+# Range: 0-100
+# Default: 30
+binary_threshold = 30
+
+
+# ------------------------------------------------------------------------------
+# [context.embedding] - Vector embedding configuration
+# ------------------------------------------------------------------------------
+
+[context.embedding]
+# Embedding model to use
+# Default: "sentence-transformers/all-MiniLM-L6-v2"
+# Other options: "BAAI/bge-small-en-v1.5", "intfloat/e5-small-v2"
+model = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Embedding vector dimension
+# Must match the model's output dimension
+# Default: 384 (for all-MiniLM-L6-v2)
+dimension = 384
+
+# Batch size for embedding generation
+# Larger batches are faster but use more memory
+# Default: 128
+batch_size = 128
+
+# Normalize embedding vectors to unit length
+# Recommended for cosine similarity searches
+# Default: true
+normalize = true
+
+# Enable caching of embeddings
+# Speeds up re-indexing of unchanged content
+# Default: true
+cache_enabled = true
+
+
+# ------------------------------------------------------------------------------
+# [context.chunking] - Text chunking strategies per language
+# ------------------------------------------------------------------------------
+
+# Markdown chunking
+[context.chunking.markdown]
+# Maximum tokens per chunk
+# Default: 400
+max_tokens = 400
+
+# Split by heading levels
+# Default: true
+split_by_headings = true
+
+# Keep code blocks intact
+# Default: true
+preserve_code_blocks = true
+
+
+# Python chunking
+[context.chunking.python]
+# Maximum tokens per chunk
+# Default: 600
+max_tokens = 600
+
+# Split by function definitions
+# Default: true
+split_by_function = true
+
+# Overlap percentage between chunks
+# Range: 0-100
+# Default: 15
+overlap_percent = 15
+
+# Keep docstrings with their functions
+# Default: true
+preserve_docstrings = true
+
+
+# Kotlin chunking
+[context.chunking.kotlin]
+# Maximum tokens per chunk
+# Default: 600
+max_tokens = 600
+
+# Split by class definitions
+# Default: true
+split_by_class = true
+
+# Split by function definitions
+# Default: true
+split_by_function = true
+
+# Keep KDoc comments with their declarations
+# Default: true
+preserve_kdoc = true
+
+
+# TypeScript/JavaScript chunking
+[context.chunking.typescript]
+# Maximum tokens per chunk
+# Default: 600
+max_tokens = 600
+
+# Split by export statements
+# Default: true
+split_by_export = true
+
+# Keep JSDoc comments with their declarations
+# Default: true
+preserve_jsdoc = true
+
+
+# ------------------------------------------------------------------------------
+# [context.query] - Query and retrieval settings
+# ------------------------------------------------------------------------------
+
+[context.query]
+# Default number of results to return (k in top-k)
+# Default: 12
+default_k = 12
+
+# MMR (Maximal Marginal Relevance) lambda parameter
+# Controls diversity vs relevance trade-off
+# Range: 0.0 (max diversity) to 1.0 (max relevance)
+# Default: 0.5
+mmr_lambda = 0.5
+
+# Minimum similarity score threshold
+# Results below this score are filtered out
+# Range: 0.0 to 1.0
+# Default: 0.3
+min_score_threshold = 0.3
+
+# Enable re-ranking of results
+# Uses additional scoring pass for better relevance
+# Default: true
+rerank_enabled = true
+
+
+# ------------------------------------------------------------------------------
+# [context.budget] - Token budget management
+# ------------------------------------------------------------------------------
+
+[context.budget]
+# Default maximum tokens for context results
+# Default: 1500
+default_max_tokens = 1500
+
+# Reserve tokens for prompt overhead
+# Ensures room for query, system prompts, etc.
+# Default: 500
+reserve_for_prompt = 500
+
+# Warn when token usage exceeds this percentage
+# Range: 0-100
+# Default: 80
+warn_threshold_percent = 80
+
+
+# ------------------------------------------------------------------------------
+# [context.providers] - Context provider configurations
+# ------------------------------------------------------------------------------
+# Available providers:
+# - semantic: Vector similarity search using embeddings
+# - symbol: AST-based symbol search (classes, functions, etc.)
+# - full_text: Traditional keyword-based full-text search
+# - git_history: Search through git commit history
+# - hybrid: Combines multiple providers using fusion strategies
+# ------------------------------------------------------------------------------
+
+# Semantic search provider (vector embeddings)
+[context.providers.semantic]
+enabled = true
+weight = 0.6
+
+
+# Symbol search provider (AST-based)
+[context.providers.symbol]
+enabled = true
+weight = 0.3
+
+# Index Abstract Syntax Trees for structural search
+# Default: true
+index_ast = true
+
+
+# Full-text search provider (BM25 keyword search)
+[context.providers.full_text]
+enabled = true
+weight = 0.1
+
+
+# Git history provider (search commits, diffs, messages)
+[context.providers.git_history]
+enabled = true
+weight = 0.2
+
+# Maximum number of commits to index
+# Default: 100
+max_commits = 100
+
+
+# Hybrid provider (combines multiple providers)
+[context.providers.hybrid]
+enabled = true
+weight = 0.5
+
+# Providers to combine
+# Default: ["semantic", "symbol", "git_history"]
+combines = ["semantic", "symbol", "git_history"]
+
+# Fusion strategy for combining results
+# Options: "rrf" (Reciprocal Rank Fusion), "weighted", "cascade"
+# Default: "rrf"
+fusion_strategy = "rrf"
+
+
+# ------------------------------------------------------------------------------
+# [context.metrics] - Metrics and monitoring
+# ------------------------------------------------------------------------------
+
+[context.metrics]
+# Enable metrics collection
+# Default: true
+enabled = true
+
+# Track query latency metrics
+# Default: true
+track_latency = true
+
+# Track token usage metrics
+# Default: true
+track_token_usage = true
+
+# Track embedding cache hit rates
+# Default: true
+track_cache_hits = true
+
+# Interval for exporting metrics (in minutes)
+# Default: 5
+export_interval_minutes = 5
+
+
+# ------------------------------------------------------------------------------
+# [context.bootstrap] - Initial indexing configuration
+# ------------------------------------------------------------------------------
+
+[context.bootstrap]
+# Enable bootstrap indexing on startup
+# Default: true
+enabled = true
+
+# Number of parallel worker threads for indexing
+# Default: 7
+parallel_workers = 7
+
+# Batch size for processing files
+# Default: 128
+batch_size = 128
+
+# Extensions to prioritize during initial indexing
+# These files are indexed first
+# Default: [".kt", ".py", ".ts", ".java", ".md"]
+priority_extensions = [
+    ".kt",
+    ".py",
+    ".ts",
+    ".java",
+    ".md"
+]
+
+# Maximum number of files to index initially
+# 0 = no limit (index all files)
+# Default: 0
+max_initial_files = 0
+
+# Stop indexing immediately on first error
+# Default: false (continue indexing other files)
+fail_fast = false
+
+# Show progress updates during indexing
+# Default: true
+show_progress = true
+
+# Interval between progress updates (in seconds)
+# Default: 30
+progress_interval_seconds = 30
+
+
+# ------------------------------------------------------------------------------
+# [context.security] - Security and privacy settings
+# ------------------------------------------------------------------------------
+
+[context.security]
+# Automatically detect and scrub secrets from indexed content
+# Default: true
+scrub_secrets = true
+
+# Regex patterns for detecting secrets
+# Default patterns detect passwords, API keys, tokens
+secret_patterns = [
+    "password\\s*=\\s*['\"]?.*['\"]?",
+    "api[_-]?key\\s*=\\s*['\"]?.*['\"]?",
+    "token\\s*=\\s*['\"]?.*['\"]?",
+    "secret\\s*=\\s*['\"]?.*['\"]?",
+    "bearer\\s+[A-Za-z0-9\\-._~+/]+=*",
+    "aws_access_key_id\\s*=\\s*[A-Z0-9]{20}",
+    "private[_-]?key\\s*=\\s*['\"]?.*['\"]?"
+]
+
+# Encrypt database at rest
+# Requires additional encryption key configuration
+# Default: false
+encrypt_db = false
+
+
+# ==============================================================================
+# Configuration Tips:
+# ==============================================================================
+#
+# 1. Start with defaults and adjust based on your project's needs
+# 2. Monitor metrics to understand query performance and token usage
+# 3. Adjust chunking settings if results are too granular or too broad
+# 4. Use priority_extensions to speed up initial indexing of critical files
+# 5. Enable scrub_secrets in production environments
+# 6. Tune provider weights based on the type of queries you perform
+# 7. Increase parallel_workers on machines with more CPU cores
+# 8. Set warn_file_size_mb to catch unexpectedly large files early
+#
+# ==============================================================================
