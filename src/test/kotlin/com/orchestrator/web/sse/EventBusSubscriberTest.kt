@@ -7,6 +7,7 @@ import com.orchestrator.domain.Task
 import com.orchestrator.domain.TaskId
 import com.orchestrator.domain.TaskStatus
 import com.orchestrator.domain.TaskType
+import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.modules.metrics.Alert
 import com.orchestrator.modules.metrics.AlertSeverity
 import com.orchestrator.modules.metrics.AlertSummary
@@ -170,6 +171,42 @@ class EventBusSubscriberTest {
 
             val aggregateIndex = withTimeout(1_000) { allEvents.receive() }
             assertEquals(indexPayload.data, aggregateIndex.data)
+
+            val summarySnapshot = ContextModule.IndexStatusSnapshot(
+                totalFiles = 3,
+                indexedFiles = 1,
+                pendingFiles = 1,
+                failedFiles = 1,
+                lastRefresh = baseInstant,
+                health = ContextModule.IndexHealthStatus.DEGRADED,
+                files = listOf(
+                    ContextModule.FileIndexEntry(
+                        path = "src/Main.kt",
+                        status = ContextModule.FileIndexStatus.INDEXED,
+                        sizeBytes = 1_024,
+                        lastModified = baseInstant.minusSeconds(60),
+                        chunkCount = 4
+                    ),
+                    ContextModule.FileIndexEntry(
+                        path = "docs/readme.md",
+                        status = ContextModule.FileIndexStatus.PENDING,
+                        sizeBytes = 512,
+                        lastModified = null,
+                        chunkCount = 0
+                    )
+                )
+            )
+
+            eventBus.publish(IndexStatusUpdatedEvent(summarySnapshot))
+            runCurrent()
+
+            val summaryPayload = withTimeout(1_000) { indexEvents.receive() }
+            assertTrue(summaryPayload.data.contains("\"event\":\"indexSummary\""))
+            assertNotNull(summaryPayload.htmlFragment)
+            assertTrue(summaryPayload.htmlFragment!!.contains("index-summary"))
+
+            val aggregateSummary = withTimeout(1_000) { allEvents.receive() }
+            assertEquals(summaryPayload.data, aggregateSummary.data)
 
             val metricsSnapshot = sampleMetricsSnapshot(baseInstant)
             eventBus.publish(MetricsUpdatedEvent(metricsSnapshot))

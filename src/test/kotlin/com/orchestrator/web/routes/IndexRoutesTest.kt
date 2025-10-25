@@ -11,7 +11,10 @@ import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.WebServerConfig
 import com.orchestrator.web.plugins.ApplicationConfigKey
 import com.orchestrator.web.plugins.configureRouting
+import com.orchestrator.web.services.IndexOperationsService
+import com.orchestrator.web.services.OperationTriggerResult
 import io.ktor.client.request.get
+import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -22,6 +25,7 @@ import java.nio.file.Path
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.Comparator
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.div
 import kotlin.test.AfterTest
@@ -34,6 +38,7 @@ class IndexRoutesTest {
 
     private lateinit var tempDir: Path
     private lateinit var contextConfig: ContextConfig
+    private lateinit var stubOperations: StubIndexOperationsService
 
     @BeforeTest
     fun setUp() {
@@ -51,6 +56,8 @@ class IndexRoutesTest {
         ContextModule.configure(contextConfig)
         ContextDatabase.initialize(contextConfig.storage)
         seedContextData()
+
+        stubOperations = StubIndexOperationsService()
     }
 
     @AfterTest
@@ -70,6 +77,7 @@ class IndexRoutesTest {
     fun `GET index renders status dashboard`() = testApplication {
         application {
             install(SSE)
+            IndexOperationsService.install(this, stubOperations)
             val appConfig = ConfigLoader.ApplicationConfig(
                 orchestrator = OrchestratorConfig(),
                 web = WebServerConfig(),
@@ -90,6 +98,8 @@ class IndexRoutesTest {
 
         assertContains(body, "Index Status")
         assertContains(body, "data-testid=\"stat-total-files\"")
+        assertContains(body, "id=\"index-summary\"")
+        assertContains(body, "sse-swap=\"indexSummary\"")
         assertContains(body, "data-testid=\"action-refresh\"")
         assertContains(body, "hx-post=\"/index/refresh\"")
         assertContains(body, "data-testid=\"provider-semantic-status\"")
@@ -192,5 +202,47 @@ class IndexRoutesTest {
             }
             ps.executeBatch()
         }
+    }
+
+    @Test
+    fun `POST refresh invokes operations service`() = testApplication {
+        application {
+            install(SSE)
+            IndexOperationsService.install(this, stubOperations)
+            val appConfig = ConfigLoader.ApplicationConfig(
+                orchestrator = OrchestratorConfig(),
+                web = WebServerConfig(),
+                agents = emptyList(),
+                context = contextConfig
+            )
+            attributes.put(ApplicationConfigKey, appConfig)
+
+            configureRouting(WebServerConfig())
+        }
+
+        val response = client.post("/index/refresh")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(1, stubOperations.refreshCalls.get())
+    }
+}
+
+private class StubIndexOperationsService : IndexOperationsService {
+    val refreshCalls = AtomicInteger(0)
+    val rebuildCalls = AtomicInteger(0)
+    val optimizeCalls = AtomicInteger(0)
+
+    override fun triggerRefresh(): OperationTriggerResult {
+        refreshCalls.incrementAndGet()
+        return OperationTriggerResult(accepted = true, message = "stub refresh")
+    }
+
+    override fun triggerRebuild(confirm: Boolean): OperationTriggerResult {
+        rebuildCalls.incrementAndGet()
+        return OperationTriggerResult(accepted = true, message = "stub rebuild")
+    }
+
+    override fun optimize(): OperationTriggerResult {
+        optimizeCalls.incrementAndGet()
+        return OperationTriggerResult(accepted = true, message = "stub optimize")
     }
 }

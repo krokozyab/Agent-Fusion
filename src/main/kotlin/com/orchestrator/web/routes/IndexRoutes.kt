@@ -7,11 +7,16 @@ import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.dto.toDTO
 import com.orchestrator.web.pages.IndexStatusPage
 import com.orchestrator.web.plugins.ApplicationConfigKey
+import com.orchestrator.web.services.IndexOperationsService
+import com.orchestrator.web.services.OperationTriggerResult
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.application
 import java.time.Clock
 import java.time.Instant
@@ -20,13 +25,37 @@ import java.util.Locale
 /**
  * Index status routes for the Orchestrator dashboard.
  */
-fun Route.indexRoutes(clock: Clock = Clock.systemUTC()) {
+fun Route.indexRoutes(
+    clock: Clock = Clock.systemUTC(),
+    operationsFactory: (Application) -> IndexOperationsService = { IndexOperationsService.forApplication(it) }
+) {
     get("/index") {
         val pageConfig = buildIndexStatusConfig(clock)
         val html = IndexStatusPage.render(pageConfig)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
         call.respondText(html, ContentType.Text.Html)
+    }
+
+    post("/index/refresh") {
+        val operations = operationsFactory(application)
+        val result = operations.triggerRefresh()
+        val config = buildIndexStatusConfig(clock)
+        call.respondWithIndexFragment(config, result)
+    }
+
+    post("/index/rebuild") {
+        val operations = operationsFactory(application)
+        val result = operations.triggerRebuild(confirm = true)
+        val config = buildIndexStatusConfig(clock)
+        call.respondWithIndexFragment(config, result)
+    }
+
+    post("/index/optimize") {
+        val operations = operationsFactory(application)
+        val result = operations.optimize()
+        val config = buildIndexStatusConfig(clock)
+        call.respondWithIndexFragment(config, result)
     }
 }
 
@@ -111,4 +140,16 @@ private fun formatProviderName(id: String): String {
                 if (ch.isLowerCase()) ch.titlecase(Locale.US) else ch.toString()
             }
         }
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.respondWithIndexFragment(
+    config: IndexStatusPage.Config,
+    result: OperationTriggerResult
+) {
+    val statusCode = if (result.accepted) HttpStatusCode.OK else HttpStatusCode.Conflict
+    val html = IndexStatusPage.renderContainer(config)
+
+    response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
+    response.headers.append("Vary", "HX-Request")
+    respondText(text = html, contentType = ContentType.Text.Html, status = statusCode)
 }

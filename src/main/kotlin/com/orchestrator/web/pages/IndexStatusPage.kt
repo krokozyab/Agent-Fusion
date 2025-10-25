@@ -4,6 +4,7 @@ import com.orchestrator.web.components.StatusBadge
 import com.orchestrator.web.dto.FileStateDTO
 import com.orchestrator.web.dto.IndexStatusDTO
 import com.orchestrator.web.rendering.PageLayout
+import kotlinx.html.DIV
 import kotlinx.html.FlowContent
 import kotlinx.html.TBODY
 import kotlinx.html.body
@@ -90,19 +91,44 @@ object IndexStatusPage {
                         pageTitle = "Index Status",
                         currentPath = "/index"
                     ) {
-                        div {
-                            attributes["id"] = "index-status-container"
-                            pageHeader(config)
-                            summarySection(config)
-                            adminActions(config.actions)
-                            providerSection(config.providers)
-                            filesSection(config.status)
-                        }
+                        div { populateContainer(config) }
                     }
                 }
             }
         }
         return "<!DOCTYPE html>\n$htmlContent"
+    }
+
+    fun renderContainer(config: Config): String = createHTML().div {
+        populateContainer(config)
+    }
+
+    internal fun renderSummaryFragment(status: IndexStatusDTO): String = createHTML().div {
+        attributes["id"] = "index-summary"
+        attributes["class"] = "grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-md mt-lg"
+        attributes["sse-swap"] = "indexSummary"
+        attributes["hx-swap"] = "outerHTML"
+
+        summaryCard(
+            testId = "stat-total-files",
+            label = "Total Files",
+            value = formatNumber(status.totalFiles)
+        )
+        summaryCard(
+            testId = "stat-indexed-files",
+            label = "Indexed",
+            value = formatNumber(status.indexedFiles)
+        )
+        summaryCard(
+            testId = "stat-pending-files",
+            label = "Pending",
+            value = formatNumber(status.pendingFiles)
+        )
+        summaryCard(
+            testId = "stat-failed-files",
+            label = "Failed",
+            value = formatNumber(status.failedFiles)
+        )
     }
 
     private fun FlowContent.pageHeader(config: Config) {
@@ -168,6 +194,10 @@ object IndexStatusPage {
 
     private fun FlowContent.summarySection(config: Config) {
         div(classes = "grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-md mt-lg") {
+            attributes["id"] = "index-summary"
+            attributes["sse-swap"] = "indexSummary"
+            attributes["hx-swap"] = "outerHTML"
+
             summaryCard(
                 testId = "stat-total-files",
                 label = "Total Files",
@@ -392,5 +422,14 @@ object IndexStatusPage {
         val digitGroups = (ln(sizeBytes.toDouble()) / ln(1024.0)).toInt().coerceIn(0, units.lastIndex)
         val value = sizeBytes / 1024.0.pow(digitGroups.toDouble())
         return "%.1f %s".format(Locale.US, value, units[digitGroups])
+    }
+
+    private fun DIV.populateContainer(config: Config) {
+        attributes["id"] = "index-status-container"
+        pageHeader(config)
+        summarySection(config)
+        adminActions(config.actions)
+        providerSection(config.providers)
+        filesSection(config.status)
     }
 }

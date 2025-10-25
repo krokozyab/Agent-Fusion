@@ -7,7 +7,9 @@ import com.orchestrator.web.components.DataTable
 import com.orchestrator.web.components.TaskRow
 import com.orchestrator.web.components.displayName
 import com.orchestrator.web.components.toTone
+import com.orchestrator.web.dto.IndexStatusDTO
 import com.orchestrator.web.dto.toTaskDTO
+import com.orchestrator.web.pages.IndexStatusPage
 import java.text.NumberFormat
 import java.time.Clock
 import java.time.Instant
@@ -108,6 +110,9 @@ class FragmentGenerator(
             }
         }
     }
+
+    fun indexSummary(status: IndexStatusDTO): String =
+        IndexStatusPage.renderSummaryFragment(status)
 
     /**
      * Render metrics snapshot summary card.

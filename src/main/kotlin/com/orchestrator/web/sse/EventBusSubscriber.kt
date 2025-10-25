@@ -10,8 +10,10 @@ import com.orchestrator.modules.metrics.Alert
 import com.orchestrator.modules.metrics.AlertEvent
 import com.orchestrator.modules.metrics.MetricsSnapshot
 import com.orchestrator.utils.Logger
+import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.routes.SSEStreamKind
 import com.orchestrator.web.routes.ensureSseManager
+import com.orchestrator.web.dto.toDTO
 import com.orchestrator.workflows.WorkflowEvent
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStarted
@@ -53,6 +55,11 @@ internal data class IndexProgressEvent(
     val total: Int? = null,
     val title: String? = null,
     val message: String? = null,
+    override val timestamp: Instant = Instant.now()
+) : Event
+
+internal data class IndexStatusUpdatedEvent(
+    val snapshot: ContextModule.IndexStatusSnapshot,
     override val timestamp: Instant = Instant.now()
 ) : Event
 
@@ -115,6 +122,10 @@ internal class EventBusSubscriber(
 
         jobs += eventBus.on<IndexProgressEvent> { event ->
             handleIndexProgress(event)
+        }
+
+        jobs += eventBus.on<IndexStatusUpdatedEvent> { event ->
+            handleIndexStatusUpdate(event)
         }
 
         jobs += eventBus.on<MetricsUpdatedEvent> { event ->
@@ -191,6 +202,36 @@ internal class EventBusSubscriber(
                 "processed" to event.processed,
                 "total" to event.total,
                 "timestamp" to event.timestamp.toString()
+            )
+        )
+
+        val sseEvent = SSEEvent.message(
+            data = payload,
+            htmlFragment = fragment,
+            timestamp = event.timestamp
+        )
+
+        broadcast(SSEStreamKind.INDEX, sseEvent)
+    }
+
+    private suspend fun handleIndexStatusUpdate(event: IndexStatusUpdatedEvent) {
+        val dto = event.snapshot.toDTO()
+        val fragment = runCatching { fragmentGenerator.indexSummary(dto) }
+            .onFailure { throwable ->
+                logger.warn(
+                    "Failed to render index summary update: ${throwable.message}"
+                )
+            }
+            .getOrNull() ?: return
+
+        val payload = jsonPayload(
+            event = "indexSummary",
+            attributes = mapOf(
+                "timestamp" to event.timestamp.toString(),
+                "totalFiles" to dto.totalFiles,
+                "indexedFiles" to dto.indexedFiles,
+                "pendingFiles" to dto.pendingFiles,
+                "failedFiles" to dto.failedFiles
             )
         )
 
