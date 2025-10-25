@@ -168,6 +168,7 @@ class EventBusSubscriberTest {
             assertTrue(indexPayload.data.contains("\"event\":\"indexProgress\""))
             assertNotNull(indexPayload.htmlFragment)
             assertTrue(indexPayload.htmlFragment!!.contains("index-progress"))
+            assertTrue(indexPayload.htmlFragment!!.contains("sse-swap=\"indexProgress\""))
 
             val aggregateIndex = withTimeout(1_000) { allEvents.receive() }
             assertEquals(indexPayload.data, aggregateIndex.data)

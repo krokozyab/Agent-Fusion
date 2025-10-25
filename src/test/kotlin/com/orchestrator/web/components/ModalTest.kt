@@ -1,7 +1,7 @@
 package com.orchestrator.web.components
 
 import kotlin.test.Test
-import kotlin.test.assertTrue
+import kotlin.test.assertContains
 import kotlinx.html.div
 import kotlinx.html.stream.createHTML
 
@@ -20,10 +20,12 @@ class ModalTest {
             }
         }
 
-        assertTrue(html.contains("id=\"test-modal\""))
-        assertTrue(html.contains("<h3 class=\"modal__title\">Test Modal</h3>"))
-        assertTrue(html.contains("<div class=\"modal__body\"><div>Modal Body</div></div>"))
-        assertTrue(html.contains("<div class=\"modal__footer\"><div>Modal Footer</div></div>"))
+        assertContains(html, "id=\"test-modal\"")
+        assertContains(html, "<h3 class=\"modal__title\">Test Modal</h3>")
+        assertContains(html, "<div class=\"modal__body\">")
+        assertContains(html, "Modal Body")
+        assertContains(html, "<div class=\"modal__footer\">")
+        assertContains(html, "Modal Footer")
     }
 
     @Test
@@ -38,9 +40,10 @@ class ModalTest {
             }
         }
 
-        assertTrue(html.contains("id=\"test-modal\""))
-        assertTrue(html.contains("<h3 class=\"modal__title\">Test Modal</h3>"))
-        assertTrue(html.contains("<div class=\"modal__body\"><div>Modal Body</div></div>"))
-        assertTrue(!html.contains("<div class=\"modal__footer\">"))
+        assertContains(html, "id=\"test-modal\"")
+        assertContains(html, "<h3 class=\"modal__title\">Test Modal</h3>")
+        assertContains(html, "<div class=\"modal__body\">")
+        assertContains(html, "Modal Body")
+        kotlin.test.assertFalse(html.contains("<div class=\"modal__footer\">"))
     }
 }

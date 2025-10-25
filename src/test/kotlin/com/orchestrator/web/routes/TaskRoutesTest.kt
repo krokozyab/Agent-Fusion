@@ -8,6 +8,8 @@ import com.orchestrator.web.WebServerConfig
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.install
+import io.ktor.server.sse.SSE
 import io.ktor.server.testing.testApplication
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -43,12 +45,13 @@ class TaskRoutesTest {
             stmt.execute("DELETE FROM proposals")
             stmt.execute("DELETE FROM decisions")
         }
+        conn.close()
     }
 
     @Test
     fun `GET tasks table returns HTML fragment`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         // Create some test tasks
@@ -95,21 +98,25 @@ class TaskRoutesTest {
         assertContains(body, "Implement feature X")
         assertContains(body, "Review code for module Y")
 
-        // Should contain status badges
+        // Should contain status badges with tones
         assertContains(body, "Pending")
         assertContains(body, "In Progress")
-        assertContains(body, "badge--default")
+        assertContains(body, "badge--warning")
+        assertContains(body, "badge--info")
 
-        // Should contain type information
+        // Should contain type information with outline badges
         assertContains(body, "Implementation")
         assertContains(body, "Review")
-        assertContains(body, "badge--info")
+        assertContains(body, "badge--success")
+        assertContains(body, "badge--outline")
 
         // Should contain routing strategy meta
         assertContains(body, "Solo")
         assertContains(body, "Consensus")
 
-        // Should include action buttons
+        // Should include HTMX/SSE wiring and action buttons
+        assertContains(body, "sse-swap=\"taskUpdated swap:outerHTML\"")
+        assertContains(body, "hx-get=\"/tasks/TASK-001/modal\"")
         assertContains(body, "task-row__action--view")
         assertContains(body, "task-row__action--edit")
     }
@@ -117,7 +124,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with status filter`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -156,7 +163,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with search parameter`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -190,7 +197,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with pagination`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         // Create 15 tasks
@@ -223,7 +230,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with sorting`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -263,7 +270,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with complexity range filter`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -299,7 +306,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with risk range filter`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -334,7 +341,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with invalid parameters coerces values`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         // Invalid page number gets coerced to 1
@@ -353,7 +360,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table returns empty state when no tasks`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val response = client.get("/tasks/table")
@@ -369,7 +376,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with multiple filters`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -411,7 +418,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table response has no-cache headers`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val response = client.get("/tasks/table")
@@ -426,7 +433,7 @@ class TaskRoutesTest {
     @Test
     fun `GET tasks table with agent filter`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task1 = Task(
@@ -460,7 +467,7 @@ class TaskRoutesTest {
     @Test
     fun `GET task detail page returns 200 OK for existing task`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task = Task(
@@ -482,7 +489,7 @@ class TaskRoutesTest {
     @Test
     fun `GET task detail page returns 404 for missing task`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val response = client.get("/tasks/TASK-DOES-NOT-EXIST")
@@ -493,7 +500,7 @@ class TaskRoutesTest {
     @Test
     fun `GET task detail modal returns 200 OK for existing task`() = testApplication {
         application {
-            configureRouting(WebServerConfig())
+            installTestRouting()
         }
 
         val task = Task(
@@ -512,11 +519,21 @@ class TaskRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         val body = response.bodyAsText()
         assertContains(body, "id=\"task-detail-modal\"")
-        assertContains(body, "#TASK-MODAL: Modal Test Task")
+        assertContains(body, "Task: Modal Test Task")
+        assertContains(body, "Task Information")
+        assertContains(body, "ID:")
+        assertContains(body, "TASK-MODAL")
         assertContains(body, "This is a test description for the modal.")
-        assertContains(body, "Complexity: 4")
-        assertContains(body, "Risk: 2")
+        assertContains(body, "Complexity:")
+        assertContains(body, "4/10")
+        assertContains(body, "Risk:")
+        assertContains(body, "2/10")
         assertContains(body, "Pending")
         assertContains(body, "Testing")
     }
+}
+
+private fun io.ktor.server.application.Application.installTestRouting() {
+    install(SSE)
+    configureRouting(WebServerConfig())
 }

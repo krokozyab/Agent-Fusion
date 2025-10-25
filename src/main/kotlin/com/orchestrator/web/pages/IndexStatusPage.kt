@@ -80,8 +80,10 @@ object IndexStatusPage {
                 link(rel = "stylesheet", href = "/static/css/dark-mode.css")
 
                 script(src = "/static/js/htmx.min.js") {}
+                // Load our custom SSE extension IMMEDIATELY after HTMX
+                // Must be before body hx-ext="sse" is processed
                 script(src = "/static/js/htmx-sse.min.js") {}
-                script(src = "/static/js/sse-handler.js") {}
+                // sse-handler.js is redundant now - our htmx-sse.min.js handles everything
                 script(src = "/static/js/app.js") {}
             }
 
@@ -229,6 +231,26 @@ object IndexStatusPage {
             attributes["data-testid"] = testId
             div(classes = "stat-card__value") { +value }
             div(classes = "stat-card__label") { +label }
+        }
+    }
+
+    private fun FlowContent.progressSection() {
+        div(classes = "card mt-xl") {
+            h3(classes = "mt-0") { +"Index Operations" }
+            p(classes = "text-muted mb-md") {
+                +"Live progress for refresh and rebuild jobs."
+            }
+
+            div {
+                attributes["id"] = "index-progress-region"
+                attributes["class"] = "index-progress index-progress--idle"
+                attributes["sse-swap"] = "indexProgress"
+                attributes["hx-swap"] = "outerHTML"
+
+                span(classes = "text-muted") {
+                    +"No active operations."
+                }
+            }
         }
     }
 
@@ -430,15 +452,8 @@ object IndexStatusPage {
     private fun DIV.populateContainer(config: Config) {
         attributes["id"] = "index-status-container"
         pageHeader(config)
-
-        // Progress indicator container for rebuild operations
-        div {
-            attributes["id"] = "index-progress"
-            attributes["sse-swap"] = "indexProgress"
-            attributes["hx-swap"] = "outerHTML"
-        }
-
         summarySection(config)
+        progressSection()
         adminActions(config.actions)
         providerSection(config.providers)
         filesSection(config.status)

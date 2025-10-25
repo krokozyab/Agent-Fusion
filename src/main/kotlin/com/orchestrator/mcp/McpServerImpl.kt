@@ -25,6 +25,8 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.http.content.resources
+import io.ktor.server.http.content.static
 import io.ktor.server.sse.SSE
 import io.ktor.server.sse.SSEServerContent
 import io.ktor.server.sse.ServerSSESession
@@ -220,6 +222,9 @@ class McpServerImpl(
             }
 
             routing {
+                static("/static") {
+                    resources("static")
+                }
                 get("/healthz") {
                     call.respond(mapOf("status" to "ok"))
                 }
