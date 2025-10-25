@@ -645,6 +645,9 @@ class RebuildContextTool(
             errorLogger = errorLogger
         )
 
+        // Reset progress tracker to ensure clean state for this rebuild
+        progressTracker.reset()
+
         // Run bootstrap
         return orchestrator.bootstrap()
     }

@@ -22,6 +22,7 @@ import kotlin.math.max
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -166,27 +167,80 @@ private class DefaultIndexOperationsService(
                     rebuildTool.execute(
                         RebuildParams(
                             confirm = true,
-                            async = false,
+                            async = true,
                             validateOnly = false
                         )
                     )
                 }
 
-                val statusMessage = result.message ?: when (result.status.lowercase()) {
-                    "completed" -> "Rebuild completed successfully"
-                    "completed_with_errors" -> "Rebuild completed with errors"
-                    "failed" -> "Rebuild failed"
-                    else -> "Rebuild status: ${result.status}"
-                }
+                // If async, poll for job completion
+                if (result.jobId != null) {
+                    logger.info("Rebuild job started: ${result.jobId}")
+                    var isComplete = false
+                    var pollCount = 0
+                    val maxPollAttempts = 2400 // 40 minutes with 1 second polls
 
-                publishProgress(
-                    operationId = operationId,
-                    percentage = if (result.status.equals("failed", ignoreCase = true)) 100 else 100,
-                    processed = result.processedFiles,
-                    total = result.totalFiles,
-                    title = "Context Rebuild",
-                    message = statusMessage
-                )
+                    while (!isComplete && pollCount < maxPollAttempts) {
+                        delay(1000) // Poll every second
+                        pollCount++
+
+                        val statusResult = withContext(Dispatchers.IO) {
+                            rebuildTool.getJobStatus(result.jobId)
+                        }
+
+                        if (statusResult != null) {
+                            // Update progress based on job status
+                            val percentage = when (statusResult.status.lowercase()) {
+                                "running" -> minOf(50 + (pollCount / 10), 95)
+                                "completed" -> 100
+                                "completed_with_errors" -> 100
+                                "failed" -> 100
+                                else -> 50
+                            }
+
+                            publishProgress(
+                                operationId = operationId,
+                                percentage = percentage,
+                                processed = statusResult.processedFiles,
+                                total = statusResult.totalFiles,
+                                title = "Context Rebuild",
+                                message = statusResult.message ?: "Rebuilding..."
+                            )
+
+                            isComplete = statusResult.status.lowercase() in listOf("completed", "completed_with_errors", "failed")
+                        } else {
+                            logger.warn("Rebuild job status not found for jobId: ${result.jobId}")
+                            isComplete = true
+                        }
+                    }
+
+                    if (!isComplete) {
+                        logger.warn("Rebuild job polling timeout after $maxPollAttempts attempts")
+                        publishProgress(
+                            operationId = operationId,
+                            percentage = 100,
+                            title = "Context Rebuild",
+                            message = "Rebuild timeout - operation may still be running in background"
+                        )
+                    }
+                } else {
+                    // Synchronous result (shouldn't happen with async=true but handle it)
+                    val statusMessage = result.message ?: when (result.status.lowercase()) {
+                        "completed" -> "Rebuild completed successfully"
+                        "completed_with_errors" -> "Rebuild completed with errors"
+                        "failed" -> "Rebuild failed"
+                        else -> "Rebuild status: ${result.status}"
+                    }
+
+                    publishProgress(
+                        operationId = operationId,
+                        percentage = 100,
+                        processed = result.processedFiles,
+                        total = result.totalFiles,
+                        title = "Context Rebuild",
+                        message = statusMessage
+                    )
+                }
             } catch (t: Throwable) {
                 logger.error("Context rebuild failed: ${t.message}", t)
                 publishProgress(

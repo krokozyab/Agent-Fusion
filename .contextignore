@@ -1,0 +1,63 @@
+# Context System Ignore File
+# Patterns below are excluded from indexing during bootstrap and watching
+
+# Build artifacts
+build/
+dist/
+out/
+target/
+*.class
+*.jar
+*.war
+
+# Gradle
+.gradle/
+gradle-app.setting
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Version control
+.git/
+.svn/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test artifacts
+/tmp/
+/temp/
+test-output/
+.test-results/
+
+# Large files that shouldn't be indexed
+*.log
+*.tmp
+*.bak
+
+# Generated files
+*.generated.kt
+*.generated.java
