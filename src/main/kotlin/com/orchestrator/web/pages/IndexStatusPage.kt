@@ -80,6 +80,7 @@ object IndexStatusPage {
                 link(rel = "stylesheet", href = "/static/css/dark-mode.css")
 
                 script(src = "/static/js/htmx.min.js") {}
+                script(src = "/static/js/htmx-sse.min.js") {}
                 script(src = "/static/js/sse-handler.js") {}
                 script(src = "/static/js/app.js") {}
             }
