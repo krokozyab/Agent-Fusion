@@ -88,8 +88,9 @@ object IndexStatusPage {
             }
 
             body(classes = "dashboard-layout") {
-                attributes["hx-ext"] = "sse"
-                attributes["sse-connect"] = "/sse/index"
+                // Don't use hx-ext="sse" here - we'll register and connect manually in our extension
+                // This prevents HTMX's built-in SSE from conflicting with our custom implementation
+                attributes["data-sse-url"] = "/sse/index"
 
                 with(PageLayout) {
                     dashboardShell(
