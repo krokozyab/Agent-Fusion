@@ -1,0 +1,22 @@
+[
+  {
+    "moduleId": "org.jetbrains.kotlinx:atomicfu:0.29.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/org.jetbrains.kotlinx-atomicfu-0.29.0-appleMain-cinterop/org.jetbrains.kotlinx_atomicfu-cinterop-interop-kCq7Ng.klib",
+    "sourceSetName": "appleMain"
+  },
+  {
+    "moduleId": "io.ktor:ktor-server-core:3.3.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/io.ktor-ktor-server-core-3.3.0-darwinMain-cinterop/io.ktor_ktor-server-core-cinterop-host_common-31K0eg.klib",
+    "sourceSetName": "darwinMain"
+  },
+  {
+    "moduleId": "io.ktor:ktor-utils:3.3.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/io.ktor-ktor-utils-3.3.0-darwinMain-cinterop/io.ktor_ktor-utils-cinterop-threadUtils-r8Jmuw.klib",
+    "sourceSetName": "darwinMain"
+  },
+  {
+    "moduleId": "io.ktor:ktor-io:3.3.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/io.ktor-ktor-io-3.3.0-darwinMain-cinterop/io.ktor_ktor-io-cinterop-mutex-apwdUw.klib",
+    "sourceSetName": "darwinMain"
+  }
+]

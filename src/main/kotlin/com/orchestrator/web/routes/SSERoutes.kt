@@ -94,54 +94,38 @@ internal fun Application.ensureSseManager(kind: SSEStreamKind): SSEManager {
 }
 
 private fun SSEEvent.toServerSentEvent(): ServerSentEvent {
-    val payload = if (htmlFragment == null) {
-        data
-    } else {
-        buildJsonPayload()
+    // If we have an htmlFragment, send it directly as data with extracted event name
+    if (htmlFragment != null) {
+        // Extract event name from JSON data field
+        val eventName = extractEventName(data)
+        return ServerSentEvent(
+            data = htmlFragment,
+            event = eventName,
+            id = id,
+            retry = DEFAULT_RETRY_MILLIS
+        )
     }
 
     return ServerSentEvent(
-        data = payload,
+        data = data,
         event = type.wireName,
         id = id,
         retry = DEFAULT_RETRY_MILLIS
     )
 }
 
-private fun SSEEvent.buildJsonPayload(): String {
-    val escapedData = data.escapeForJson()
-    val escapedHtml = htmlFragment?.escapeForJson()
-    return buildString {
-        append("{\"data\":\"")
-        append(escapedData)
-        append("\"")
-        if (escapedHtml != null) {
-            append(",\"htmlFragment\":\"")
-            append(escapedHtml)
-            append("\"")
+private fun extractEventName(jsonData: String): String {
+    return try {
+        // Parse JSON to extract event name: {"event":"indexSummary",...}
+        val startIdx = jsonData.indexOf("\"event\":\"") + 9
+        val endIdx = jsonData.indexOf("\"", startIdx)
+        if (startIdx > 8 && endIdx > startIdx) {
+            jsonData.substring(startIdx, endIdx)
+        } else {
+            "message"
         }
-        append("}")
+    } catch (e: Exception) {
+        "message"
     }
 }
 
-private fun String.escapeForJson(): String = buildString(length) {
-    for (ch in this@escapeForJson) {
-        when (ch) {
-            '\\' -> append("\\\\")
-            '"' -> append("\\\"")
-            '\b' -> append("\\b")
-            '\u000C' -> append("\\f")
-            '\n' -> append("\\n")
-            '\r' -> append("\\r")
-            '\t' -> append("\\t")
-            else -> {
-                if (ch.code in 0x00..0x1F) {
-                    append("\\u")
-                    append(ch.code.toString(16).padStart(4, '0'))
-                } else {
-                    append(ch)
-                }
-            }
-        }
-    }
-}
