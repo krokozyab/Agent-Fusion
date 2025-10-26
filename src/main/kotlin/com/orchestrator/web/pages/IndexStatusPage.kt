@@ -268,8 +268,9 @@ object IndexStatusPage {
                         attributes["type"] = "button"
                         attributes["data-testid"] = "action-${action.id}"
                         attributes["hx-post"] = action.hxPost
-                        attributes["hx-target"] = "#index-status-container"
-                        attributes["hx-swap"] = "outerHTML"
+                        // Disable HTMX's default boost behavior which tries to swap responses
+                        // We only want to send the request, SSE events handle all DOM updates
+                        attributes["hx-boost"] = "false"
                         action.confirm?.let { attributes["hx-confirm"] = it }
                         span(classes = "mr-xs") { +action.icon }
                         +action.label

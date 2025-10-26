@@ -40,22 +40,28 @@ fun Route.indexRoutes(
     post("/index/refresh") {
         val operations = operationsFactory(application)
         val result = operations.triggerRefresh()
-        val config = buildIndexStatusConfig(clock)
-        call.respondWithIndexFragment(config, result)
+        // Return 204 No Content - SSE events will handle all DOM updates
+        // Don't return HTML since we removed hx-target/hx-swap from buttons
+        call.response.status(HttpStatusCode.NoContent)
+        call.respondText("")
     }
 
     post("/index/rebuild") {
         val operations = operationsFactory(application)
         val result = operations.triggerRebuild(confirm = true)
-        val config = buildIndexStatusConfig(clock)
-        call.respondWithIndexFragment(config, result)
+        // Return 204 No Content - SSE events will handle all DOM updates
+        // Don't return HTML since we removed hx-target/hx-swap from buttons
+        call.response.status(HttpStatusCode.NoContent)
+        call.respondText("")
     }
 
     post("/index/optimize") {
         val operations = operationsFactory(application)
         val result = operations.optimize()
-        val config = buildIndexStatusConfig(clock)
-        call.respondWithIndexFragment(config, result)
+        // Return 204 No Content - SSE events will handle all DOM updates
+        // Don't return HTML since we removed hx-target/hx-swap from buttons
+        call.response.status(HttpStatusCode.NoContent)
+        call.respondText("")
     }
 }
 
