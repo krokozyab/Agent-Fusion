@@ -182,6 +182,7 @@ class GetContextStatsToolTest {
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
                 st.executeUpdate("DELETE FROM usage_metrics")
+                st.executeUpdate("DELETE FROM links")
                 st.executeUpdate("DELETE FROM embeddings")
                 st.executeUpdate("DELETE FROM chunks")
                 st.executeUpdate("DELETE FROM file_state")

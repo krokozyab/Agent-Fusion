@@ -100,8 +100,9 @@ class IndexRoutesTest {
         assertContains(body, "data-testid=\"stat-total-files\"")
         assertContains(body, "id=\"index-summary\"")
         assertContains(body, "sse-swap=\"indexSummary\"")
+        assertContains(body, "data-sse-url=\"/sse/index\"")
         assertContains(body, "data-testid=\"action-refresh\"")
-        assertContains(body, "hx-post=\"/index/refresh\"")
+        assertContains(body, "fetch('/index/refresh'")
         assertContains(body, "data-testid=\"provider-semantic-status\"")
         assertContains(body, "data-testid=\"provider-symbol-status\"")
         assertContains(body, "data-testid=\"file-row-src/app/Indexed.kt\"")
@@ -221,7 +222,7 @@ class IndexRoutesTest {
         }
 
         val response = client.post("/index/refresh")
-        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(HttpStatusCode.NoContent, response.status)
         assertEquals(1, stubOperations.refreshCalls.get())
     }
 }
