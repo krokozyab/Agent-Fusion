@@ -342,6 +342,8 @@ private class DefaultIndexOperationsService(
                     }
                 }
             } finally {
+                // Small delay to ensure all progress events are delivered before summary
+                delay(500)
                 publishSummary()
                 rebuildActive.set(false)
             }
