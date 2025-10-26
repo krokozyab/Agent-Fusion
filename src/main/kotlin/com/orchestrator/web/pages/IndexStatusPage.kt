@@ -197,6 +197,12 @@ object IndexStatusPage {
                                 document.addEventListener('htmx:afterSettle', function() {
                                     ensureSSE();
                                 });
+
+                                // Immediately initialize SSE connection when this script executes
+                                // This ensures SSE is ready even when navigating to /index via HTMX
+                                setTimeout(function() {
+                                    ensureSSE(true);
+                                }, 100);
                             })();
                         """.trimIndent()
                     }
