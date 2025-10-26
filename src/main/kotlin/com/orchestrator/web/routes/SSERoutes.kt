@@ -48,8 +48,12 @@ private suspend fun ServerSSESession.streamEvents(kind: SSEStreamKind) {
     val connectionId = "${kind.pathSegment}-${UUID.randomUUID()}"
 
     // Standard SSE response headers to keep intermediary caches from buffering.
-    call.response.headers.append(HttpHeaders.CacheControl, "no-cache, no-store, must-revalidate")
-    call.response.headers.append(HttpHeaders.Connection, "keep-alive")
+    try {
+        call.response.headers.append(HttpHeaders.CacheControl, "no-cache, no-store, must-revalidate")
+        call.response.headers.append(HttpHeaders.Connection, "keep-alive")
+    } catch (_: UnsupportedOperationException) {
+        // Response may already be committed by the SSE plugin; ignore header append in that case.
+    }
 
     // Notify client we acknowledged their reconnection hint (if any).
     lastEventId?.let { send(ServerSentEvent(comments = "resume-from:$it")) }
@@ -128,4 +132,3 @@ private fun extractEventName(jsonData: String): String {
         "message"
     }
 }
-
