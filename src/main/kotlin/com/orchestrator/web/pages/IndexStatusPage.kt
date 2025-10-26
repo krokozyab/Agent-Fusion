@@ -267,11 +267,10 @@ object IndexStatusPage {
                     button(classes = "button button--primary") {
                         attributes["type"] = "button"
                         attributes["data-testid"] = "action-${action.id}"
-                        attributes["hx-post"] = action.hxPost
-                        // Disable HTMX's default boost behavior which tries to swap responses
-                        // We only want to send the request, SSE events handle all DOM updates
-                        attributes["hx-boost"] = "false"
-                        action.confirm?.let { attributes["hx-confirm"] = it }
+                        // Use onclick instead of hx-post to avoid HTMX response processing
+                        // This prevents the "Cannot read properties of null (reading 'dispatchEvent')" error
+                        attributes["onclick"] = "fetch('${action.hxPost}', {method: 'POST'}).catch(e => console.error('Request failed:', e))"
+                        action.confirm?.let { attributes["onclick"] = "if(confirm('${it}')) { ${attributes["onclick"]} }" }
                         span(classes = "mr-xs") { +action.icon }
                         +action.label
                     }
