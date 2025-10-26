@@ -29,6 +29,7 @@ import kotlinx.html.th
 import kotlinx.html.title
 import kotlinx.html.tr
 import kotlinx.html.ul
+import kotlinx.html.unsafe
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -98,6 +99,106 @@ object IndexStatusPage {
                         currentPath = "/index"
                     ) {
                         div { populateContainer(config) }
+                    }
+                }
+
+                script {
+                    unsafe {
+                        +"""
+                            (function() {
+                                var INDEX_ACTION_SELECTOR = '[data-index-action]';
+
+                                function ensureSSE(force) {
+                                    try {
+                                        document.body.setAttribute('data-sse-url', '/sse/index');
+                                        if (typeof window.__initIndexSSE === 'function') {
+                                            window.__initIndexSSE(!!force);
+                                        }
+                                    } catch (err) {
+                                        console.warn('Failed to initialize index SSE connection:', err);
+                                    }
+                                }
+
+                                function showPendingState(label) {
+                                    var region = document.getElementById('index-progress-region');
+                                    if (!region) {
+                                        return;
+                                    }
+
+                                    region.classList.remove('index-progress--idle');
+                                    region.classList.add('index-progress', 'index-progress--pending');
+
+                                    var safeLabel = label || 'Index Operation';
+                                    region.innerHTML = ''
+                                        + '<div class="index-progress__header">'
+                                        +   '<span class="index-progress__title">' + safeLabel + '</span>'
+                                        +   '<span class="index-progress__value">Preparing…</span>'
+                                        + '</div>'
+                                        + '<progress class="index-progress__bar" max="100" value="0"></progress>'
+                                        + '<div class="index-progress__meta">Waiting for server updates…</div>';
+                                }
+
+                                function bindIndexActionButtons(root) {
+                                    var scope = root || document;
+                                    var buttons = scope.querySelectorAll(INDEX_ACTION_SELECTOR);
+                                    buttons.forEach(function(btn) {
+                                        if (btn.__indexActionBound) {
+                                            return;
+                                        }
+                                        btn.__indexActionBound = true;
+
+                                        btn.addEventListener('click', function(event) {
+                                            var endpoint = btn.getAttribute('data-action-endpoint');
+                                            if (!endpoint) {
+                                                return;
+                                            }
+
+                                            var confirmMessage = btn.getAttribute('data-action-confirm');
+                                            if (confirmMessage && !window.confirm(confirmMessage)) {
+                                                return;
+                                            }
+
+                                            event.preventDefault();
+                                            var label = btn.getAttribute('data-action-label') || btn.textContent || '';
+
+                                            ensureSSE(true);
+                                            showPendingState(label.trim());
+
+                                            fetch(endpoint, {
+                                                method: 'POST',
+                                                credentials: 'same-origin',
+                                                headers: {
+                                                    'X-Requested-With': 'fetch'
+                                                }
+                                            }).catch(function(error) {
+                                                console.error('Index action request failed:', error);
+                                            });
+                                        });
+                                    });
+                                }
+
+                                function initializeIndexPage(root) {
+                                    ensureSSE(true);
+                                    bindIndexActionButtons(root);
+                                }
+
+                                if (document.readyState === 'loading') {
+                                    document.addEventListener('DOMContentLoaded', function() {
+                                        initializeIndexPage();
+                                    }, { once: true });
+                                } else {
+                                    initializeIndexPage();
+                                }
+
+                                document.addEventListener('htmx:afterSwap', function(evt) {
+                                    initializeIndexPage(evt.target);
+                                });
+
+                                document.addEventListener('htmx:afterSettle', function() {
+                                    ensureSSE();
+                                });
+                            })();
+                        """.trimIndent()
                     }
                 }
             }
@@ -267,10 +368,12 @@ object IndexStatusPage {
                     button(classes = "button button--primary") {
                         attributes["type"] = "button"
                         attributes["data-testid"] = "action-${action.id}"
-                        // Use onclick instead of hx-post to avoid HTMX response processing
-                        // This prevents the "Cannot read properties of null (reading 'dispatchEvent')" error
-                        attributes["onclick"] = "fetch('${action.hxPost}', {method: 'POST'}).catch(e => console.error('Request failed:', e))"
-                        action.confirm?.let { attributes["onclick"] = "if(confirm('${it}')) { ${attributes["onclick"]} }" }
+                        attributes["data-index-action"] = action.id
+                        attributes["data-action-endpoint"] = action.hxPost
+                        attributes["data-action-label"] = action.label
+                        action.confirm?.let { confirm ->
+                            attributes["data-action-confirm"] = confirm
+                        }
                         span(classes = "mr-xs") { +action.icon }
                         +action.label
                     }

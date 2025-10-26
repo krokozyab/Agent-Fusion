@@ -96,11 +96,12 @@ private class DefaultIndexOperationsService(
 
         val operationId = "refresh-${UUID.randomUUID()}"
         scope.launch {
+            // Publish initial progress immediately for instant UI feedback
             publishProgress(
                 operationId = operationId,
-                percentage = 0,
+                percentage = 5,
                 title = "Context Refresh",
-                message = "Refresh started"
+                message = "Initializing refresh..."
             )
 
             try {
@@ -167,11 +168,12 @@ private class DefaultIndexOperationsService(
 
         val operationId = "rebuild-${UUID.randomUUID()}"
         scope.launch {
+            // Publish initial progress immediately for instant UI feedback
             publishProgress(
                 operationId = operationId,
-                percentage = 0,
+                percentage = 5,
                 title = "Context Rebuild",
-                message = "Rebuild started"
+                message = "Initializing rebuild..."
             )
 
             try {
