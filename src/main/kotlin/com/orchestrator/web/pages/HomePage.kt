@@ -184,7 +184,10 @@ object HomePage {
                             +"""
                             // Auto-refresh stats every ${config.refreshInterval} seconds
                             setInterval(function() {
-                                htmx.trigger('#quick-stats', 'refresh');
+                                var element = document.getElementById('quick-stats');
+                                if (element && window.htmx) {
+                                    htmx.trigger(element, 'refresh');
+                                }
                             }, ${config.refreshInterval * 1000});
                             """.trimIndent()
                         }
