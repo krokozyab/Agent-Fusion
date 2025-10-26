@@ -1,7 +1,7 @@
 package com.orchestrator.mcp.tools
 
-import com.orchestrator.context.bootstrap.BootstrapOrchestrator
 import com.orchestrator.context.bootstrap.BootstrapErrorLogger
+import com.orchestrator.context.bootstrap.BootstrapOrchestrator
 import com.orchestrator.context.bootstrap.BootstrapProgress
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
 import com.orchestrator.context.bootstrap.FilePrioritizer
@@ -11,8 +11,8 @@ import com.orchestrator.context.discovery.DirectoryScanner
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.FileIndexer
 import com.orchestrator.context.storage.ContextDatabase
+import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.utils.Logger
-import kotlinx.coroutines.*
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -20,6 +20,12 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * MCP tool for full context rebuild with safety checks.
@@ -193,10 +199,14 @@ class RebuildContextTool(
 
         log.info("Starting context rebuild for {} paths (confirm={}, async={})", targetPaths.size, params.confirm, params.async)
 
-        return if (params.async) {
-            executeAsync(targetPaths, params, startedAt, onProgress)
-        } else {
-            executeSync(targetPaths, params, startedAt, onProgress)
+        return runBlocking {
+            WatcherRegistry.pauseWhile {
+                if (params.async) {
+                    executeAsync(targetPaths, params, startedAt, onProgress)
+                } else {
+                    executeSync(targetPaths, params, startedAt, onProgress)
+                }
+            }
         }
     }
 
