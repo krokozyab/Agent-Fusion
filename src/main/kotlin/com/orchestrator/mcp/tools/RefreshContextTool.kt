@@ -1,17 +1,24 @@
 package com.orchestrator.mcp.tools
 
 import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.IncrementalIndexer
-import com.orchestrator.context.indexing.BatchIndexer
+import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.utils.Logger
-import kotlinx.coroutines.*
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * MCP tool for manually triggering context re-indexing.
@@ -176,10 +183,14 @@ class RefreshContextTool(
 
         log.info("Refreshing context for {} paths (force={}, async={})", targetPaths.size, params.force, params.async)
 
-        return if (params.async) {
-            executeAsync(targetPaths, params, startedAt)
-        } else {
-            executeSync(targetPaths, params, startedAt, onProgress)
+        return runBlocking {
+            WatcherRegistry.pauseWhile {
+                if (params.async) {
+                    executeAsync(targetPaths, params, startedAt)
+                } else {
+                    executeSync(targetPaths, params, startedAt, onProgress)
+                }
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package com.orchestrator.web.services
 
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.context.storage.ContextDatabase
+import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.core.EventBus
 import com.orchestrator.mcp.tools.RefreshContextTool
 import com.orchestrator.mcp.tools.RefreshContextTool.Params as RefreshParams
@@ -96,50 +97,51 @@ private class DefaultIndexOperationsService(
 
         val operationId = "refresh-${UUID.randomUUID()}"
         scope.launch {
-            // Publish initial progress immediately for instant UI feedback
-            publishProgress(
-                operationId = operationId,
-                percentage = 5,
-                title = "Context Refresh",
-                message = "Initializing refresh..."
-            )
+            WatcherRegistry.pauseWhile {
+                publishProgress(
+                    operationId = operationId,
+                    percentage = 5,
+                    title = "Context Refresh",
+                    message = "Initializing refresh..."
+                )
 
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    refreshTool.execute(RefreshParams(async = false)) { progress ->
-                        val total = progress.totalFiles
-                        val processed = progress.processedFiles
-                        val percentage = if (total > 0) (processed * 100) / total else 10
-                        publishProgress(
-                            operationId = operationId,
-                            percentage = percentage.coerceIn(0, 95),
-                            processed = processed,
-                            total = total,
-                            title = "Context Refresh",
-                            message = progress.lastPath?.let { "Indexing $it" } ?: "Indexing files"
-                        )
+                try {
+                    val result = withContext(Dispatchers.IO) {
+                        refreshTool.execute(RefreshParams(async = false)) { progress ->
+                            val total = progress.totalFiles
+                            val processed = progress.processedFiles
+                            val percentage = if (total > 0) (processed * 100) / total else 10
+                            publishProgress(
+                                operationId = operationId,
+                                percentage = percentage.coerceIn(0, 95),
+                                processed = processed,
+                                total = total,
+                                title = "Context Refresh",
+                                message = progress.lastPath?.let { "Indexing $it" } ?: "Indexing files"
+                            )
+                        }
                     }
-                }
 
-                publishProgress(
-                    operationId = operationId,
-                    percentage = 100,
-                    processed = (result.newFiles ?: 0) + (result.modifiedFiles ?: 0),
-                    total = result.totalCount(),
-                    title = "Context Refresh",
-                    message = result.message ?: "Refresh completed"
-                )
-            } catch (t: Throwable) {
-                logger.error("Index refresh failed: ${t.message}", t)
-                publishProgress(
-                    operationId = operationId,
-                    percentage = 100,
-                    title = "Context Refresh",
-                    message = "Refresh failed: ${t.message ?: t::class.simpleName ?: "error"}"
-                )
-            } finally {
-                publishSummary()
-                refreshActive.set(false)
+                    publishProgress(
+                        operationId = operationId,
+                        percentage = 100,
+                        processed = (result.newFiles ?: 0) + (result.modifiedFiles ?: 0),
+                        total = result.totalCount(),
+                        title = "Context Refresh",
+                        message = result.message ?: "Refresh completed"
+                    )
+                } catch (t: Throwable) {
+                    logger.error("Index refresh failed: ${t.message}", t)
+                    publishProgress(
+                        operationId = operationId,
+                        percentage = 100,
+                        title = "Context Refresh",
+                        message = "Refresh failed: ${t.message ?: t::class.simpleName ?: "error"}"
+                    )
+                } finally {
+                    publishSummary()
+                    refreshActive.set(false)
+                }
             }
         }
 
@@ -168,71 +170,70 @@ private class DefaultIndexOperationsService(
 
         val operationId = "rebuild-${UUID.randomUUID()}"
         scope.launch {
-            // Publish initial progress immediately for instant UI feedback
-            publishProgress(
-                operationId = operationId,
-                percentage = 5,
-                title = "Context Rebuild",
-                message = "Initializing rebuild..."
-            )
+            WatcherRegistry.pauseWhile {
+                publishProgress(
+                    operationId = operationId,
+                    percentage = 5,
+                    title = "Context Rebuild",
+                    message = "Initializing rebuild..."
+                )
 
-            try {
-                val result = withContext(Dispatchers.IO) {
-                    rebuildTool.execute(
-                        RebuildParams(
-                            confirm = true,
-                            async = true,
-                            validateOnly = false
-                        )
-                    ) { progress ->
-                        val total = progress.totalFiles
-                        val processed = progress.processedFiles
-                        val percentage = if (total > 0) (processed * 100) / total else 10
+                try {
+                    val result = withContext(Dispatchers.IO) {
+                        rebuildTool.execute(
+                            RebuildParams(
+                                confirm = true,
+                                async = false,
+                                validateOnly = false
+                            )
+                        ) { progress ->
+                            val total = progress.totalFiles
+                            val processed = progress.processedFiles
+                            val percentage = if (total > 0) (processed * 100) / total else 10
+                            publishProgress(
+                                operationId = operationId,
+                                percentage = percentage.coerceIn(5, 95),
+                                processed = processed,
+                                total = total,
+                                title = "Context Rebuild",
+                                message = progress.lastProcessedFile?.let { "Indexed $it" } ?: "Rebuilding..."
+                            )
+                        }
+                    }
+
+                    if (result.jobId != null) {
+                        logger.info("Rebuild job started: ${result.jobId}")
+                        monitorRebuildJob(result.jobId, operationId)
+                    } else {
+                        val statusMessage = result.message ?: when (result.status.lowercase()) {
+                            "completed" -> "Rebuild completed successfully"
+                            "completed_with_errors" -> "Rebuild completed with errors"
+                            "failed" -> "Rebuild failed"
+                            else -> "Rebuild status: ${result.status}"
+                        }
+
                         publishProgress(
                             operationId = operationId,
-                            percentage = percentage.coerceIn(5, 95),
-                            processed = processed,
-                            total = total,
+                            percentage = 100,
+                            processed = result.processedFiles,
+                            total = result.totalFiles,
                             title = "Context Rebuild",
-                            message = progress.lastProcessedFile?.let { "Indexed $it" } ?: "Rebuilding..."
+                            message = statusMessage
                         )
+                        publishSummary()
+                        rebuildActive.set(false)
                     }
-                }
-
-                // If async, poll for job completion
-                if (result.jobId != null) {
-                    logger.info("Rebuild job started: ${result.jobId}")
-                    monitorRebuildJob(result.jobId, operationId)
-                } else {
-                    // Synchronous result (shouldn't happen with async=true but handle it)
-                    val statusMessage = result.message ?: when (result.status.lowercase()) {
-                        "completed" -> "Rebuild completed successfully"
-                        "completed_with_errors" -> "Rebuild completed with errors"
-                        "failed" -> "Rebuild failed"
-                        else -> "Rebuild status: ${result.status}"
-                    }
-
+                } catch (t: Throwable) {
+                    logger.error("Context rebuild failed: ${t.message}", t)
                     publishProgress(
                         operationId = operationId,
                         percentage = 100,
-                        processed = result.processedFiles,
-                        total = result.totalFiles,
                         title = "Context Rebuild",
-                        message = statusMessage
+                        message = "Rebuild failed: ${t.message ?: t::class.simpleName ?: "error"}"
                     )
                     publishSummary()
                     rebuildActive.set(false)
                 }
-            } catch (t: Throwable) {
-                logger.error("Context rebuild failed: ${t.message}", t)
-                publishProgress(
-                    operationId = operationId,
-                    percentage = 100,
-                    title = "Context Rebuild",
-                    message = "Rebuild failed: ${t.message ?: t::class.simpleName ?: "error"}"
-                )
-                publishSummary()
-                rebuildActive.set(false)
             }
         }
 
@@ -253,40 +254,42 @@ private class DefaultIndexOperationsService(
 
         val operationId = "optimize-${UUID.randomUUID()}"
         scope.launch {
-            publishProgress(
-                operationId = operationId,
-                percentage = 0,
-                title = "Optimize Database",
-                message = "Optimization started"
-            )
+            WatcherRegistry.pauseWhile {
+                publishProgress(
+                    operationId = operationId,
+                    percentage = 0,
+                    title = "Optimize Database",
+                    message = "Optimization started"
+                )
 
-            try {
-                withContext(Dispatchers.IO) {
-                    ContextDatabase.withConnection { conn ->
-                        conn.createStatement().use { st ->
-                            st.execute("VACUUM")
-                            st.execute("ANALYZE")
+                try {
+                    withContext(Dispatchers.IO) {
+                        ContextDatabase.withConnection { conn ->
+                            conn.createStatement().use { st ->
+                                st.execute("VACUUM")
+                                st.execute("ANALYZE")
+                            }
                         }
                     }
-                }
 
-                publishProgress(
-                    operationId = operationId,
-                    percentage = 100,
-                    title = "Optimize Database",
-                    message = "Optimization completed"
-                )
-            } catch (t: Throwable) {
-                logger.error("Database optimization failed: ${t.message}", t)
-                publishProgress(
-                    operationId = operationId,
-                    percentage = 100,
-                    title = "Optimize Database",
-                    message = "Optimization failed: ${t.message ?: t::class.simpleName ?: "error"}"
-                )
-            } finally {
-                publishSummary()
-                optimizeActive.set(false)
+                    publishProgress(
+                        operationId = operationId,
+                        percentage = 100,
+                        title = "Optimize Database",
+                        message = "Optimization completed"
+                    )
+                } catch (t: Throwable) {
+                    logger.error("Database optimization failed: ${t.message}", t)
+                    publishProgress(
+                        operationId = operationId,
+                        percentage = 100,
+                        title = "Optimize Database",
+                        message = "Optimization failed: ${t.message ?: t::class.simpleName ?: "error"}"
+                    )
+                } finally {
+                    publishSummary()
+                    optimizeActive.set(false)
+                }
             }
         }
 

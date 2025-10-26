@@ -8,6 +8,7 @@ import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.modules.metrics.MetricsModule
 import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.context.watcher.WatcherDaemon
+import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.context.indexing.IncrementalIndexer
 import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.BatchIndexer
@@ -57,6 +58,7 @@ class Main {
                 log.info("Initializing file watcher...")
                 val watcher = initializeWatcher(config)
                 watcherDaemon = watcher
+                WatcherRegistry.register(watcher)
                 watcher.start()
                 log.info("File watcher started, monitoring ${config.context.watcher.watchPaths}")
             } else {
@@ -333,7 +335,10 @@ class Main {
         }
 
         try {
-            watcherDaemon?.stop()
+            watcherDaemon?.let { daemon ->
+                WatcherRegistry.unregister(daemon)
+                daemon.stop()
+            }
             log.info("File watcher stopped")
         } catch (e: Exception) {
             log.error("Error stopping file watcher: ${e.message}")

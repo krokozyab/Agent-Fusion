@@ -79,7 +79,7 @@ class WatcherDaemon(
     /**
      * Start the daemon. Subsequent invocations are no-ops.
      */
-    fun start() {
+    fun start(skipStartupScan: Boolean = false) {
         if (!running.compareAndSet(false, true)) return
         if (!watcherConfig.enabled) {
             log.info("Watcher daemon disabled by configuration; not starting.")
@@ -92,32 +92,34 @@ class WatcherDaemon(
             return
         }
 
-        // Perform initial scan to catch files created while watcher was stopped
-        runBlocking {
-            try {
-                log.info("Performing startup scan to detect files created while watcher was stopped...")
-                val scanner = DirectoryScanner(pathValidator, parallel = false)
-                val discoveredFiles = scanner.scan(watchRoots)
+        if (!skipStartupScan) {
+            // Perform initial scan to catch files created while watcher was stopped
+            runBlocking {
+                try {
+                    log.info("Performing startup scan to detect files created while watcher was stopped...")
+                    val scanner = DirectoryScanner(pathValidator, parallel = false)
+                    val discoveredFiles = scanner.scan(watchRoots)
 
-                if (discoveredFiles.isNotEmpty()) {
-                    log.info("Startup scan found {} file(s), triggering incremental indexing...", discoveredFiles.size)
-                    val result = incrementalIndexer.updateAsync(discoveredFiles)
-                    log.info(
-                        "Startup scan indexed: new={}, modified={}, deleted={}, unchanged={}, failures={}",
-                        result.newCount,
-                        result.modifiedCount,
-                        result.deletedCount,
-                        result.unchangedCount,
-                        result.indexingFailures + result.deletionFailures
-                    )
-                    onUpdate?.invoke(result)
-                } else {
-                    log.info("Startup scan found no files to index")
+                    if (discoveredFiles.isNotEmpty()) {
+                        log.info("Startup scan found {} file(s), triggering incremental indexing...", discoveredFiles.size)
+                        val result = incrementalIndexer.updateAsync(discoveredFiles)
+                        log.info(
+                            "Startup scan indexed: new={}, modified={}, deleted={}, unchanged={}, failures={}",
+                            result.newCount,
+                            result.modifiedCount,
+                            result.deletedCount,
+                            result.unchangedCount,
+                            result.indexingFailures + result.deletionFailures
+                        )
+                        onUpdate?.invoke(result)
+                    } else {
+                        log.info("Startup scan found no files to index")
+                    }
+                } catch (throwable: Throwable) {
+                    log.error("Startup scan failed: {}", throwable.message, throwable)
+                    onError?.invoke(throwable)
+                    // Continue anyway - watcher will catch future changes
                 }
-            } catch (throwable: Throwable) {
-                log.error("Startup scan failed: {}", throwable.message, throwable)
-                onError?.invoke(throwable)
-                // Continue anyway - watcher will catch future changes
             }
         }
 
@@ -286,6 +288,24 @@ class WatcherDaemon(
 
         runCatching { fileWatcher?.close() }
         fileWatcher = null
+    }
+
+    suspend fun <T> pauseWhile(block: suspend () -> T): T {
+        val wasRunning = running.get()
+        if (!wasRunning) {
+            return block()
+        }
+
+        stop()
+
+        return try {
+            block()
+        } finally {
+            runCatching { start(skipStartupScan = true) }
+                .onFailure { throwable ->
+                    log.error("Failed to restart watcher after pause: {}", throwable.message, throwable)
+                }
+        }
     }
 
     override fun close() {
