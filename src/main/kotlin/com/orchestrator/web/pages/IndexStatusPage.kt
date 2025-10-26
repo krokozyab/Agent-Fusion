@@ -107,15 +107,83 @@ object IndexStatusPage {
                         +"""
                             (function() {
                                 var INDEX_ACTION_SELECTOR = '[data-index-action]';
+                                var sseConnection = null;
 
                                 function ensureSSE(force) {
-                                    try {
-                                        document.body.setAttribute('data-sse-url', '/sse/index');
-                                        if (typeof window.__initIndexSSE === 'function') {
-                                            window.__initIndexSSE(!!force);
+                                    console.log('[ensureSSE] Called with force=' + force);
+
+                                    // If we already have an active connection, reuse it unless force=true and it's closed
+                                    if (sseConnection) {
+                                        var state = sseConnection.readyState;
+                                        console.log('[ensureSSE] Existing connection found, readyState:', state);
+                                        if (state === EventSource.OPEN || state === EventSource.CONNECTING) {
+                                            console.log('[ensureSSE] Reusing active connection');
+                                            return;
                                         }
+                                    }
+
+                                    try {
+                                        var sseUrl = '/sse/index';
+                                        console.log('[ensureSSE] Creating EventSource for:', sseUrl);
+
+                                        sseConnection = new EventSource(sseUrl, { withCredentials: true });
+
+                                        sseConnection.addEventListener('open', function() {
+                                            console.log('[SSE] Connection opened');
+                                        });
+
+                                        sseConnection.addEventListener('indexProgress', function(event) {
+                                            console.log('[SSE] indexProgress event received');
+                                            handleIndexProgressEvent(event.data);
+                                        });
+
+                                        sseConnection.addEventListener('indexSummary', function(event) {
+                                            console.log('[SSE] indexSummary event received');
+                                            handleIndexSummaryEvent(event.data);
+                                        });
+
+                                        sseConnection.onerror = function(error) {
+                                            console.error('[SSE] Connection error, readyState:', sseConnection ? sseConnection.readyState : 'null');
+                                            sseConnection = null;
+                                        };
+
+                                        console.log('[ensureSSE] EventSource created successfully');
                                     } catch (err) {
-                                        console.warn('Failed to initialize index SSE connection:', err);
+                                        console.error('[ensureSSE] Failed to create SSE connection:', err);
+                                    }
+                                }
+
+                                function handleIndexProgressEvent(data) {
+                                    try {
+                                        // Data is already HTML, not JSON
+                                        console.log('[SSE] Updating progress region with HTML fragment');
+                                        var container = document.getElementById('index-progress-region');
+                                        if (!container) {
+                                            console.warn('[SSE] index-progress-region not found');
+                                            return;
+                                        }
+
+                                        container.outerHTML = data;
+                                        console.log('[SSE] Progress region updated successfully');
+                                    } catch (err) {
+                                        console.error('[SSE] Failed to update indexProgress:', err);
+                                    }
+                                }
+
+                                function handleIndexSummaryEvent(data) {
+                                    try {
+                                        // Data is already HTML, not JSON
+                                        console.log('[SSE] Received indexSummary, swapping summary container');
+                                        var container = document.getElementById('index-status-summary-container');
+                                        if (!container) {
+                                            console.warn('[SSE] index-status-summary-container not found');
+                                            return;
+                                        }
+
+                                        container.outerHTML = data;
+                                        console.log('[SSE] Summary container updated successfully');
+                                    } catch (err) {
+                                        console.error('[SSE] Failed to update indexSummary:', err);
                                     }
                                 }
 
@@ -200,7 +268,9 @@ object IndexStatusPage {
 
                                 // Immediately initialize SSE connection when this script executes
                                 // This ensures SSE is ready even when navigating to /index via HTMX
+                                console.log('IndexStatusPage inline script executing, scheduling SSE init...');
                                 setTimeout(function() {
+                                    console.log('Calling ensureSSE(true) from setTimeout...');
                                     ensureSSE(true);
                                 }, 100);
                             })();
