@@ -98,20 +98,52 @@ object ContextDatabase {
         val conn = getConnection()
         connectionLock.lock()
         val previous = conn.autoCommit
-        conn.autoCommit = false
-        return try {
+        var transactionStarted = false
+
+        try {
+            try {
+                conn.autoCommit = false
+                transactionStarted = true
+            } catch (e: SQLException) {
+                log.error("Failed to disable autoCommit: ${e.message}", e)
+                throw e
+            }
+
             val result = block(conn)
-            conn.commit()
-            result
+
+            try {
+                conn.commit()
+            } catch (commitError: SQLException) {
+                log.error("Failed to commit context transaction: ${commitError.message}", commitError)
+                try {
+                    if (transactionStarted) {
+                        conn.rollback()
+                    }
+                } catch (rollbackError: SQLException) {
+                    log.error("Failed to rollback after commit error: ${rollbackError.message}", rollbackError)
+                }
+                throw commitError
+            }
+            return result
         } catch (t: Throwable) {
             try {
-                conn.rollback()
+                // Only attempt rollback if transaction was successfully started
+                if (transactionStarted && !conn.autoCommit) {
+                    conn.rollback()
+                }
             } catch (rollback: SQLException) {
                 log.error("Failed to rollback context transaction: ${rollback.message}", rollback)
             }
             throw t
         } finally {
-            conn.autoCommit = previous
+            try {
+                // Safe way to reset autoCommit state
+                if (transactionStarted) {
+                    conn.autoCommit = previous
+                }
+            } catch (e: SQLException) {
+                log.error("Failed to restore autoCommit state: ${e.message}", e)
+            }
             connectionLock.unlock()
         }
     }
