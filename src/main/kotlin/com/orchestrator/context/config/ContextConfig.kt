@@ -70,7 +70,12 @@ data class IndexingConfig(
         ".tsx",
         ".md",
         ".yaml",
-        ".yml"
+        ".yml",
+        ".json",
+        ".sql",
+        ".doc",
+        ".docx",
+        ".pdf"
     ),
     val blockedExtensions: List<String> = emptyList(),
     val maxFileSizeMb: Int = 5,

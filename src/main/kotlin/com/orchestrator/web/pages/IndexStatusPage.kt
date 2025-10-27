@@ -182,6 +182,10 @@ object IndexStatusPage {
 
                                         container.outerHTML = data;
                                         console.log('[SSE] Summary container updated successfully');
+
+                                        // Summary update indicates operation completion - enable buttons as backup trigger
+                                        console.log('[Button Control] Summary updated, enabling buttons');
+                                        enableAllIndexButtons();
                                     } catch (err) {
                                         console.error('[SSE] Failed to update indexSummary:', err);
                                     }
@@ -204,6 +208,24 @@ object IndexStatusPage {
                                         + '</div>'
                                         + '<progress class="index-progress__bar" max="100" value="0"></progress>'
                                         + '<div class="index-progress__meta">Waiting for server updates…</div>';
+                                }
+
+                                function disableAllIndexButtons() {
+                                    console.log('[Button Control] Disabling all index operation buttons');
+                                    var buttons = document.querySelectorAll(INDEX_ACTION_SELECTOR);
+                                    buttons.forEach(function(btn) {
+                                        btn.disabled = true;
+                                        btn.classList.add('button--disabled');
+                                    });
+                                }
+
+                                function enableAllIndexButtons() {
+                                    console.log('[Button Control] Enabling all index operation buttons');
+                                    var buttons = document.querySelectorAll(INDEX_ACTION_SELECTOR);
+                                    buttons.forEach(function(btn) {
+                                        btn.disabled = false;
+                                        btn.classList.remove('button--disabled');
+                                    });
                                 }
 
                                 function bindIndexActionButtons(root) {
@@ -231,6 +253,7 @@ object IndexStatusPage {
 
                                             ensureSSE(true);
                                             showPendingState(label.trim());
+                                            disableAllIndexButtons();
 
                                             fetch(endpoint, {
                                                 method: 'POST',

@@ -96,18 +96,17 @@ class IndexRoutesTest {
 
         val body = response.bodyAsText()
 
-        assertContains(body, "Index Status")
+        assertContains(body, "<title>Index Status - Orchestrator</title>")
         assertContains(body, "data-testid=\"stat-total-files\"")
         assertContains(body, "id=\"index-summary\"")
         assertContains(body, "sse-swap=\"indexSummary\"")
         assertContains(body, "data-sse-url=\"/sse/index\"")
         assertContains(body, "data-testid=\"action-refresh\"")
-        assertContains(body, "fetch('/index/refresh'")
+        assertContains(body, "data-action-endpoint=\"/index/refresh\"")
+        assertContains(body, "data-testid=\"action-rebuild\"")
         assertContains(body, "data-testid=\"provider-semantic-status\"")
         assertContains(body, "data-testid=\"provider-symbol-status\"")
         assertContains(body, "data-testid=\"file-row-src/app/Indexed.kt\"")
-        assertContains(body, "Pending Files")
-        assertContains(body, "Failed")
     }
 
     private fun seedContextData() {

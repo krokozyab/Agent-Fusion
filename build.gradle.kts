@@ -71,6 +71,13 @@ dependencies {
     // JGit for git history analysis
     implementation("org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r")
 
+    // Document processing (Word files)
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("org.apache.poi:poi-scratchpad:5.2.5")
+    implementation("org.apache.pdfbox:pdfbox:2.0.30")
+    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1")
+
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
