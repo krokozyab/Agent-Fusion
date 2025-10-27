@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__orchestrator__query_context"
     ],
     "deny": [],
     "ask": []
