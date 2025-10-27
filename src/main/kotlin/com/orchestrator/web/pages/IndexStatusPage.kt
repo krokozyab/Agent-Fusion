@@ -174,7 +174,7 @@ object IndexStatusPage {
                                     try {
                                         // Data is already HTML, not JSON
                                         console.log('[SSE] Received indexSummary, swapping summary container');
-                                        var container = document.getElementById('index-status-summary-container');
+                                        var container = document.getElementById('index-summary');
                                         if (!container) {
                                             console.warn('[SSE] index-status-summary-container not found');
                                             return;

@@ -210,6 +210,30 @@ object ContextRepository {
         }
     }
 
+    fun countActiveFiles(): Long = ContextDatabase.withConnection { conn ->
+        conn.prepareStatement("SELECT COUNT(*) FROM file_state WHERE is_deleted = FALSE").use { ps ->
+            ps.executeQuery().use { rs ->
+                if (rs.next()) rs.getLong(1) else 0L
+            }
+        }
+    }
+
+    fun countChunks(): Long = ContextDatabase.withConnection { conn ->
+        conn.prepareStatement("SELECT COUNT(*) FROM chunks").use { ps ->
+            ps.executeQuery().use { rs ->
+                if (rs.next()) rs.getLong(1) else 0L
+            }
+        }
+    }
+
+    fun countEmbeddings(): Long = ContextDatabase.withConnection { conn ->
+        conn.prepareStatement("SELECT COUNT(*) FROM embeddings").use { ps ->
+            ps.executeQuery().use { rs ->
+                if (rs.next()) rs.getLong(1) else 0L
+            }
+        }
+    }
+
     fun deleteFileArtifacts(relativePath: String): Boolean {
         val state = ContextDatabase.withConnection { conn -> getFileStateByPath(conn, relativePath) } ?: return true
         val artifacts = fetchFileArtifactsByPath(relativePath) ?: FileArtifacts(state, emptyList())
