@@ -3,6 +3,7 @@ package com.orchestrator.web.plugins
 import com.orchestrator.config.ConfigLoader
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.web.WebServerConfig
+import com.orchestrator.web.routes.fileRoutes
 import com.orchestrator.web.routes.healthRoutes
 import com.orchestrator.web.routes.homeRoutes
 import com.orchestrator.web.routes.indexRoutes
@@ -39,6 +40,9 @@ internal fun Application.configureRouting(config: WebServerConfig) {
 
         // Task management routes
         taskRoutes()
+
+        // File browser routes
+        fileRoutes()
 
         // Index status routes
         indexRoutes()
