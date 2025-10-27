@@ -111,6 +111,16 @@ class WatcherDaemon(
                             result.unchangedCount,
                             result.indexingFailures + result.deletionFailures
                         )
+                        if (result.newCount + result.modifiedCount > 0) {
+                            val sampleNew = result.changeSet.newFiles.take(5).joinToString { it.relativePath }
+                            val sampleModified = result.changeSet.modifiedFiles.take(5).joinToString { it.relativePath }
+                            if (sampleNew.isNotEmpty()) {
+                                log.info("Startup scan new files sample: {}", sampleNew)
+                            }
+                            if (sampleModified.isNotEmpty()) {
+                                log.info("Startup scan modified files sample: {}", sampleModified)
+                            }
+                        }
                         onUpdate?.invoke(result)
                     } else {
                         log.info("Startup scan found no files to index")
