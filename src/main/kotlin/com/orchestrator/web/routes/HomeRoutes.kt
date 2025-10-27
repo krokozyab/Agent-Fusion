@@ -99,11 +99,9 @@ private fun fetchSystemStats(): HomePage.SystemStats {
     val failedTasks = allTasks.count { it.status == TaskStatus.FAILED }
 
     // Query index statistics
-    // TODO: Add methods to ContextRepository for file/chunk/embedding counts
-    // For now, use placeholder values
-    val indexedFiles = 0
-    val indexedChunks = 0
-    val totalEmbeddings = 0
+    val indexedFiles = ContextRepository.countActiveFiles().toInt()
+    val indexedChunks = ContextRepository.countChunks().toInt()
+    val totalEmbeddings = ContextRepository.countEmbeddings().toInt()
 
     // Query metrics count (last 24 hours)
     // TODO: Add method to MetricsRepository for counting metrics by time range
