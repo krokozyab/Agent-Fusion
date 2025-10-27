@@ -105,7 +105,13 @@ object HomePage {
                 Navigation.Link(
                     label = "Index Status",
                     href = "/index",
-                    ariaLabel = "View index status and file browser",
+                    ariaLabel = "View index status and progress",
+                    icon = "⚙️"
+                ),
+                Navigation.Link(
+                    label = "Files",
+                    href = "/files",
+                    ariaLabel = "Browse indexed files",
                     icon = "📁"
                 ),
                 Navigation.Link(
