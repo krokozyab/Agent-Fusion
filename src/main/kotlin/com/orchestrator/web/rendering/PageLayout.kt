@@ -84,18 +84,25 @@ object PageLayout {
                     icon = "📋"
                 ),
                 Navigation.Link(
+                    label = "Files",
+                    href = "/files",
+                    active = currentPath.startsWith("/files"),
+                    ariaLabel = "Browse indexed files",
+                    icon = "📂"
+                ),
+                Navigation.Link(
                     label = "Index Status",
                     href = "/index",
                     active = currentPath.startsWith("/index"),
-                    ariaLabel = "View index status and file browser",
-                    icon = "📁"
+                    ariaLabel = "View index status and management",
+                    icon = "📊"
                 ),
                 Navigation.Link(
                     label = "Metrics",
                     href = "/metrics",
                     active = currentPath.startsWith("/metrics"),
                     ariaLabel = "View metrics and analytics",
-                    icon = "📊"
+                    icon = "📈"
                 )
             )
         )
