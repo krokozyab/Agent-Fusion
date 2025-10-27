@@ -60,9 +60,11 @@ object ContextRepository {
                         deleteLinks(conn, existingChunkIds)
                         deleteUsageMetrics(conn, existing.id, existingChunkIds)
                         deleteSymbolsByChunkIds(conn, existingChunkIds)
-                        deleteLinksByTargetFile(conn, existing.id)
-                        deleteChunks(conn, existing.id)
                     }
+
+                    deleteSymbolsByFile(conn, existing.id)
+                    deleteLinksByTargetFile(conn, existing.id)
+                    deleteChunks(conn, existing.id)
                 }
 
                 val persistedFile = upsertFileState(conn, fileState)

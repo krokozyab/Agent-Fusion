@@ -59,7 +59,10 @@ class Main {
                 val watcher = initializeWatcher(config)
                 watcherDaemon = watcher
                 WatcherRegistry.register(watcher)
-                watcher.start()
+
+                val indexStatus = ContextModule.getIndexStatus()
+                val hasExistingIndex = indexStatus.totalFiles > 0
+                watcher.start(skipStartupScan = hasExistingIndex)
                 log.info("File watcher started, monitoring ${config.context.watcher.watchPaths}")
             } else {
                 log.info("File watcher disabled by configuration")
