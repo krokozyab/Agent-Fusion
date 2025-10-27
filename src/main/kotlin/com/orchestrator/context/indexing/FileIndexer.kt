@@ -5,6 +5,8 @@ import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.chunking.Chunker
 import com.orchestrator.context.chunking.ChunkerRegistry
 import com.orchestrator.context.chunking.TokenEstimator
+import com.orchestrator.context.chunking.WordDocumentExtractor
+import com.orchestrator.context.chunking.PdfDocumentExtractor
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.Embedding
 import com.orchestrator.context.domain.FileState
@@ -82,6 +84,10 @@ class FileIndexer(
 
         val relativePath = root.relativize(absolutePath).toString()
         return runCatching {
+            val extension = absolutePath.fileName.toString()
+                .substringAfterLast('.', "")
+                .lowercase(Locale.US)
+
             val metadata = metadataExtractor.extractMetadata(absolutePath)
             coroutineContext.ensureActive()
 
@@ -105,7 +111,7 @@ class FileIndexer(
                 log.warn("Indexing large file $relativePath (${String.format("%.2f", sizeMb)} MB). This may take a while...")
             }
 
-            val content = readFile(absolutePath)
+            val content = readFile(absolutePath, extension)
             coroutineContext.ensureActive()
 
             val chunker = chunkerRegistry.getChunker(absolutePath)
@@ -167,8 +173,12 @@ class FileIndexer(
         }
     }
 
-    private fun readFile(path: Path): String = try {
-        Files.readString(path, readCharset)
+    private fun readFile(path: Path, extension: String): String = try {
+        when {
+            WordDocumentExtractor.supports(extension) -> WordDocumentExtractor.extract(path, extension)
+            extension == "pdf" -> PdfDocumentExtractor.extract(path)
+            else -> Files.readString(path, readCharset)
+        }
     } catch (ioe: IOException) {
         throw IOException("Failed to read file: $path (${ioe.message})", ioe)
     }

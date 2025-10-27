@@ -91,21 +91,24 @@ class ChunkerRegistryTest {
         assertTrue(ChunkerRegistry.isSupported(Paths.get("Test.java")))
         assertTrue(ChunkerRegistry.isSupported(Paths.get("Test.kt")))
         assertTrue(ChunkerRegistry.isSupported(Paths.get("config.yaml")))
+        assertTrue(ChunkerRegistry.isSupported(Paths.get("manual.docx")))
+        assertTrue(ChunkerRegistry.isSupported(Paths.get("reference.pdf")))
     }
     
     @Test
     fun `isSupported returns false for unsupported files`() {
         // These extensions are not in the registry (will use fallback)
-        assertFalse(ChunkerRegistry.isSupported(Paths.get("document.pdf")))
         assertFalse(ChunkerRegistry.isSupported(Paths.get("image.png")))
         assertFalse(ChunkerRegistry.isSupported(Paths.get("archive.zip")))
+        assertFalse(ChunkerRegistry.isSupported(Paths.get("binary.exe")))
     }
     
     @Test
     fun `isSupported by extension string works`() {
         assertTrue(ChunkerRegistry.isSupported("java"))
         assertTrue(ChunkerRegistry.isSupported(".kt"))
-        assertFalse(ChunkerRegistry.isSupported("pdf"))
+        assertTrue(ChunkerRegistry.isSupported("pdf"))
+        assertTrue(ChunkerRegistry.isSupported(".doc"))
         assertFalse(ChunkerRegistry.isSupported("zip"))
     }
     

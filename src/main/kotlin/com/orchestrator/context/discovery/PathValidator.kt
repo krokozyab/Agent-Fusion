@@ -45,6 +45,10 @@ class PathValidator(
         }
 
         val absolute = path.toAbsolutePath().normalize()
+        val extension = absolute.fileName?.toString()
+            ?.substringAfterLast('.', "")
+            ?.lowercase(Locale.US)
+            ?: ""
 
         if (!isUnderWatchPaths(absolute, normalizedWatchRoots)) {
             return invalid(Reason.OUTSIDE_WATCH_PATH, "Path is outside configured watch roots: $absolute")
@@ -67,7 +71,7 @@ class PathValidator(
             return invalid(Reason.EXTENSION_NOT_ALLOWED, "File extension is not allowed: $absolute")
         }
 
-        if (isBinary(absolute)) {
+        if (!BINARY_ALLOWED_EXTENSIONS.contains(extension) && BinaryDetector.isBinary(absolute)) {
             return invalid(Reason.BINARY_FILE, "Binary files are excluded from indexing: $absolute")
         }
 
@@ -182,5 +186,6 @@ class PathValidator(
 
     companion object {
         private const val ONE_MB: Long = 1024L * 1024L
+        private val BINARY_ALLOWED_EXTENSIONS = setOf("doc", "docx", "pdf")
     }
 }
