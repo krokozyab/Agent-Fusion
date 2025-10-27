@@ -153,7 +153,7 @@ data class ProviderConfig(
         fun defaults(): Map<String, ProviderConfig> = mapOf(
             "semantic" to ProviderConfig(weight = 0.6),
             "symbol" to ProviderConfig(weight = 0.3, indexAst = true),
-            "full_text" to ProviderConfig(enabled = false, weight = 0.1),
+            "full_text" to ProviderConfig(weight = 0.1),
             "git_history" to ProviderConfig(weight = 0.2, maxCommits = 100),
             "hybrid" to ProviderConfig(
                 weight = 0.5,

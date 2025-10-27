@@ -30,7 +30,7 @@ class GitHistoryContextProvider(
 
     private val log = Logger.logger(this::class.qualifiedName!!)
 
-    override val id: String = "git-history"
+    override val id: String = "git_history"
     override val type: ContextProviderType = ContextProviderType.GIT_HISTORY
 
     override suspend fun getContext(

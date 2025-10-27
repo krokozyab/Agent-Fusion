@@ -77,7 +77,7 @@ Following the existing AgentFactory SPI pattern:
 - Service Provider Interface for context providers
 - Implementations discovered via Java SPI (same as AgentFactory)
 - Each provider has:
-  - Unique ID (e.g., "semantic", "symbol", "git-history")
+  - Unique ID (e.g., "semantic", "symbol", "git_history")
   - Human-readable name
   - Provider type/category
 - Core methods:
