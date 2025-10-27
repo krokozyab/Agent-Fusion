@@ -8,6 +8,7 @@ import kotlinx.html.FlowContent
 import kotlinx.html.button
 import kotlinx.html.div
 import kotlinx.html.span
+import com.orchestrator.web.components.StatusBadge
 
 object FileRow {
 

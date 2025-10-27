@@ -56,10 +56,13 @@ object ContextRepository {
                 if (existing != null) {
                     val existingChunkIds = getChunkIdsForFile(conn, existing.id)
                     if (existingChunkIds.isNotEmpty()) {
+                        // Delete all foreign key references before deleting chunks
                         deleteEmbeddings(conn, existingChunkIds)
-                        deleteLinks(conn, existingChunkIds)
-                        deleteUsageMetrics(conn, existing.id, existingChunkIds)
                         deleteSymbolsByChunkIds(conn, existingChunkIds)
+                        deleteUsageMetrics(conn, existing.id, existingChunkIds)
+                        // Delete links that reference these chunks (both as source and target)
+                        deleteLinks(conn, existingChunkIds)
+                        deleteLinksByTargetChunkIds(conn, existingChunkIds)
                     }
 
                     deleteSymbolsByFile(conn, existing.id)
@@ -541,11 +544,21 @@ object ContextRepository {
 
     private fun deleteLinks(conn: Connection, chunkIds: List<Long>) {
         val placeholders = chunkIds.joinToString(",") { "?" }
-        val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
+        val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders)"
         conn.prepareStatement(sql).use { ps ->
             chunkIds.forEachIndexed { index, id ->
                 ps.setLong(index + 1, id)
-                ps.setLong(index + 1 + chunkIds.size, id)
+            }
+            ps.executeUpdate()
+        }
+    }
+
+    private fun deleteLinksByTargetChunkIds(conn: Connection, chunkIds: List<Long>) {
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        val sql = "DELETE FROM links WHERE target_chunk_id IN ($placeholders)"
+        conn.prepareStatement(sql).use { ps ->
+            chunkIds.forEachIndexed { index, id ->
+                ps.setLong(index + 1, id)
             }
             ps.executeUpdate()
         }

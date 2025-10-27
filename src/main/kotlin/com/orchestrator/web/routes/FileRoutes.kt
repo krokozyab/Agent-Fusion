@@ -516,8 +516,8 @@ private fun buildPaginationUrlForPage(
 private fun determineFileStatus(file: FileState): String {
     return when {
         file.isDeleted -> "error"
-        file.indexedAt.isBefore(Instant.now().minusSeconds(3600)) -> "outdated"
         file.contentHash.isEmpty() -> "pending"
+        file.indexedAt.isBefore(Instant.now().minusSeconds(3600)) -> "outdated"
         else -> "indexed"
     }
 }
@@ -529,8 +529,19 @@ private val chunkCountCache = mutableMapOf<Long, Int>()
 
 private fun getChunkCountForFile(fileId: Long): Int {
     return chunkCountCache.getOrPut(fileId) {
-        // In a real implementation, this should query the database
-        // For now, return a placeholder that would be replaced with actual data
-        0
+        // Query the context database for chunks associated with this file
+        try {
+            com.orchestrator.context.storage.ContextDatabase.withConnection { conn ->
+                conn.prepareStatement("SELECT COUNT(*) FROM chunks WHERE file_id = ?").use { ps ->
+                    ps.setLong(1, fileId)
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) rs.getInt(1) else 0
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // If query fails, return 0 and let caching handle it
+            0
+        }
     }
 }

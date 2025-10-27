@@ -31,23 +31,13 @@ class BootstrapProgressTracker {
             conn.createStatement().use { it.execute("DELETE FROM " + TABLE_NAME) }
         }
         if (files.isNotEmpty()) {
-            ContextDatabase.withConnection { conn ->
-                conn.autoCommit = false
-                try {
-                    conn.prepareStatement("INSERT INTO " + TABLE_NAME + " (path, status) VALUES (?, 'PENDING')").use { ps ->
-                        for (file in files) {
-                            ps.setString(1, file.toAbsolutePath().normalize().toString())
-                            ps.addBatch()
-                        }
-                        ps.executeBatch()
+            ContextDatabase.transaction { conn ->
+                conn.prepareStatement("INSERT INTO " + TABLE_NAME + " (path, status) VALUES (?, 'PENDING')").use { ps ->
+                    for (file in files) {
+                        ps.setString(1, file.toAbsolutePath().normalize().toString())
+                        ps.addBatch()
                     }
-                    conn.commit()
-                } catch (t: Throwable) {
-                    conn.rollback()
-                    log.error("Failed to initialize bootstrap progress", t)
-                    throw t
-                } finally {
-                    conn.autoCommit = true
+                    ps.executeBatch()
                 }
             }
         }
