@@ -18,7 +18,7 @@ class ContextProviderRegistryTest {
         val providerCount = ContextProviderRegistry.getProviderCount()
         assertTrue(providerCount > 0, "Registry should discover at least one provider")
 
-        // We expect 5 providers: semantic, symbol, full_text, git-history, hybrid
+        // We expect 5 providers: semantic, symbol, full_text, git_history, hybrid
         assertEquals(5, providerCount, "Should discover exactly 5 providers")
     }
 
@@ -118,7 +118,7 @@ class ContextProviderRegistryTest {
         assertTrue(ids.contains("semantic"), "Should contain 'semantic'")
         assertTrue(ids.contains("symbol"), "Should contain 'symbol'")
         assertTrue(ids.contains("full_text"), "Should contain 'full_text'")
-        assertTrue(ids.contains("git-history"), "Should contain 'git-history'")
+        assertTrue(ids.contains("git_history"), "Should contain 'git_history'")
         assertTrue(ids.contains("hybrid"), "Should contain 'hybrid'")
     }
 

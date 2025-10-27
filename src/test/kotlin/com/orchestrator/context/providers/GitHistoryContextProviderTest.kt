@@ -365,12 +365,12 @@ class GitHistoryContextProviderTest {
         assertEquals("kotlin", snippet.language, "Should have language")
         assertNotNull(snippet.offsets, "Should have line offsets")
         assertTrue(snippet.metadata.isNotEmpty(), "Should have metadata")
-        assertEquals("git-history", snippet.metadata["provider"], "Should identify provider")
+        assertEquals("git_history", snippet.metadata["provider"], "Should identify provider")
     }
 
     @Test
     fun `provider has correct id and type`() {
-        assertEquals("git-history", provider.id, "Should have correct ID")
+        assertEquals("git_history", provider.id, "Should have correct ID")
         assertEquals(ContextProviderType.GIT_HISTORY, provider.type, "Should have correct type")
     }
 }

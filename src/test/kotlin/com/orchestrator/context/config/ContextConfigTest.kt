@@ -67,7 +67,7 @@ class ContextConfigTest {
 
         val providerKeys = config.providers.keys
         assertTrue(providerKeys.containsAll(listOf("semantic", "symbol", "full_text", "git_history", "hybrid")))
-        assertFalse(config.providers.getValue("full_text").enabled)
+        assertTrue(config.providers.getValue("full_text").enabled)
         assertEquals(listOf("semantic", "symbol", "git_history"), config.providers.getValue("hybrid").combines)
         assertEquals("rrf", config.providers.getValue("hybrid").fusionStrategy)
     }
@@ -76,7 +76,7 @@ class ContextConfigTest {
     fun `enabled providers filters disabled entries`() {
         val defaults = ContextConfig()
         val initialEnabled = defaults.enabledProviders
-        assertFalse("full_text" in initialEnabled)
+        assertTrue("full_text" in initialEnabled)
         assertTrue("semantic" in initialEnabled)
 
         val disabledSemantic = defaults.copy(
