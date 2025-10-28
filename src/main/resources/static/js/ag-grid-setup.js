@@ -4,9 +4,9 @@
  */
 
 // CDN links for ag-Grid Community
-const AG_GRID_JS_URL = 'https://cdn.jsdelivr.net/npm/ag-grid-community@33.3.0/dist/ag-grid-community.min.js';
-const AG_GRID_CSS_URL = 'https://cdn.jsdelivr.net/npm/ag-grid-community@33.3.0/dist/styles/ag-grid.min.css';
-const AG_GRID_THEME_URL = 'https://cdn.jsdelivr.net/npm/ag-grid-community@33.3.0/dist/styles/ag-theme-quartz.min.css';
+const AG_GRID_JS_URL = '/static/js/ag-grid-community.min.js';
+const AG_GRID_CSS_URL = '/static/css/ag-grid.css';
+const AG_GRID_THEME_URL = '/static/css/ag-theme-quartz.css';
 
 /**
  * Load ag-Grid CSS dynamically if not already loaded
