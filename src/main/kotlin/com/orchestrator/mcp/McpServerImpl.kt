@@ -7,6 +7,7 @@ import com.orchestrator.domain.TaskId
 import com.orchestrator.mcp.resources.MetricsResource
 import com.orchestrator.mcp.resources.TasksResource
 import com.orchestrator.mcp.tools.*
+import com.orchestrator.modules.context.ContextModule
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -96,7 +97,7 @@ private val log = LoggerFactory.getLogger(McpServerImpl::class.java)
 class McpServerImpl(
     private val config: OrchestratorConfig,
     private val agentRegistry: AgentRegistry,
-    private val contextConfig: com.orchestrator.context.config.ContextConfig = com.orchestrator.context.config.ContextConfig()
+    private val contextConfig: com.orchestrator.context.config.ContextConfig = ContextModule.configuration()
 ) {
     private var engine: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 

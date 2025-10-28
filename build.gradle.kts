@@ -87,7 +87,8 @@ dependencies {
 }
 
 application {
-    mainClass.set("com.orchestrator.MainKt")
+    val overrideMain = project.findProperty("mainClass") as String?
+    mainClass.set(overrideMain ?: "com.orchestrator.MainKt")
 }
 
 tasks.test {

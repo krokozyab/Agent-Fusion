@@ -177,8 +177,12 @@ object AgGrid {
                         if (container) {
                             try {
                                 const gridApi = agGrid.createGrid(container, gridOptions);
+                                const columnApi = gridApi.getColumnApi();
                                 // Store gridApi on container for later access
                                 container._gridApi = gridApi;
+                                container.dispatchEvent(new CustomEvent('ag-grid:ready', {
+                                    detail: { gridApi, columnApi }
+                                }));
                                 console.log('ag-Grid initialized for container ${config.id}');
                             } catch (error) {
                                 console.error('Failed to initialize ag-Grid for ${config.id}:', error);
@@ -272,13 +276,25 @@ object AgGrid {
         if (options.isEmpty()) return ""
 
         return options.entries.joinToString(", ") { (key, value) ->
-            when (value) {
-                is String -> "$key: '$value'"
-                is Number -> "$key: $value"
-                is Boolean -> "$key: $value"
-                is List<*> -> "$key: ${Json.encodeToString(value)}"
-                else -> "$key: ${Json.encodeToString(value.toString())}"
-            }
+            "$key: ${renderOptionValue(value)}"
         }
+    }
+
+    private fun renderOptionValue(value: Any?): String = when (value) {
+        null -> "null"
+        is String -> "\"${escapeJsonString(value)}\""
+        is Number, is Boolean -> value.toString()
+        is Map<*, *> -> {
+            val entries = value.entries.joinToString(", ") { (k, v) ->
+                val key = k?.toString() ?: ""
+                "\"${escapeJsonString(key)}\": ${renderOptionValue(v)}"
+            }
+            "{$entries}"
+        }
+        is List<*> -> {
+            val items = value.joinToString(", ") { item -> renderOptionValue(item) }
+            "[$items]"
+        }
+        else -> "\"${escapeJsonString(value.toString())}\""
     }
 }

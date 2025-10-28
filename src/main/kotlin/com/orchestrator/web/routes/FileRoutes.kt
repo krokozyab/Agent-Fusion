@@ -77,9 +77,10 @@ fun Route.fileRoutes() {
      * GET /files - Main files list page
      */
     get("/files") {
-        // Query all files for initial display
-        val params = FileQueryParams()
-        val (files, totalCount) = queryFiles(params)
+        // Load all indexed files for client-side filtering/sorting
+        val files = ContextRepository.listAllFiles()
+            .filterNot { it.isDeleted }
+            .sortedBy { it.relativePath.lowercase() }
 
         // Convert files to ag-Grid row data format
         val rowData = files.map { file ->
@@ -87,7 +88,7 @@ fun Route.fileRoutes() {
                 "path" to file.relativePath,
                 "status" to determineFileStatus(file),
                 "extension" to file.relativePath.substringAfterLast(".", ""),
-                "sizeBytes" to formatFileSize(file.sizeBytes),
+                "sizeBytes" to file.sizeBytes,
                 "lastModified" to formatInstant(file.indexedAt),
                 "chunkCount" to getChunkCountForFile(file.id),
                 "fileId" to file.id

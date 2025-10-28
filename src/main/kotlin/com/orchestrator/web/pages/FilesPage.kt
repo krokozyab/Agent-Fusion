@@ -119,109 +119,55 @@ object FilesPage {
                         }
                     }
 
-                    // Search and filter controls
-                    div(classes = "card mb-md") {
-                        div(classes = "card-body") {
-                            form {
-                                id = "file-filters"
-                                attributes["hx-get"] = "/files/table"
-                                attributes["hx-target"] = "#files-table-container"
-                                attributes["hx-trigger"] = "submit, change delay:500ms"
-                                attributes["hx-swap"] = "innerHTML"
-
-                                div(classes = "grid grid-cols-4 gap-md") {
-                                    // Search input
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "search"
-                                            +"Search"
-                                        }
-                                        input(type = InputType.search, name = "search") {
-                                            id = "search"
-                                            placeholder = "Search files..."
-                                            classes = setOf("form-control")
-                                        }
-                                    }
-
-                                    // Status filter
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "status"
-                                            +"Status"
-                                        }
-                                        select {
-                                            id = "status"
-                                            name = "status"
-                                            classes = setOf("form-control")
-                                            multiple = true
-
-                                            option { value = "indexed"; +"Indexed" }
-                                            option { value = "pending"; +"Pending" }
-                                            option { value = "outdated"; +"Outdated" }
-                                            option { value = "error"; +"Error" }
-                                        }
-                                    }
-
-                                    // File type/extension filter
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "extension"
-                                            +"File Type"
-                                        }
-                                        input(type = InputType.text, name = "extension") {
-                                            id = "extension"
-                                            placeholder = "e.g., .kt, .ts, .py"
-                                            classes = setOf("form-control")
-                                        }
-                                    }
-
-                                    // Sort options
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "sortBy"
-                                            +"Sort By"
-                                        }
-                                        select {
-                                            id = "sortBy"
-                                            name = "sortBy"
-                                            classes = setOf("form-control")
-
-                                            option { value = "path"; +"File Path" }
-                                            option { value = "status"; +"Status" }
-                                            option { value = "extension"; +"Type" }
-                                            option { value = "size"; +"Size" }
-                                            option { value = "modified"; +"Modified" }
-                                            option { value = "chunks"; +"Chunks" }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
                     // Files table
                     div(classes = "card") {
                         div(classes = "card-body") {
-                            // Loading indicator
-                            div(classes = "htmx-indicator") {
-                                id = "files-table-indicator"
-                                attributes["role"] = "status"
-                                attributes["aria-live"] = "assertive"
-                                +"Loading..."
+                            div(classes = "flex flex-wrap gap-md justify-between items-center mb-md") {
+                                div {
+                                    h2(classes = "mt-0 mb-1") { +"Indexed Files" }
+                                    p(classes = "text-muted mb-0") {
+                                        +"Use the column headers to sort or filter."
+                                    }
+                                }
+                                div(classes = "form-group mb-0") {
+                                    label {
+                                        htmlFor = "files-quick-filter"
+                                        +"Quick Filter"
+                                    }
+                                    input(type = InputType.search) {
+                                        id = "files-quick-filter"
+                                        placeholder = "Filter rows..."
+                                        attributes["aria-label"] = "Filter files"
+                                        classes = setOf("form-control")
+                                        attributes["style"] = "min-width: 220px;"
+                                    }
+                                }
                             }
 
-                            // Table container
-                            div {
-                                id = "files-table-container"
-                                attributes["hx-get"] = "/files/table"
-                                attributes["hx-trigger"] = "revealed"
-                                attributes["hx-swap"] = "innerHTML"
-                                attributes["hx-indicator"] = "#files-table-indicator"
-
-                                // Placeholder content while loading
-                                div(classes = "text-center text-muted p-xl") {
-                                    +"Loading files..."
-                                }
+                            with(AgGrid) {
+                                agGrid(
+                                    AgGrid.GridConfig(
+                                        id = "files-grid",
+                                        columnDefs = gridData.columnDefs,
+                                        rowData = gridData.rowData,
+                                        height = "70vh",
+                                        pageSize = 100,
+                                        pageSizeOptions = listOf(25, 50, 100, 200, 500),
+                                        customOptions = mapOf(
+                                            "defaultColDef" to mapOf(
+                                                "sortable" to true,
+                                                "filter" to true,
+                                                "floatingFilter" to true,
+                                                "resizable" to true,
+                                                "flex" to 1
+                                            ),
+                                            "rowSelection" to "single",
+                                            "animateRows" to true,
+                                            "paginationAutoPageSize" to false,
+                                            "suppressCsvExport" to false
+                                        )
+                                    )
+                                )
                             }
                         }
                     }
@@ -242,37 +188,65 @@ object FilesPage {
             script(src = "/static/js/navigation.js") {}
             script(src = "/static/js/modal.js") {}
 
-            // Fallback: Ensure table loads even if hx-trigger:revealed doesn't fire
             script {
                 unsafe {
                     +"""
                         (function() {
-                            function ensureTableLoaded() {
-                                const container = document.getElementById('files-table-container');
-                                if (!container) return;
+                            function formatFileSize(bytes) {
+                                if (bytes === null || bytes === undefined || isNaN(bytes)) return '0 B';
+                                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                                let value = Math.max(0, Number(bytes));
+                                let unitIndex = 0;
+                                while (value >= 1024 && unitIndex < units.length - 1) {
+                                    value /= 1024;
+                                    unitIndex++;
+                                }
+                                const formatted = unitIndex === 0 ? value.toString() : value.toFixed(1);
+                                return formatted + ' ' + units[unitIndex];
+                            }
 
-                                // Check if table is already loaded
-                                if (container.querySelector('table')) return;
+                            function bindGridEnhancements() {
+                                const input = document.getElementById('files-quick-filter');
+                                const container = document.getElementById('files-grid');
+                                if (!input || !container) {
+                                    return;
+                                }
 
-                                // If still showing loading text, trigger load
-                                if (window.htmx && container.textContent.includes('Loading')) {
-                                    htmx.ajax('GET', '/files/table', {
-                                        target: container,
-                                        swap: 'innerHTML',
-                                        indicator: '#files-table-indicator'
-                                    });
+                                const applyFilter = (value) => {
+                                    if (container._gridApi) {
+                                        container._gridApi.setGridOption('quickFilterText', value || '');
+                                    }
+                                };
+
+                                const handleGridReady = (event) => {
+                                    const api = event.detail?.gridApi;
+                                    const columnApi = event.detail?.columnApi;
+                                    if (api && columnApi) {
+                                        const sizeColumn = columnApi.getColumn('sizeBytes');
+                                        if (sizeColumn) {
+                                            sizeColumn.getColDef().valueFormatter = (params) => formatFileSize(params.value);
+                                            api.refreshCells({ columns: ['sizeBytes'] });
+                                        }
+                                        api.setGridOption('quickFilterText', input.value || '');
+                                    }
+                                };
+
+                                container.addEventListener('ag-grid:ready', handleGridReady, { once: true });
+
+                                input.addEventListener('input', (event) => {
+                                    applyFilter(event.target.value);
+                                });
+
+                                if (container._gridApi) {
+                                    applyFilter(input.value);
                                 }
                             }
 
-                            // Try on DOMContentLoaded
                             if (document.readyState === 'loading') {
-                                document.addEventListener('DOMContentLoaded', ensureTableLoaded);
+                                document.addEventListener('DOMContentLoaded', bindGridEnhancements, { once: true });
                             } else {
-                                setTimeout(ensureTableLoaded, 100);
+                                bindGridEnhancements();
                             }
-
-                            // Also try after a short delay as backup
-                            setTimeout(ensureTableLoaded, 500);
                         })();
                     """.trimIndent()
                 }
