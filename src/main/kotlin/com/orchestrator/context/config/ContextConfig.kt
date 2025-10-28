@@ -68,6 +68,8 @@ data class IndexingConfig(
         ".py",
         ".ts",
         ".tsx",
+        ".js",
+        ".jsx",
         ".md",
         ".yaml",
         ".yml",
@@ -78,7 +80,7 @@ data class IndexingConfig(
         ".pdf"
     ),
     val blockedExtensions: List<String> = emptyList(),
-    val maxFileSizeMb: Int = 5,
+    val maxFileSizeMb: Int = 10,
     val warnFileSizeMb: Int = 2,
     val sizeExceptions: List<String> = emptyList(),
     val followSymlinks: Boolean = false,
