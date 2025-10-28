@@ -1,5 +1,6 @@
 package com.orchestrator.web.pages
 
+import com.orchestrator.web.components.AgGrid
 import com.orchestrator.web.rendering.PageLayout
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -9,16 +10,73 @@ import kotlinx.html.stream.createHTML
  *
  * Displays file browser with:
  * - Search and filter controls
- * - Sortable data table
+ * - ag-Grid powered data table
  * - Pagination
  * - File detail view modal
  */
 object FilesPage {
 
     /**
+     * Data class for ag-Grid configuration and row data
+     */
+    data class GridData(
+        val columnDefs: List<AgGrid.ColumnDef> = defaultColumns(),
+        val rowData: List<Map<String, Any>> = emptyList()
+    ) {
+        companion object {
+            fun defaultColumns(): List<AgGrid.ColumnDef> = listOf(
+                AgGrid.ColumnDef(
+                    field = "path",
+                    headerName = "File Path",
+                    width = 300,
+                    sortable = true,
+                    filter = true
+                ),
+                AgGrid.ColumnDef(
+                    field = "status",
+                    headerName = "Status",
+                    width = 120,
+                    sortable = true,
+                    filter = true
+                ),
+                AgGrid.ColumnDef(
+                    field = "extension",
+                    headerName = "Type",
+                    width = 100,
+                    sortable = true,
+                    filter = true
+                ),
+                AgGrid.ColumnDef(
+                    field = "sizeBytes",
+                    headerName = "Size",
+                    width = 100,
+                    sortable = true,
+                    filter = true,
+                    type = "numericColumn"
+                ),
+                AgGrid.ColumnDef(
+                    field = "lastModified",
+                    headerName = "Modified",
+                    width = 150,
+                    sortable = true,
+                    filter = true
+                ),
+                AgGrid.ColumnDef(
+                    field = "chunkCount",
+                    headerName = "Chunks",
+                    width = 100,
+                    sortable = true,
+                    filter = true,
+                    type = "numericColumn"
+                )
+            )
+        }
+    }
+
+    /**
      * Render complete files list page
      */
-    fun render(): String = createHTML().html {
+    fun render(gridData: GridData = GridData()): String = createHTML().html {
         head {
             meta(charset = "utf-8")
             meta(name = "viewport", content = "width=device-width, initial-scale=1")
@@ -32,8 +90,15 @@ object FilesPage {
             link(rel = "stylesheet", href = "/static/css/sse-status.css")
             link(rel = "stylesheet", href = "/static/css/animations.css")
 
+            // ag-Grid CSS
+            link(rel = "stylesheet", href = "/static/css/ag-grid.css")
+            link(rel = "stylesheet", href = "/static/css/ag-theme-quartz.css")
+
             // HTMX
             script(src = "/static/js/htmx.min.js") {}
+
+            // ag-Grid - Load early
+            script(src = "/static/js/ag-grid-community.min.js") {}
         }
 
         body(classes = "dashboard-layout") {

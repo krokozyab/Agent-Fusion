@@ -8,15 +8,15 @@
   }
 
   function renderMermaid() {
-    if (!window.mermaid) {
-      console.warn('Mermaid not loaded yet');
-      return;
-    }
-
     try {
-      // Find all mermaid elements
+      // Find all mermaid elements first so we only render when needed
       var mermaidElements = document.querySelectorAll('.mermaid');
       if (mermaidElements.length === 0) return;
+
+      if (!window.mermaid) {
+        console.warn('Mermaid scripts missing; skipping diagram render');
+        return;
+      }
 
       // Use mermaid.run() for modern Mermaid (v10+)
       if (typeof window.mermaid.run === 'function') {
