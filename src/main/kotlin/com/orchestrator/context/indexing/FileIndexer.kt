@@ -17,6 +17,7 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.sql.SQLException
 import java.time.Instant
 import java.util.Locale
 import kotlin.coroutines.coroutineContext
@@ -150,13 +151,24 @@ class FileIndexer(
                 isDeleted = false
             )
 
-            dataService.syncFileArtifacts(fileState, chunkArtifacts)
+            val persistedChunkCount = try {
+                dataService.syncFileArtifacts(fileState, chunkArtifacts)
+                chunkArtifacts.size
+            } catch (sql: SQLException) {
+                log.warn(
+                    "Falling back to metadata-only index for {} after database error: {}",
+                    relativePath,
+                    sql.message
+                )
+                dataService.syncFileArtifacts(fileState, emptyList())
+                0
+            }
 
             IndexResult(
                 success = true,
                 relativePath = relativePath,
-                chunkCount = normalizedChunks.size,
-                embeddingCount = embeddings.size,
+                chunkCount = persistedChunkCount,
+                embeddingCount = if (persistedChunkCount == 0) 0 else embeddings.size,
                 error = null
             )
         }.getOrElse { throwable ->

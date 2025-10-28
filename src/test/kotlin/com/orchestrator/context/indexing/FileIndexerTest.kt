@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -105,6 +106,36 @@ class FileIndexerTest {
         assertEquals(chunks.size, embeddings.size)
         assertTrue(embeddings.all { it.dimensions == 384 })
         assertTrue(embeddings.all { it.vector.size == 384 })
+    }
+
+    @Test
+    fun `indexFile indexes repository pdf with large payload`() {
+        val repositoryRoot = Paths.get("").toAbsolutePath().normalize()
+        val sourcePdf = repositoryRoot.resolve("abraham_isaac_f_in_action_final_release.pdf")
+        if (!Files.exists(sourcePdf)) {
+            return
+        }
+
+        val targetPdf = projectRoot.resolve(sourcePdf.fileName)
+        Files.copy(sourcePdf, targetPdf)
+
+        val largeIndexer = FileIndexer(
+            embedder = TestEmbedder(),
+            projectRoot = projectRoot,
+            maxFileSizeMb = 200,
+            warnFileSizeMb = 50
+        )
+
+        val result = largeIndexer.indexFile(targetPdf)
+        assertTrue(result.success, "Expected PDF indexing to succeed but got ${result.error}")
+
+        val fileState = FileStateRepository.findByPath(sourcePdf.fileName.toString())
+        assertNotNull(fileState, "File state missing for ${sourcePdf.fileName}")
+        assertEquals(sourcePdf.fileName.toString(), fileState.relativePath)
+        assertEquals(Files.size(targetPdf), fileState.sizeBytes)
+        assertFalse(fileState.isDeleted)
+
+        ChunkRepository.findByFileId(fileState.id)
     }
 
     @Test

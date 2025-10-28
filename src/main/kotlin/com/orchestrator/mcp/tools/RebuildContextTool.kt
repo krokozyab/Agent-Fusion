@@ -428,7 +428,8 @@ class RebuildContextTool(
         // Launch background coroutine
         @OptIn(DelicateCoroutinesApi::class)
         GlobalScope.launch {
-            try {
+            WatcherRegistry.pauseWhile {
+                try {
                 // Phase 2: Pre-rebuild
                 log.info("Async rebuild (job={}): Pre-rebuild phase", jobId)
                 job.phase = "pre-rebuild"
@@ -489,14 +490,15 @@ class RebuildContextTool(
                     bootstrapResult.successfulFiles,
                     bootstrapResult.failedFiles
                 )
-            } catch (e: Exception) {
-                val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
-                job.error = errorMessage
-                job.status = JobStatus.FAILED
-                job.phase = "failed"
-                log.error("Async rebuild failed (job={}): {}", jobId, errorMessage, e)
-            } finally {
-                rebuildInProgress.set(false)
+                } catch (e: Exception) {
+                    val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
+                    job.error = errorMessage
+                    job.status = JobStatus.FAILED
+                    job.phase = "failed"
+                    log.error("Async rebuild failed (job={}): {}", jobId, errorMessage, e)
+                } finally {
+                    rebuildInProgress.set(false)
+                }
             }
         }
 

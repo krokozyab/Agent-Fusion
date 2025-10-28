@@ -199,6 +199,12 @@ object ContextDatabase {
             // Improve write throughput for incremental indexing
             val threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(8)
             st.execute("PRAGMA threads=$threads")
+            // Allow DuckDB to use as much memory as the host can provide during full rebuilds
+            st.execute("PRAGMA memory_limit='16GB'")
+            // Avoid expensive per-row ordering overhead when bulk loading thousands of chunks
+            st.execute("PRAGMA preserve_insertion_order=false")
+            // Force periodic checkpoints to keep transactions from ballooning indefinitely
+            st.execute("PRAGMA checkpoint_threshold='8GB'")
         }
     }
 
