@@ -2,11 +2,9 @@ package com.orchestrator.web.routes
 
 import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.domain.FileState
+import com.orchestrator.web.components.AgGrid
 import com.orchestrator.web.components.DataTable
 import com.orchestrator.web.components.FileDetail
-import com.orchestrator.web.components.FileBrowser
-import com.orchestrator.web.components.FileRow
-import com.orchestrator.web.components.Pagination
 import com.orchestrator.web.pages.FilesPage
 import com.orchestrator.web.rendering.Fragment
 import io.ktor.http.ContentType
@@ -16,7 +14,6 @@ import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import kotlinx.html.span
 import java.time.Instant
 import java.time.ZoneId
 
@@ -80,12 +77,34 @@ fun Route.fileRoutes() {
      * GET /files - Main files list page
      */
     get("/files") {
-        val html = FilesPage.render()
-        call.respondText(html, io.ktor.http.ContentType.Text.Html)
+        // Query all files for initial display
+        val params = FileQueryParams()
+        val (files, totalCount) = queryFiles(params)
+
+        // Convert files to ag-Grid row data format
+        val rowData = files.map { file ->
+            mapOf<String, Any>(
+                "path" to file.relativePath,
+                "status" to determineFileStatus(file),
+                "extension" to file.relativePath.substringAfterLast(".", ""),
+                "sizeBytes" to formatFileSize(file.sizeBytes),
+                "lastModified" to formatInstant(file.indexedAt),
+                "chunkCount" to getChunkCountForFile(file.id),
+                "fileId" to file.id
+            )
+        }
+
+        val gridData = FilesPage.GridData(
+            columnDefs = FilesPage.GridData.defaultColumns(),
+            rowData = rowData
+        )
+
+        val html = FilesPage.render(gridData)
+        call.respondText(html, ContentType.Text.Html)
     }
 
     /**
-     * GET /files/table - Returns HTML fragment for file table
+     * GET /files/table - Returns ag-Grid compatible HTML fragment
      *
      * Query parameters:
      * - search: text search in file path/name (100 char max)
@@ -97,7 +116,7 @@ fun Route.fileRoutes() {
      * - pageSize: items per page (default: 50, max: 200)
      *
      * Returns:
-     * - HTML table fragment for HTMX swap
+     * - HTML div with updated ag-Grid data table
      */
     get("/files/table") {
         val params = try {
@@ -113,17 +132,36 @@ fun Route.fileRoutes() {
         // Query files with filters
         val (files, totalCount) = queryFiles(params)
 
-        // Build current URL for sorting/pagination
-        val baseUrl = "/files/table"
+        // Convert files to ag-Grid row data format
+        val rowData = files.map { file ->
+            mapOf<String, Any>(
+                "path" to file.relativePath,
+                "status" to determineFileStatus(file),
+                "extension" to file.relativePath.substringAfterLast(".", ""),
+                "sizeBytes" to formatFileSize(file.sizeBytes),
+                "lastModified" to formatInstant(file.indexedAt),
+                "chunkCount" to getChunkCountForFile(file.id),
+                "fileId" to file.id
+            )
+        }
 
-        // Render complete table
-        val html = renderCompleteFileTable(
-            files = files,
-            params = params,
-            currentPage = params.page,
-            totalCount = totalCount,
-            baseUrl = baseUrl
-        )
+        // Render ag-Grid table with updated data
+        val html = Fragment.render {
+            with(AgGrid) {
+                agGrid(AgGrid.GridConfig(
+                    id = "files-grid",
+                    columnDefs = FilesPage.GridData.defaultColumns(),
+                    rowData = rowData,
+                    height = "600px",
+                    enablePagination = true,
+                    pageSize = params.pageSize,
+                    customOptions = mapOf(
+                        "suppressRowClickSelection" to false,
+                        "enableCellTextSelection" to true
+                    )
+                ))
+            }
+        }
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
         call.response.headers.append("X-Total-Count", totalCount.toString())
@@ -300,215 +338,6 @@ private fun queryFiles(params: FileQueryParams): Pair<List<FileState>, Int> {
     return Pair(paginatedFiles, totalCount)
 }
 
-/**
- * Render complete file table with all components
- */
-private fun renderCompleteFileTable(
-    files: List<FileState>,
-    params: FileQueryParams,
-    currentPage: Int,
-    totalCount: Int,
-    baseUrl: String
-): String {
-    val columns = buildFileTableColumns(baseUrl, params)
-    val rows = files.map { file -> buildFileRow(file) }
-
-    val sortState = DataTable.SortState(
-        columnId = params.sortBy,
-        direction = params.sortOrder
-    )
-
-    val paginationConfig = Pagination.Config(
-        page = currentPage,
-        pageSize = params.pageSize,
-        totalCount = totalCount.toLong(),
-        perPageOptions = listOf(10, 25, 50, 100),
-        makePageUrl = Pagination.PageUrlBuilder { page, pageSize ->
-            buildPaginationUrlForPage(baseUrl, params, page, pageSize)
-        },
-        hxTargetId = "files-table-container",
-        hxIndicatorId = "files-table-indicator",
-        hxSwap = "innerHTML"
-    )
-
-    return Fragment.render {
-        with(DataTable) {
-            dataTable(
-                id = "files-table",
-                columns = columns,
-                rows = rows,
-                sortState = sortState,
-                emptyState = DataTable.EmptyState(
-                    message = "No files found",
-                    description = {
-                        span { +"Try adjusting your search or filter criteria" }
-                    }
-                ),
-                pagination = paginationConfig,
-                hxTargetId = "files-table-container",
-                hxIndicatorId = "files-table-indicator",
-                hxSwapStrategy = "innerHTML"
-            )
-        }
-    }
-}
-
-/**
- * Build file table columns with sorting links
- */
-private fun buildFileTableColumns(baseUrl: String, params: FileQueryParams): List<DataTable.Column> =
-    listOf(
-        DataTable.Column(
-            id = "path",
-            title = "File Path",
-            sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "path", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "path", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "path", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by file path"
-        ),
-        DataTable.Column(
-            id = "status",
-            title = "Status",
-            sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by status"
-        ),
-        DataTable.Column(
-            id = "extension",
-            title = "Type",
-            sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "extension", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "extension", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "extension", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by file type"
-        ),
-        DataTable.Column(
-            id = "size",
-            title = "Size",
-            sortable = true,
-            numeric = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "size", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "size", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "size", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by file size"
-        ),
-        DataTable.Column(
-            id = "modified",
-            title = "Modified",
-            sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "modified", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "modified", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "modified", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by modification date"
-        ),
-        DataTable.Column(
-            id = "chunks",
-            title = "Chunks",
-            sortable = true,
-            numeric = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "chunks", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "chunks", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "chunks", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by chunk count"
-        ),
-        DataTable.Column(
-            id = "actions",
-            title = "Actions",
-            sortable = false
-        )
-    )
-
-/**
- * Build a file row from FileState
- */
-private fun buildFileRow(file: FileState): DataTable.Row {
-    return FileRow.toRow(
-        model = FileBrowser.Model(
-            path = file.relativePath,
-            status = determineFileStatus(file),
-            sizeBytes = file.sizeBytes,
-            lastModified = file.indexedAt,
-            chunkCount = getChunkCountForFile(file.id),
-            extension = file.relativePath.substringAfterLast(".", ""),
-            referenceInstant = Instant.now(),
-            zoneId = ZoneId.systemDefault()
-        ),
-        detailsUrl = "/files/${file.relativePath}/detail"
-    )
-}
-
-/**
- * Build sort URL with current params
- */
-private fun buildSortUrl(
-    baseUrl: String,
-    params: FileQueryParams,
-    sortBy: String,
-    sortOrder: DataTable.SortDirection
-): String {
-    val queryParams = mutableListOf<String>()
-    queryParams.add("sortBy=$sortBy")
-    queryParams.add("sortOrder=${sortOrder.name.lowercase()}")
-    if (params.search != null) queryParams.add("search=${params.search}")
-    if (params.status.isNotEmpty()) {
-        params.status.forEach { status ->
-            queryParams.add("status=$status")
-        }
-    }
-    if (params.extensions.isNotEmpty()) {
-        params.extensions.forEach { ext ->
-            queryParams.add("extension=$ext")
-        }
-    }
-    queryParams.add("page=1")
-    queryParams.add("pageSize=${params.pageSize}")
-
-    return "$baseUrl?${queryParams.joinToString("&")}"
-}
-
-/**
- * Build pagination URL with current params
- */
-private fun buildPaginationUrlForPage(
-    baseUrl: String,
-    params: FileQueryParams,
-    page: Int,
-    pageSize: Int
-): String {
-    val queryParams = mutableListOf<String>()
-    queryParams.add("sortBy=${params.sortBy}")
-    queryParams.add("sortOrder=${params.sortOrder.name.lowercase()}")
-    if (params.search != null) queryParams.add("search=${params.search}")
-    if (params.status.isNotEmpty()) {
-        params.status.forEach { status ->
-            queryParams.add("status=$status")
-        }
-    }
-    if (params.extensions.isNotEmpty()) {
-        params.extensions.forEach { ext ->
-            queryParams.add("extension=$ext")
-        }
-    }
-    queryParams.add("page=$page")
-    queryParams.add("pageSize=$pageSize")
-
-    return "$baseUrl?${queryParams.joinToString("&")}"
-}
 
 /**
  * Determine the status of a file (indexed, outdated, error, pending)
@@ -544,4 +373,24 @@ private fun getChunkCountForFile(fileId: Long): Int {
             0
         }
     }
+}
+
+/**
+ * Format file size in human-readable format
+ */
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${String.format("%.1f", bytes / 1024.0)} KB"
+        bytes < 1024 * 1024 * 1024 -> "${String.format("%.1f", bytes / (1024.0 * 1024))} MB"
+        else -> "${String.format("%.1f", bytes / (1024.0 * 1024 * 1024))} GB"
+    }
+}
+
+/**
+ * Format Instant to readable date string
+ */
+private fun formatInstant(instant: Instant?): String {
+    if (instant == null) return "Never"
+    return instant.atZone(ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy HH:mm"))
 }
