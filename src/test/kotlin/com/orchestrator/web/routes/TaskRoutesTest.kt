@@ -89,36 +89,22 @@ class TaskRoutesTest {
 
         val body = response.bodyAsText()
 
-        // Should contain table structure
-        assertContains(body, "data-table")
-        assertContains(body, "task-row-TASK-001")
-        assertContains(body, "task-row-TASK-002")
+        // Should contain ag-Grid container and configuration
+        assertContains(body, "tasks-grid")
+        assertContains(body, "ag-grid-container")
+        assertContains(body, "TaskGrid.renderTitle")
 
-        // Should contain task data
-        assertContains(body, "Implement feature X")
-        assertContains(body, "Review code for module Y")
+        // Should include serialized row data for each task
+        assertContains(body, "\"taskId\": \"TASK-001\"")
+        assertContains(body, "\"title\": \"Implement feature X\"")
+        assertContains(body, "\"statusLabel\": \"Pending\"")
+        assertContains(body, "\"taskId\": \"TASK-002\"")
+        assertContains(body, "\"title\": \"Review code for module Y\"")
+        assertContains(body, "\"statusLabel\": \"In Progress\"")
 
-        // Should contain status badges with tones
-        assertContains(body, "Pending")
-        assertContains(body, "In Progress")
-        assertContains(body, "badge--warning")
-        assertContains(body, "badge--info")
-
-        // Should contain type information with outline badges
-        assertContains(body, "Implementation")
-        assertContains(body, "Review")
-        assertContains(body, "badge--success")
-        assertContains(body, "badge--outline")
-
-        // Should contain routing strategy meta
-        assertContains(body, "Solo")
-        assertContains(body, "Consensus")
-
-        // Should include HTMX/SSE wiring and action buttons
-        assertContains(body, "sse-swap=\"taskUpdated swap:outerHTML\"")
-        assertContains(body, "hx-get=\"/tasks/TASK-001/modal\"")
-        assertContains(body, "task-row__action--view")
-        assertContains(body, "task-row__action--edit")
+        // Should include detail URLs used by action buttons
+        assertContains(body, "/tasks/TASK-001/modal")
+        assertContains(body, "/tasks/TASK-002/edit")
     }
 
     @Test
@@ -150,14 +136,10 @@ class TaskRoutesTest {
 
         val body = response.bodyAsText()
 
-        // Should contain only pending task
-        assertContains(body, "TASK-001")
-        assertContains(body, "Pending task")
-
-        // Should not contain completed task (due to filtering)
-        // Note: This depends on whether filtering is done in SQL or in-memory
-        // The current implementation filters in-memory, so both may appear
-        // but only PENDING would be highlighted
+        // Should contain only pending task row data
+        assertContains(body, "\"taskId\": \"TASK-001\"")
+        assertContains(body, "\"title\": \"Pending task\"")
+        assertTrue(!body.contains("Completed task"), "Filtered response should not include completed task")
     }
 
     @Test
@@ -190,8 +172,9 @@ class TaskRoutesTest {
         val body = response.bodyAsText()
 
         // Should contain task matching search
-        assertContains(body, "TASK-001")
-        assertContains(body, "authentication")
+        assertContains(body, "\"taskId\": \"TASK-001\"")
+        assertContains(body, "\"title\": \"Implement authentication feature\"")
+        assertTrue(!body.contains("Fix database bug"), "Search should exclude unrelated tasks")
     }
 
     @Test
@@ -219,8 +202,8 @@ class TaskRoutesTest {
 
         val body = response.bodyAsText()
 
-        // Should contain pagination controls
-        assertContains(body, "pagination")
+        // Should reflect requested page size in grid config
+        assertContains(body, "paginationPageSize: 10")
 
         // Should have total count header
         val totalCount = response.headers["X-Total-Count"]
@@ -259,12 +242,12 @@ class TaskRoutesTest {
 
         val body = response.bodyAsText()
 
-        // Should contain both tasks
-        assertContains(body, "Alpha task")
-        assertContains(body, "Beta task")
-
-        // Should have sort indicators in header
-        assertContains(body, "data-table__sort")
+        // Should contain both tasks and maintain ascending order in serialized data
+        val alphaIndex = body.indexOf("Alpha task")
+        val betaIndex = body.indexOf("Beta task")
+        assertTrue(alphaIndex >= 0)
+        assertTrue(betaIndex >= 0)
+        assertTrue(alphaIndex < betaIndex)
     }
 
     @Test
@@ -369,8 +352,8 @@ class TaskRoutesTest {
 
         val body = response.bodyAsText()
 
-        // Should contain empty state message
-        assertContains(body, "No tasks found")
+        // Should emit empty row data array for ag-Grid
+        assertContains(body, "const rowData = []")
     }
 
     @Test
@@ -412,7 +395,8 @@ class TaskRoutesTest {
         val body = response.bodyAsText()
 
         assertTrue(body.isNotEmpty())
-        assertContains(body, "data-table")
+        assertContains(body, "Authentication implementation")
+        assertTrue(!body.contains("Database review"))
     }
 
     @Test

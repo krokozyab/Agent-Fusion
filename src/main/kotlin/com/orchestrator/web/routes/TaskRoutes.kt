@@ -9,14 +9,9 @@ import com.orchestrator.domain.TaskType
 import com.orchestrator.storage.repositories.DecisionRepository
 import com.orchestrator.storage.repositories.ProposalRepository
 import com.orchestrator.storage.repositories.TaskRepository
-import com.orchestrator.web.components.DataTable
-import com.orchestrator.web.components.Pagination
-import com.orchestrator.web.components.StatusBadge
-import com.orchestrator.web.components.StatusBadge.Tone
-import com.orchestrator.web.components.TaskRow
-import com.orchestrator.web.components.displayName
-import com.orchestrator.web.components.toTone
-import com.orchestrator.web.dto.toTaskDTO
+import com.orchestrator.web.components.AgGrid
+import com.orchestrator.web.components.TaskGridRowFactory
+import com.orchestrator.web.components.TaskGridRowFactory.toRowMap
 import com.orchestrator.web.pages.TaskDetailPage
 import com.orchestrator.web.pages.TasksPage
 import com.orchestrator.web.routes.renderTaskModal
@@ -27,10 +22,8 @@ import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import kotlinx.html.span
 import java.time.Clock
 import java.time.Instant
-import java.util.Locale
 
 /**
  * Query parameters for task filtering, sorting, and pagination
@@ -48,7 +41,7 @@ data class TaskQueryParams(
     val createdAfter: Instant? = null,
     val createdBefore: Instant? = null,
     val sortBy: String = "updated_at",
-    val sortOrder: DataTable.SortDirection = DataTable.SortDirection.DESC,
+    val sortOrder: SortDirection = SortDirection.DESC,
     val page: Int = 1,
     val pageSize: Int = 50
 ) {
@@ -62,6 +55,12 @@ data class TaskQueryParams(
         require(complexityMax in 1..10) { "complexityMax must be between 1 and 10" }
         require(complexityMin <= complexityMax) { "complexityMin must be <= complexityMax" }
     }
+}
+
+enum class SortDirection {
+    ASC,
+    DESC,
+    NONE
 }
 
 /**
@@ -97,14 +96,14 @@ fun Parameters.toTaskQueryParams(): TaskQueryParams {
 
     val sortBy = this["sortBy"] ?: "updated_at"
     val sortOrder = when (this["sortOrder"]?.lowercase()) {
-        "asc" -> DataTable.SortDirection.ASC
-        "desc" -> DataTable.SortDirection.DESC
-        "none" -> DataTable.SortDirection.NONE
-        else -> DataTable.SortDirection.DESC
+        "asc" -> SortDirection.ASC
+        "desc" -> SortDirection.DESC
+        "none" -> SortDirection.NONE
+        else -> SortDirection.DESC
     }
 
     val page = this["page"]?.toIntOrNull()?.coerceIn(1, 1000) ?: 1
-    val pageSize = this["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 20
+    val pageSize = this["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 50
 
     return TaskQueryParams(
         search = search,
@@ -131,7 +130,10 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
      * GET /tasks - Main tasks list page
      */
     get("/tasks") {
-        val html = TasksPage.render()
+        val defaultParams = TaskQueryParams()
+        val (tasks, _) = queryTasks(defaultParams)
+        val gridData = buildTasksGridData(tasks, clock, defaultParams.pageSize)
+        val html = TasksPage.render(gridData)
         call.respondText(html, io.ktor.http.ContentType.Text.Html)
     }
 
@@ -167,27 +169,10 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
             return@get
         }
 
-        // Execute query with filters
         val (tasks, totalCount) = queryTasks(params)
+        val gridData = buildTasksGridData(tasks, clock, params.pageSize)
+        val html = renderTasksGridFragment(gridData)
 
-        // Calculate pagination
-        val totalPages = (totalCount + params.pageSize - 1) / params.pageSize
-
-        // Build current URL for sorting/pagination
-        val baseUrl = "/tasks/table"
-
-        // Render complete table
-        val html = renderCompleteTaskTable(
-            tasks = tasks,
-            params = params,
-            currentPage = params.page,
-            totalPages = totalPages,
-            totalCount = totalCount,
-            baseUrl = baseUrl,
-            clock = clock
-        )
-
-        // Set cache control header
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
         call.response.headers.append("X-Total-Count", totalCount.toString())
 
@@ -304,27 +289,27 @@ private fun queryTasks(params: TaskQueryParams): Pair<List<Task>, Int> {
     }
 
     // Sort
-    if (params.sortOrder != DataTable.SortDirection.NONE) {
+    if (params.sortOrder != SortDirection.NONE) {
         filtered = when (params.sortBy) {
-            "id" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "id" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.id.value } else filtered.sortedByDescending { it.id.value }
-            "title" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "title" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.title } else filtered.sortedByDescending { it.title }
-            "status" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "status" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.status.ordinal } else filtered.sortedByDescending { it.status.ordinal }
-            "type" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "type" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.type.ordinal } else filtered.sortedByDescending { it.type.ordinal }
-            "agents" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "agents" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.assigneeIds.firstOrNull()?.value } else filtered.sortedByDescending { it.assigneeIds.firstOrNull()?.value }
-            "updated_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "updated_at" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.updatedAt ?: it.createdAt } else filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
-            "routing" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "routing" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.routing.ordinal } else filtered.sortedByDescending { it.routing.ordinal }
-            "risk" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "risk" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.risk } else filtered.sortedByDescending { it.risk }
-            "complexity" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "complexity" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.complexity } else filtered.sortedByDescending { it.complexity }
-            "created_at" -> if (params.sortOrder == DataTable.SortDirection.ASC)
+            "created_at" -> if (params.sortOrder == SortDirection.ASC)
                 filtered.sortedBy { it.createdAt } else filtered.sortedByDescending { it.createdAt }
             else -> filtered.sortedByDescending { it.updatedAt ?: it.createdAt }
         }
@@ -339,221 +324,101 @@ private fun queryTasks(params: TaskQueryParams): Pair<List<Task>, Int> {
     return Pair(paginated, filteredTotal)
 }
 
-/**
- * Render complete task table with header, body, and pagination
- */
-private fun renderCompleteTaskTable(
+private fun buildTasksGridData(
     tasks: List<Task>,
-    params: TaskQueryParams,
-    currentPage: Int,
-    totalPages: Int,
-    totalCount: Int,
-    baseUrl: String,
-    clock: Clock
-): String {
-    val columns = buildTaskTableColumns(baseUrl, params)
-    val rows = tasks.map { task -> buildTaskRow(task, clock) }
+    clock: Clock,
+    pageSize: Int
+): TasksPage.GridData {
+    val columnDefs = defaultTaskGridColumns()
+    val rows = tasks.map { task ->
+        TaskGridRowFactory.fromTask(task, clock).toRowMap()
+    }
 
-    val sortState = DataTable.SortState(
-        columnId = params.sortBy,
-        direction = params.sortOrder
+    return TasksPage.GridData(
+        columnDefs = columnDefs,
+        rowData = rows,
+        pageSize = pageSize,
+        pageSizeOptions = listOf(25, 50, 100, 200)
     )
+}
 
-    val paginationConfig = Pagination.Config(
-        page = currentPage,
-        pageSize = params.pageSize,
-        totalCount = totalCount.toLong(),
-        perPageOptions = listOf(10, 20, 50, 100),
-        makePageUrl = Pagination.PageUrlBuilder { page, pageSize ->
-            buildPaginationUrlForPage(baseUrl, params, page, pageSize)
-        },
-        hxTargetId = "tasks-table-container",
-        hxIndicatorId = "tasks-table-indicator",
-        hxSwap = "innerHTML"
-    )
-
-    return Fragment.render {
-        with(DataTable) {
-            dataTable(
-                id = "tasks-table",
-                columns = columns,
-                rows = rows,
-                sortState = sortState,
-                emptyState = DataTable.EmptyState(
-                    message = "No tasks found",
-                    description = {
-                        span { +"Try adjusting your filters or search criteria" }
-                    }
-                ),
-                pagination = paginationConfig,
-                hxTargetId = "tasks-table-container",
-                hxIndicatorId = "tasks-table-indicator",
-                hxSwapStrategy = "innerHTML"
+private fun renderTasksGridFragment(gridData: TasksPage.GridData): String =
+    Fragment.render {
+        with(AgGrid) {
+            agGrid(
+                AgGrid.GridConfig(
+                    id = "tasks-grid",
+                    columnDefs = if (gridData.columnDefs.isEmpty()) defaultTaskGridColumns() else gridData.columnDefs,
+                    rowData = gridData.rowData,
+                    enablePagination = true,
+                    pageSize = gridData.pageSize,
+                    pageSizeOptions = gridData.pageSizeOptions,
+                    height = "70vh",
+                    suppressRowClickSelection = false,
+                    customOptions = mapOf(
+                        "rowSelection" to "single",
+                        "rowHeight" to 72,
+                        "quickFilterText" to "",
+                        "defaultColDef" to mapOf(
+                            "sortable" to true,
+                            "filter" to true,
+                            "floatingFilter" to true,
+                            "resizable" to true
+                        )
+                    )
+                )
             )
         }
     }
-}
 
-private fun buildTaskTableColumns(baseUrl: String, params: TaskQueryParams): List<DataTable.Column> =
+private fun defaultTaskGridColumns(): List<AgGrid.ColumnDef> =
     listOf(
-        DataTable.Column(
-            id = "id",
-            title = "ID",
+        AgGrid.ColumnDef(
+            field = "idDisplay",
+            headerName = "ID",
             sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "id", DataTable.SortDirection.NONE)
-            ),
-            ariaLabel = "Sort by ID"
+            filter = true,
+            width = 120,
+            cellRenderer = "TaskGrid.renderId"
         ),
-        DataTable.Column(
-            id = "title",
-            title = "Task",
+        AgGrid.ColumnDef(
+            field = "title",
+            headerName = "Task",
             sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "title", DataTable.SortDirection.NONE)
-            )
+            filter = true,
+            flex = 2,
+            cellRenderer = "TaskGrid.renderTitle"
         ),
-        DataTable.Column(
-            id = "status",
-            title = "Status",
+        AgGrid.ColumnDef(
+            field = "statusLabel",
+            headerName = "Status",
             sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "status", DataTable.SortDirection.NONE)
-            )
+            filter = true,
+            width = 150,
+            cellRenderer = "TaskGrid.renderStatus"
         ),
-        DataTable.Column(
-            id = "type",
-            title = "Type",
+        AgGrid.ColumnDef(
+            field = "routingDisplay",
+            headerName = "Routing",
             sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "type", DataTable.SortDirection.NONE)
-            )
+            filter = true,
+            width = 140,
+            cellRenderer = "TaskGrid.renderRouting"
         ),
-        DataTable.Column(
-            id = "agents",
-            title = "Agents",
+        AgGrid.ColumnDef(
+            field = "assigneesDisplay",
+            headerName = "Assignees",
             sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "agents", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "agents", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "agents", DataTable.SortDirection.NONE)
-            )
+            filter = true,
+            flex = 1,
+            cellRenderer = "TaskGrid.renderAssignees"
         ),
-        DataTable.Column(
-            id = "updated_at",
-            title = "Updated",
+        AgGrid.ColumnDef(
+            field = "createdAtEpochMs",
+            headerName = "Created",
             sortable = true,
-            sortLinks = DataTable.SortLinks(
-                ascending = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.ASC),
-                descending = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.DESC),
-                unsorted = buildSortUrl(baseUrl, params, "updated_at", DataTable.SortDirection.NONE)
-            )
-        ),
-        DataTable.Column(
-            id = "actions",
-            title = "Actions",
-            sortable = false,
-            ariaLabel = "Task actions"
+            filter = true,
+            width = 180,
+            cellRenderer = "TaskGrid.renderCreatedAt"
         )
     )
-
-private fun buildTaskRow(task: Task, clock: Clock): DataTable.Row {
-    val dto = task.toTaskDTO(clock)
-
-    val model = TaskRow.Model(
-        id = task.id.value,
-        title = task.title,
-        status = TaskRow.Status(
-            label = task.status.displayName,
-            tone = task.status.toTone()
-        ),
-        type = TaskRow.Type(
-            label = task.type.displayName,
-            tone = task.type.toTone()
-        ),
-        routing = formatDisplay(task.routing.name),
-        assignees = dto.assigneeIds,
-        complexity = task.complexity,
-        risk = task.risk,
-        detailUrl = "/tasks/${task.id.value}/modal",
-        editUrl = "/tasks/${task.id.value}/edit",
-        updatedAt = task.updatedAt,
-        createdAt = task.createdAt,
-        referenceInstant = Instant.now(clock),
-        zoneId = clock.zone,
-        hxTarget = "#modal-container",
-        hxSwap = "innerHTML",
-        hxIndicator = "#tasks-table-indicator"
-    )
-
-    return TaskRow.toRow(model)
-}
-
-private fun formatDisplay(value: String): String =
-    value.lowercase(Locale.getDefault())
-        .split('_')
-        .joinToString(" ") { part ->
-            part.replaceFirstChar { ch -> ch.titlecase(Locale.getDefault()) }
-        }
-
-private fun buildSortUrl(baseUrl: String, params: TaskQueryParams, sortBy: String, direction: DataTable.SortDirection): String {
-    val queryParams = mutableListOf<String>()
-
-    // Preserve filters
-    params.search?.let { queryParams += "search=$it" }
-    params.status.forEach { queryParams += "status=${it.name}" }
-    params.type.forEach { queryParams += "type=${it.name}" }
-    params.routing.forEach { queryParams += "routing=${it.name}" }
-    params.assigneeIds.forEach { queryParams += "assigneeIds=${it.value}" }
-    if (params.riskMin != 1) queryParams += "riskMin=${params.riskMin}"
-    if (params.riskMax != 10) queryParams += "riskMax=${params.riskMax}"
-    if (params.complexityMin != 1) queryParams += "complexityMin=${params.complexityMin}"
-    if (params.complexityMax != 10) queryParams += "complexityMax=${params.complexityMax}"
-    params.createdAfter?.let { queryParams += "createdAfter=$it" }
-    params.createdBefore?.let { queryParams += "createdBefore=$it" }
-
-    // Add sort parameters
-    if (direction != DataTable.SortDirection.NONE) {
-        queryParams += "sortBy=$sortBy"
-        queryParams += "sortOrder=${direction.name.lowercase()}"
-    }
-
-    // Preserve pagination
-    queryParams += "page=${params.page}"
-    queryParams += "pageSize=${params.pageSize}"
-
-    return "$baseUrl?${queryParams.joinToString("&")}"
-}
-
-private fun buildPaginationUrlForPage(baseUrl: String, params: TaskQueryParams, page: Int, pageSize: Int): String {
-    val queryParams = mutableListOf<String>()
-
-    // Preserve all filters and sort
-    params.search?.let { queryParams += "search=$it" }
-    params.status.forEach { queryParams += "status=${it.name}" }
-    params.type.forEach { queryParams += "type=${it.name}" }
-    params.routing.forEach { queryParams += "routing=${it.name}" }
-    params.assigneeIds.forEach { queryParams += "assigneeIds=${it.value}" }
-    if (params.riskMin != 1) queryParams += "riskMin=${params.riskMin}"
-    if (params.riskMax != 10) queryParams += "riskMax=${params.riskMax}"
-    if (params.complexityMin != 1) queryParams += "complexityMin=${params.complexityMin}"
-    if (params.complexityMax != 10) queryParams += "complexityMax=${params.complexityMax}"
-    params.createdAfter?.let { queryParams += "createdAfter=$it" }
-    params.createdBefore?.let { queryParams += "createdBefore=$it" }
-    queryParams += "sortBy=${params.sortBy}"
-    queryParams += "sortOrder=${params.sortOrder.name.lowercase()}"
-
-    // Add dynamic page and pageSize
-    queryParams += "page=$page"
-    queryParams += "pageSize=$pageSize"
-
-    return "$baseUrl?${queryParams.joinToString("&")}"
-}

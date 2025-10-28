@@ -160,7 +160,7 @@ internal class EventBusSubscriber(
             }
             .getOrNull() ?: return
 
-        val fragment = runCatching { fragmentGenerator.taskRow(task) }
+        val fragment = runCatching { fragmentGenerator.taskRow(task, eventName, timestamp) }
             .onFailure { throwable ->
                 logger.warn("Failed to render task ${task.id.value}: ${throwable.message}")
             }

@@ -107,18 +107,6 @@ object FilesPage {
                     pageTitle = "Files",
                     currentPath = "/files"
                 ) {
-                    // Page header
-                    div(classes = "page-header mb-lg") {
-                        div(classes = "flex justify-between items-center") {
-                            div {
-                                h1(classes = "mt-0 mb-2") { +"File Browser" }
-                                p(classes = "text-muted mb-0") {
-                                    +"Browse and manage all indexed files"
-                                }
-                            }
-                        }
-                    }
-
                     // Files table
                     div(classes = "card") {
                         div(classes = "card-body") {

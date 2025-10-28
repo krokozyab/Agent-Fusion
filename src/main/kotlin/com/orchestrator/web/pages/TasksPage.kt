@@ -1,24 +1,23 @@
 package com.orchestrator.web.pages
 
+import com.orchestrator.web.components.AgGrid
 import com.orchestrator.web.rendering.PageLayout
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
 /**
- * Tasks page for viewing and managing all tasks.
- *
- * Displays task list with:
- * - Search and filter controls
- * - Sortable data table
- * - Pagination
- * - HTMX live updates
+ * Tasks page rendered with ag-Grid for rich interaction.
  */
 object TasksPage {
 
-    /**
-     * Render complete tasks list page
-     */
-    fun render(): String = createHTML().html {
+    data class GridData(
+        val columnDefs: List<AgGrid.ColumnDef> = emptyList(),
+        val rowData: List<Map<String, Any>> = emptyList(),
+        val pageSize: Int = 50,
+        val pageSizeOptions: List<Int> = listOf(25, 50, 100, 200)
+    )
+
+    fun render(gridData: GridData = GridData()): String = createHTML().html {
         head {
             meta(charset = "utf-8")
             meta(name = "viewport", content = "width=device-width, initial-scale=1")
@@ -32,8 +31,13 @@ object TasksPage {
             link(rel = "stylesheet", href = "/static/css/sse-status.css")
             link(rel = "stylesheet", href = "/static/css/animations.css")
 
-            // HTMX
+            // ag-Grid styling
+            link(rel = "stylesheet", href = "/static/css/ag-grid.css")
+            link(rel = "stylesheet", href = "/static/css/ag-theme-quartz.css")
+
+            // HTMX & ag-Grid core
             script(src = "/static/js/htmx.min.js") {}
+            script(src = "/static/js/ag-grid-community.min.js") {}
         }
 
         body(classes = "dashboard-layout") {
@@ -45,145 +49,56 @@ object TasksPage {
                     pageTitle = "Tasks",
                     currentPath = "/tasks"
                 ) {
-                    // Page header
-                    div(classes = "page-header mb-lg") {
-                        div(classes = "flex justify-between items-center") {
-                            div {
-                                h1(classes = "mt-0 mb-2") { +"Tasks" }
-                                p(classes = "text-muted mb-0") {
-                                    +"View and manage all orchestrator tasks"
-                                }
-                            }
-
-                            // Future: Add "Create Task" button
-                            // button(classes = "btn btn-primary") {
-                            //     +"+ Create Task"
-                            // }
-                        }
-                    }
-
-                    // Search and filter controls
-                    div(classes = "card mb-md") {
-                        div(classes = "card-body") {
-                            form {
-                                id = "task-filters"
-                                attributes["hx-get"] = "/tasks/table"
-                                attributes["hx-target"] = "#tasks-table-container"
-                                attributes["hx-trigger"] = "submit, change delay:500ms"
-                                attributes["hx-swap"] = "innerHTML"
-
-                                div(classes = "grid grid-cols-4 gap-md") {
-                                    // Search input
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "search"
-                                            +"Search"
-                                        }
-                                        input(type = InputType.search, name = "search") {
-                                            id = "search"
-                                            placeholder = "Search tasks..."
-                                            classes = setOf("form-control")
-                                        }
-                                    }
-
-                                    // Status filter
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "status"
-                                            +"Status"
-                                        }
-                                        select {
-                                            id = "status"
-                                            name = "status"
-                                            classes = setOf("form-control")
-
-                                            option {
-                                                value = ""
-                                                +"All Statuses"
-                                            }
-                                            option { value = "PENDING"; +"Pending" }
-                                            option { value = "IN_PROGRESS"; +"In Progress" }
-                                            option { value = "WAITING_INPUT"; +"Waiting Input" }
-                                            option { value = "COMPLETED"; +"Completed" }
-                                            option { value = "FAILED"; +"Failed" }
-                                        }
-                                    }
-
-                                    // Type filter
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "type"
-                                            +"Type"
-                                        }
-                                        select {
-                                            id = "type"
-                                            name = "type"
-                                            classes = setOf("form-control")
-
-                                            option {
-                                                value = ""
-                                                +"All Types"
-                                            }
-                                            option { value = "IMPLEMENTATION"; +"Implementation" }
-                                            option { value = "BUGFIX"; +"Bug Fix" }
-                                            option { value = "ARCHITECTURE"; +"Architecture" }
-                                            option { value = "REVIEW"; +"Review" }
-                                            option { value = "RESEARCH"; +"Research" }
-                                            option { value = "TESTING"; +"Testing" }
-                                            option { value = "DOCUMENTATION"; +"Documentation" }
-                                            option { value = "PLANNING"; +"Planning" }
-                                        }
-                                    }
-
-                                    // Routing filter
-                                    div(classes = "form-group") {
-                                        label {
-                                            htmlFor = "routing"
-                                            +"Routing"
-                                        }
-                                        select {
-                                            id = "routing"
-                                            name = "routing"
-                                            classes = setOf("form-control")
-
-                                            option {
-                                                value = ""
-                                                +"All Routing"
-                                            }
-                                            option { value = "SOLO"; +"Solo" }
-                                            option { value = "CONSENSUS"; +"Consensus" }
-                                            option { value = "PARALLEL"; +"Parallel" }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Tasks table
+                    // Tasks grid
                     div(classes = "card") {
                         div(classes = "card-body") {
-                            // Loading indicator (shared by all HTMX requests)
-                            div(classes = "htmx-indicator") {
-                                id = "tasks-table-indicator"
-                                attributes["role"] = "status"
-                                attributes["aria-live"] = "assertive"
-                                +"Loading..."
+                            div(classes = "flex flex-wrap gap-md justify-between items-center mb-md") {
+                                div {
+                                    h2(classes = "mt-0 mb-1") { +"Tasks" }
+                                    p(classes = "text-muted mb-0") {
+                                        +"Use the column headers to sort or filter."
+                                    }
+                                }
+                                div(classes = "form-group mb-0") {
+                                    label {
+                                        htmlFor = "tasks-quick-filter"
+                                        +"Quick Filter"
+                                    }
+                                    input(type = InputType.search) {
+                                        id = "tasks-quick-filter"
+                                        placeholder = "Filter tasks..."
+                                        attributes["aria-label"] = "Filter tasks"
+                                        classes = setOf("form-control")
+                                        attributes["style"] = "min-width: 220px;"
+                                    }
+                                }
                             }
 
-                            // Table container with HTMX and SSE
-                            div {
-                                id = "tasks-table-container"
-                                attributes["hx-get"] = "/tasks/table"
-                                attributes["hx-trigger"] = "revealed"
-                                attributes["hx-swap"] = "innerHTML"
-                                attributes["hx-indicator"] = "#tasks-table-indicator"
-                                attributes["sse-swap"] = "taskUpdated"
-
-                                // Placeholder content while loading
-                                div(classes = "text-center text-muted p-xl") {
-                                    +"Loading tasks..."
-                                }
+                            with(AgGrid) {
+                                agGrid(
+                                    AgGrid.GridConfig(
+                                        id = "tasks-grid",
+                                        columnDefs = gridData.columnDefs,
+                                        rowData = gridData.rowData,
+                                        enablePagination = true,
+                                        pageSize = gridData.pageSize,
+                                        pageSizeOptions = gridData.pageSizeOptions,
+                                        height = "70vh",
+                                        suppressRowClickSelection = false,
+                                        customOptions = mapOf(
+                                            "defaultColDef" to mapOf(
+                                                "sortable" to true,
+                                                "filter" to true,
+                                                "floatingFilter" to true,
+                                                "resizable" to true
+                                            ),
+                                            "rowSelection" to "single",
+                                            "rowHeight" to 72,
+                                            "animateRows" to true,
+                                            "paginationAutoPageSize" to false
+                                        )
+                                    )
+                                )
                             }
                         }
                     }
@@ -196,7 +111,20 @@ object TasksPage {
                 attributes["role"] = "dialog"
                 attributes["aria-modal"] = "true"
                 attributes["aria-hidden"] = "true"
-                // Empty by default, populated by HTMX
+            }
+
+            // Hidden containers for SSE task events
+            div {
+                id = "tasks-grid-event-updated"
+                attributes["style"] = "display:none;"
+                attributes["sse-swap"] = "taskUpdated"
+                attributes["hx-swap"] = "innerHTML"
+            }
+            div {
+                id = "tasks-grid-event-created"
+                attributes["style"] = "display:none;"
+                attributes["sse-swap"] = "taskCreated"
+                attributes["hx-swap"] = "innerHTML"
             }
 
             // SSE connection status indicator
@@ -219,38 +147,35 @@ object TasksPage {
             script(src = "/static/js/modal.js") {}
             script(src = "/static/js/sse-status.js") {}
             script(src = "/static/js/task-updates.js") {}
+            script(src = "/static/js/task-grid.js") {}
 
-            // Fallback: Ensure table loads even if hx-trigger:revealed doesn't fire
+            // Quick filter functionality
             script {
                 unsafe {
                     +"""
                         (function() {
-                            function ensureTableLoaded() {
-                                const container = document.getElementById('tasks-table-container');
-                                if (!container) return;
+                            function bindQuickFilter() {
+                                const input = document.getElementById('tasks-quick-filter');
+                                const container = document.getElementById('tasks-grid');
+                                if (!input || !container) return;
 
-                                // Check if table is already loaded
-                                if (container.querySelector('table')) return;
+                                input.addEventListener('input', function(event) {
+                                    if (container._gridApi) {
+                                        container._gridApi.setGridOption('quickFilterText', event.target.value || '');
+                                    }
+                                });
 
-                                // If still showing loading text, trigger load
-                                if (window.htmx && container.textContent.includes('Loading')) {
-                                    htmx.ajax('GET', '/tasks/table', {
-                                        target: container,
-                                        swap: 'innerHTML',
-                                        indicator: '#tasks-table-indicator'
-                                    });
+                                // Apply initial filter if grid is already ready
+                                if (container._gridApi) {
+                                    container._gridApi.setGridOption('quickFilterText', input.value || '');
                                 }
                             }
 
-                            // Try on DOMContentLoaded
                             if (document.readyState === 'loading') {
-                                document.addEventListener('DOMContentLoaded', ensureTableLoaded);
+                                document.addEventListener('DOMContentLoaded', bindQuickFilter, { once: true });
                             } else {
-                                setTimeout(ensureTableLoaded, 100);
+                                bindQuickFilter();
                             }
-
-                            // Also try after a short delay as backup
-                            setTimeout(ensureTableLoaded, 500);
                         })();
                     """.trimIndent()
                 }
