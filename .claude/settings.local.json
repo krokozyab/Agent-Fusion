@@ -5,7 +5,9 @@
       "mcp__orchestrator__query_context",
       "Bash(curl:*)",
       "Bash(./gradlew build:*)",
-      "Bash(./gradlew compileKotlin:*)"
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

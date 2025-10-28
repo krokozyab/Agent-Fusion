@@ -13,7 +13,6 @@ ignore_patterns = [
     ".vscode",
     "out"
 ]
-max_file_size_mb = 5
 use_gitignore = true
 use_contextignore = true
 
