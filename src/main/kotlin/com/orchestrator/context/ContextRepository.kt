@@ -9,6 +9,7 @@ import com.orchestrator.context.domain.FileState
 import com.orchestrator.context.domain.Link
 import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.storage.ContextDatabase
+import com.orchestrator.utils.Logger
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.SQLException
@@ -22,6 +23,8 @@ import kotlin.math.max
  * Persists and retrieves context indexing artefacts using DuckDB.
  */
 object ContextRepository {
+
+    private val log = Logger.logger("com.orchestrator.context.ContextRepository")
 
     data class ChunkArtifacts(
         val chunk: Chunk,
@@ -63,11 +66,22 @@ object ContextRepository {
                         // Delete links that reference these chunks (both as source and target)
                         deleteLinks(conn, existingChunkIds)
                         deleteLinksByTargetChunkIds(conn, existingChunkIds)
+                        purgeChunkForeignReferences(conn, existingChunkIds)
                     }
 
                     deleteSymbolsByFile(conn, existing.id)
                     deleteLinksByTargetFile(conn, existing.id)
-                    deleteChunks(conn, existing.id)
+                    try {
+                        deleteChunks(conn, existing.id)
+                    } catch (sql: SQLException) {
+                        log.warn(
+                            "Initial chunk delete for {} failed: {}. Retrying after purging references.",
+                            existing.relativePath,
+                            sql.message
+                        )
+                        purgeChunkForeignReferences(conn, existingChunkIds, forceRefresh = true)
+                        deleteChunks(conn, existing.id)
+                    }
                 }
 
                 val persistedFile = upsertFileState(conn, fileState)
@@ -652,23 +666,23 @@ object ContextRepository {
         }
     }
 
-    private fun deleteLinksByTargetFile(conn: Connection, fileId: Long) {
-        val sql = "DELETE FROM links WHERE target_file_id = ?"
-        conn.prepareStatement(sql).use { ps ->
-            ps.setLong(1, fileId)
-            ps.executeUpdate()
-        }
+private fun deleteLinksByTargetFile(conn: Connection, fileId: Long) {
+    val sql = "DELETE FROM links WHERE target_file_id = ?"
+    conn.prepareStatement(sql).use { ps ->
+        ps.setLong(1, fileId)
+        ps.executeUpdate()
     }
+}
 
-    private fun deleteFileStateRow(conn: Connection, fileId: Long) {
-        val sql = "DELETE FROM file_state WHERE file_id = ?"
-        conn.prepareStatement(sql).use { ps ->
-            ps.setLong(1, fileId)
-            ps.executeUpdate()
-        }
+private fun deleteFileStateRow(conn: Connection, fileId: Long) {
+    val sql = "DELETE FROM file_state WHERE file_id = ?"
+    conn.prepareStatement(sql).use { ps ->
+        ps.setLong(1, fileId)
+        ps.executeUpdate()
     }
+}
 
-    private fun restoreArtifacts(artifacts: FileArtifacts) {
+private fun restoreArtifacts(artifacts: FileArtifacts) {
         ContextDatabase.transaction { conn ->
             val existingFile = getFileStateById(conn, artifacts.file.id)
             val restoredFile = if (existingFile == null) {
@@ -691,7 +705,97 @@ object ContextRepository {
                     insertLinks(conn, chunk.id, restoredFile.id, chunkArtifacts.links)
                 }
             }
+    }
+}
+
+    private data class ChunkReference(val schema: String?, val table: String, val column: String)
+
+    @Volatile
+    private var cachedChunkReferences: List<ChunkReference>? = null
+
+    private fun purgeChunkForeignReferences(
+        conn: Connection,
+        chunkIds: List<Long>,
+        forceRefresh: Boolean = false
+    ) {
+        if (chunkIds.isEmpty()) return
+        val references = getChunkReferenceColumns(conn, forceRefresh)
+        if (references.isEmpty()) return
+
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        references.forEach { ref ->
+            val tableSql = buildString {
+                if (!ref.schema.isNullOrBlank() && !ref.schema.equals("main", ignoreCase = true)) {
+                    append(quoteIdentifier(ref.schema!!))
+                    append(".")
+                }
+                append(quoteIdentifier(ref.table))
+            }
+            val columnSql = quoteIdentifier(ref.column)
+            val sql = "DELETE FROM $tableSql WHERE $columnSql IN ($placeholders)"
+            conn.prepareStatement(sql).use { ps ->
+                chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+                ps.executeUpdate()
+            }
         }
+    }
+
+    private fun getChunkReferenceColumns(conn: Connection, forceRefresh: Boolean): List<ChunkReference> {
+        val cached = cachedChunkReferences
+        if (!forceRefresh && cached != null) {
+            return cached
+        }
+        val loaded = loadChunkReferenceColumns(conn)
+        cachedChunkReferences = loaded
+        return loaded
+    }
+
+    private fun loadChunkReferenceColumns(conn: Connection): List<ChunkReference> {
+        val references = mutableListOf<ChunkReference>()
+        val tables = mutableListOf<Pair<String?, String>>()
+        val tableSql = """
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE table_type = 'BASE TABLE'
+              AND lower(table_schema) NOT IN ('information_schema', 'pg_catalog')
+        """.trimIndent()
+        conn.prepareStatement(tableSql).use { ps ->
+            ps.executeQuery().use { rs ->
+                while (rs.next()) {
+                    tables += rs.getString("table_schema") to rs.getString("table_name")
+                }
+            }
+        }
+
+        tables.forEach { (schema, table) ->
+            val qualifiedName = when {
+                schema.isNullOrBlank() || schema.equals("main", ignoreCase = true) -> table
+                else -> "$schema.$table"
+            }
+            val pragmaSql = "PRAGMA foreign_key_list(${quoteLiteral(qualifiedName)})"
+            conn.createStatement().use { st ->
+                st.executeQuery(pragmaSql).use { rs ->
+                    while (rs.next()) {
+                        val refTable = rs.getString("table")
+                        if (!refTable.equals("chunks", ignoreCase = true)) continue
+                        val column = rs.getString("from") ?: continue
+                        references += ChunkReference(schema, table, column)
+                    }
+                }
+            }
+        }
+
+        return references.distinct()
+    }
+
+    private fun quoteIdentifier(name: String): String {
+        val escaped = name.replace("\"", "\"\"")
+        return "\"$escaped\""
+    }
+
+    private fun quoteLiteral(value: String): String {
+        val escaped = value.replace("'", "''")
+        return "'$escaped'"
     }
 
     private fun hasTable(conn: Connection, tableName: String): Boolean {

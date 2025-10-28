@@ -3,12 +3,9 @@ package com.orchestrator.web.sse
 import com.orchestrator.domain.Task
 import com.orchestrator.modules.metrics.Alert
 import com.orchestrator.modules.metrics.MetricsSnapshot
-import com.orchestrator.web.components.DataTable
-import com.orchestrator.web.components.TaskRow
-import com.orchestrator.web.components.displayName
-import com.orchestrator.web.components.toTone
+import com.orchestrator.web.components.TaskGridRowFactory
+import com.orchestrator.web.components.TaskGridRowFactory.toJson
 import com.orchestrator.web.dto.IndexStatusDTO
-import com.orchestrator.web.dto.toTaskDTO
 import com.orchestrator.web.pages.IndexStatusPage
 import java.text.NumberFormat
 import java.time.Clock
@@ -31,38 +28,18 @@ class FragmentGenerator(
 ) {
 
     /**
-     * Render a task row suitable for HTMX table swaps.
+     * Render a lightweight task event payload for ag-Grid updates.
      */
-    fun taskRow(task: Task): String {
-        val dto = task.toTaskDTO(clock)
-        val model = TaskRow.Model(
-            id = task.id.value,
-            title = task.title,
-            status = TaskRow.Status(
-                label = task.status.displayName,
-                tone = task.status.toTone()
-            ),
-            type = TaskRow.Type(
-                label = task.type.displayName,
-                tone = task.type.toTone()
-            ),
-            routing = formatDisplay(task.routing.name),
-            assignees = dto.assigneeIds,
-            complexity = task.complexity,
-            risk = task.risk,
-            detailUrl = "/tasks/${task.id.value}/modal",
-            editUrl = "/tasks/${task.id.value}/edit",
-            updatedAt = task.updatedAt,
-            createdAt = task.createdAt,
-            referenceInstant = Instant.now(clock),
-            zoneId = clock.zone,
-            hxTarget = "#modal-container",
-            hxSwap = "innerHTML",
-            hxIndicator = "#tasks-table-indicator"
-        )
+    fun taskRow(task: Task, eventName: String, timestamp: Instant): String {
+        val row = TaskGridRowFactory.fromTask(task, clock)
 
-        val row = TaskRow.toRow(model)
-        return renderRow(row)
+        return createHTML().div {
+            attributes["class"] = "task-grid-event"
+            attributes["data-task-id"] = task.id.value
+            attributes["data-event-type"] = eventName
+            attributes["data-row"] = row.toJson()
+            attributes["data-timestamp"] = timestamp.toString()
+        }
     }
 
     /**
@@ -207,56 +184,10 @@ class FragmentGenerator(
             }
         }
 
-    private fun renderRow(row: DataTable.Row): String = buildString {
-        append("<tr class=\"data-table__row\" role=\"row\" tabindex=\"0\"")
-        row.id?.let { append(" id=\"").append(it.escapeHtml()).append("\"") }
-        row.ariaLabel?.let { append(" aria-label=\"").append(it.escapeHtml()).append("\"") }
-        row.href?.let { append(" data-href=\"").append(it.escapeHtml()).append("\"") }
-        row.attributes.forEach { (key, value) ->
-            append(" ").append(key.escapeHtml()).append("=\"").append(value.escapeHtml()).append("\"")
-        }
-        append(">")
-
-        row.cells.forEach { cell ->
-            val tag = if (cell.header) "th" else "td"
-            append("<").append(tag).append(" class=\"data-table__cell\"")
-            if (cell.header) {
-                append(" scope=\"row\" role=\"rowheader\"")
-            } else {
-                append(" role=\"gridcell\"")
-            }
-            if (cell.numeric) {
-                append(" data-type=\"numeric\"")
-            }
-            append(">")
-            if (cell.raw) {
-                append(cell.content)
-            } else {
-                append(cell.content.escapeHtml())
-            }
-            append("</").append(tag).append(">")
-        }
-
-        append("</tr>")
-    }
-
     private fun formatDisplay(value: String): String =
         value.lowercase(locale)
             .split('_')
             .joinToString(" ") { part ->
                 part.replaceFirstChar { ch -> ch.titlecase(locale) }
             }
-
-    private fun String.escapeHtml(): String = buildString(length) {
-        for (ch in this@escapeHtml) {
-            when (ch) {
-                '&' -> append("&amp;")
-                '<' -> append("&lt;")
-                '>' -> append("&gt;")
-                '"' -> append("&quot;")
-                '\'' -> append("&#39;")
-                else -> append(ch)
-            }
-        }
-    }
 }

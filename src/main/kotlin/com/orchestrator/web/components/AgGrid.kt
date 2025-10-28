@@ -25,6 +25,7 @@ object AgGrid {
         val sortable: Boolean = true,
         val filter: Boolean = true,
         val width: Int? = null,
+        val flex: Int? = null,
         val type: String? = null,
         val cellRenderer: String? = null
     )
@@ -155,8 +156,24 @@ object AgGrid {
 
                         ensureAgGridStyles();
 
-                        // Column definitions
-                        const columnDefs = ${Json.encodeToString(config.columnDefs)};
+                        // Column definitions with cell renderer function resolution
+                        const columnDefsRaw = ${Json.encodeToString(config.columnDefs)};
+                        const columnDefs = columnDefsRaw.map(col => {
+                            if (col.cellRenderer && typeof col.cellRenderer === 'string') {
+                                // Resolve string path like "TaskGrid.renderCreatedAt" to actual function
+                                const parts = col.cellRenderer.split('.');
+                                let fn = window;
+                                for (const part of parts) {
+                                    fn = fn[part];
+                                    if (!fn) {
+                                        console.warn('Cell renderer not found:', col.cellRenderer);
+                                        return col;
+                                    }
+                                }
+                                return { ...col, cellRenderer: fn };
+                            }
+                            return col;
+                        });
 
                         // Row data - manually constructed to avoid serialization issues
                         const rowData = ${buildRowDataJson(config.rowData)};
@@ -244,13 +261,8 @@ object AgGrid {
 
         val rows = rowData.map { row ->
             val fields = row.entries.joinToString(", ") { (key, value) ->
-                val jsonValue = when (value) {
-                    is String -> "\"${escapeJsonString(value)}\""
-                    is Number -> value.toString()
-                    is Boolean -> value.toString()
-                    else -> "\"${escapeJsonString(value.toString())}\""
-                }
-                "\"$key\": $jsonValue"
+                val jsonValue = encodeJsonValue(value)
+                "\"${escapeJsonString(key)}\": $jsonValue"
             }
             "{$fields}"
         }
@@ -267,6 +279,24 @@ object AgGrid {
             .replace("\n", "\\n")
             .replace("\r", "\\r")
             .replace("\t", "\\t")
+    }
+
+    private fun encodeJsonValue(value: Any?): String = when (value) {
+        null -> "null"
+        is String -> "\"${escapeJsonString(value)}\""
+        is Number, is Boolean -> value.toString()
+        is Map<*, *> -> {
+            val entries = value.entries.joinToString(", ") { (k, v) ->
+                val key = k?.toString() ?: ""
+                "\"${escapeJsonString(key)}\": ${encodeJsonValue(v)}"
+            }
+            "{$entries}"
+        }
+        is List<*> -> {
+            val items = value.joinToString(", ") { item -> encodeJsonValue(item) }
+            "[$items]"
+        }
+        else -> "\"${escapeJsonString(value.toString())}\""
     }
 
     /**
