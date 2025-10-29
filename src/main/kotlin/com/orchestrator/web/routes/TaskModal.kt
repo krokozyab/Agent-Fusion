@@ -15,7 +15,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 internal fun renderTaskModal(task: Task, proposals: List<Proposal>, decision: Decision?): String {
-    return createHTML().apply {
+    return createHTML().div {
         // Backdrop
         div(classes = "modal__backdrop") {}
 
@@ -148,4 +148,4 @@ internal fun renderTaskModal(task: Task, proposals: List<Proposal>, decision: De
             }
         }
     }.toString()
-}
+}  // Note: The div block returns a string via toString() of the HtmlContent
