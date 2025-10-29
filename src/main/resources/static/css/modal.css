@@ -31,8 +31,9 @@
     position: relative;
     background-color: #fff;
     border-radius: 8px;
-    max-width: 1600px;
-    width: 90%;
+    width: 95%;
+    max-width: 1920px;
+    min-width: 1200px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
