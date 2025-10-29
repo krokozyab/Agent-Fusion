@@ -76,9 +76,8 @@ object IndexStatusPage {
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title("Index Status - Orchestrator")
 
-                link(rel = "stylesheet", href = "/static/css/base.css")
+                link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
                 link(rel = "stylesheet", href = "/static/css/orchestrator.css")
-                link(rel = "stylesheet", href = "/static/css/dark-mode.css")
 
                 script(src = "/static/js/htmx.min.js") {}
                 // Load our custom SSE extension IMMEDIATELY after HTMX

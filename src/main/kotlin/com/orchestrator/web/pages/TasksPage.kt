@@ -5,9 +5,6 @@ import com.orchestrator.web.rendering.PageLayout
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
 
-/**
- * Tasks page rendered with ag-Grid for rich interaction.
- */
 object TasksPage {
 
     data class GridData(
@@ -23,19 +20,17 @@ object TasksPage {
             meta(name = "viewport", content = "width=device-width, initial-scale=1")
             title("Tasks - Orchestrator")
 
-            // CSS
-            link(rel = "stylesheet", href = "/static/css/base.css")
+            // Match Files page styling for consistency
+            link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
             link(rel = "stylesheet", href = "/static/css/orchestrator.css")
-            link(rel = "stylesheet", href = "/static/css/dark-mode.css")
             link(rel = "stylesheet", href = "/static/css/modal.css")
             link(rel = "stylesheet", href = "/static/css/sse-status.css")
             link(rel = "stylesheet", href = "/static/css/animations.css")
+            link(rel = "stylesheet", href = "/static/css/styles.css")
 
-            // ag-Grid styling
             link(rel = "stylesheet", href = "/static/css/ag-grid.css")
             link(rel = "stylesheet", href = "/static/css/ag-theme-quartz.css")
 
-            // HTMX & ag-Grid core
             script(src = "/static/js/htmx.min.js") {}
             script(src = "/static/js/ag-grid-community.min.js") {}
         }
@@ -49,12 +44,11 @@ object TasksPage {
                     pageTitle = "Tasks",
                     currentPath = "/tasks"
                 ) {
-                    // Tasks grid
                     div(classes = "card") {
                         div(classes = "card-body") {
                             div(classes = "flex flex-wrap gap-md justify-between items-center mb-md") {
                                 div {
-                                    h2(classes = "mt-0 mb-1") { +"Tasks" }
+                                    h1(classes = "mt-0 mb-1") { +"Tasks" }
                                     p(classes = "text-muted mb-0") {
                                         +"Use the column headers to sort or filter."
                                     }
@@ -90,10 +84,10 @@ object TasksPage {
                                                 "sortable" to true,
                                                 "filter" to true,
                                                 "floatingFilter" to true,
-                                                "resizable" to true
+                                                "resizable" to true,
+                                                "flex" to 1
                                             ),
                                             "rowSelection" to "single",
-                                            "rowHeight" to 72,
                                             "animateRows" to true,
                                             "paginationAutoPageSize" to false
                                         )
@@ -105,7 +99,6 @@ object TasksPage {
                 }
             }
 
-            // Modal container for task details
             div {
                 id = "modal-container"
                 attributes["role"] = "dialog"
@@ -113,7 +106,6 @@ object TasksPage {
                 attributes["aria-hidden"] = "true"
             }
 
-            // Hidden containers for SSE task events
             div {
                 id = "tasks-grid-event-updated"
                 attributes["style"] = "display:none;"
@@ -127,7 +119,6 @@ object TasksPage {
                 attributes["hx-swap"] = "innerHTML"
             }
 
-            // SSE connection status indicator
             div(classes = "sse-status") {
                 id = "sse-status-indicator"
                 attributes["hx-swap-oob"] = "true"
@@ -141,7 +132,6 @@ object TasksPage {
                 }
             }
 
-            // JavaScript
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
             script(src = "/static/js/modal.js") {}
@@ -149,7 +139,6 @@ object TasksPage {
             script(src = "/static/js/task-updates.js") {}
             script(src = "/static/js/task-grid.js") {}
 
-            // Quick filter functionality
             script {
                 unsafe {
                     +"""
@@ -159,15 +148,21 @@ object TasksPage {
                                 const container = document.getElementById('tasks-grid');
                                 if (!input || !container) return;
 
-                                input.addEventListener('input', function(event) {
-                                    if (container._gridApi) {
-                                        container._gridApi.setGridOption('quickFilterText', event.target.value || '');
+                                const applyFilter = function(value) {
+                                    if (!container._gridApi) return;
+                                    if (typeof container._gridApi.setGridOption === 'function') {
+                                        container._gridApi.setGridOption('quickFilterText', value);
+                                    } else if (typeof container._gridApi.setQuickFilter === 'function') {
+                                        container._gridApi.setQuickFilter(value);
                                     }
+                                };
+
+                                input.addEventListener('input', function(event) {
+                                    applyFilter(event.target.value || '');
                                 });
 
-                                // Apply initial filter if grid is already ready
                                 if (container._gridApi) {
-                                    container._gridApi.setGridOption('quickFilterText', input.value || '');
+                                    applyFilter(input.value || '');
                                 }
                             }
 

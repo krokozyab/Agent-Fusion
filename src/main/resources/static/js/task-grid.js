@@ -248,20 +248,7 @@
   function renderTitle(params) {
     const data = params?.data || {};
     const title = escapeHtml(data.title || '');
-    const routing = escapeHtml(data.routingDisplay || '');
-    const complexity = typeof data.complexity === 'number' ? data.complexity : '–';
-    const risk = typeof data.risk === 'number' ? data.risk : '–';
-
-    return `
-      <div class="task-row__main">
-        <span class="task-row__title">${title}</span>
-        <div class="task-row__meta">
-          <span class="task-row__meta-item">${routing}</span>
-          <span class="task-row__meta-item">Complexity ${escapeHtml(complexity)}</span>
-          <span class="task-row__meta-item">Risk ${escapeHtml(risk)}</span>
-        </div>
-      </div>
-    `;
+    return `<span class="task-row__title">${title}</span>`;
   }
 
   function renderBadge(label, tone, outline) {

@@ -9,6 +9,59 @@
  */
 
 /* ============================================
+   PICO CSS COMPACT OVERRIDES
+   ============================================ */
+
+:root {
+  /* Make Pico CSS more compact */
+  --pico-spacing: 0.5rem;
+  --pico-typography-spacing-vertical: 0.5rem;
+  --pico-font-size: 14px;
+  --pico-line-height: 1.4;
+  --pico-form-element-spacing-vertical: 0.375rem;
+  --pico-form-element-spacing-horizontal: 0.75rem;
+}
+
+/* Reduce padding on all Pico elements */
+body {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+main {
+  padding: 1rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+
+article, section {
+  padding: 0.75rem;
+}
+
+.container {
+  padding: 0.5rem;
+}
+
+button, input, select, textarea {
+  font-size: 0.875rem;
+}
+
+table {
+  font-size: 0.875rem;
+}
+
+th, td {
+  padding: 0.5rem 0.75rem;
+}
+
+/* ============================================
    CSS VARIABLES & THEME CONFIGURATION
    ============================================ */
 
@@ -133,7 +186,7 @@
 .main-content {
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-md);
   width: 100%;
 }
 
@@ -438,7 +491,7 @@
   background: var(--card-background-color);
   border: 1px solid var(--muted-border-color);
   border-radius: var(--border-radius);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   box-shadow: var(--shadow-sm);
 }
 

@@ -178,14 +178,18 @@ object AgGrid {
                         // Row data - manually constructed to avoid serialization issues
                         const rowData = ${buildRowDataJson(config.rowData)};
 
-                        // Grid options
+                        // Grid options (v32+ compatible)
                         const gridOptions = {
                             columnDefs: columnDefs,
                             rowData: rowData,
                             pagination: ${config.enablePagination},
                             paginationPageSize: ${config.pageSize},
                             paginationPageSizeSelector: ${Json.encodeToString(config.pageSizeOptions)},
-                            suppressRowClickSelection: ${config.suppressRowClickSelection},
+                            rowSelection: {
+                                mode: ${if (config.suppressRowClickSelection) "'multiRow'" else "'singleRow'"},
+                                checkboxes: false,
+                                enableClickSelection: ${!config.suppressRowClickSelection}
+                            },
                             ${renderCustomOptions(config.customOptions)}
                         };
 
@@ -194,11 +198,10 @@ object AgGrid {
                         if (container) {
                             try {
                                 const gridApi = agGrid.createGrid(container, gridOptions);
-                                const columnApi = gridApi.getColumnApi();
                                 // Store gridApi on container for later access
                                 container._gridApi = gridApi;
                                 container.dispatchEvent(new CustomEvent('ag-grid:ready', {
-                                    detail: { gridApi, columnApi }
+                                    detail: { gridApi, columnApi: gridApi }
                                 }));
                                 console.log('ag-Grid initialized for container ${config.id}');
                             } catch (error) {

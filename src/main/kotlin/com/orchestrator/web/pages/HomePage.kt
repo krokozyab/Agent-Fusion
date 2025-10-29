@@ -129,10 +129,8 @@ object HomePage {
                 title("Orchestrator Dashboard")
 
                 // CSS
-                link(rel = "stylesheet", href = "/static/css/base.css")
+                link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
                 link(rel = "stylesheet", href = "/static/css/orchestrator.css")
-                link(rel = "stylesheet", href = "/static/css/dark-mode.css")
-                link(rel = "stylesheet", href = "/static/css/modal.css")
                 link(rel = "stylesheet", href = "/static/css/modal.css")
 
                 // HTMX
