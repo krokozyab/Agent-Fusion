@@ -9,7 +9,13 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "Bash(./gradlew test:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "mcp__orchestrator__create_simple_task",
+      "mcp__orchestrator__get_pending_tasks",
+      "mcp__orchestrator__respond_to_task",
+      "Bash(git checkout:*)",
+      "mcp__orchestrator__submit_input",
+      "mcp__orchestrator__continue_task"
     ],
     "deny": [],
     "ask": []

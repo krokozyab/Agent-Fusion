@@ -8,6 +8,7 @@ import com.orchestrator.web.components.Modal
 import com.orchestrator.web.components.StatusBadge
 import com.orchestrator.web.components.displayName
 import com.orchestrator.web.components.toTone
+import com.orchestrator.web.utils.JsonFormatter
 import com.orchestrator.web.utils.MermaidGenerator
 import kotlinx.html.*
 import kotlinx.html.stream.createHTML
@@ -77,7 +78,7 @@ internal fun renderTaskModal(task: Task, proposals: List<Proposal>, decision: De
                         proposals.forEach { proposal ->
                             div(classes = "proposal-item mb-md") {
                                 h5 { +"Proposal from ${proposal.agentId.value}" }
-                                pre { code { +(proposal.content?.toString() ?: "No content") } }
+                                pre { code { +JsonFormatter.format(proposal.content) } }
                             }
                         }
                     }
