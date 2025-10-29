@@ -47,20 +47,11 @@ object TasksPage {
                     div(classes = "card") {
                         div(classes = "card-body") {
                             div(classes = "flex flex-wrap gap-md justify-between items-center mb-md") {
-                                div {
-                                    h1(classes = "mt-0 mb-1") { +"Tasks" }
-                                    p(classes = "text-muted mb-0") {
-                                        +"Use the column headers to sort or filter."
-                                    }
-                                }
+                                h2(classes = "mt-0 mb-0") { +"Tasks" }
                                 div(classes = "form-group mb-0") {
-                                    label {
-                                        htmlFor = "tasks-quick-filter"
-                                        +"Quick Filter"
-                                    }
                                     input(type = InputType.search) {
                                         id = "tasks-quick-filter"
-                                        placeholder = "Filter tasks..."
+                                        placeholder = "Quick filter..."
                                         attributes["aria-label"] = "Filter tasks"
                                         classes = setOf("form-control")
                                         attributes["style"] = "min-width: 220px;"
@@ -99,7 +90,7 @@ object TasksPage {
                 }
             }
 
-            div {
+            div(classes = "modal") {
                 id = "modal-container"
                 attributes["role"] = "dialog"
                 attributes["aria-modal"] = "true"
