@@ -55,14 +55,6 @@ fun Route.indexRoutes(
         call.respondText("")
     }
 
-    post("/index/optimize") {
-        val operations = operationsFactory(application)
-        val result = operations.optimize()
-        // Return 204 No Content - SSE events will handle all DOM updates
-        // Don't return HTML since we removed hx-target/hx-swap from buttons
-        call.response.status(HttpStatusCode.NoContent)
-        call.respondText("")
-    }
 }
 
 private fun Route.buildIndexStatusConfig(clock: Clock): IndexStatusPage.Config {
@@ -128,13 +120,6 @@ private fun defaultAdminActions(): List<IndexStatusPage.AdminAction> = listOf(
         hxPost = "/index/rebuild",
         icon = "\uD83D\uDD28",
         confirm = "Rebuild will clear and re-index all data. Continue?"
-    ),
-    IndexStatusPage.AdminAction(
-        id = "optimize",
-        label = "Optimize Database",
-        description = "Compact database files to reclaim space.",
-        hxPost = "/index/optimize",
-        icon = "⚙️"
     )
 )
 

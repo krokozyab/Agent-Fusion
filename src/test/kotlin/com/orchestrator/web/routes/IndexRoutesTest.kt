@@ -229,7 +229,6 @@ class IndexRoutesTest {
 private class StubIndexOperationsService : IndexOperationsService {
     val refreshCalls = AtomicInteger(0)
     val rebuildCalls = AtomicInteger(0)
-    val optimizeCalls = AtomicInteger(0)
 
     override fun triggerRefresh(): OperationTriggerResult {
         refreshCalls.incrementAndGet()
@@ -239,10 +238,5 @@ private class StubIndexOperationsService : IndexOperationsService {
     override fun triggerRebuild(confirm: Boolean): OperationTriggerResult {
         rebuildCalls.incrementAndGet()
         return OperationTriggerResult(accepted = true, message = "stub rebuild")
-    }
-
-    override fun optimize(): OperationTriggerResult {
-        optimizeCalls.incrementAndGet()
-        return OperationTriggerResult(accepted = true, message = "stub optimize")
     }
 }
