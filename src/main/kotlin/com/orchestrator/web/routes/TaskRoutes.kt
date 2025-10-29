@@ -420,5 +420,13 @@ private fun defaultTaskGridColumns(): List<AgGrid.ColumnDef> =
             filter = true,
             width = 180,
             cellRenderer = "TaskGrid.renderCreatedAt"
+        ),
+        AgGrid.ColumnDef(
+            field = "detailUrl",
+            headerName = "Action",
+            sortable = false,
+            filter = false,
+            width = 100,
+            cellRenderer = "TaskGrid.renderView"
         )
     )

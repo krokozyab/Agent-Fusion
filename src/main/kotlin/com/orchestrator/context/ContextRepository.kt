@@ -768,17 +768,28 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
         }
 
         tables.forEach { (schema, table) ->
-            val qualifiedName = when {
-                schema.isNullOrBlank() || schema.equals("main", ignoreCase = true) -> table
-                else -> "$schema.$table"
-            }
-            val pragmaSql = "PRAGMA foreign_key_list(${quoteLiteral(qualifiedName)})"
-            conn.createStatement().use { st ->
-                st.executeQuery(pragmaSql).use { rs ->
+            // DuckDB uses information_schema for foreign key introspection
+            val sql = """
+                SELECT
+                    constraint_column_usage.table_name as referenced_table,
+                    key_column_usage.column_name as column_name
+                FROM information_schema.table_constraints
+                JOIN information_schema.key_column_usage
+                    ON table_constraints.constraint_name = key_column_usage.constraint_name
+                JOIN information_schema.constraint_column_usage
+                    ON table_constraints.constraint_name = constraint_column_usage.constraint_name
+                WHERE table_constraints.constraint_type = 'FOREIGN KEY'
+                    AND table_constraints.table_schema = ?
+                    AND table_constraints.table_name = ?
+                    AND constraint_column_usage.table_name = 'chunks'
+            """.trimIndent()
+
+            conn.prepareStatement(sql).use { ps ->
+                ps.setString(1, schema ?: "main")
+                ps.setString(2, table)
+                ps.executeQuery().use { rs ->
                     while (rs.next()) {
-                        val refTable = rs.getString("table")
-                        if (!refTable.equals("chunks", ignoreCase = true)) continue
-                        val column = rs.getString("from") ?: continue
+                        val column = rs.getString("column_name") ?: continue
                         references += ChunkReference(schema, table, column)
                     }
                 }
