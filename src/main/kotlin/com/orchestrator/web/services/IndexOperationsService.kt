@@ -37,7 +37,6 @@ import kotlinx.coroutines.withContext
 interface IndexOperationsService {
     fun triggerRefresh(): OperationTriggerResult
     fun triggerRebuild(confirm: Boolean = true): OperationTriggerResult
-    fun optimize(): OperationTriggerResult
 
     companion object {
         private val ServiceKey = AttributeKey<IndexOperationsService>("web-index-operations-service")
@@ -81,7 +80,6 @@ private class DefaultIndexOperationsService(
 
     private val refreshActive = AtomicBoolean(false)
     private val rebuildActive = AtomicBoolean(false)
-    private val optimizeActive = AtomicBoolean(false)
 
     private val refreshTool by lazy { RefreshContextTool(contextConfig) }
     private val rebuildTool by lazy { RebuildContextTool(contextConfig) }
@@ -243,61 +241,6 @@ private class DefaultIndexOperationsService(
         )
     }
 
-    override fun optimize(): OperationTriggerResult {
-        if (!optimizeActive.compareAndSet(false, true)) {
-            return OperationTriggerResult(
-                accepted = false,
-                message = "Database optimization already in progress.",
-                code = OperationTriggerResult.ResultCode.REJECTED
-            )
-        }
-
-        val operationId = "optimize-${UUID.randomUUID()}"
-        scope.launch {
-            WatcherRegistry.pauseWhile {
-                publishProgress(
-                    operationId = operationId,
-                    percentage = 0,
-                    title = "Optimize Database",
-                    message = "Optimization started"
-                )
-
-                try {
-                    withContext(Dispatchers.IO) {
-                        ContextDatabase.withConnection { conn ->
-                            conn.createStatement().use { st ->
-                                st.execute("VACUUM")
-                                st.execute("ANALYZE")
-                            }
-                        }
-                    }
-
-                    publishProgress(
-                        operationId = operationId,
-                        percentage = 100,
-                        title = "Optimize Database",
-                        message = "Optimization completed"
-                    )
-                } catch (t: Throwable) {
-                    logger.error("Database optimization failed: ${t.message}", t)
-                    publishProgress(
-                        operationId = operationId,
-                        percentage = 100,
-                        title = "Optimize Database",
-                        message = "Optimization failed: ${t.message ?: t::class.simpleName ?: "error"}"
-                    )
-                } finally {
-                    publishSummary()
-                    optimizeActive.set(false)
-                }
-            }
-        }
-
-        return OperationTriggerResult(
-            accepted = true,
-            message = "Database optimization started."
-        )
-    }
 
     private fun monitorRebuildJob(jobId: String, operationId: String) {
         scope.launch {
