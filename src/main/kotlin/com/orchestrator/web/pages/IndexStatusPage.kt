@@ -435,7 +435,7 @@ object IndexStatusPage {
     }
 
     private fun FlowContent.progressSection() {
-        div(classes = "card mt-xl") {
+        div(classes = "card") {
             h3(classes = "mt-0") { +"Index Operations" }
             p(classes = "text-muted mb-md") {
                 +"Live progress for refresh and rebuild jobs."
@@ -455,7 +455,7 @@ object IndexStatusPage {
     }
 
     private fun FlowContent.adminActions(actions: List<AdminAction>) {
-        div(classes = "card mt-xl") {
+        div(classes = "card") {
             h3(classes = "mt-0") { +"Admin Actions" }
             p(classes = "text-muted mb-md") {
                 +"Run maintenance tasks against the context index."
@@ -590,8 +590,13 @@ object IndexStatusPage {
         attributes["id"] = "index-status-container"
         pageHeader(config)
         summarySection(config)
-        progressSection()
-        adminActions(config.actions)
+
+        // Two-column layout for Index Operations and Admin Actions
+        div(classes = "grid grid-cols-2 gap-lg mt-xl") {
+            progressSection()
+            adminActions(config.actions)
+        }
+
         providerSection(config.providers)
     }
 }
