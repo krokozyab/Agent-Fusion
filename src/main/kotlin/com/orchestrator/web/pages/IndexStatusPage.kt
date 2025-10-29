@@ -537,71 +537,6 @@ object IndexStatusPage {
         }
     }
 
-    private fun FlowContent.filesSection(status: IndexStatusDTO) {
-        val files = status.files
-        val visibleFiles = files.take(50)
-
-        div(classes = "card mt-xl") {
-            h3(classes = "mt-0") { +"Indexed Files" }
-
-            if (files.isEmpty()) {
-                p(classes = "text-muted") {
-                    +"No files indexed yet. Trigger a refresh to populate the index."
-                }
-                return@div
-            }
-
-            p(classes = "text-muted mb-md") {
-                attributes["data-testid"] = "file-count-summary"
-                +"Showing ${visibleFiles.size} of ${files.size} files"
-                if (files.size > visibleFiles.size) {
-                    +" (displaying first 50)"
-                }
-            }
-
-            table(classes = "data-table") {
-                thead {
-                    tr {
-                        th { +"File" }
-                        th { +"Status" }
-                        th { +"Size" }
-                        th { +"Chunks" }
-                        th { +"Last Modified" }
-                    }
-                }
-                tbody {
-                    for (file in visibleFiles) {
-                        fileRow(file)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun TBODY.fileRow(file: FileStateDTO) {
-        tr {
-            attributes["data-testid"] = "file-row-${file.path}"
-            td {
-                span(classes = "font-mono") { +file.path }
-            }
-            td {
-                val tone = file.status.toFileTone()
-                val label = file.status.toStatusLabel()
-                with(StatusBadge) {
-                    badge(StatusBadge.Config(label = label, tone = tone))
-                }
-            }
-            td {
-                +formatSize(file.sizeBytes)
-            }
-            td {
-                +file.chunkCount.toString()
-            }
-            td {
-                +formatTimestamp(file.lastModified)
-            }
-        }
-    }
 
     private fun String?.toLabel(): String =
         this?.takeIf { it.isNotBlank() }?.let { value ->
@@ -658,6 +593,5 @@ object IndexStatusPage {
         progressSection()
         adminActions(config.actions)
         providerSection(config.providers)
-        filesSection(config.status)
     }
 }
