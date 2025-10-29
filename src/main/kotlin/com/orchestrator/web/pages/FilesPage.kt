@@ -110,25 +110,7 @@ object FilesPage {
                     div(classes = "card") {
                         div(classes = "card-body") {
                             div(classes = "flex flex-wrap gap-md justify-between items-center mb-md") {
-                                div {
-                                    h2(classes = "mt-0 mb-1") { +"Indexed Files" }
-                                    p(classes = "text-muted mb-0") {
-                                        +"Use the column headers to sort or filter."
-                                    }
-                                }
-                                div(classes = "form-group mb-0") {
-                                    label {
-                                        htmlFor = "files-quick-filter"
-                                        +"Quick Filter"
-                                    }
-                                    input(type = InputType.search) {
-                                        id = "files-quick-filter"
-                                        placeholder = "Filter rows..."
-                                        attributes["aria-label"] = "Filter files"
-                                        classes = setOf("form-control")
-                                        attributes["style"] = "min-width: 220px;"
-                                    }
-                                }
+                                h2(classes = "mt-0 mb-0") { +"Indexed Files" }
                             }
 
                             with(AgGrid) {
@@ -193,17 +175,10 @@ object FilesPage {
                             }
 
                             function bindGridEnhancements() {
-                                const input = document.getElementById('files-quick-filter');
                                 const container = document.getElementById('files-grid');
-                                if (!input || !container) {
+                                if (!container) {
                                     return;
                                 }
-
-                                const applyFilter = (value) => {
-                                    if (container._gridApi) {
-                                        container._gridApi.setGridOption('quickFilterText', value || '');
-                                    }
-                                };
 
                                 const handleGridReady = (event) => {
                                     const api = event.detail?.gridApi;
@@ -214,19 +189,10 @@ object FilesPage {
                                             sizeColumn.getColDef().valueFormatter = (params) => formatFileSize(params.value);
                                             api.refreshCells({ columns: ['sizeBytes'] });
                                         }
-                                        api.setGridOption('quickFilterText', input.value || '');
                                     }
                                 };
 
                                 container.addEventListener('ag-grid:ready', handleGridReady, { once: true });
-
-                                input.addEventListener('input', (event) => {
-                                    applyFilter(event.target.value);
-                                });
-
-                                if (container._gridApi) {
-                                    applyFilter(input.value);
-                                }
                             }
 
                             if (document.readyState === 'loading') {
