@@ -2,6 +2,7 @@ package com.orchestrator.web.components
 
 import com.orchestrator.domain.Proposal
 import com.orchestrator.web.rendering.Fragment
+import com.orchestrator.web.utils.JsonFormatter
 import com.orchestrator.web.utils.TimeFormatters
 import kotlinx.html.*
 import java.time.ZoneId
@@ -33,24 +34,8 @@ object ProposalCard {
             }
             div(classes = "proposal-card__body") {
                 div(classes = "proposal-card__content") {
-                    // Basic expand/collapse for long content
-                    val contentId = "proposal-content-${model.proposal.id.value}"
-                    val preview = model.proposal.content.toString().take(200)
-                    div {
-                        +preview
-                        if (model.proposal.content.toString().length > 200) {
-                            span { +"..." }
-                            button(classes = "proposal-card__expand-button") {
-                                attributes["onclick"] = "document.getElementById('$contentId').style.display='block'; this.style.display='none';"
-                                +"Expand"
-                            }
-                            div(classes = "proposal-card__full-content") {
-                                id = contentId
-                                style = "display:none;"
-                                pre { code { +(model.proposal.content.toString()) } }
-                            }
-                        }
-                    }
+                    val formattedContent = JsonFormatter.format(model.proposal.content)
+                    pre { code { +formattedContent } }
                 }
             }
             div(classes = "proposal-card__footer") {
