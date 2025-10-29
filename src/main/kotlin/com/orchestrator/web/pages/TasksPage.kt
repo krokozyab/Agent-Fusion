@@ -48,15 +48,6 @@ object TasksPage {
                         div(classes = "card-body") {
                             div(classes = "flex flex-wrap gap-md justify-between items-center mb-md") {
                                 h2(classes = "mt-0 mb-0") { +"Tasks" }
-                                div(classes = "form-group mb-0") {
-                                    input(type = InputType.search) {
-                                        id = "tasks-quick-filter"
-                                        placeholder = "Quick filter..."
-                                        attributes["aria-label"] = "Filter tasks"
-                                        classes = setOf("form-control")
-                                        attributes["style"] = "min-width: 220px;"
-                                    }
-                                }
                             }
 
                             with(AgGrid) {
@@ -129,43 +120,6 @@ object TasksPage {
             script(src = "/static/js/sse-status.js") {}
             script(src = "/static/js/task-updates.js") {}
             script(src = "/static/js/task-grid.js") {}
-
-            script {
-                unsafe {
-                    +"""
-                        (function() {
-                            function bindQuickFilter() {
-                                const input = document.getElementById('tasks-quick-filter');
-                                const container = document.getElementById('tasks-grid');
-                                if (!input || !container) return;
-
-                                const applyFilter = function(value) {
-                                    if (!container._gridApi) return;
-                                    if (typeof container._gridApi.setGridOption === 'function') {
-                                        container._gridApi.setGridOption('quickFilterText', value);
-                                    } else if (typeof container._gridApi.setQuickFilter === 'function') {
-                                        container._gridApi.setQuickFilter(value);
-                                    }
-                                };
-
-                                input.addEventListener('input', function(event) {
-                                    applyFilter(event.target.value || '');
-                                });
-
-                                if (container._gridApi) {
-                                    applyFilter(input.value || '');
-                                }
-                            }
-
-                            if (document.readyState === 'loading') {
-                                document.addEventListener('DOMContentLoaded', bindQuickFilter, { once: true });
-                            } else {
-                                bindQuickFilter();
-                            }
-                        })();
-                    """.trimIndent()
-                }
-            }
         }
     }.let { "<!DOCTYPE html>\n$it" }
 }

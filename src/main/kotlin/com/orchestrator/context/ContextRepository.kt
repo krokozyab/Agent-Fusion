@@ -71,7 +71,20 @@ object ContextRepository {
 
                     deleteSymbolsByFile(conn, existing.id)
                     deleteLinksByTargetFile(conn, existing.id)
-                    deleteChunks(conn, existing.id)
+                    try {
+                        deleteChunks(conn, existing.id)
+                    } catch (sql: SQLException) {
+                        log.warn(
+                            "Chunk delete for {} failed: {}. Retrying after aggressive foreign key purge.",
+                            existing.relativePath,
+                            sql.message
+                        )
+                        // Retry purging with forceRefresh to catch any remaining references
+                        if (existingChunkIds.isNotEmpty()) {
+                            purgeChunkForeignReferences(conn, existingChunkIds, forceRefresh = true)
+                        }
+                        deleteChunks(conn, existing.id)
+                    }
                 }
 
                 val persistedFile = upsertFileState(conn, fileState)
