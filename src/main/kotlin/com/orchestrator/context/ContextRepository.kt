@@ -71,17 +71,7 @@ object ContextRepository {
 
                     deleteSymbolsByFile(conn, existing.id)
                     deleteLinksByTargetFile(conn, existing.id)
-                    try {
-                        deleteChunks(conn, existing.id)
-                    } catch (sql: SQLException) {
-                        log.warn(
-                            "Initial chunk delete for {} failed: {}. Retrying after purging references.",
-                            existing.relativePath,
-                            sql.message
-                        )
-                        purgeChunkForeignReferences(conn, existingChunkIds, forceRefresh = true)
-                        deleteChunks(conn, existing.id)
-                    }
+                    deleteChunks(conn, existing.id)
                 }
 
                 val persistedFile = upsertFileState(conn, fileState)
@@ -719,24 +709,33 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
         forceRefresh: Boolean = false
     ) {
         if (chunkIds.isEmpty()) return
-        val references = getChunkReferenceColumns(conn, forceRefresh)
-        if (references.isEmpty()) return
+        try {
+            val references = getChunkReferenceColumns(conn, forceRefresh)
+            if (references.isEmpty()) return
 
-        val placeholders = chunkIds.joinToString(",") { "?" }
-        references.forEach { ref ->
-            val tableSql = buildString {
-                if (!ref.schema.isNullOrBlank() && !ref.schema.equals("main", ignoreCase = true)) {
-                    append(quoteIdentifier(ref.schema!!))
-                    append(".")
+            val placeholders = chunkIds.joinToString(",") { "?" }
+            references.forEach { ref ->
+                val tableSql = buildString {
+                    if (!ref.schema.isNullOrBlank() && !ref.schema.equals("main", ignoreCase = true)) {
+                        append(quoteIdentifier(ref.schema!!))
+                        append(".")
+                    }
+                    append(quoteIdentifier(ref.table))
                 }
-                append(quoteIdentifier(ref.table))
+                val columnSql = quoteIdentifier(ref.column)
+                val sql = "DELETE FROM $tableSql WHERE $columnSql IN ($placeholders)"
+                try {
+                    conn.prepareStatement(sql).use { ps ->
+                        chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+                        ps.executeUpdate()
+                    }
+                } catch (e: SQLException) {
+                    log.debug("Failed to purge foreign references in {}.{}: {}", ref.schema, ref.table, e.message)
+                    // Continue with other tables even if one fails
+                }
             }
-            val columnSql = quoteIdentifier(ref.column)
-            val sql = "DELETE FROM $tableSql WHERE $columnSql IN ($placeholders)"
-            conn.prepareStatement(sql).use { ps ->
-                chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
-                ps.executeUpdate()
-            }
+        } catch (e: SQLException) {
+            log.warn("Failed to load chunk reference columns, skipping foreign key purge: {}", e.message)
         }
     }
 
