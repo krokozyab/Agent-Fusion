@@ -109,6 +109,54 @@ class ContextRepositoryTest {
     }
 
     @Test
+    fun `loadChunkReferenceColumns works with DuckDB information schema`() {
+        // Create a file with chunks to establish foreign key references
+        val fileState = FileState(
+            id = 0,
+            relativePath = "src/Test.kt",
+            contentHash = "hash-fk",
+            sizeBytes = 100,
+            modifiedTimeNs = 3000,
+            language = "kotlin",
+            kind = "source",
+            fingerprint = "fp-fk",
+            indexedAt = Instant.parse("2024-01-03T00:00:00Z"),
+            isDeleted = false
+        )
+
+        val chunk = Chunk(
+            id = 0,
+            fileId = 0,
+            ordinal = 0,
+            kind = ChunkKind.CODE_FUNCTION,
+            startLine = 1,
+            endLine = 5,
+            tokenEstimate = 30,
+            content = "fun test() = Unit",
+            summary = "test function",
+            createdAt = Instant.parse("2024-01-03T00:00:00Z")
+        )
+
+        val embedding = Embedding(
+            id = 0,
+            chunkId = 0,
+            model = "test-model",
+            dimensions = 2,
+            vector = listOf(0.5f, 0.5f),
+            createdAt = Instant.parse("2024-01-03T00:00:00Z")
+        )
+
+        // This should not throw an error about PRAGMA foreign_key_list
+        val persisted = service.syncFileArtifacts(
+            fileState,
+            listOf(ChunkArtifacts(chunk, listOf(embedding), emptyList()))
+        )
+
+        assertTrue(persisted.file.id > 0)
+        assertTrue(persisted.chunks.isNotEmpty())
+    }
+
+    @Test
     fun `build snippets respects scope and token budget`() {
         val fileState = FileState(
             id = 0,

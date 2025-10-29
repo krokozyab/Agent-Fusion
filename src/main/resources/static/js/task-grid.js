@@ -83,6 +83,7 @@
     });
   }
 
+
   /**
    * Queue grid-mutating operations until the grid is ready.
    */
@@ -309,33 +310,86 @@
     return `<span class="task-row__timestamp" title="${absolute}">${human}</span>`;
   }
 
-  function renderActions(params) {
+  function renderView(params) {
     const data = params?.data || {};
     const detailUrl = data.detailUrl ? escapeHtml(data.detailUrl) : '#';
-    const editUrl = data.editUrl ? escapeHtml(data.editUrl) : '#';
 
-    return `
-      <div class="task-row__actions">
-        <button type="button"
-                class="task-row__action task-row__action--view"
-                hx-get="${detailUrl}"
-                hx-target="#modal-container"
-                hx-swap="innerHTML"
-                hx-trigger="click consume"
-                aria-label="View task">
-          View
-        </button>
-        <button type="button"
-                class="task-row__action task-row__action--edit"
-                hx-get="${editUrl}"
-                hx-target="#modal-container"
-                hx-swap="innerHTML"
-                hx-trigger="click consume"
-                aria-label="Edit task">
-          Edit
-        </button>
-      </div>
-    `;
+    // Create button as DOM element so ag-Grid can properly attach event listeners
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-sm btn-primary task-view-btn';
+    button.textContent = 'View';
+    button.style.whiteSpace = 'nowrap';
+    button.setAttribute('aria-label', 'View task');
+    button.setAttribute('data-url', detailUrl);
+
+    // Attach click handler directly to the button
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (!detailUrl || detailUrl === '#' || !window.htmx) return;
+
+      // Use HTMX to load the modal content
+      window.htmx.ajax('GET', detailUrl, {
+        target: '#modal-container',
+        swap: 'innerHTML'
+      });
+    });
+
+    return button;
+  }
+
+  function renderActions(params) {
+    const data = params?.data || {};
+    const container = document.createElement('div');
+    container.className = 'task-row__actions';
+
+    function createButton(label, url, extraClass) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `task-row__action ${extraClass || ''}`.trim();
+      button.textContent = label;
+      button.setAttribute('aria-label', `${label} task`);
+
+      if (url && typeof url === 'string') {
+        button.setAttribute('hx-get', url);
+        button.setAttribute('hx-target', '#modal-container');
+        button.setAttribute('hx-swap', 'innerHTML');
+        button.setAttribute('hx-trigger', 'click consume');
+
+        const triggerHtmx = function (event) {
+          if (!window.htmx) {
+            return;
+          }
+          event?.preventDefault();
+          window.htmx.ajax('GET', url, {
+            target: '#modal-container',
+            swap: 'innerHTML'
+          });
+          return false;
+        };
+
+        button.addEventListener('click', triggerHtmx);
+
+        if (window.htmx) {
+          window.htmx.process(button);
+        }
+      } else {
+        button.disabled = true;
+      }
+
+      return button;
+    }
+
+    container.appendChild(
+      createButton('View', data.detailUrl, 'task-row__action--view')
+    );
+    container.appendChild(
+      createButton('Edit', data.editUrl, 'task-row__action--edit')
+    );
+
+    return container;
   }
 
   window.TaskGrid = {
@@ -351,6 +405,7 @@
     renderAssignees,
     renderUpdatedAt,
     renderCreatedAt,
+    renderView,
     renderActions
   };
 })();

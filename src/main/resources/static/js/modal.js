@@ -1,10 +1,14 @@
 // Prevent redeclaration if script is loaded multiple times
-if (typeof openModal === 'undefined') {
+if (typeof window.openModal === 'undefined') {
     const openModal = (modalId) => {
         const modal = document.getElementById(modalId);
+        console.log('openModal called', { modalId, found: !!modal, classList: modal?.classList.toString() });
         if (modal) {
+            console.log('Adding is-open class to modal', modalId);
             modal.classList.add('is-open');
             document.body.style.overflow = 'hidden';
+        } else {
+            console.error('Modal not found:', modalId);
         }
     };
 
@@ -51,20 +55,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Handle HTMX swap events - open modal after content is loaded
-document.addEventListener('htmx:afterSwap', (event) => {
+// Use afterSettle instead of afterSwap to ensure DOM is fully updated
+document.addEventListener('htmx:afterSettle', (event) => {
     const target = event.detail?.target;
+    console.log('htmx:afterSettle fired', { target: target?.id, hasContent: !!target?.innerHTML.trim() });
     if (target && target.id === 'modal-container') {
         // Check if there's actual content in the modal
         if (target.innerHTML.trim()) {
+            console.log('Opening modal with openModal function');
             window.openModal(target.id);
         }
     }
 });
 
-// Clean up modal state when it's cleared
+// Clean up modal state when swap is about to happen
 document.addEventListener('htmx:beforeSwap', (event) => {
     const target = event.detail?.target;
+    console.log('htmx:beforeSwap fired', { target: target?.id });
     if (target && target.id === 'modal-container') {
-        window.closeModal(target.id);
+        // Clear the modal container before new content loads
+        target.innerHTML = '';
     }
 });

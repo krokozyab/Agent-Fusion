@@ -16,13 +16,16 @@ import java.time.format.DateTimeFormatter
 
 internal fun renderTaskModal(task: Task, proposals: List<Proposal>, decision: Decision?): String {
     return createHTML().div {
-        // Backdrop
+        // Backdrop - direct child of modal-container
         div(classes = "modal__backdrop") {}
 
-        // Modal content
+        // Modal content - direct child of modal-container
         div(classes = "modal__content") {
             div(classes = "modal__header") {
-                h3(classes = "modal__title") { +"Task: ${task.title}" }
+                h3(classes = "modal__title") {
+                    attributes["id"] = "task-detail-title"
+                    +"Task: ${task.title}"
+                }
                 button(classes = "modal__close") {
                     attributes["data-modal-close"] = "modal-container"
                     attributes["aria-label"] = "Close modal"
@@ -148,4 +151,4 @@ internal fun renderTaskModal(task: Task, proposals: List<Proposal>, decision: De
             }
         }
     }.toString()
-}  // Note: The div block returns a string via toString() of the HtmlContent
+}
