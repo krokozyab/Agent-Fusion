@@ -40,6 +40,9 @@ class RefreshContextTool(
                 Paths.get(System.getProperty("user.dir"))
             }
 
+            // Resolve watch roots from configuration to pass to ChangeDetector
+            val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.watcher.watchPaths)
+
             // Create embedder
             val embedder = com.orchestrator.context.embedding.LocalEmbedder(
                 modelPath = null,  // Will use default model location
@@ -51,6 +54,7 @@ class RefreshContextTool(
             val fileIndexer = com.orchestrator.context.indexing.FileIndexer(
                 embedder = embedder,
                 projectRoot = projectRoot,
+                watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.embedding.batchSize,
                 maxFileSizeMb = config.indexing.maxFileSizeMb,
                 warnFileSizeMb = config.indexing.warnFileSizeMb
@@ -64,7 +68,8 @@ class RefreshContextTool(
 
             // Create change detector
             val changeDetector = ChangeDetector(
-                projectRoot = projectRoot
+                projectRoot = projectRoot,
+                watchRoots = resolvedWatchRoots
             )
 
             // Create incremental indexer
@@ -413,5 +418,26 @@ class RefreshContextTool(
                 message = "Job failed: ${job.error}"
             )
         }
+    }
+
+    private fun resolveWatchRoots(projectRoot: Path, watchPaths: List<String>): List<Path> {
+        if (watchPaths.isEmpty()) return emptyList()
+        val roots = LinkedHashSet<Path>()
+        watchPaths.forEach { raw ->
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) return@forEach
+            if (trimmed.equals("auto", ignoreCase = true)) {
+                // "auto" means we'll handle it at WatcherDaemon level, skip here
+                return@forEach
+            }
+            val candidate = runCatching { Paths.get(trimmed) }.getOrNull()
+            val resolved = when {
+                candidate == null -> null
+                candidate.isAbsolute -> candidate
+                else -> projectRoot.resolve(candidate)
+            } ?: return@forEach
+            roots.add(resolved.toAbsolutePath().normalize())
+        }
+        return roots.toList()
     }
 }

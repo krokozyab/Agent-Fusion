@@ -11,15 +11,24 @@ import java.time.Instant
 /**
  * Determines which files require re-indexing by comparing current filesystem metadata with the
  * metadata persisted in the context database.
+ *
+ * Supports multiple watch roots to allow indexing files from the main project root as well as
+ * external directories configured via include_paths.
  */
 class ChangeDetector(
     projectRoot: Path,
+    watchRoots: List<Path> = emptyList(),
     private val metadataExtractor: FileMetadataExtractor = FileMetadataExtractor,
     private val repository: ContextRepository = ContextRepository
 ) {
 
     private val log = Logger.logger("com.orchestrator.context.indexing.ChangeDetector")
-    private val root: Path = projectRoot.toAbsolutePath().normalize()
+    private val projectRoot: Path = projectRoot.toAbsolutePath().normalize()
+    private val allRoots: List<Path> = if (watchRoots.isNotEmpty()) {
+        (listOf(projectRoot) + watchRoots).map { it.toAbsolutePath().normalize() }.distinct()
+    } else {
+        listOf(projectRoot)
+    }
 
     /**
      * Inspect the provided file paths, compare them with persisted state, and surface a summary of
@@ -36,11 +45,15 @@ class ChangeDetector(
         val normalizedPaths = LinkedHashMap<String, Path>()
         for (path in paths) {
             val absolute = path.toAbsolutePath().normalize()
-            if (!absolute.startsWith(root)) {
-                log.warn("Skipping path outside project root: {}", absolute)
+
+            // Find which root this path belongs to
+            val matchingRoot = findMatchingRoot(absolute)
+            if (matchingRoot == null) {
+                log.warn("Skipping path that doesn't belong to any configured root: {}", absolute)
                 continue
             }
-            val relative = root.relativize(absolute).toString()
+
+            val relative = matchingRoot.relativize(absolute).toString()
             // Preserve the first occurrence to keep stable ordering.
             normalizedPaths.putIfAbsent(relative, absolute)
         }
@@ -115,12 +128,27 @@ class ChangeDetector(
     }
 
     private fun safeResolve(relativePath: String): Path? {
-        val resolved = root.resolve(relativePath).normalize()
-        if (!resolved.startsWith(root)) {
-            log.warn("Stored file path {} resolves outside project root; skipping deletion check", relativePath)
+        // Try to resolve against each known root to handle files from different watch paths
+        for (root in allRoots) {
+            val resolved = root.resolve(relativePath).normalize()
+            if (resolved.startsWith(root) && Files.exists(resolved)) {
+                return resolved
+            }
+        }
+        // Try main project root as fallback for backward compatibility
+        val resolved = projectRoot.resolve(relativePath).normalize()
+        if (!resolved.startsWith(projectRoot)) {
+            log.warn("Stored file path {} cannot be resolved from any configured root; skipping deletion check", relativePath)
             return null
         }
         return resolved
+    }
+
+    private fun findMatchingRoot(absolutePath: Path): Path? {
+        val normalized = absolutePath.toAbsolutePath().normalize()
+        return allRoots.find { root ->
+            normalized == root || normalized.startsWith(root)
+        }
     }
 }
 
