@@ -16,12 +16,12 @@ object ContextConfigLoader {
     private val envVarRegex = Regex("\\$\\{([A-Za-z_][A-Za-z0-9_]*)}")
 
     /**
-     * Load configuration from [path] (defaults to `config/context.toml`). When the
+     * Load configuration from [path] (defaults to `fusionagent.toml`). When the
      * file is absent a default [ContextConfig] is returned. Validation errors are
      * reported with descriptive messages.
      */
     fun load(
-        path: Path = Path.of("config/context.toml"),
+        path: Path = Path.of("fusionagent.toml"),
         env: Map<String, String> = System.getenv()
     ): ContextConfig {
         val file = path.toFile()
@@ -43,8 +43,9 @@ object ContextConfigLoader {
 
         val defaults = ContextConfig()
         val contextTable = toml.getTable("context")
+        val ignoreTable = toml.getTable("ignore")
         val config = if (contextTable == null) {
-            defaults
+            defaults.copy(ignore = parseIgnore(ignoreTable, env))
         } else {
             ContextConfig(
                 enabled = contextTable.getBoolean("enabled") ?: defaults.enabled,
@@ -61,7 +62,8 @@ object ContextConfigLoader {
                 providers = parseProviders(contextTable.getTable("providers"), env),
                 metrics = parseMetrics(contextTable.getTable("metrics")),
                 bootstrap = parseBootstrap(contextTable.getTable("bootstrap"), env),
-                security = parseSecurity(contextTable.getTable("security"), env)
+                security = parseSecurity(contextTable.getTable("security"), env),
+                ignore = parseIgnore(ignoreTable, env)
             )
         }
 
@@ -118,7 +120,6 @@ object ContextConfigLoader {
         val defaults = IndexingConfig()
         if (table == null) return defaults
         val allowed = table.getList<String>("allowed_extensions")?.map { it.expandEnv(env) }
-        val blocked = table.getList<String>("blocked_extensions")?.map { it.expandEnv(env) }
 
         val sizeExceptions = table.getList<String>("size_exceptions")?.map { it.expandEnv(env) }
         val detection = table.getString("binary_detection")?.let { value ->
@@ -127,7 +128,6 @@ object ContextConfigLoader {
 
         return IndexingConfig(
             allowedExtensions = allowed ?: defaults.allowedExtensions,
-            blockedExtensions = blocked ?: defaults.blockedExtensions,
             maxFileSizeMb = table.getLong("max_file_size_mb")?.toInt() ?: defaults.maxFileSizeMb,
             warnFileSizeMb = table.getLong("warn_file_size_mb")?.toInt() ?: defaults.warnFileSizeMb,
             sizeExceptions = sizeExceptions ?: defaults.sizeExceptions,
@@ -267,6 +267,15 @@ object ContextConfigLoader {
         )
     }
 
+    private fun parseIgnore(table: Toml?, env: Map<String, String>): IgnoreConfig {
+        val defaults = IgnoreConfig()
+        if (table == null) return defaults
+        val patterns = table.getList<Any>("patterns")?.map { it.toString().expandEnv(env) }
+        return IgnoreConfig(
+            patterns = patterns ?: defaults.patterns
+        )
+    }
+
     private fun validate(config: ContextConfig, baseDir: Path) {
         val errors = mutableListOf<String>()
 
@@ -309,7 +318,6 @@ object ContextConfigLoader {
         }
 
         config.indexing.allowedExtensions.validateExtensions("indexing.allowed_extensions")
-        config.indexing.blockedExtensions.validateExtensions("indexing.blocked_extensions")
 
         if (config.indexing.maxFileSizeMb <= 0) {
             errors += "indexing.max_file_size_mb must be greater than 0"

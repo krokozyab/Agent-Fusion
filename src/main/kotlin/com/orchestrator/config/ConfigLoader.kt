@@ -56,20 +56,19 @@ object ConfigLoader {
     /**
      * Load complete application configuration.
      * @param hoconPath path to application.conf (defaults to classpath resource)
-     * @param tomlPath path to agents.toml (defaults to config/agents.toml)
+     * @param tomlPath path to fusionagent.toml (defaults to fusionagent.toml)
      * @param env environment variables for substitution
      */
     fun loadAll(
         hoconPath: String? = null,
-        tomlPath: Path = Path.of("config/agents.toml"),
-        contextPath: Path = Path.of("config/context.toml"),
+        tomlPath: Path = Path.of("fusionagent.toml"),
         env: Map<String, String> = System.getenv()
     ): ApplicationConfig {
         val config = resolveHocon(hoconPath)
         val orchestratorConfig = parseOrchestratorConfig(config, env)
         val webConfig = WebServerConfig.load(config, env)
         val agents = loadAgents(tomlPath, env)
-        val contextConfig = ContextConfigLoader.load(contextPath, env)
+        val contextConfig = ContextConfigLoader.load(tomlPath, env)
         return ApplicationConfig(orchestratorConfig, webConfig, agents, contextConfig)
     }
     
@@ -83,14 +82,14 @@ object ConfigLoader {
     
     /**
      * Load agent definitions from TOML.
-     * @param path path to the agents.toml (defaults to config/agents.toml).
+     * @param path path to the fusionagent.toml (defaults to fusionagent.toml).
      * @param env environment variables map for substitution, defaults to System.getenv().
      * @throws IllegalArgumentException on validation/parsing issues with clear message.
      */
-    fun loadAgents(path: Path = Path.of("config/agents.toml"), env: Map<String, String> = System.getenv()): List<AgentDefinition> {
+    fun loadAgents(path: Path = Path.of("fusionagent.toml"), env: Map<String, String> = System.getenv()): List<AgentDefinition> {
         val file = path.toFile()
         if (!file.exists()) {
-            throw IllegalArgumentException("Agents config file not found at ${file.path}. Provide this file or copy config/agents.toml.example and adjust values.")
+            throw IllegalArgumentException("Config file not found at ${file.path}. Provide fusionagent.toml in the project root or copy fusionagent.toml.example and adjust values.")
         }
         val content = file.readText()
         val root: AgentsRoot = try {
@@ -137,17 +136,6 @@ object ConfigLoader {
                 )
             } catch (e: IllegalArgumentException) {
                 throw IllegalArgumentException("Invalid configuration for agent '$id': ${e.message}", e)
-            }
-
-            val requiresModel = when (type) {
-                AgentType.GPT,
-                AgentType.GEMINI,
-                AgentType.MISTRAL,
-                AgentType.LLAMA -> true
-                else -> false
-            }
-            if (requiresModel && agentConfig.model.isNullOrBlank()) {
-                throw IllegalArgumentException("Agent '$id' of type '${type.name.lowercase()}' must specify 'model'")
             }
 
             results += AgentDefinition(id = AgentId(id), type = type, config = agentConfig)

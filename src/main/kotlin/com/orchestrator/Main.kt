@@ -189,9 +189,8 @@ class Main {
     
     private fun loadConfiguration(args: CliArgs): ConfigLoader.ApplicationConfig {
         return try {
-            val agentsPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("config/agents.toml")
-            val contextPath = args.contextPath?.let { Path.of(it) } ?: Path.of("config/context.toml")
-            ConfigLoader.loadAll(args.configPath, agentsPath, contextPath)
+            val tomlPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("fusionagent.toml")
+            ConfigLoader.loadAll(args.configPath, tomlPath)
         } catch (e: Exception) {
             log.error("Failed to load configuration: ${e.message}")
             throw e

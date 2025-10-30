@@ -19,7 +19,8 @@ data class ContextConfig(
     val providers: Map<String, ProviderConfig> = ProviderConfig.defaults(),
     val metrics: MetricsConfig = MetricsConfig(),
     val bootstrap: BootstrapConfig = BootstrapConfig(),
-    val security: SecurityConfig = SecurityConfig()
+    val security: SecurityConfig = SecurityConfig(),
+    val ignore: IgnoreConfig = IgnoreConfig()
 ) {
     /** Returns only the providers that are enabled. */
     val enabledProviders: Map<String, ProviderConfig>
@@ -79,7 +80,6 @@ data class IndexingConfig(
         ".docx",
         ".pdf"
     ),
-    val blockedExtensions: List<String> = emptyList(),
     val maxFileSizeMb: Int = 10,
     val warnFileSizeMb: Int = 2,
     val sizeExceptions: List<String> = emptyList(),
@@ -199,4 +199,8 @@ data class SecurityConfig(
         "token\\s*=\\s*['\"]?.*['\"]?"
     ),
     val encryptDb: Boolean = false
+)
+
+data class IgnoreConfig(
+    val patterns: List<String> = emptyList()
 )

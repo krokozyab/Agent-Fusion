@@ -58,7 +58,7 @@ class WatcherDaemon(
     )
     private val extensionFilter: ExtensionFilter = ExtensionFilter.fromConfig(
         indexingConfig.allowedExtensions,
-        indexingConfig.blockedExtensions
+        emptyList()
     )
 
     private val pathValidator: PathValidator = PathValidator(
