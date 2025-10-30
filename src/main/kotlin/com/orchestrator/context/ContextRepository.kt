@@ -49,66 +49,101 @@ object ContextRepository {
 
     fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts =
         writeLock.withLock {
-            // Phase 1: Delete old artifacts in isolated transaction (can fail and recover independently)
-            ContextDatabase.transaction { conn ->
+            // Phase 1: Delete old artifacts using separate transactions for each deletion step
+            // This approach isolates each deletion operation, preventing a single FK constraint error
+            // from aborting all subsequent operations
+            var existingFileId: Long? = null
+
+            ContextDatabase.withConnection { conn ->
                 val existing = if (fileState.id > 0) {
                     getFileStateById(conn, fileState.id)
                 } else {
                     getFileStateByPath(conn, fileState.relativePath)
                 }
+                existingFileId = existing?.id
 
-                if (existing != null) {
+                if (existing != null && existing.id > 0) {
                     val existingChunkIds = getChunkIdsForFile(conn, existing.id)
                     if (existingChunkIds.isNotEmpty()) {
                         log.debug("Deleting {} chunks for file {}", existingChunkIds.size, existing.relativePath)
 
-                        // DuckDB has undiscoverable FK constraints that prevent deletion
-                        // Delete dependent records first, then try to delete chunks
+                        // Step 1: Delete embeddings (in separate transaction)
                         try {
-                            log.debug("Deleting dependent records for file {}", existing.id)
-
-                            // Delete embeddings
-                            conn.createStatement().use { st ->
-                                st.execute("""
-                                    DELETE FROM embeddings
-                                    WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
-                                """)
-                            }
-                            log.debug("Deleted embeddings")
-
-                            // Delete links
-                            conn.createStatement().use { st ->
-                                st.execute("""
-                                    DELETE FROM links
-                                    WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
-                                       OR target_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
-                                """)
-                            }
-                            log.debug("Deleted links")
-
-                            // Delete symbols
-                            if (hasTable(conn, "symbols")) {
-                                conn.createStatement().use { st ->
+                            ContextDatabase.transaction { innerConn ->
+                                log.debug("Step 1: Deleting embeddings for {} chunks", existingChunkIds.size)
+                                innerConn.createStatement().use { st ->
                                     st.execute("""
-                                        DELETE FROM symbols
+                                        DELETE FROM embeddings
                                         WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
                                     """)
                                 }
-                                log.debug("Deleted symbols")
+                                log.debug("Step 1 complete: Deleted embeddings")
                             }
+                        } catch (e: SQLException) {
+                            log.debug("Step 1 failed (non-critical): Unable to delete embeddings: {}", e.message)
+                        }
 
-                            // Try to delete chunks
-                            conn.createStatement().execute("DELETE FROM chunks WHERE file_id = ${existing.id}")
-                            log.debug("Successfully deleted chunks")
+                        // Step 2: Delete links (in separate transaction)
+                        try {
+                            ContextDatabase.transaction { innerConn ->
+                                log.debug("Step 2: Deleting links for {} chunks", existingChunkIds.size)
+                                innerConn.createStatement().use { st ->
+                                    st.execute("""
+                                        DELETE FROM links
+                                        WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                           OR target_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                    """)
+                                }
+                                log.debug("Step 2 complete: Deleted links")
+                            }
+                        } catch (e: SQLException) {
+                            log.debug("Step 2 failed (non-critical): Unable to delete links: {}", e.message)
+                        }
 
+                        // Step 3: Delete symbols (in separate transaction)
+                        try {
+                            ContextDatabase.transaction { innerConn ->
+                                if (hasTable(innerConn, "symbols")) {
+                                    log.debug("Step 3: Deleting symbols for {} chunks", existingChunkIds.size)
+                                    innerConn.createStatement().use { st ->
+                                        st.execute("""
+                                            DELETE FROM symbols
+                                            WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                        """)
+                                    }
+                                    log.debug("Step 3 complete: Deleted symbols")
+                                }
+                            }
+                        } catch (e: SQLException) {
+                            log.debug("Step 3 failed (non-critical): Unable to delete symbols: {}", e.message)
+                        }
+
+                        // Step 4: Delete chunks (in separate transaction)
+                        try {
+                            ContextDatabase.transaction { innerConn ->
+                                log.debug("Step 4: Deleting chunks for file {}", existing.id)
+                                innerConn.createStatement().execute("DELETE FROM chunks WHERE file_id = ${existing.id}")
+                                log.debug("Step 4 complete: Successfully deleted chunks")
+                            }
                         } catch (fkError: SQLException) {
                             // Unable to delete due to FK constraint - skip and continue with re-indexing
                             // The chunks will be marked as stale but the new chunks will be inserted
-                            log.warn("Unable to delete old chunks due to FK constraint: {}. New chunks will be inserted alongside old ones.", fkError.message)
+                            log.warn("Step 4 failed: Unable to delete old chunks due to FK constraint: {}. New chunks will be inserted alongside old ones.", fkError.message)
+                        }
+
+                        // Step 5: Delete links by target file (in separate transaction)
+                        if (existingFileId != null) {
+                            try {
+                                ContextDatabase.transaction { innerConn ->
+                                    log.debug("Step 5: Deleting links by target file {}", existingFileId)
+                                    deleteLinksByTargetFile(innerConn, existingFileId!!)
+                                    log.debug("Step 5 complete: Deleted links by target file")
+                                }
+                            } catch (e: SQLException) {
+                                log.debug("Step 5 failed (non-critical): Unable to delete links by target file: {}", e.message)
+                            }
                         }
                     }
-
-                    deleteLinksByTargetFile(conn, existing.id)
                 }
             }
 

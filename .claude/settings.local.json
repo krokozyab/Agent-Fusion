@@ -21,7 +21,8 @@
       "Bash(timeout 5 java:*)",
       "Bash(java -jar build/libs/orchestrator-1.0-SNAPSHOT-all.jar:*)",
       "Bash(java -jar build/libs/orchestrator-0.1.0-all.jar:*)",
-      "Bash(./gradlew shadowJar:*)"
+      "Bash(./gradlew shadowJar:*)",
+      "Read(//private/tmp/**)"
     ],
     "deny": [],
     "ask": []

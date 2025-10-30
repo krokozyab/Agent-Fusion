@@ -22,6 +22,7 @@ internal fun renderTaskModal(task: Task, proposals: List<Proposal>, decision: De
 
         // Modal content - direct child of modal-container
         div(classes = "modal__content") {
+            attributes["id"] = "task-detail-modal"
             div(classes = "modal__header") {
                 h3(classes = "modal__title") {
                     attributes["id"] = "task-detail-title"

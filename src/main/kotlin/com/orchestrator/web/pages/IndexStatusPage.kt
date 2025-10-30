@@ -77,6 +77,7 @@ object IndexStatusPage {
                 meta(name = "viewport", content = "width=device-width, initial-scale=1")
                 title("Index Status - Orchestrator")
 
+                link(rel = "stylesheet", href = "/static/css/base.css")
                 link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
                 link(rel = "stylesheet", href = "/static/css/orchestrator.css")
 
@@ -564,6 +565,49 @@ object IndexStatusPage {
     }
 
 
+    private fun FlowContent.filesSection(files: List<FileStateDTO>) {
+        div(classes = "card mt-xl") {
+            h3(classes = "mt-0") { +"Indexed Files" }
+
+            if (files.isEmpty()) {
+                p(classes = "text-muted") {
+                    +"No files indexed yet."
+                }
+                return@div
+            }
+
+            table(classes = "data-table mt-md") {
+                thead {
+                    tr {
+                        th { +"File Path" }
+                        th { +"Status" }
+                        th { +"Size" }
+                        th { +"Chunks" }
+                    }
+                }
+                tbody {
+                    files.forEach { file ->
+                        tr {
+                            attributes["data-testid"] = "file-row-${file.path}"
+                            td {
+                                +file.path
+                            }
+                            td {
+                                +(file.status?.toStatusLabel() ?: "—")
+                            }
+                            td {
+                                +formatSize(file.sizeBytes)
+                            }
+                            td {
+                                +file.chunkCount.toString()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun String?.toLabel(): String =
         this?.takeIf { it.isNotBlank() }?.let { value ->
             value.lowercase(Locale.US).replaceFirstChar { ch ->
@@ -624,5 +668,6 @@ object IndexStatusPage {
         }
 
         providerSection(config.providers)
+        filesSection(config.status.files)
     }
 }
