@@ -41,7 +41,7 @@ fun main(args: Array<String>) = runBlocking {
         )
         val extensionFilter = ExtensionFilter.fromConfig(
             allowlist = contextConfig.indexing.allowedExtensions,
-            blocklist = contextConfig.indexing.blockedExtensions
+            blocklist = emptyList()
         )
         val validator = PathValidator(
             watchPaths = listOf(projectRoot),

@@ -1,0 +1,364 @@
+# ==============================================================================
+# FusionAgent - Unified Configuration Example
+# ==============================================================================
+# This file demonstrates ALL available configuration options for FusionAgent.
+# Copy this to fusionagent.toml and adjust values for your setup.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [agents] - Agent definitions
+# ------------------------------------------------------------------------------
+# Configure the AI agents that will be used by the orchestrator.
+# Each agent needs a unique ID (the part after agents.) and configuration.
+#
+# Available agent types:
+# - CLAUDE_CODE: Anthropic Claude via Claude Code CLI
+# - CODEX_CLI: OpenAI Codex via Codex CLI
+# - Q_CLI: Amazon Q via Q CLI
+# - GEMINI: Google Gemini
+# - GPT: OpenAI GPT models (requires model parameter)
+# - MISTRAL: Mistral AI models (requires model parameter)
+# - LLAMA: Meta Llama models (requires model parameter)
+# ------------------------------------------------------------------------------
+
+[agents.claude-code]
+type = "CLAUDE_CODE"
+name = "Claude"
+# Optional parameters:
+# model = "claude-3-5-sonnet-20241022"
+# temperature = 0.7
+# maxTokens = 4096
+
+[agents.codex-cli]
+type = "CODEX_CLI"
+name = "Codex"
+# Optional parameters:
+# model = "gpt-4"
+# temperature = 0.7
+
+[agents.q-cli]
+type = "Q_CLI"
+name = "Q"
+# Optional parameters:
+# model = "q-developer"
+
+[agents.gemini]
+type = "GEMINI"
+name = "Gemini"
+# Optional parameters:
+# model = "gemini-1.5-pro"
+# apiKeyRef = "${GOOGLE_API_KEY}"
+
+# Example custom GPT agent
+# [agents.gpt-custom]
+# type = "GPT"
+# name = "Custom GPT"
+# model = "gpt-4-turbo"
+# apiKeyRef = "${OPENAI_API_KEY}"
+# organization = "${OPENAI_ORG}"
+# temperature = 0.7
+# maxTokens = 8192
+
+# Example Mistral agent
+# [agents.mistral]
+# type = "MISTRAL"
+# name = "Mistral Large"
+# model = "mistral-large-latest"
+# apiKeyRef = "${MISTRAL_API_KEY}"
+# temperature = 0.7
+
+# Example Llama agent
+# [agents.llama]
+# type = "LLAMA"
+# name = "Llama 3"
+# model = "llama-3-70b"
+# apiKeyRef = "${LLAMA_API_KEY}"
+
+# ------------------------------------------------------------------------------
+# [context] - Context system configuration
+# ------------------------------------------------------------------------------
+
+[context]
+# Enable or disable the entire context subsystem
+enabled = true
+
+# Deployment mode: EMBEDDED (in-process), STANDALONE (separate service), HYBRID
+mode = "EMBEDDED"
+
+# Enable fallback to alternative providers if primary fails
+fallback_enabled = true
+
+# ------------------------------------------------------------------------------
+# [context.engine] - Context engine server/client settings
+# ------------------------------------------------------------------------------
+
+[context.engine]
+host = "localhost"
+port = 9090
+timeout_ms = 10000
+retry_attempts = 3
+
+# ------------------------------------------------------------------------------
+# [context.storage] - Database and persistence settings
+# ------------------------------------------------------------------------------
+
+[context.storage]
+db_path = "./context.duckdb"
+backup_enabled = false
+backup_interval_hours = 24
+
+# ------------------------------------------------------------------------------
+# [context.watcher] - File system watcher configuration
+# ------------------------------------------------------------------------------
+
+[context.watcher]
+enabled = true
+debounce_ms = 500
+watch_paths = ["auto"]  # "auto" detects project root, or specify paths
+ignore_patterns = [
+    ".git",
+    "node_modules",
+    "build",
+    "dist",
+    ".venv",
+    "target",
+    ".idea",
+    ".vscode",
+    "out"
+]
+max_file_size_mb = 5
+use_gitignore = true
+use_contextignore = false  # .contextignore is deprecated, use [ignore] section
+
+# ------------------------------------------------------------------------------
+# [context.indexing] - File indexing and filtering settings
+# ------------------------------------------------------------------------------
+
+[context.indexing]
+allowed_extensions = [
+    ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
+    ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf"
+]
+# Note: Only allowlist is used. Binary files are automatically detected and excluded.
+max_file_size_mb = 200
+warn_file_size_mb = 10
+size_exceptions = []
+follow_symlinks = false
+max_symlink_depth = 3
+binary_detection = "ALL"  # Options: EXTENSION, MIME, CONTENT, ALL
+binary_threshold = 30
+
+# ------------------------------------------------------------------------------
+# [context.embedding] - Vector embedding configuration
+# ------------------------------------------------------------------------------
+
+[context.embedding]
+model = "sentence-transformers/all-MiniLM-L6-v2"
+dimension = 384
+batch_size = 128
+normalize = true
+cache_enabled = true
+
+# ------------------------------------------------------------------------------
+# [context.chunking] - Text chunking strategies per language
+# ------------------------------------------------------------------------------
+
+[context.chunking.markdown]
+max_tokens = 400
+split_by_headings = true
+preserve_code_blocks = true
+
+[context.chunking.python]
+max_tokens = 600
+split_by_function = true
+overlap_percent = 15
+preserve_docstrings = true
+
+[context.chunking.kotlin]
+max_tokens = 600
+split_by_class = true
+split_by_function = true
+preserve_kdoc = true
+
+[context.chunking.typescript]
+max_tokens = 600
+split_by_export = true
+preserve_jsdoc = true
+
+# ------------------------------------------------------------------------------
+# [context.query] - Query and retrieval settings
+# ------------------------------------------------------------------------------
+
+[context.query]
+default_k = 12
+mmr_lambda = 0.5  # 0.0 = max diversity, 1.0 = max relevance
+min_score_threshold = 0.3
+rerank_enabled = true
+
+# ------------------------------------------------------------------------------
+# [context.budget] - Token budget management
+# ------------------------------------------------------------------------------
+
+[context.budget]
+default_max_tokens = 1500
+reserve_for_prompt = 500
+warn_threshold_percent = 80
+
+# ------------------------------------------------------------------------------
+# [context.providers] - Context provider configurations
+# ------------------------------------------------------------------------------
+
+[context.providers.full_text]
+enabled = true
+weight = 0.1
+
+[context.providers.semantic]
+enabled = true
+weight = 0.6
+
+[context.providers.symbol]
+enabled = true
+weight = 0.3
+index_ast = true
+
+[context.providers.git_history]
+enabled = true
+weight = 0.2
+max_commits = 100
+
+[context.providers.hybrid]
+enabled = true
+weight = 0.5
+combines = ["semantic", "symbol", "git_history"]
+fusion_strategy = "rrf"  # Options: rrf, weighted, cascade
+
+# ------------------------------------------------------------------------------
+# [context.metrics] - Metrics and monitoring
+# ------------------------------------------------------------------------------
+
+[context.metrics]
+enabled = true
+track_latency = true
+track_token_usage = true
+track_cache_hits = true
+export_interval_minutes = 5
+
+# ------------------------------------------------------------------------------
+# [context.bootstrap] - Initial indexing configuration
+# ------------------------------------------------------------------------------
+
+[context.bootstrap]
+enabled = true
+parallel_workers = 7
+batch_size = 128
+priority_extensions = [".kt", ".py", ".ts", ".java", ".md"]
+max_initial_files = 0  # 0 = no limit
+fail_fast = false
+show_progress = true
+progress_interval_seconds = 30
+
+# ------------------------------------------------------------------------------
+# [context.security] - Security and privacy settings
+# ------------------------------------------------------------------------------
+
+[context.security]
+scrub_secrets = true
+secret_patterns = [
+    "password\\s*=\\s*['\"]?.*['\"]?",
+    "api[_-]?key\\s*=\\s*['\"]?.*['\"]?",
+    "token\\s*=\\s*['\"]?.*['\"]?",
+    "secret\\s*=\\s*['\"]?.*['\"]?",
+    "bearer\\s+[A-Za-z0-9\\-._~+/]+=*",
+    "aws_access_key_id\\s*=\\s*[A-Z0-9]{20}",
+    "private[_-]?key\\s*=\\s*['\"]?.*['\"]?"
+]
+encrypt_db = false
+
+# ------------------------------------------------------------------------------
+# [ignore] - File patterns to exclude from context indexing
+# ------------------------------------------------------------------------------
+# These patterns are used during bootstrap and watching to exclude files
+# from being indexed by the context system. This replaces .contextignore.
+# ------------------------------------------------------------------------------
+
+[ignore]
+patterns = [
+    # Build artifacts
+    "build/",
+    "dist/",
+    "out/",
+    "target/",
+    "*.class",
+    "*.jar",
+    "*.war",
+
+    # Gradle
+    ".gradle/",
+    "gradle-app.setting",
+
+    # IDE
+    ".idea/",
+    ".vscode/",
+    "*.iml",
+    "*.swp",
+    "*.swo",
+    "*~",
+
+    # Node
+    "node_modules/",
+    "npm-debug.log",
+    "yarn-error.log",
+
+    # Python
+    "__pycache__/",
+    "*.pyc",
+    ".venv/",
+    "venv/",
+    "*.egg-info/",
+
+    # Version control
+    ".git/",
+    ".svn/",
+
+    # OS
+    ".DS_Store",
+    ".DS_Store?",
+    "._*",
+    ".Spotlight-V100",
+    ".Trashes",
+    "ehthumbs.db",
+    "Thumbs.db",
+
+    # Test artifacts
+    "/tmp/",
+    "/temp/",
+    "test-output/",
+    ".test-results/",
+
+    # Large files that shouldn't be indexed
+    "*.log",
+    "*.tmp",
+    "*.bak",
+
+    # Generated files
+    "*.generated.kt",
+    "*.generated.java",
+
+    # Generated test output
+    "test-output.txt"
+]
+
+# ==============================================================================
+# Configuration Tips:
+# ==============================================================================
+#
+# 1. Start with this example and adjust based on your project's needs
+# 2. Use environment variables for sensitive data: apiKeyRef = "${API_KEY}"
+# 3. Monitor metrics to tune query performance and token usage
+# 4. Adjust chunking settings if results are too granular or too broad
+# 5. Use priority_extensions to speed up initial indexing of critical files
+# 6. Enable scrub_secrets in production environments
+# 7. Tune provider weights based on the type of queries you perform
+# 8. Increase parallel_workers on machines with more CPU cores
+#
+# ==============================================================================

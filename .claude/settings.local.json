@@ -17,7 +17,11 @@
       "mcp__orchestrator__submit_input",
       "mcp__orchestrator__continue_task",
       "Bash(git add:*)",
-      "mcp__orchestrator__get_rebuild_status"
+      "mcp__orchestrator__get_rebuild_status",
+      "Bash(timeout 5 java:*)",
+      "Bash(java -jar build/libs/orchestrator-1.0-SNAPSHOT-all.jar:*)",
+      "Bash(java -jar build/libs/orchestrator-0.1.0-all.jar:*)",
+      "Bash(./gradlew shadowJar:*)"
     ],
     "deny": [],
     "ask": []

@@ -690,7 +690,7 @@ class RebuildContextTool(
         // Create extension filter
         val extensionFilter = com.orchestrator.context.discovery.ExtensionFilter.fromConfig(
             allowlist = config.indexing.allowedExtensions,
-            blocklist = config.indexing.blockedExtensions
+            blocklist = emptyList()
         )
 
         // Create symlink handler
