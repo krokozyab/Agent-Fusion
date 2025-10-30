@@ -4,6 +4,7 @@ import com.orchestrator.context.config.IndexingConfig
 import com.orchestrator.context.config.WatcherConfig
 import com.orchestrator.context.discovery.DirectoryScanner
 import com.orchestrator.context.discovery.ExtensionFilter
+import com.orchestrator.context.discovery.IncludePathsFilter
 import com.orchestrator.context.discovery.PathFilter
 import com.orchestrator.context.discovery.PathValidator
 import com.orchestrator.context.discovery.SymlinkHandler
@@ -60,11 +61,16 @@ class WatcherDaemon(
         indexingConfig.allowedExtensions,
         emptyList()
     )
+    private val includePathsFilter: IncludePathsFilter = IncludePathsFilter.fromConfig(
+        watcherConfig.includePaths,
+        projectRoot
+    )
 
     private val pathValidator: PathValidator = PathValidator(
         watchRoots,
         pathFilter,
         extensionFilter,
+        includePathsFilter,
         SymlinkHandler(watchRoots, indexingConfig),
         indexingConfig
     )

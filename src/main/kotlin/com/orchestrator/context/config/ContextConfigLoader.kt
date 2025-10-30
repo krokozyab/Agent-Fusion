@@ -101,6 +101,7 @@ object ContextConfigLoader {
         val defaults = WatcherConfig()
         if (table == null) return defaults
         val watchPaths = table.getList<Any>("watch_paths")?.map { it.toString().expandEnv(env) }
+        val includePaths = table.getList<Any>("include_paths")?.map { it.toString().expandEnv(env) }
         val ignorePatterns = table.getList<Any>("ignore_patterns")?.map { it.toString().expandEnv(env) }
         return WatcherConfig(
             enabled = table.getBoolean("enabled") ?: defaults.enabled,
@@ -109,6 +110,7 @@ object ContextConfigLoader {
                 watchPaths == null || watchPaths.isEmpty() -> defaults.watchPaths
                 else -> watchPaths
             },
+            includePaths = includePaths ?: defaults.includePaths,
             ignorePatterns = ignorePatterns ?: defaults.ignorePatterns,
             maxFileSizeMb = table.getLong("max_file_size_mb")?.toInt() ?: defaults.maxFileSizeMb,
             useGitignore = table.getBoolean("use_gitignore") ?: defaults.useGitignore,
@@ -303,6 +305,26 @@ object ContextConfigLoader {
             val dangerous = normalized.toAbsolutePath().toString()
             if (dangerousRoots.any { root -> dangerous == root || dangerous.startsWith("$root/") }) {
                 errors += "watcher path '$raw' points to restricted directory '$dangerous'"
+            }
+        }
+
+        // Validate include_paths (optional allowlist)
+        for (raw in config.watcher.includePaths) {
+            if (raw.isBlank()) {
+                errors += "watcher.include_paths contains a blank entry"
+                continue
+            }
+            val resolved = resolvePath(raw, baseDir)
+            val normalized = resolved.normalize()
+            if (!Files.exists(normalized)) {
+                errors += "watcher include_path '$raw' (resolved to '$normalized') does not exist"
+            }
+            if (Files.exists(normalized) && !Files.isDirectory(normalized)) {
+                errors += "watcher include_path '$raw' must reference a directory"
+            }
+            val dangerous = normalized.toAbsolutePath().toString()
+            if (dangerousRoots.any { root -> dangerous == root || dangerous.startsWith("$root/") }) {
+                errors += "watcher include_path '$raw' points to restricted directory '$dangerous'"
             }
         }
 

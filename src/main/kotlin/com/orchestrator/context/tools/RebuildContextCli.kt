@@ -9,6 +9,7 @@ import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.context.discovery.DirectoryScanner
 import com.orchestrator.context.discovery.PathFilter
 import com.orchestrator.context.discovery.ExtensionFilter
+import com.orchestrator.context.discovery.IncludePathsFilter
 import com.orchestrator.context.discovery.PathValidator
 import com.orchestrator.context.discovery.SymlinkHandler
 import kotlinx.coroutines.runBlocking
@@ -43,10 +44,15 @@ fun main(args: Array<String>) = runBlocking {
             allowlist = contextConfig.indexing.allowedExtensions,
             blocklist = emptyList()
         )
+        val includePathsFilter = IncludePathsFilter.fromConfig(
+            includePaths = contextConfig.watcher.includePaths,
+            baseDir = projectRoot
+        )
         val validator = PathValidator(
             watchPaths = listOf(projectRoot),
             pathFilter = filter,
             extensionFilter = extensionFilter,
+            includePathsFilter = includePathsFilter,
             symlinkHandler = SymlinkHandler(listOf(projectRoot), contextConfig.indexing),
             indexingConfig = contextConfig.indexing
         )

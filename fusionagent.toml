@@ -116,10 +116,14 @@ enabled = true
 debounce_ms = 500
 watch_paths = ["auto"]  # "auto" detects project root, or specify paths
 # Optional: explicitly include only these paths (if set, only these are indexed)
+# Supports both relative paths (relative to project root) and absolute paths
+# Examples:
 # include_paths = [
-#     "src/",
-#     "lib/",
-#     "config/",
+#     "src/",                                          # relative: project_root/src/
+#     "lib/",                                         # relative: project_root/lib/
+#     "/absolute/path/to/other/project/",           # absolute: different project
+#     "/home/user/shared-libs/",                     # absolute: external library folder
+#     "../sibling-project/src/",                     # relative: outside project root
 # ]
 ignore_patterns = [
     ".git",
@@ -368,7 +372,14 @@ patterns = [
 # 9. Use include_paths in [context.watcher] to limit indexing to specific folders:
 #    - If include_paths is set, ONLY those paths will be indexed
 #    - If include_paths is empty/commented, all paths except ignore_patterns are indexed
-#    - Example: include_paths = ["src/", "lib/", "docs/"]
+#    - Supports 3 types of paths:
+#      * Relative to project root: "src/", "lib/"
+#      * Absolute paths: "/home/user/projects/my-lib/", "/opt/shared-code/"
+#      * Relative to parent dirs: "../sibling-project/", "../../shared/utils/"
+#    - Examples:
+#      * Single project: include_paths = ["src/", "lib/"]
+#      * Multi-project: include_paths = ["src/", "/home/user/other-project/src/", "/opt/libs/"]
+#      * Sibling access: include_paths = ["src/", "../shared-libs/", "../common/"]
 # 10. Use ignore_patterns to exclude specific directories from indexing
 #
 # ==============================================================================
