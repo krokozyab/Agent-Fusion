@@ -115,6 +115,12 @@ backup_interval_hours = 24
 enabled = true
 debounce_ms = 500
 watch_paths = ["auto"]  # "auto" detects project root, or specify paths
+# Optional: explicitly include only these paths (if set, only these are indexed)
+# include_paths = [
+#     "src/",
+#     "lib/",
+#     "config/",
+# ]
 ignore_patterns = [
     ".git",
     "node_modules",
@@ -359,5 +365,10 @@ patterns = [
 # 6. Enable scrub_secrets in production environments
 # 7. Tune provider weights based on the type of queries you perform
 # 8. Increase parallel_workers on machines with more CPU cores
+# 9. Use include_paths in [context.watcher] to limit indexing to specific folders:
+#    - If include_paths is set, ONLY those paths will be indexed
+#    - If include_paths is empty/commented, all paths except ignore_patterns are indexed
+#    - Example: include_paths = ["src/", "lib/", "docs/"]
+# 10. Use ignore_patterns to exclude specific directories from indexing
 #
 # ==============================================================================

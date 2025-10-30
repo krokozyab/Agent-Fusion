@@ -46,6 +46,9 @@ data class WatcherConfig(
     val enabled: Boolean = true,
     val debounceMs: Long = 500,
     val watchPaths: List<String> = listOf("auto"),
+    // Optional: If set, ONLY these paths will be indexed (allowlist)
+    // If empty, all paths except ignorePatterns will be indexed (blacklist)
+    val includePaths: List<String> = emptyList(),
     val ignorePatterns: List<String> = listOf(
         ".git",
         "node_modules",
