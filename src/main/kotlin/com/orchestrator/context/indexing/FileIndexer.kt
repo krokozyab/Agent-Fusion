@@ -29,10 +29,13 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * Index a single file by chunking its content, generating embeddings, and persisting the artefacts.
+ * Supports multiple watch roots to allow indexing files from the main project root as well as
+ * external directories configured via include_paths.
  */
 class FileIndexer(
     private val embedder: Embedder,
     projectRoot: Path,
+    watchRoots: List<Path> = emptyList(),
     private val dataService: ContextDataService = ContextDataService(),
     private val metadataExtractor: FileMetadataExtractor = FileMetadataExtractor,
     private val chunkerRegistry: ChunkerRegistry = ChunkerRegistry,
@@ -50,7 +53,12 @@ class FileIndexer(
     }
 
     private val log = Logger.logger("com.orchestrator.context.indexing.FileIndexer")
-    private val root: Path = projectRoot.toAbsolutePath().normalize()
+    private val projectRoot: Path = projectRoot.toAbsolutePath().normalize()
+    private val allRoots: List<Path> = if (watchRoots.isNotEmpty()) {
+        (listOf(projectRoot) + watchRoots).map { it.toAbsolutePath().normalize() }.distinct()
+    } else {
+        listOf(projectRoot)
+    }
     private val maxFileSizeBytes = maxFileSizeMb * 1024L * 1024L
     private val warnFileSizeBytes = warnFileSizeMb * 1024L * 1024L
 
@@ -71,8 +79,11 @@ class FileIndexer(
      */
     private suspend fun indexFileInternal(path: Path): IndexResult {
         val absolutePath = path.toAbsolutePath().normalize()
-        if (!absolutePath.startsWith(root)) {
-            val message = "Path $absolutePath is outside project root $root"
+
+        // Find which root this path belongs to
+        val matchingRoot = findMatchingRoot(absolutePath)
+        if (matchingRoot == null) {
+            val message = "Path $absolutePath doesn't belong to any configured root"
             log.warn(message)
             return IndexResult(
                 success = false,
@@ -83,7 +94,7 @@ class FileIndexer(
             )
         }
 
-        val relativePath = root.relativize(absolutePath).toString()
+        val relativePath = matchingRoot.relativize(absolutePath).toString()
         return runCatching {
             val extension = absolutePath.fileName.toString()
                 .substringAfterLast('.', "")
@@ -301,6 +312,13 @@ class FileIndexer(
             if (candidate.isNotBlank()) return candidate
         }
         return null
+    }
+
+    private fun findMatchingRoot(absolutePath: Path): Path? {
+        val normalized = absolutePath.toAbsolutePath().normalize()
+        return allRoots.find { root ->
+            normalized == root || normalized.startsWith(root)
+        }
     }
 
     companion object {

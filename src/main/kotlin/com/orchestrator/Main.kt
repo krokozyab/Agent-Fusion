@@ -265,6 +265,10 @@ class Main {
     private fun initializeWatcher(config: ConfigLoader.ApplicationConfig): WatcherDaemon {
         return try {
             val projectRoot = Paths.get("").toAbsolutePath()
+
+            // Resolve watch roots from configuration to pass to ChangeDetector
+            val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.context.watcher.watchPaths)
+
             val embedder = LocalEmbedder(
                 modelPath = null, // Will use default path
                 modelName = config.context.embedding.model,
@@ -275,11 +279,12 @@ class Main {
             val fileIndexer = FileIndexer(
                 embedder = embedder,
                 projectRoot = projectRoot,
+                watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.context.embedding.batchSize,
                 maxFileSizeMb = config.context.indexing.maxFileSizeMb,
                 warnFileSizeMb = config.context.indexing.warnFileSizeMb
             )
-            val changeDetector = ChangeDetector(projectRoot)
+            val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
             val batchIndexer = BatchIndexer(fileIndexer)
             val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)
 
@@ -362,7 +367,28 @@ class Main {
 
         log.info("Orchestrator shutdown complete")
     }
-    
+
+    private fun resolveWatchRoots(projectRoot: Path, watchPaths: List<String>): List<Path> {
+        if (watchPaths.isEmpty()) return emptyList()
+        val roots = LinkedHashSet<Path>()
+        watchPaths.forEach { raw ->
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty()) return@forEach
+            if (trimmed.equals("auto", ignoreCase = true)) {
+                // "auto" means we'll handle it at WatcherDaemon level, skip here
+                return@forEach
+            }
+            val candidate = runCatching { Paths.get(trimmed) }.getOrNull()
+            val resolved = when {
+                candidate == null -> null
+                candidate.isAbsolute -> candidate
+                else -> projectRoot.resolve(candidate)
+            } ?: return@forEach
+            roots.add(resolved.toAbsolutePath().normalize())
+        }
+        return roots.toList()
+    }
+
     private data class CliArgs(
         val configPath: String?,
         val agentsPath: String?,
