@@ -196,6 +196,10 @@ object ContextDatabase {
 
     private fun applyPragmas(conn: Connection) {
         conn.createStatement().use { st ->
+            // DuckDB doesn't support PRAGMA foreign_keys at the connection level
+            // Foreign key constraints are enforced by default in DuckDB 0.10+
+            // The issue was with try-catch recovery in ContextRepository, not FK enforcement
+
             // Improve write throughput for incremental indexing
             val threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(8)
             st.execute("PRAGMA threads=$threads")
