@@ -693,6 +693,12 @@ class RebuildContextTool(
             blocklist = emptyList()
         )
 
+        // Create include paths filter
+        val includePathsFilter = com.orchestrator.context.discovery.IncludePathsFilter.fromConfig(
+            includePaths = config.watcher.includePaths,
+            baseDir = projectRoot
+        )
+
         // Create symlink handler
         val symlinkHandler = com.orchestrator.context.discovery.SymlinkHandler(
             allowedRoots = paths,
@@ -704,6 +710,7 @@ class RebuildContextTool(
             watchPaths = paths.map { it.toAbsolutePath().normalize() },
             pathFilter = pathFilter,
             extensionFilter = extensionFilter,
+            includePathsFilter = includePathsFilter,
             symlinkHandler = symlinkHandler,
             indexingConfig = config.indexing
         )

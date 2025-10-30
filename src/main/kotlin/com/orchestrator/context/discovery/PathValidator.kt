@@ -12,6 +12,7 @@ class PathValidator(
     watchPaths: List<Path>,
     private val pathFilter: PathFilter,
     private val extensionFilter: ExtensionFilter,
+    private val includePathsFilter: IncludePathsFilter,
     private val symlinkHandler: SymlinkHandler,
     private val indexingConfig: IndexingConfig
 ) {
@@ -22,6 +23,7 @@ class PathValidator(
     enum class Reason {
         PATH_TRAVERSAL,
         OUTSIDE_WATCH_PATH,
+        NOT_IN_INCLUDE_PATHS,
         IGNORED_BY_PATTERN,
         EXTENSION_NOT_ALLOWED,
         BINARY_FILE,
@@ -52,6 +54,10 @@ class PathValidator(
 
         if (!isUnderWatchPaths(absolute, normalizedWatchRoots)) {
             return invalid(Reason.OUTSIDE_WATCH_PATH, "Path is outside configured watch roots: $absolute")
+        }
+
+        if (!isInIncludePaths(absolute)) {
+            return invalid(Reason.NOT_IN_INCLUDE_PATHS, "Path is not in configured include paths: $absolute")
         }
 
         if (isInIgnorePatterns(absolute)) {
@@ -97,6 +103,8 @@ class PathValidator(
         }
         return false
     }
+
+    fun isInIncludePaths(path: Path): Boolean = includePathsFilter.shouldInclude(path)
 
     fun isInIgnorePatterns(path: Path): Boolean = pathFilter.shouldIgnore(path)
 

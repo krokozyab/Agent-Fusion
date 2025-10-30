@@ -47,7 +47,11 @@ data class WatcherConfig(
     val debounceMs: Long = 500,
     val watchPaths: List<String> = listOf("auto"),
     // Optional: If set, ONLY these paths will be indexed (allowlist)
-    // If empty, all paths except ignorePatterns will be indexed (blacklist)
+    // Supports both relative paths (relative to project root) and absolute paths
+    // Relative: "src/", "lib/" -> resolved relative to project root
+    // Absolute: "/absolute/path/to/project/" -> used as-is
+    // Relative outside root: "../sibling-project/" -> resolved from project root
+    // If empty, all paths except ignorePatterns will be indexed (blacklist mode)
     val includePaths: List<String> = emptyList(),
     val ignorePatterns: List<String> = listOf(
         ".git",
