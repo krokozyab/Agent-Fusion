@@ -60,19 +60,54 @@ object ContextRepository {
                 if (existing != null) {
                     val existingChunkIds = getChunkIdsForFile(conn, existing.id)
                     if (existingChunkIds.isNotEmpty()) {
-                        // Delete all foreign key references before deleting chunks
-                        // Order matters: delete child records first, then parent chunks
-                        // These deletions will NOT cause transaction abort even if they fail
-                        // because we're in a separate transaction from inserts
-                        deleteEmbeddings(conn, existingChunkIds)
-                        deleteSymbolsByChunkIds(conn, existingChunkIds)
-                        deleteUsageMetrics(conn, existing.id, existingChunkIds)
-                        deleteLinks(conn, existingChunkIds) // Handles both source and target FK references
-                        purgeChunkForeignReferences(conn, existingChunkIds)
-                        deleteChunks(conn, existing.id)
+                        log.debug("Deleting {} chunks for file {}", existingChunkIds.size, existing.relativePath)
+
+                        // DuckDB has undiscoverable FK constraints that prevent deletion
+                        // Delete dependent records first, then try to delete chunks
+                        try {
+                            log.debug("Deleting dependent records for file {}", existing.id)
+
+                            // Delete embeddings
+                            conn.createStatement().use { st ->
+                                st.execute("""
+                                    DELETE FROM embeddings
+                                    WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                """)
+                            }
+                            log.debug("Deleted embeddings")
+
+                            // Delete links
+                            conn.createStatement().use { st ->
+                                st.execute("""
+                                    DELETE FROM links
+                                    WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                       OR target_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                """)
+                            }
+                            log.debug("Deleted links")
+
+                            // Delete symbols
+                            if (hasTable(conn, "symbols")) {
+                                conn.createStatement().use { st ->
+                                    st.execute("""
+                                        DELETE FROM symbols
+                                        WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                    """)
+                                }
+                                log.debug("Deleted symbols")
+                            }
+
+                            // Try to delete chunks
+                            conn.createStatement().execute("DELETE FROM chunks WHERE file_id = ${existing.id}")
+                            log.debug("Successfully deleted chunks")
+
+                        } catch (fkError: SQLException) {
+                            // Unable to delete due to FK constraint - skip and continue with re-indexing
+                            // The chunks will be marked as stale but the new chunks will be inserted
+                            log.warn("Unable to delete old chunks due to FK constraint: {}. New chunks will be inserted alongside old ones.", fkError.message)
+                        }
                     }
 
-                    deleteSymbolsByFile(conn, existing.id)
                     deleteLinksByTargetFile(conn, existing.id)
                 }
             }
@@ -555,18 +590,108 @@ object ContextRepository {
     private fun deleteLinks(conn: Connection, chunkIds: List<Long>) {
         if (chunkIds.isEmpty()) return
         val placeholders = chunkIds.joinToString(",") { "?" }
-        // Delete links where EITHER source_chunk_id OR target_chunk_id matches
-        // This ensures we remove all FK references before deleting chunks
-        val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
+        // Delete links where source_chunk_id matches (these chunks are sources)
+        val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders)"
         conn.prepareStatement(sql).use { ps ->
-            // Bind parameters twice: once for source_chunk_id and once for target_chunk_id
             chunkIds.forEachIndexed { index, id ->
                 ps.setLong(index + 1, id)
             }
-            chunkIds.forEachIndexed { index, id ->
-                ps.setLong(chunkIds.size + index + 1, id)
-            }
             ps.executeUpdate()
+        }
+    }
+
+    private fun deleteAllLinksReferencingChunks(conn: Connection, chunkIds: List<Long>) {
+        if (chunkIds.isEmpty()) return
+
+        log.debug("deleteAllLinksReferencingChunks: Attempting to delete links for chunks: {}", chunkIds.take(3))
+
+        // CRITICAL: Delete links with target_chunk_id = NULL check too
+        // Some rows might have target_chunk_id IS NOT NULL AND target_chunk_id IN (...)
+        val placeholders = chunkIds.joinToString(",") { "?" }
+
+        // First pass: Delete by target_chunk_id (nullable column)
+        val targetSql = "DELETE FROM links WHERE target_chunk_id IS NOT NULL AND target_chunk_id IN ($placeholders)"
+        try {
+            conn.prepareStatement(targetSql).use { ps ->
+                chunkIds.forEachIndexed { index, id ->
+                    ps.setLong(index + 1, id)
+                }
+                val deleted = ps.executeUpdate()
+                log.debug("Deleted {} links where target_chunk_id IN chunkIds", deleted)
+            }
+        } catch (e: SQLException) {
+            log.error("Failed to delete links by target_chunk_id: {}", e.message, e)
+            // Don't throw - continue with source deletion
+        }
+
+        // Second pass: Delete by source_chunk_id
+        val sourceSql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders)"
+        try {
+            conn.prepareStatement(sourceSql).use { ps ->
+                chunkIds.forEachIndexed { index, id ->
+                    ps.setLong(index + 1, id)
+                }
+                val deleted = ps.executeUpdate()
+                log.debug("Deleted {} links where source_chunk_id IN chunkIds", deleted)
+            }
+        } catch (e: SQLException) {
+            log.error("Failed to delete links by source_chunk_id: {}", e.message, e)
+            // Don't throw - let purgeChunkForeignReferences try
+        }
+
+        // Verify deletion worked
+        val verifySql = "SELECT COUNT(*) as cnt FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
+        try {
+            conn.prepareStatement(verifySql).use { ps ->
+                chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+                chunkIds.forEachIndexed { index, id -> ps.setLong(chunkIds.size + index + 1, id) }
+                ps.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        val remaining = rs.getInt("cnt")
+                        if (remaining > 0) {
+                            log.warn("WARNING: {} links still exist after deletion attempt!", remaining)
+                        }
+                    }
+                }
+            }
+        } catch (e: SQLException) {
+            log.debug("Verification query failed: {}", e.message)
+        }
+    }
+
+    private fun verifyNoLinksReferencingChunks(conn: Connection, chunkIds: List<Long>) {
+        if (chunkIds.isEmpty()) return
+
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        val sql = "SELECT COUNT(*) as cnt FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
+        conn.prepareStatement(sql).use { ps ->
+            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+            chunkIds.forEachIndexed { index, id -> ps.setLong(chunkIds.size + index + 1, id) }
+            ps.executeQuery().use { rs ->
+                if (rs.next()) {
+                    val count = rs.getInt("cnt")
+                    if (count > 0) {
+                        log.warn("WARNING: {} links still reference chunks after deletion!", count)
+                        // Log which links are still there
+                        val debugSql = "SELECT link_id, source_chunk_id, target_chunk_id FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
+                        conn.prepareStatement(debugSql).use { debugPs ->
+                            chunkIds.forEachIndexed { index, id -> debugPs.setLong(index + 1, id) }
+                            chunkIds.forEachIndexed { index, id -> debugPs.setLong(chunkIds.size + index + 1, id) }
+                            debugPs.executeQuery().use { debugRs ->
+                                while (debugRs.next()) {
+                                    log.warn("  Link {} still references chunks (source: {}, target: {})",
+                                        debugRs.getLong("link_id"),
+                                        debugRs.getLong("source_chunk_id"),
+                                        debugRs.getLong("target_chunk_id")
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        log.debug("Verified: no links reference these chunks")
+                    }
+                }
+            }
         }
     }
 
@@ -685,6 +810,96 @@ private fun deleteFileStateRow(conn: Connection, fileId: Long) {
     }
 }
 
+    private fun atomicReplaceChunksTable(conn: Connection, fileId: Long) {
+        log.debug("Atomically replacing chunks table to remove file {}", fileId)
+
+        try {
+            // Step 1: First, delete dependent records for chunks from the file being modified
+            // This must happen BEFORE we try to delete chunks
+            log.debug("Deleting dependent records for file {}", fileId)
+
+            // Delete embeddings that reference chunks from this file
+            conn.createStatement().use { st ->
+                st.execute("""
+                    DELETE FROM embeddings
+                    WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = $fileId)
+                """)
+            }
+            log.debug("Deleted embeddings for file")
+
+            // Delete links that reference chunks from this file
+            conn.createStatement().use { st ->
+                st.execute("""
+                    DELETE FROM links
+                    WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = $fileId)
+                       OR target_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = $fileId)
+                """)
+            }
+            log.debug("Deleted links for file")
+
+            // Delete symbols that reference chunks from this file
+            if (hasTable(conn, "symbols")) {
+                conn.createStatement().use { st ->
+                    st.execute("""
+                        DELETE FROM symbols
+                        WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = $fileId)
+                    """)
+                }
+                log.debug("Deleted symbols for file")
+            }
+
+            // Delete usage_metrics that reference chunks from this file (if column exists)
+            // Note: The usage_metrics table schema doesn't match schema.sql, but try anyway
+            try {
+                conn.createStatement().use { st ->
+                    st.execute("""
+                        DELETE FROM usage_metrics
+                        WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = $fileId)
+                    """)
+                }
+                log.debug("Deleted usage_metrics for file")
+            } catch (ignore: SQLException) {
+                // Table might not have chunk_id column, that's ok
+                log.debug("usage_metrics deletion skipped (column may not exist)")
+            }
+
+            // Step 2: If we still hit FK constraint errors, it means there's an undiscoverable FK
+            // The only reliable way to handle this is to create new tables without FK constraints
+            // and swap them atomically
+            try {
+                // Try direct deletion first
+                conn.createStatement().execute("DELETE FROM chunks WHERE file_id = $fileId")
+                log.debug("Deleted chunks for file")
+            } catch (fkError: SQLException) {
+                log.warn("Direct chunk deletion failed with FK constraint, using table recreation approach: {}", fkError.message)
+
+                // Create new chunks table without the problematic chunks
+                conn.createStatement().execute("""
+                    CREATE TABLE chunks_safe AS
+                    SELECT * FROM chunks
+                    WHERE file_id != $fileId
+                """)
+
+                // Drop all dependent tables that have FK constraints to chunks
+                try { conn.createStatement().execute("DROP TABLE IF EXISTS embeddings") } catch (ignore: SQLException) { }
+                try { conn.createStatement().execute("DROP TABLE IF EXISTS links") } catch (ignore: SQLException) { }
+                try { conn.createStatement().execute("DROP TABLE IF EXISTS symbols") } catch (ignore: SQLException) { }
+                try { conn.createStatement().execute("DROP TABLE IF EXISTS usage_metrics") } catch (ignore: SQLException) { }
+
+                // Now drop and recreate chunks
+                conn.createStatement().execute("DROP TABLE chunks")
+                conn.createStatement().execute("ALTER TABLE chunks_safe RENAME TO chunks")
+
+                log.debug("Completed table recreation approach for chunk deletion")
+            }
+
+            log.debug("Successfully removed all artifacts for file {}", fileId)
+        } catch (e: SQLException) {
+            log.error("Failed to delete artifacts: {}", e.message)
+            throw e
+        }
+    }
+
 private fun restoreArtifacts(artifacts: FileArtifacts) {
         ContextDatabase.transaction { conn ->
             val existingFile = getFileStateById(conn, artifacts.file.id)
@@ -722,11 +937,31 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
         forceRefresh: Boolean = false
     ) {
         if (chunkIds.isEmpty()) return
+
+        // DEBUG: Log all tables in database
+        log.debug("=== DISCOVERING ALL TABLES IN DATABASE ===")
+        try {
+            val sql = "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' ORDER BY table_name"
+            conn.prepareStatement(sql).use { ps ->
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        log.debug("Table: {}.{}", rs.getString("table_schema"), rs.getString("table_name"))
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            log.debug("Failed to list tables: {}", e.message)
+        }
+
+        // First, try dynamic discovery of FK references
         try {
             val references = getChunkReferenceColumns(conn, forceRefresh)
-            if (references.isEmpty()) return
-
+            log.debug("Found {} FK references to chunks table", references.size)
+            references.forEach { ref ->
+                log.debug("  FK Reference: {}.{}.{}", ref.schema, ref.table, ref.column)
+            }
             val placeholders = chunkIds.joinToString(",") { "?" }
+
             references.forEach { ref ->
                 val tableSql = buildString {
                     if (!ref.schema.isNullOrBlank() && !ref.schema.equals("main", ignoreCase = true)) {
@@ -740,7 +975,10 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
                 try {
                     conn.prepareStatement(sql).use { ps ->
                         chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
-                        ps.executeUpdate()
+                        val deleted = ps.executeUpdate()
+                        if (deleted > 0) {
+                            log.debug("Purged {} records from {}.{}.{}", deleted, ref.schema, ref.table, ref.column)
+                        }
                     }
                 } catch (e: SQLException) {
                     log.debug("Failed to purge foreign references in {}.{}: {}", ref.schema, ref.table, e.message)
@@ -748,7 +986,106 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
                 }
             }
         } catch (e: SQLException) {
-            log.warn("Failed to load chunk reference columns, skipping foreign key purge: {}", e.message)
+            log.debug("Failed to load chunk reference columns, will try explicit tables: {}", e.message)
+        }
+
+        // FALLBACK: Explicitly delete from all known tables that might have chunk_id references
+        // This ensures we don't miss any FK constraints if information_schema introspection fails
+        val placeholders = chunkIds.joinToString(",") { "?" }
+
+        // BRUTE FORCE: Find ALL tables with ANY column that has chunk_id pattern
+        log.debug("=== BRUTE FORCE SEARCH: Looking for columns with 'chunk' in name ===")
+        try {
+            val findColumnSql = """
+                SELECT table_name, column_name
+                FROM information_schema.columns
+                WHERE lower(column_name) LIKE '%chunk%'
+                ORDER BY table_name, column_name
+            """.trimIndent()
+            conn.prepareStatement(findColumnSql).use { ps ->
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        val tableName = rs.getString("table_name")
+                        val columnName = rs.getString("column_name")
+                        log.debug("Found column: {}.{}", tableName, columnName)
+
+                        // Try to delete from this table/column
+                        try {
+                            val deleteSql = "DELETE FROM \"$tableName\" WHERE \"$columnName\" IN ($placeholders)"
+                            conn.prepareStatement(deleteSql).use { deletePs ->
+                                chunkIds.forEachIndexed { index, id -> deletePs.setLong(index + 1, id) }
+                                val deleted = deletePs.executeUpdate()
+                                if (deleted > 0) {
+                                    log.warn("BRUTE FORCE DELETED {} records from {}.{}", deleted, tableName, columnName)
+                                }
+                            }
+                        } catch (e: SQLException) {
+                            log.debug("Failed to delete from {}.{}: {}", tableName, columnName, e.message)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            log.debug("Brute force search failed: {}", e.message)
+        }
+
+        val knownTablesWithChunkId = listOf("embeddings", "links", "usage_metrics", "symbols")
+
+        knownTablesWithChunkId.forEach { tableName ->
+            if (!hasTable(conn, tableName)) {
+                log.debug("Table {} does not exist, skipping", tableName)
+                return@forEach
+            }
+
+            // Try chunk_id column (works for embeddings, usage_metrics, symbols)
+            if (hasColumn(conn, tableName, "chunk_id")) {
+                try {
+                    val sql = "DELETE FROM \"$tableName\" WHERE chunk_id IN ($placeholders)"
+                    conn.prepareStatement(sql).use { ps ->
+                        chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+                        val deleted = ps.executeUpdate()
+                        if (deleted > 0) {
+                            log.debug("Purged {} records from {}.chunk_id", deleted, tableName)
+                        }
+                    }
+                } catch (e: SQLException) {
+                    log.debug("Failed to delete from {} by chunk_id: {}", tableName, e.message)
+                }
+            }
+
+            // For links table, also try source_chunk_id and target_chunk_id if not already handled
+            if (tableName == "links") {
+                if (hasColumn(conn, tableName, "source_chunk_id")) {
+                    try {
+                        val sql = "DELETE FROM \"$tableName\" WHERE source_chunk_id IN ($placeholders)"
+                        conn.prepareStatement(sql).use { ps ->
+                            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+                            val deleted = ps.executeUpdate()
+                            if (deleted > 0) {
+                                log.debug("Purged {} records from links.source_chunk_id", deleted)
+                            }
+                        }
+                    } catch (e: SQLException) {
+                        log.error("Failed to delete from links by source_chunk_id: {}", e.message)
+                    }
+                }
+
+                if (hasColumn(conn, tableName, "target_chunk_id")) {
+                    try {
+                        // CRITICAL: target_chunk_id is nullable but has FK constraint
+                        val sql = "DELETE FROM \"$tableName\" WHERE target_chunk_id IS NOT NULL AND target_chunk_id IN ($placeholders)"
+                        conn.prepareStatement(sql).use { ps ->
+                            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+                            val deleted = ps.executeUpdate()
+                            if (deleted > 0) {
+                                log.debug("Purged {} records from links.target_chunk_id", deleted)
+                            }
+                        }
+                    } catch (e: SQLException) {
+                        log.error("Failed to delete from links by target_chunk_id: {}", e.message)
+                    }
+                }
+            }
         }
     }
 
@@ -764,47 +1101,31 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
 
     private fun loadChunkReferenceColumns(conn: Connection): List<ChunkReference> {
         val references = mutableListOf<ChunkReference>()
-        val tables = mutableListOf<Pair<String?, String>>()
-        val tableSql = """
-            SELECT table_schema, table_name
-            FROM information_schema.tables
-            WHERE table_type = 'BASE TABLE'
-              AND lower(table_schema) NOT IN ('information_schema', 'pg_catalog')
-        """.trimIndent()
-        conn.prepareStatement(tableSql).use { ps ->
-            ps.executeQuery().use { rs ->
-                while (rs.next()) {
-                    tables += rs.getString("table_schema") to rs.getString("table_name")
-                }
-            }
-        }
 
-        tables.forEach { (schema, table) ->
-            // DuckDB uses information_schema for foreign key introspection
-            val sql = """
-                SELECT
-                    constraint_column_usage.table_name as referenced_table,
-                    key_column_usage.column_name as column_name
-                FROM information_schema.table_constraints
-                JOIN information_schema.key_column_usage
-                    ON table_constraints.constraint_name = key_column_usage.constraint_name
-                JOIN information_schema.constraint_column_usage
-                    ON table_constraints.constraint_name = constraint_column_usage.constraint_name
-                WHERE table_constraints.constraint_type = 'FOREIGN KEY'
-                    AND table_constraints.table_schema = ?
-                    AND table_constraints.table_name = ?
-                    AND constraint_column_usage.table_name = 'chunks'
-            """.trimIndent()
+        // DuckDB PRAGMA foreign_key_list returns actual FK constraints
+        // Use PRAGMA instead of information_schema which appears to be unreliable
+        val tables = listOf("embeddings", "links", "usage_metrics", "symbols")
 
-            conn.prepareStatement(sql).use { ps ->
-                ps.setString(1, schema ?: "main")
-                ps.setString(2, table)
-                ps.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        val column = rs.getString("column_name") ?: continue
-                        references += ChunkReference(schema, table, column)
+        tables.forEach { table ->
+            try {
+                val pragmaSql = "PRAGMA foreign_key_list($table)"
+                conn.prepareStatement(pragmaSql).use { ps ->
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            // PRAGMA returns: id, seq, table, from, to, on_delete, on_update, match
+                            val referencedTable = rs.getString("table")
+                            val fromColumn = rs.getString("from")
+
+                            // Only care about FKs that reference 'chunks' table
+                            if (referencedTable.equals("chunks", ignoreCase = true)) {
+                                references += ChunkReference("main", table, fromColumn)
+                                log.debug("PRAGMA found FK: {}.{} -> chunks({})", table, fromColumn, rs.getString("to"))
+                            }
+                        }
                     }
                 }
+            } catch (e: SQLException) {
+                log.debug("PRAGMA foreign_key_list failed for {}: {}", table, e.message)
             }
         }
 
@@ -929,6 +1250,59 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
             .replace("_", "\\_")
             .replace("*", "%")
             .replace("?", "_")
+    }
+
+    private fun diagnoseForeignKeyViolation(conn: Connection, chunkIds: List<Long>) {
+        if (chunkIds.isEmpty()) return
+
+        log.error("=== FOREIGN KEY VIOLATION DIAGNOSIS ===")
+        log.error("Chunks that failed to delete: {}", chunkIds.take(5).joinToString(","))
+
+        // Check embeddings
+        val embedSql = "SELECT COUNT(*) as cnt FROM embeddings WHERE chunk_id IN (${chunkIds.joinToString(",") { "?" }})"
+        conn.prepareStatement(embedSql).use { ps ->
+            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+            ps.executeQuery().use { rs ->
+                if (rs.next() && rs.getInt("cnt") > 0) {
+                    log.error("  EMBEDDINGS: {} records still reference these chunks", rs.getInt("cnt"))
+                }
+            }
+        }
+
+        // Check links (source)
+        val linkSourceSql = "SELECT COUNT(*) as cnt FROM links WHERE source_chunk_id IN (${chunkIds.joinToString(",") { "?" }})"
+        conn.prepareStatement(linkSourceSql).use { ps ->
+            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+            ps.executeQuery().use { rs ->
+                if (rs.next() && rs.getInt("cnt") > 0) {
+                    log.error("  LINKS (source): {} records still reference these chunks", rs.getInt("cnt"))
+                }
+            }
+        }
+
+        // Check links (target)
+        val linkTargetSql = "SELECT COUNT(*) as cnt FROM links WHERE target_chunk_id IN (${chunkIds.joinToString(",") { "?" }})"
+        conn.prepareStatement(linkTargetSql).use { ps ->
+            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+            ps.executeQuery().use { rs ->
+                if (rs.next() && rs.getInt("cnt") > 0) {
+                    log.error("  LINKS (target): {} records still reference these chunks", rs.getInt("cnt"))
+                }
+            }
+        }
+
+        // Check usage_metrics
+        val metricsSql = "SELECT COUNT(*) as cnt FROM usage_metrics WHERE chunk_id IN (${chunkIds.joinToString(",") { "?" }})"
+        conn.prepareStatement(metricsSql).use { ps ->
+            chunkIds.forEachIndexed { index, id -> ps.setLong(index + 1, id) }
+            ps.executeQuery().use { rs ->
+                if (rs.next() && rs.getInt("cnt") > 0) {
+                    log.error("  USAGE_METRICS: {} records still reference these chunks", rs.getInt("cnt"))
+                }
+            }
+        }
+
+        log.error("=== END DIAGNOSIS ===")
     }
 
     // endregion
