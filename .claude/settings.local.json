@@ -16,7 +16,8 @@
       "Bash(git checkout:*)",
       "mcp__orchestrator__submit_input",
       "mcp__orchestrator__continue_task",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__orchestrator__get_rebuild_status"
     ],
     "deny": [],
     "ask": []

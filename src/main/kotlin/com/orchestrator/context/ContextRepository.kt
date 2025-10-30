@@ -49,6 +49,7 @@ object ContextRepository {
 
     fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts =
         writeLock.withLock {
+            // Phase 1: Delete old artifacts in isolated transaction (can fail and recover independently)
             ContextDatabase.transaction { conn ->
                 val existing = if (fileState.id > 0) {
                     getFileStateById(conn, fileState.id)
@@ -60,33 +61,25 @@ object ContextRepository {
                     val existingChunkIds = getChunkIdsForFile(conn, existing.id)
                     if (existingChunkIds.isNotEmpty()) {
                         // Delete all foreign key references before deleting chunks
+                        // These deletions will NOT cause transaction abort even if they fail
+                        // because we're in a separate transaction from inserts
                         deleteEmbeddings(conn, existingChunkIds)
                         deleteSymbolsByChunkIds(conn, existingChunkIds)
                         deleteUsageMetrics(conn, existing.id, existingChunkIds)
-                        // Delete links that reference these chunks (both as source and target)
                         deleteLinks(conn, existingChunkIds)
                         deleteLinksByTargetChunkIds(conn, existingChunkIds)
                         purgeChunkForeignReferences(conn, existingChunkIds)
+                        deleteChunks(conn, existing.id)
                     }
 
                     deleteSymbolsByFile(conn, existing.id)
                     deleteLinksByTargetFile(conn, existing.id)
-                    try {
-                        deleteChunks(conn, existing.id)
-                    } catch (sql: SQLException) {
-                        log.warn(
-                            "Chunk delete for {} failed: {}. Retrying after aggressive foreign key purge.",
-                            existing.relativePath,
-                            sql.message
-                        )
-                        // Retry purging with forceRefresh to catch any remaining references
-                        if (existingChunkIds.isNotEmpty()) {
-                            purgeChunkForeignReferences(conn, existingChunkIds, forceRefresh = true)
-                        }
-                        deleteChunks(conn, existing.id)
-                    }
                 }
+            }
 
+            // Phase 2: Insert new artifacts in separate transaction
+            // This ensures that even if Phase 1 partially succeeds, Phase 2 can still proceed
+            ContextDatabase.transaction { conn ->
                 val persistedFile = upsertFileState(conn, fileState)
 
                 val persistedChunks = ArrayList<ChunkArtifacts>(chunkArtifacts.size)
