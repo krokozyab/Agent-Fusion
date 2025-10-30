@@ -1,5 +1,7 @@
 package com.orchestrator.mcp.tools
 
+import com.orchestrator.core.EventBus
+import com.orchestrator.core.SystemEvent
 import com.orchestrator.domain.*
 import com.orchestrator.storage.Transaction
 import com.orchestrator.storage.repositories.DecisionRepository
@@ -334,6 +336,19 @@ class CompleteTaskTool {
                 metadata = existing.metadata + mapOf("completedBy" to (p.completedBy ?: "unknown"))
             )
             TaskRepository.update(completed)
+
+            // 7) Publish task update event for SSE broadcasting to connected clients
+            try {
+                runBlocking {
+                    EventBus.global.publish(SystemEvent.TaskUpdated(
+                        taskId = completed.id,
+                        timestamp = now
+                    ))
+                }
+            } catch (e: Exception) {
+                logger.warn("Failed to publish task update event for ${completed.id.value}: ${e.message}")
+                warnings.add("Failed to publish task update event: ${e.message}")
+            }
 
             Result(
                 taskId = completed.id.value,
