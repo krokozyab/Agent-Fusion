@@ -100,6 +100,12 @@ object TasksPage {
                 attributes["sse-swap"] = "taskCreated"
                 attributes["hx-swap"] = "innerHTML"
             }
+            div {
+                id = "tasks-grid-event-deleted"
+                attributes["style"] = "display:none;"
+                attributes["sse-swap"] = "taskDeleted"
+                attributes["hx-swap"] = "innerHTML"
+            }
 
             div(classes = "sse-status") {
                 id = "sse-status-indicator"
