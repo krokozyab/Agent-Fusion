@@ -61,13 +61,13 @@ object ContextRepository {
                     val existingChunkIds = getChunkIdsForFile(conn, existing.id)
                     if (existingChunkIds.isNotEmpty()) {
                         // Delete all foreign key references before deleting chunks
+                        // Order matters: delete child records first, then parent chunks
                         // These deletions will NOT cause transaction abort even if they fail
                         // because we're in a separate transaction from inserts
                         deleteEmbeddings(conn, existingChunkIds)
                         deleteSymbolsByChunkIds(conn, existingChunkIds)
                         deleteUsageMetrics(conn, existing.id, existingChunkIds)
-                        deleteLinks(conn, existingChunkIds)
-                        deleteLinksByTargetChunkIds(conn, existingChunkIds)
+                        deleteLinks(conn, existingChunkIds) // Handles both source and target FK references
                         purgeChunkForeignReferences(conn, existingChunkIds)
                         deleteChunks(conn, existing.id)
                     }
@@ -553,11 +553,18 @@ object ContextRepository {
     }
 
     private fun deleteLinks(conn: Connection, chunkIds: List<Long>) {
+        if (chunkIds.isEmpty()) return
         val placeholders = chunkIds.joinToString(",") { "?" }
-        val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders)"
+        // Delete links where EITHER source_chunk_id OR target_chunk_id matches
+        // This ensures we remove all FK references before deleting chunks
+        val sql = "DELETE FROM links WHERE source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders)"
         conn.prepareStatement(sql).use { ps ->
+            // Bind parameters twice: once for source_chunk_id and once for target_chunk_id
             chunkIds.forEachIndexed { index, id ->
                 ps.setLong(index + 1, id)
+            }
+            chunkIds.forEachIndexed { index, id ->
+                ps.setLong(chunkIds.size + index + 1, id)
             }
             ps.executeUpdate()
         }
