@@ -15,7 +15,8 @@
       "mcp__orchestrator__respond_to_task",
       "Bash(git checkout:*)",
       "mcp__orchestrator__submit_input",
-      "mcp__orchestrator__continue_task"
+      "mcp__orchestrator__continue_task",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
