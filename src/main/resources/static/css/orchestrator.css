@@ -2382,3 +2382,36 @@ th, td {
 .grid-cols-lg-4 {
   gap: 0.5rem !important;
 }
+
+/* ============================================
+   MODAL RESPONSIVE WIDTH CONSTRAINTS
+   ============================================ */
+
+.modal__content {
+  max-width: 95%;
+  margin: 1.75rem auto;
+}
+
+@media (min-width: 576px) {
+  .modal__content {
+    max-width: 500px;
+  }
+}
+
+@media (min-width: 768px) {
+  .modal__content {
+    max-width: 700px;
+  }
+}
+
+@media (min-width: 992px) {
+  .modal__content {
+    max-width: 900px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .modal__content {
+    max-width: 1100px;
+  }
+}
