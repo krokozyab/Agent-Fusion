@@ -60,7 +60,7 @@ Add a **lightweight web dashboard** that provides:
 
 ### 1.3 Key Design Principles
 
-1. **Server-Driven**: HTML rendered on server, not client
+1. **Server-Driven**: HTML rendered on server, not client yyy
 2. **Minimal JavaScript**: Only HTMX (~14KB) and Mermaid.js (~500KB)
 3. **Real-Time**: SSE for push updates, no polling
 4. **Progressive Enhancement**: Works without JS, better with JS

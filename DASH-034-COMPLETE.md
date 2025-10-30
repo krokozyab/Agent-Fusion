@@ -14,7 +14,7 @@ Successfully implemented a comprehensive file browser component for the Orchestr
 ### 1. Core Components Created
 
 #### FileBrowser.kt
-- **Purpose**: Core data model and configuration for file browser xxx
+- **Purpose**: Core data model and configuration for file browser vvv
 - **Key Classes**:
   - `Model`: Represents a file with metadata (path, status, size, modified date, chunks, extension)
   - `Config`: Configuration for rendering with customizable properties

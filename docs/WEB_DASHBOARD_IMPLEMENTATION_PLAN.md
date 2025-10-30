@@ -24,7 +24,7 @@ This implementation plan provides a structured approach to building a lightweigh
 - Zero npm/webpack build step
 - <100ms server response time
 - <50ms HTMX swap time
-- Real-time updates via SSE
+- Real-time updates via SSE ddd
 - Mobile responsive design
 - WCAG 2.1 AA accessibility
 
