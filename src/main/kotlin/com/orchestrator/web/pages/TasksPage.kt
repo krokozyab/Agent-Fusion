@@ -21,6 +21,7 @@ object TasksPage {
             title("Tasks - Orchestrator")
 
             // Match Files page styling for consistency
+            link(rel = "stylesheet", href = "/static/css/base.css")
             link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
             link(rel = "stylesheet", href = "/static/css/orchestrator.css")
             link(rel = "stylesheet", href = "/static/css/modal.css")

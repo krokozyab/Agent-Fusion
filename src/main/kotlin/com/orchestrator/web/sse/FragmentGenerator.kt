@@ -34,11 +34,19 @@ class FragmentGenerator(
         val row = TaskGridRowFactory.fromTask(task, clock)
 
         return createHTML().div {
-            attributes["class"] = "task-grid-event"
+            attributes["class"] = "task-row"
             attributes["data-task-id"] = task.id.value
             attributes["data-event-type"] = eventName
             attributes["data-row"] = row.toJson()
             attributes["data-timestamp"] = timestamp.toString()
+
+            // Render the task row with structure for testing
+            div(classes = "task-row__title") {
+                +task.title
+            }
+            div(classes = "task-row__status") {
+                +task.status.name
+            }
         }
     }
 

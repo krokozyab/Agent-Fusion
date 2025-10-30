@@ -241,7 +241,7 @@ class Main {
     
     private fun initializeAgentRegistry(args: CliArgs): AgentRegistry {
         return try {
-            val agentsPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("config/agents.toml")
+            val agentsPath = args.agentsPath?.let { Path.of(it) } ?: Path.of("fusionagent.toml")
             AgentRegistry.fromConfig(agentsPath)
         } catch (e: Exception) {
             log.error("Failed to initialize agent registry: ${e.message}")

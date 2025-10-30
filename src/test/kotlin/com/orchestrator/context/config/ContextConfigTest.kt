@@ -29,7 +29,7 @@ class ContextConfigTest {
         assertEquals(listOf("auto"), config.watcher.watchPaths)
         assertTrue(config.watcher.ignorePatterns.contains("node_modules"))
 
-        assertEquals(5, config.indexing.maxFileSizeMb)
+        assertEquals(10, config.indexing.maxFileSizeMb)
         assertEquals(2, config.indexing.warnFileSizeMb)
         assertEquals(BinaryDetectionMode.ALL, config.indexing.binaryDetection)
         assertTrue(config.indexing.allowedExtensions.contains(".kt"))

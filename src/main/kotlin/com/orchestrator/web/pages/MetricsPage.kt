@@ -20,6 +20,7 @@ object MetricsPage {
                 title("Metrics - Orchestrator")
 
                 // CSS
+                link(rel = "stylesheet", href = "/static/css/base.css")
                 link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
                 link(rel = "stylesheet", href = "/static/css/orchestrator.css")
                 link(rel = "stylesheet", href = "/static/css/sse-status.css")

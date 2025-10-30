@@ -80,6 +80,7 @@ data class IndexingConfig(
         ".docx",
         ".pdf"
     ),
+    val blockedExtensions: List<String> = emptyList(),
     val maxFileSizeMb: Int = 10,
     val warnFileSizeMb: Int = 2,
     val sizeExceptions: List<String> = emptyList(),
