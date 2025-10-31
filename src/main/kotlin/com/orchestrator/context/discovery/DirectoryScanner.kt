@@ -24,7 +24,11 @@ class DirectoryScanner(
         val results = Collections.synchronizedSet(LinkedHashSet<Path>())
 
         val existingRoots = normalizedRoots.filter { Files.exists(it) }
-        if (existingRoots.isEmpty()) return emptyList()
+        if (existingRoots.isEmpty()) {
+            // Log which roots don't exist for debugging
+            val missingRoots = normalizedRoots.filterNot { Files.exists(it) }
+            throw IllegalArgumentException("No watch roots exist! Checked: $missingRoots")
+        }
 
         val runner: (Path) -> Unit = { root -> scanRoot(root, results) }
 

@@ -34,9 +34,14 @@ class BootstrapOrchestrator(
                 remainingFiles
             }
             forceScan -> {
-                log.info("Starting new bootstrap scan.")
+                log.info("Starting new bootstrap scan from roots: ${roots.map { it.toAbsolutePath() }}")
                 val scannedFiles = scanner.scan(roots)
+                log.info("Bootstrap scan discovered {} files from {} roots", scannedFiles.size, roots.size)
+                if (scannedFiles.isEmpty()) {
+                    log.warn("No files discovered during bootstrap scan! Roots: ${roots.map { it.toAbsolutePath() }}")
+                }
                 val prioritizedFiles = prioritizer.prioritize(scannedFiles, config)
+                log.info("Prioritizer processed {} scanned files into {} prioritized files", scannedFiles.size, prioritizedFiles.size)
                 progressTracker.initProgress(prioritizedFiles)
                 prioritizedFiles
             }
@@ -47,7 +52,7 @@ class BootstrapOrchestrator(
         }
 
         if (filesToProcess.isEmpty()) {
-            log.info("No files to process.")
+            log.warn("No files to process. Scan returned 0 files from roots: ${roots.map { it.toAbsolutePath() }}")
             return BootstrapResult(true, 0, 0, 0, java.time.Duration.ZERO)
         }
 
