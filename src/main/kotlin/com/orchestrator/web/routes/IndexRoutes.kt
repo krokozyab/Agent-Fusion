@@ -37,15 +37,6 @@ fun Route.indexRoutes(
         call.respondText(html, ContentType.Text.Html)
     }
 
-    post("/index/refresh") {
-        val operations = operationsFactory(application)
-        val result = operations.triggerRefresh()
-        // Return 204 No Content - SSE events will handle all DOM updates
-        // Don't return HTML since we removed hx-target/hx-swap from buttons
-        call.response.status(HttpStatusCode.NoContent)
-        call.respondText("")
-    }
-
     post("/index/rebuild") {
         val operations = operationsFactory(application)
         val result = operations.triggerRebuild(confirm = true)
@@ -108,13 +99,6 @@ private fun Route.buildProviderStatuses(): List<IndexStatusPage.ProviderStatus> 
 }
 
 private fun defaultAdminActions(): List<IndexStatusPage.AdminAction> = listOf(
-    IndexStatusPage.AdminAction(
-        id = "refresh",
-        label = "Refresh Index",
-        description = "Run an incremental update for modified files.",
-        hxPost = "/index/refresh",
-        icon = "\uD83D\uDD04"
-    ),
     IndexStatusPage.AdminAction(
         id = "rebuild",
         label = "Rebuild Index",

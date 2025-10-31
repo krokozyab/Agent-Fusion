@@ -516,7 +516,7 @@ object IndexStatusPage {
         div(classes = "card") {
             h3(classes = "mt-0") { +"Index Operations" }
             p(classes = "text-muted mb-md") {
-                +"Live progress for refresh and rebuild jobs."
+                +"Live progress for rebuild jobs."
             }
 
             div {
