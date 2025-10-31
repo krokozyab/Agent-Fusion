@@ -725,16 +725,20 @@ class RebuildContextTool(
             parallelWorkers = parallelism ?: config.bootstrap.parallelWorkers
         )
 
-        // Create path filter
+        // Create path filter using the first watch root (or all roots for .gitignore discovery)
+        // For multiple roots, use the first root but the validator will handle multiple watch paths
         val pathFilter = com.orchestrator.context.discovery.PathFilter.fromSources(
-            root = projectRoot,
-            configPatterns = config.watcher.ignorePatterns
+            root = paths.firstOrNull() ?: projectRoot,
+            configPatterns = config.watcher.ignorePatterns,
+            includeGitignore = config.watcher.useGitignore,
+            includeContextignore = config.watcher.useContextignore,
+            includeDockerignore = true
         )
 
         // Create extension filter
         val extensionFilter = com.orchestrator.context.discovery.ExtensionFilter.fromConfig(
             allowlist = config.indexing.allowedExtensions,
-            blocklist = emptyList()
+            blocklist = config.indexing.blockedExtensions
         )
 
         // Create include paths filter
