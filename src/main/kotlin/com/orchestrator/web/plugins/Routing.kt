@@ -2,6 +2,7 @@ package com.orchestrator.web.plugins
 
 import com.orchestrator.config.ConfigLoader
 import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.WebServerConfig
 import com.orchestrator.web.routes.fileRoutes
 import com.orchestrator.web.routes.healthRoutes
@@ -28,7 +29,7 @@ internal fun Application.configureRouting(config: WebServerConfig) {
             orchestrator = ConfigLoader.loadHocon(),
             web = config,
             agents = emptyList(),
-            context = ContextConfig()
+            context = runCatching { ContextModule.configuration() }.getOrElse { ContextConfig() }
         )
 
     routing {

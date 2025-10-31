@@ -2,6 +2,7 @@ package com.orchestrator.web.pages
 
 import com.orchestrator.web.components.StatusBadge
 import com.orchestrator.web.dto.FileStateDTO
+import com.orchestrator.web.dto.FilesystemStatusDTO
 import com.orchestrator.web.dto.IndexStatusDTO
 import com.orchestrator.web.rendering.PageLayout
 import kotlinx.html.DIV
@@ -35,12 +36,14 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.pow
 
 object IndexStatusPage {
 
     enum class ProviderHealth { HEALTHY, UNAVAILABLE, DISABLED }
+    enum class StatTone { NEUTRAL, WARNING, DANGER }
 
     data class ProviderStatus(
         val id: String,
@@ -90,6 +93,9 @@ object IndexStatusPage {
                             #index-status-container .stat-card { padding: 0.25rem 0.5rem !important; }
                             #index-status-container .stat-card__value { font-size: 1.25rem !important; margin-bottom: 0.125rem !important; }
                             #index-status-container .stat-card__label { font-size: 0.65rem !important; margin: 0 !important; }
+                            #index-status-container .stat-card__subtext { font-size: 0.65rem !important; display: block !important; opacity: 0.8; margin-top: 0.125rem !important; }
+                            #index-status-container .stat-card__value--warning { color: #b45309 !important; }
+                            #index-status-container .stat-card__value--danger { color: #b91c1c !important; }
                             #index-status-container .grid { gap: 0.5rem !important; }
                             #index-status-container h2 { margin: 0 0 0.25rem 0 !important; font-size: 1.25rem !important; }
                             #index-status-container h3 { margin: 0.25rem 0 !important; font-size: 1rem !important; }
@@ -158,20 +164,36 @@ object IndexStatusPage {
                                             console.log('[SSE] Connection opened');
                                         });
 
-                                        sseConnection.addEventListener('indexProgress', function(event) {
-                                            console.log('[SSE] indexProgress event received');
-                                            handleIndexProgressEvent(event.data);
+                                        function registerHandlers(source) {
+                                            source.addEventListener('indexProgress', function(event) {
+                                                console.log('[SSE] indexProgress event received');
+                                                handleIndexProgressEvent(event.data);
+                                            });
+
+                                            source.addEventListener('indexSummary', function(event) {
+                                                console.log('[SSE] indexSummary event received');
+                                                handleIndexSummaryEvent(event.data);
+                                            });
+
+                                            source.addEventListener('error', function(err) {
+                                                if (!source || source.readyState === EventSource.CLOSED) {
+                                                    console.warn('[SSE] EventSource closed, will attempt reconnect');
+                                                } else {
+                                                    console.error('[SSE] SSE error', err);
+                                                }
+                                                if (sseConnection) {
+                                                    sseConnection.close();
+                                                }
+                                                sseConnection = null;
+                                                setTimeout(function() { ensureSSE(true); }, 1000);
+                                            });
+                                        }
+
+                                        sseConnection.addEventListener('open', function() {
+                                            console.log('[SSE] Connection opened (index stream)');
                                         });
 
-                                        sseConnection.addEventListener('indexSummary', function(event) {
-                                            console.log('[SSE] indexSummary event received');
-                                            handleIndexSummaryEvent(event.data);
-                                        });
-
-                                        sseConnection.onerror = function(error) {
-                                            console.error('[SSE] Connection error, readyState:', sseConnection ? sseConnection.readyState : 'null');
-                                            sseConnection = null;
-                                        };
+                                        registerHandlers(sseConnection);
 
                                         console.log('[ensureSSE] EventSource created successfully');
                                     } catch (err) {
@@ -343,8 +365,10 @@ object IndexStatusPage {
 
         summaryCard(
             testId = "stat-total-files",
-            label = "Total Files",
-            value = formatNumber(status.totalFiles)
+            label = "Catalog (Indexed)",
+            value = formatNumber(status.totalFiles),
+            subtitle = buildCatalogSubtitle(status),
+            tone = computeCatalogTone(status)
         )
         summaryCard(
             testId = "stat-indexed-files",
@@ -361,6 +385,10 @@ object IndexStatusPage {
             label = "Failed",
             value = formatNumber(status.failedFiles)
         )
+
+        status.filesystem?.let { filesystem ->
+            filesystemDetailCard(filesystem)
+        }
     }
 
     private fun FlowContent.pageHeader(config: Config) {
@@ -432,8 +460,10 @@ object IndexStatusPage {
 
             summaryCard(
                 testId = "stat-total-files",
-                label = "Total Files",
-                value = formatNumber(config.status.totalFiles)
+                label = "Catalog (Indexed)",
+                value = formatNumber(config.status.totalFiles),
+                subtitle = buildCatalogSubtitle(config.status),
+                tone = computeCatalogTone(config.status)
             )
             summaryCard(
                 testId = "stat-indexed-files",
@@ -445,19 +475,40 @@ object IndexStatusPage {
                 label = "Pending",
                 value = formatNumber(config.status.pendingFiles)
             )
-            summaryCard(
-                testId = "stat-failed-files",
-                label = "Failed",
-                value = formatNumber(config.status.failedFiles)
-            )
+        summaryCard(
+            testId = "stat-failed-files",
+            label = "Failed",
+            value = formatNumber(config.status.failedFiles)
+        )
+
+        config.status.filesystem?.let { filesystem ->
+            filesystemDetailCard(filesystem)
         }
     }
+    }
 
-    private fun FlowContent.summaryCard(testId: String, label: String, value: String) {
+    private fun FlowContent.summaryCard(
+        testId: String,
+        label: String,
+        value: String,
+        subtitle: String? = null,
+        tone: StatTone = StatTone.NEUTRAL
+    ) {
         div(classes = "card stat-card") {
             attributes["data-testid"] = testId
-            div(classes = "stat-card__value") { +value }
+            val valueClasses = buildString {
+                append("stat-card__value")
+                when (tone) {
+                    StatTone.WARNING -> append(" stat-card__value--warning")
+                    StatTone.DANGER -> append(" stat-card__value--danger")
+                    else -> {}
+                }
+            }
+            div(classes = valueClasses) { +value }
             div(classes = "stat-card__label") { +label }
+            subtitle?.let {
+                span(classes = "stat-card__subtext text-muted") { +it }
+            }
         }
     }
 
@@ -646,6 +697,120 @@ object IndexStatusPage {
         return runCatching { displayFormatter.format(Instant.parse(value)) }.getOrElse { value }
     }
 
+    private fun computeCatalogTone(status: IndexStatusDTO): StatTone {
+        val filesystem = status.filesystem ?: return StatTone.NEUTRAL
+        val stableCatalog = status.indexedFiles
+        val delta = filesystem.totalFiles - stableCatalog
+        return when {
+            delta == 0 -> StatTone.NEUTRAL
+            delta > 0 -> StatTone.WARNING
+            else -> StatTone.DANGER
+        }
+    }
+
+    private fun buildCatalogSubtitle(status: IndexStatusDTO): String {
+        val parts = mutableListOf<String>()
+        parts += "DB rows ${formatNumber(status.totalFiles)}"
+        if (status.pendingFiles > 0) {
+            parts += "pending ${formatNumber(status.pendingFiles)}"
+        }
+
+        status.filesystem?.let { filesystem ->
+            val stableCatalog = status.indexedFiles
+            val delta = filesystem.totalFiles - stableCatalog
+            val deltaText = when {
+                delta == 0 -> "Δ 0"
+                else -> "Δ ${formatSigned(delta)}"
+            }
+            parts += "filesystem ${formatNumber(filesystem.totalFiles)} ($deltaText)"
+        }
+
+        return parts.joinToString(" · ")
+    }
+
+    private fun FlowContent.filesystemDetailCard(filesystem: FilesystemStatusDTO) {
+        if (filesystem.roots.isEmpty()) return
+
+        div(classes = "card stat-card mt-sm") {
+            attributes["data-testid"] = "filesystem-roots-card"
+            attributes["style"] = "grid-column: 1 / -1;"
+
+            div(classes = "stat-card__label text-muted mb-1") {
+                +"Watch Roots"
+            }
+
+            ul(classes = "list-unstyled mb-0") {
+                filesystem.roots.forEach { root ->
+                    li {
+                        attributes["data-testid"] = "filesystem-root-${root.path}"
+                        span(classes = "font-semibold") {
+                            +formatNumber(root.totalFiles)
+                        }
+                        +" · "
+                        span(classes = "font-monospace text-muted") {
+                            +root.path
+                        }
+                    }
+                }
+            }
+
+            if (filesystem.missingTotal > 0) {
+                div(classes = "mt-sm") {
+                    span(classes = "stat-card__label text-muted") {
+                        +"Present on disk, missing from catalog (${filesystem.missingTotal})"
+                    }
+                    ul(classes = "list-unstyled mb-0 mt-xs") {
+                        filesystem.missingFromCatalog.forEach { path ->
+                            li {
+                                attributes["data-testid"] = "filesystem-missing-${path.hashCode()}"
+                                +"• "
+                                span(classes = "font-monospace") { +path }
+                            }
+                        }
+                        if (filesystem.missingFromCatalog.size < filesystem.missingTotal) {
+                            li(classes = "text-muted") {
+                                +"• …and ${filesystem.missingTotal - filesystem.missingFromCatalog.size} more"
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (filesystem.orphanedTotal > 0) {
+                div(classes = "mt-sm") {
+                    span(classes = "stat-card__label text-muted") {
+                        +"In catalog, missing on disk (${filesystem.orphanedTotal})"
+                    }
+                    ul(classes = "list-unstyled mb-0 mt-xs") {
+                        filesystem.orphanedInCatalog.forEach { path ->
+                            li {
+                                attributes["data-testid"] = "filesystem-orphaned-${path.hashCode()}"
+                                +"• "
+                                span(classes = "font-monospace") { +path }
+                            }
+                        }
+                        if (filesystem.orphanedInCatalog.size < filesystem.orphanedTotal) {
+                            li(classes = "text-muted") {
+                                +"• …and ${filesystem.orphanedTotal - filesystem.orphanedInCatalog.size} more"
+                            }
+                        }
+                    }
+                }
+            }
+
+            filesystem.scannedAt?.let { timestamp ->
+                span(classes = "stat-card__subtext text-muted mt-1") {
+                    +"Scanned ${formatTimestamp(timestamp)}"
+                }
+            }
+        }
+    }
+
+    private fun formatSigned(number: Int): String {
+        val formatted = formatNumber(abs(number))
+        return if (number >= 0) "+$formatted" else "-$formatted"
+    }
+
     private fun formatNumber(number: Int): String = "%,d".format(Locale.US, number)
 
     private fun formatSize(sizeBytes: Long): String {
@@ -660,6 +825,19 @@ object IndexStatusPage {
         attributes["id"] = "index-status-container"
         pageHeader(config)
         summarySection(config)
+
+        config.status.filesystem
+            ?.takeIf { it.totalFiles != config.status.totalFiles }
+            ?.let { filesystem ->
+                val delta = filesystem.totalFiles - config.status.totalFiles
+                div(classes = "alert alert-warning mt-sm") {
+                    attributes["role"] = "alert"
+                    attributes["data-testid"] = "filesystem-mismatch-alert"
+                    +"Filesystem scan found ${formatNumber(filesystem.totalFiles)} files, "
+                    +"while the index catalog reports ${formatNumber(config.status.totalFiles)}. "
+                    +"Δ ${formatSigned(delta)} files need reconciliation."
+                }
+            }
 
         // Two-column layout for Index Operations and Admin Actions
         div(classes = "grid grid-cols-2 gap-lg mt-xl") {

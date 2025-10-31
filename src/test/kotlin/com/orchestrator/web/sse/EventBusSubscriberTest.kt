@@ -20,6 +20,7 @@ import com.orchestrator.modules.metrics.PerformanceDashboard
 import com.orchestrator.modules.metrics.StrategyMetrics
 import com.orchestrator.modules.metrics.TokenReport
 import com.orchestrator.web.routes.SSEStreamKind
+import com.orchestrator.web.services.FilesystemIndexSnapshot
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -198,13 +199,35 @@ class EventBusSubscriberTest {
                 )
             )
 
-            eventBus.publish(IndexStatusUpdatedEvent(summarySnapshot))
+            val filesystemSnapshot = FilesystemIndexSnapshot(
+                totalFiles = 42,
+                roots = listOf(
+                    FilesystemIndexSnapshot.RootSummary(
+                        path = "/workspace/project",
+                        totalFiles = 42
+                    )
+                ),
+                watchRoots = listOf("/workspace/project"),
+                scannedAt = baseInstant,
+                missingFromCatalog = emptyList(),
+                orphanedInCatalog = emptyList(),
+                missingTotal = 0,
+                orphanedTotal = 0
+            )
+
+            eventBus.publish(IndexStatusUpdatedEvent(summarySnapshot, filesystemSnapshot))
             runCurrent()
 
             val summaryPayload = withTimeout(1_000) { indexEvents.receive() }
             assertTrue(summaryPayload.data.contains("\"event\":\"indexSummary\""))
             assertNotNull(summaryPayload.htmlFragment)
             assertTrue(summaryPayload.htmlFragment!!.contains("index-summary"))
+            assertTrue(summaryPayload.data.contains("\"filesystemTotal\":42"))
+            assertTrue(
+                summaryPayload.htmlFragment!!.lowercase().contains("filesystem"),
+                "Missing filesystem info in summary fragment: ${summaryPayload.htmlFragment}"
+            )
+            assertTrue(summaryPayload.htmlFragment!!.contains("/workspace/project"))
 
             val aggregateSummary = withTimeout(1_000) { allEvents.receive() }
             assertEquals(summaryPayload.data, aggregateSummary.data)

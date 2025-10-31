@@ -16,6 +16,7 @@ import com.orchestrator.context.indexing.FileIndexer
 import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
+import com.orchestrator.context.bootstrap.BootstrapProgressTracker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -61,7 +62,8 @@ class Main {
                 WatcherRegistry.register(watcher)
 
                 val indexStatus = ContextModule.getIndexStatus()
-                val hasExistingIndex = indexStatus.totalFiles > 0
+                val pendingBootstrap = getBootstrapPendingCount()
+                val hasExistingIndex = indexStatus.indexedFiles > 0 && pendingBootstrap == 0
                 watcher.start(skipStartupScan = hasExistingIndex)
                 log.info("File watcher started, monitoring ${config.context.watcher.watchPaths}")
             } else {
@@ -366,6 +368,20 @@ class Main {
         }
 
         log.info("Orchestrator shutdown complete")
+    }
+
+    private fun getBootstrapPendingCount(): Int {
+        return runCatching {
+            ContextDatabase.withConnection { conn ->
+                conn.prepareStatement(
+                    "SELECT COUNT(*) FROM ${BootstrapProgressTracker.TABLE_NAME} WHERE status IN ('PENDING', 'PROCESSING')"
+                ).use { ps ->
+                    ps.executeQuery().use { rs ->
+                        if (rs.next()) rs.getInt(1) else 0
+                    }
+                }
+            }
+        }.getOrDefault(0)
     }
 
     private fun resolveWatchRoots(projectRoot: Path, watchPaths: List<String>): List<Path> {

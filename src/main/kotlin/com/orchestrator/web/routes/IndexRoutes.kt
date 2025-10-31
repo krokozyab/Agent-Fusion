@@ -58,7 +58,9 @@ fun Route.indexRoutes(
 }
 
 private fun Route.buildIndexStatusConfig(clock: Clock): IndexStatusPage.Config {
-    val snapshotDto = ContextModule.getIndexStatus().toDTO()
+    val operations = IndexOperationsService.forApplication(application)
+    val filesystemSnapshot = operations.filesystemSnapshot()
+    val snapshotDto = ContextModule.getIndexStatus().toDTO(filesystemSnapshot)
     val providerStatuses = buildProviderStatuses()
     val actions = defaultAdminActions()
 

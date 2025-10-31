@@ -189,7 +189,15 @@ class PathValidatorTest {
         val pathFilter = PathFilter.fromSources(root, ignorePatterns)
         val extensionFilter = ExtensionFilter.fromConfig(allowedExtensions, emptyList())
         val symlinkHandler = SymlinkHandler(listOf(root), indexingConfig)
-        return PathValidator(listOf(root), pathFilter, extensionFilter, symlinkHandler, indexingConfig)
+        val includePathsFilter = IncludePathsFilter.disabled()
+        return PathValidator(
+            listOf(root),
+            pathFilter,
+            extensionFilter,
+            includePathsFilter,
+            symlinkHandler,
+            indexingConfig
+        )
     }
 
     private fun canCreateSymlink(tempDir: Path): Boolean {

@@ -141,7 +141,15 @@ class DirectoryScannerTest {
         val pathFilter = PathFilter.fromSources(filterRoot, ignorePatterns)
         val extensionFilter = ExtensionFilter.fromConfig(allowedExtensions, emptyList())
         val symlinkHandler = SymlinkHandler(watchRoots, indexingConfig)
-        return PathValidator(watchRoots, pathFilter, extensionFilter, symlinkHandler, indexingConfig)
+        val includePathsFilter = IncludePathsFilter.disabled()
+        return PathValidator(
+            watchRoots,
+            pathFilter,
+            extensionFilter,
+            includePathsFilter,
+            symlinkHandler,
+            indexingConfig
+        )
     }
 
     private fun canCreateSymlink(tempDir: Path): Boolean {

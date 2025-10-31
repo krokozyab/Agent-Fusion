@@ -9,8 +9,9 @@ import com.orchestrator.domain.TaskStatus
 import com.orchestrator.modules.metrics.Alert
 import com.orchestrator.modules.metrics.AlertEvent
 import com.orchestrator.modules.metrics.MetricsSnapshot
-import com.orchestrator.utils.Logger
 import com.orchestrator.modules.context.ContextModule
+import com.orchestrator.utils.Logger
+import com.orchestrator.web.services.FilesystemIndexSnapshot
 import com.orchestrator.web.routes.SSEStreamKind
 import com.orchestrator.web.routes.ensureSseManager
 import com.orchestrator.web.dto.toDTO
@@ -60,6 +61,7 @@ internal data class IndexProgressEvent(
 
 internal data class IndexStatusUpdatedEvent(
     val snapshot: ContextModule.IndexStatusSnapshot,
+    val filesystem: FilesystemIndexSnapshot,
     override val timestamp: Instant = Instant.now()
 ) : Event
 
@@ -215,7 +217,7 @@ internal class EventBusSubscriber(
     }
 
     private suspend fun handleIndexStatusUpdate(event: IndexStatusUpdatedEvent) {
-        val dto = event.snapshot.toDTO()
+        val dto = event.snapshot.toDTO(event.filesystem)
         val fragment = runCatching { fragmentGenerator.indexSummary(dto) }
             .onFailure { throwable ->
                 logger.warn(
@@ -231,7 +233,8 @@ internal class EventBusSubscriber(
                 "totalFiles" to dto.totalFiles,
                 "indexedFiles" to dto.indexedFiles,
                 "pendingFiles" to dto.pendingFiles,
-                "failedFiles" to dto.failedFiles
+                "failedFiles" to dto.failedFiles,
+                "filesystemTotal" to (dto.filesystem?.totalFiles ?: 0)
             )
         )
 
