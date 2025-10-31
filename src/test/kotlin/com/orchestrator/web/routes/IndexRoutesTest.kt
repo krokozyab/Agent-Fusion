@@ -11,6 +11,7 @@ import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.WebServerConfig
 import com.orchestrator.web.plugins.ApplicationConfigKey
 import com.orchestrator.web.plugins.configureRouting
+import com.orchestrator.web.services.FilesystemIndexSnapshot
 import com.orchestrator.web.services.IndexOperationsService
 import com.orchestrator.web.services.OperationTriggerResult
 import io.ktor.client.request.get
@@ -238,5 +239,19 @@ private class StubIndexOperationsService : IndexOperationsService {
     override fun triggerRebuild(confirm: Boolean): OperationTriggerResult {
         rebuildCalls.incrementAndGet()
         return OperationTriggerResult(accepted = true, message = "stub rebuild")
+    }
+
+    override fun filesystemSnapshot(): FilesystemIndexSnapshot {
+        val snapshot = ContextModule.getIndexStatus()
+        return FilesystemIndexSnapshot(
+            totalFiles = snapshot.totalFiles,
+            roots = emptyList(),
+            watchRoots = emptyList(),
+            scannedAt = Instant.now(),
+            missingFromCatalog = emptyList(),
+            orphanedInCatalog = emptyList(),
+            missingTotal = 0,
+            orphanedTotal = 0
+        )
     }
 }

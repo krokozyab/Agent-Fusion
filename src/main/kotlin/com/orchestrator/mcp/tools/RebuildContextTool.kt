@@ -261,6 +261,49 @@ class RebuildContextTool(
         }
     }
 
+    private fun determineProjectRoot(paths: List<Path>): Path {
+        if (paths.isEmpty()) {
+            return Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize()
+        }
+
+        var common = paths.first().toAbsolutePath().normalize()
+        for (path in paths.drop(1)) {
+            common = commonAncestor(common, path.toAbsolutePath().normalize())
+        }
+        return common
+    }
+
+    private fun commonAncestor(first: Path, second: Path): Path {
+        val a = first.toAbsolutePath().normalize()
+        val b = second.toAbsolutePath().normalize()
+
+        if (a == b) return a
+
+        val aSegments = a.pathSegments()
+        val bSegments = b.pathSegments()
+        val limit = minOf(aSegments.size, bSegments.size)
+        var commonCount = 0
+        while (commonCount < limit && aSegments[commonCount] == bSegments[commonCount]) {
+            commonCount++
+        }
+
+        val root = a.root ?: b.root
+        var result = root ?: Paths.get("/")
+        for (i in 0 until commonCount) {
+            result = result.resolve(aSegments[i])
+        }
+        return result.normalize()
+    }
+
+    private fun Path.pathSegments(): List<String> {
+        val normalized = this.toAbsolutePath().normalize()
+        val segments = mutableListOf<String>()
+        for (component in normalized) {
+            segments += component.toString()
+        }
+        return segments
+    }
+
     private fun executeSync(
         paths: List<Path>,
         params: Params,
@@ -651,8 +694,8 @@ class RebuildContextTool(
         parallelism: Int?,
         onProgress: ((BootstrapProgress) -> Unit)?
     ): com.orchestrator.context.bootstrap.BootstrapResult {
-        // Determine project root from paths
-        val projectRoot = paths.first()
+        // Determine common project root from all paths
+        val projectRoot = determineProjectRoot(paths)
 
         // Create embedder
         val embedder = com.orchestrator.context.embedding.LocalEmbedder(
@@ -665,6 +708,7 @@ class RebuildContextTool(
         val fileIndexer = FileIndexer(
             embedder = embedder,
             projectRoot = projectRoot,
+            watchRoots = paths,
             embeddingBatchSize = config.embedding.batchSize,
             maxFileSizeMb = config.indexing.maxFileSizeMb,
             warnFileSizeMb = config.indexing.warnFileSizeMb
@@ -741,7 +785,16 @@ class RebuildContextTool(
         progressTracker.reset()
 
         // Run bootstrap
-        return orchestrator.bootstrap(onProgress)
+        val result = orchestrator.bootstrap(onProgress = onProgress, forceScan = false)
+
+        runCatching {
+            progressTracker.reset()
+            log.info("Bootstrap progress table cleared after rebuild run")
+        }.onFailure { throwable ->
+            log.warn("Failed to clear bootstrap progress after rebuild: ${throwable.message}")
+        }
+
+        return result
     }
 
     private fun optimizeDatabase() {

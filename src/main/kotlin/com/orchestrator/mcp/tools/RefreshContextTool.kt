@@ -1,6 +1,12 @@
 package com.orchestrator.mcp.tools
 
 import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.discovery.DirectoryScanner
+import com.orchestrator.context.discovery.ExtensionFilter
+import com.orchestrator.context.discovery.IncludePathsFilter
+import com.orchestrator.context.discovery.PathFilter
+import com.orchestrator.context.discovery.PathValidator
+import com.orchestrator.context.discovery.SymlinkHandler
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.IncrementalIndexer
@@ -33,12 +39,8 @@ class RefreshContextTool(
     // Lazy initialization of indexer if not provided
     private val indexer: IncrementalIndexer by lazy {
         incrementalIndexer ?: run {
-            // Determine project root from watch paths
-            val projectRoot = if (config.watcher.watchPaths.isNotEmpty() && config.watcher.watchPaths.first() != "auto") {
-                Paths.get(config.watcher.watchPaths.first())
-            } else {
-                Paths.get(System.getProperty("user.dir"))
-            }
+            // Determine project root from watch paths (common ancestor when multiple)
+            val projectRoot = determineProjectRoot(config.watcher.watchPaths)
 
             // Resolve watch roots from configuration to pass to ChangeDetector
             val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.watcher.watchPaths)
@@ -78,6 +80,47 @@ class RefreshContextTool(
                 batchIndexer = batchIndexer
             )
         }
+    }
+
+    private fun createPathValidator(): PathValidator {
+        val projectRoot = determineProjectRoot(config.watcher.watchPaths)
+        val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.watcher.watchPaths)
+
+        val pathFilter = PathFilter.fromSources(
+            projectRoot.toAbsolutePath().normalize(),
+            configPatterns = config.watcher.ignorePatterns,
+            includeGitignore = config.watcher.useGitignore,
+            includeContextignore = config.watcher.useContextignore,
+            includeDockerignore = true
+        )
+        val extensionFilter = ExtensionFilter.fromConfig(
+            allowlist = config.indexing.allowedExtensions,
+            blocklist = config.indexing.blockedExtensions
+        )
+        val includePathsFilter = IncludePathsFilter.fromConfig(
+            includePaths = config.watcher.includePaths,
+            baseDir = projectRoot
+        )
+        val symlinkHandler = SymlinkHandler(
+            allowedRoots = resolvedWatchRoots.ifEmpty { listOf(projectRoot) },
+            defaultConfig = config.indexing
+        )
+
+        return PathValidator(
+            watchPaths = resolvedWatchRoots.ifEmpty { listOf(projectRoot) },
+            pathFilter = pathFilter,
+            extensionFilter = extensionFilter,
+            includePathsFilter = includePathsFilter,
+            symlinkHandler = symlinkHandler,
+            indexingConfig = config.indexing
+        )
+    }
+
+    private fun discoverFiles(roots: List<Path>): List<Path> {
+        if (roots.isEmpty()) return emptyList()
+        val validator = createPathValidator()
+        val scanner = DirectoryScanner(validator, parallel = roots.size > 1)
+        return scanner.scan(roots)
     }
 
     data class Params(
@@ -206,9 +249,31 @@ class RefreshContextTool(
         onProgress: ((com.orchestrator.context.indexing.BatchProgress) -> Unit)?
     ): Result {
         return try {
+            log.info("Discovering files from {} root path(s)...", paths.size)
+            val discoveredFiles = discoverFiles(paths)
+            log.info("Discovered {} file(s) to index", discoveredFiles.size)
+
+            if (discoveredFiles.isEmpty()) {
+                return Result(
+                    mode = "sync",
+                    status = "completed",
+                    jobId = null,
+                    newFiles = 0,
+                    modifiedFiles = 0,
+                    deletedFiles = 0,
+                    unchangedFiles = 0,
+                    indexingFailures = 0,
+                    deletionFailures = 0,
+                    durationMs = 0,
+                    startedAt = startedAt,
+                    completedAt = Instant.now(),
+                    message = "No files to refresh"
+                )
+            }
+
             val updateResult = runBlocking {
                 indexer.updateAsync(
-                    paths = paths,
+                    paths = discoveredFiles,
                     parallelism = params.parallelism,
                     onProgress = onProgress
                 )
@@ -277,10 +342,32 @@ class RefreshContextTool(
         @OptIn(DelicateCoroutinesApi::class)
         GlobalScope.launch {
             try {
-                val updateResult = indexer.updateAsync(
-                    paths = paths,
-                    parallelism = params.parallelism
-                )
+                log.info("Discovering files from {} root path(s) (job={})...", paths.size, jobId)
+                val discoveredFiles = discoverFiles(paths)
+                log.info("Discovered {} file(s) to index (job={})", discoveredFiles.size, jobId)
+
+                val updateResult = if (discoveredFiles.isEmpty()) {
+                    val now = Instant.now()
+                    com.orchestrator.context.indexing.UpdateResult(
+                        changeSet = com.orchestrator.context.indexing.ChangeSet(
+                            newFiles = emptyList(),
+                            modifiedFiles = emptyList(),
+                            deletedFiles = emptyList(),
+                            unchangedFiles = emptyList(),
+                            scannedAt = now
+                        ),
+                        batchResult = null,
+                        deletions = emptyList(),
+                        startedAt = now,
+                        completedAt = now,
+                        durationMillis = 0
+                    )
+                } else {
+                    indexer.updateAsync(
+                        paths = discoveredFiles,
+                        parallelism = params.parallelism
+                    )
+                }
 
                 job.result = updateResult
                 job.status = JobStatus.COMPLETED
@@ -418,6 +505,60 @@ class RefreshContextTool(
                 message = "Job failed: ${job.error}"
             )
         }
+    }
+
+    private fun determineProjectRoot(watchPaths: List<String>): Path {
+        val candidates = watchPaths.mapNotNull { raw ->
+            val trimmed = raw.trim()
+            if (trimmed.isEmpty() || trimmed.equals("auto", ignoreCase = true)) {
+                null
+            } else {
+                runCatching { Paths.get(trimmed).toAbsolutePath().normalize() }.getOrNull()
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return Paths.get(System.getProperty("user.dir")).toAbsolutePath().normalize()
+        }
+
+        var common = candidates.first()
+        for (path in candidates.drop(1)) {
+            common = commonAncestor(common, path)
+        }
+
+        return common
+    }
+
+    private fun commonAncestor(first: Path, second: Path): Path {
+        val a = first.toAbsolutePath().normalize()
+        val b = second.toAbsolutePath().normalize()
+
+        // If they are identical, return either
+        if (a == b) return a
+
+        val aSegments = a.pathSegments()
+        val bSegments = b.pathSegments()
+        val limit = minOf(aSegments.size, bSegments.size)
+        var commonCount = 0
+        while (commonCount < limit && aSegments[commonCount] == bSegments[commonCount]) {
+            commonCount++
+        }
+
+        val root = a.root ?: b.root
+        var result = root ?: Paths.get("/")
+        for (i in 0 until commonCount) {
+            result = result.resolve(aSegments[i])
+        }
+        return result.normalize()
+    }
+
+    private fun Path.pathSegments(): List<String> {
+        val normalized = this.toAbsolutePath().normalize()
+        val segments = mutableListOf<String>()
+        for (component in normalized) {
+            segments += component.toString()
+        }
+        return segments
     }
 
     private fun resolveWatchRoots(projectRoot: Path, watchPaths: List<String>): List<Path> {

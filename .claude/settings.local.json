@@ -22,7 +22,8 @@
       "Bash(java -jar build/libs/orchestrator-1.0-SNAPSHOT-all.jar:*)",
       "Bash(java -jar build/libs/orchestrator-0.1.0-all.jar:*)",
       "Bash(./gradlew shadowJar:*)",
-      "Read(//private/tmp/**)"
+      "Read(//private/tmp/**)",
+      "Bash(duckdb:*)"
     ],
     "deny": [],
     "ask": []

@@ -21,19 +21,29 @@ class BootstrapOrchestrator(
 
     private val log = Logger.logger("com.orchestrator.context.bootstrap.BootstrapOrchestrator")
 
-    suspend fun bootstrap(onProgress: ((BootstrapProgress) -> Unit)? = null): BootstrapResult {
+    suspend fun bootstrap(
+        onProgress: ((BootstrapProgress) -> Unit)? = null,
+        forceScan: Boolean = true
+    ): BootstrapResult {
         val startTime = Instant.now()
 
         val remainingFiles = progressTracker.getRemaining()
-        val filesToProcess = if (remainingFiles.isNotEmpty()) {
-            log.info("Resuming bootstrap with ${remainingFiles.size} files remaining.")
-            remainingFiles
-        } else {
-            log.info("Starting new bootstrap scan.")
-            val scannedFiles = scanner.scan(roots)
-            val prioritizedFiles = prioritizer.prioritize(scannedFiles, config)
-            progressTracker.initProgress(prioritizedFiles)
-            prioritizedFiles
+        val filesToProcess = when {
+            remainingFiles.isNotEmpty() -> {
+                log.info("Resuming bootstrap with ${remainingFiles.size} files remaining.")
+                remainingFiles
+            }
+            forceScan -> {
+                log.info("Starting new bootstrap scan.")
+                val scannedFiles = scanner.scan(roots)
+                val prioritizedFiles = prioritizer.prioritize(scannedFiles, config)
+                progressTracker.initProgress(prioritizedFiles)
+                prioritizedFiles
+            }
+            else -> {
+                log.info("Bootstrap progress table intentionally cleared; no files queued.")
+                emptyList()
+            }
         }
 
         if (filesToProcess.isEmpty()) {

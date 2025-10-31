@@ -50,11 +50,13 @@ class PdfIndexingIntegrationTest {
         )
 
         val symlinkHandler = SymlinkHandler(listOf(projectRoot), contextConfig.indexing)
+        val includePathsFilter = IncludePathsFilter.disabled()
 
         val validator = PathValidator(
             watchPaths = listOf(projectRoot),
             pathFilter = pathFilter,
             extensionFilter = extensionFilter,
+            includePathsFilter = includePathsFilter,
             symlinkHandler = symlinkHandler,
             indexingConfig = contextConfig.indexing
         )

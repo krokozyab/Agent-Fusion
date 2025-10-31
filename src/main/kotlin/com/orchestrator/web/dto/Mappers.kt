@@ -4,6 +4,7 @@ import com.orchestrator.domain.Decision
 import com.orchestrator.domain.Proposal
 import com.orchestrator.domain.Task
 import com.orchestrator.modules.context.ContextModule
+import com.orchestrator.web.services.FilesystemIndexSnapshot
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -122,14 +123,17 @@ private fun Decision.toDTO(): TaskDetailDTO.DecisionDTO = TaskDetailDTO.Decision
     tokenSavingsPercent = tokenSavingsPercent
 )
 
-fun ContextModule.IndexStatusSnapshot.toDTO(): IndexStatusDTO = IndexStatusDTO(
+fun ContextModule.IndexStatusSnapshot.toDTO(
+    filesystem: FilesystemIndexSnapshot? = null
+): IndexStatusDTO = IndexStatusDTO(
     totalFiles = totalFiles,
     indexedFiles = indexedFiles,
     pendingFiles = pendingFiles,
     failedFiles = failedFiles,
     lastRefresh = lastRefresh?.let(isoFormatter::format),
     health = health.name.lowercase(Locale.US),
-    files = files.map { it.toDTO() }
+    files = files.map { it.toDTO() },
+    filesystem = filesystem?.toDTO()
 )
 
 private fun ContextModule.FileIndexEntry.toDTO(): FileStateDTO = FileStateDTO(
@@ -138,6 +142,22 @@ private fun ContextModule.FileIndexEntry.toDTO(): FileStateDTO = FileStateDTO(
     sizeBytes = sizeBytes,
     lastModified = lastModified?.let(isoFormatter::format),
     chunkCount = chunkCount
+)
+
+private fun FilesystemIndexSnapshot.toDTO(): FilesystemStatusDTO = FilesystemStatusDTO(
+    totalFiles = totalFiles,
+    roots = roots.map { it.toDTO() },
+    watchRoots = watchRoots,
+    scannedAt = scannedAt.let(isoFormatter::format),
+    missingFromCatalog = missingFromCatalog,
+    orphanedInCatalog = orphanedInCatalog,
+    missingTotal = missingTotal,
+    orphanedTotal = orphanedTotal
+)
+
+private fun FilesystemIndexSnapshot.RootSummary.toDTO(): FilesystemRootDTO = FilesystemRootDTO(
+    path = path,
+    totalFiles = totalFiles
 )
 
 private fun Duration.humanize(): String {
