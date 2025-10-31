@@ -788,8 +788,9 @@ class RebuildContextTool(
         // Reset progress tracker to ensure clean state for this rebuild
         progressTracker.reset()
 
-        // Run bootstrap
-        val result = orchestrator.bootstrap(onProgress = onProgress, forceScan = false)
+        // Run bootstrap with forceScan=true since we cleared the progress table
+        // This ensures bootstrap will scan for files instead of checking remaining items
+        val result = orchestrator.bootstrap(onProgress = onProgress, forceScan = true)
 
         runCatching {
             progressTracker.reset()
