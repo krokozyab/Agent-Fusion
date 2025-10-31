@@ -231,6 +231,14 @@ object IndexStatusPage {
                                         container.outerHTML = data;
                                         console.log('[SSE] Summary container updated successfully');
 
+                                        // Reset progress region back to idle state since operation completed
+                                        var progressRegion = document.getElementById('index-progress-region');
+                                        if (progressRegion) {
+                                            progressRegion.className = 'index-progress index-progress--idle';
+                                            progressRegion.innerHTML = '<span class="text-muted">No active operations.</span>';
+                                            console.log('[UI] Progress region reset to idle state');
+                                        }
+
                                         // Summary update indicates operation completion - enable buttons as backup trigger
                                         console.log('[Button Control] Summary updated, enabling buttons');
                                         enableAllIndexButtons();
