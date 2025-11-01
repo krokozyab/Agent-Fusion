@@ -167,6 +167,23 @@ class ProjectConfigValidator {
             errors.add("Max file size too large (>1GB): ${config.indexing.maxFileSizeMb}")
         }
 
+        // Validation 4b: Detect ambiguous max_file_size_mb configuration
+        // Both [context.watcher] and [context.indexing] have identically-named 'max_file_size_mb' fields
+        // This is a configuration design error - the names should be distinct
+        if (config.watcher.maxFileSizeMb != config.indexing.maxFileSizeMb) {
+            val ratio = config.indexing.maxFileSizeMb.toDouble() / config.watcher.maxFileSizeMb
+            if (ratio > 2 || ratio < 0.5) {
+                errors.add(
+                    "CONFIGURATION ERROR: Ambiguous 'max_file_size_mb' setting detected!\n" +
+                    "  - [context.watcher] max_file_size_mb = ${config.watcher.maxFileSizeMb} MB (runtime watching)\n" +
+                    "  - [context.indexing] max_file_size_mb = ${config.indexing.maxFileSizeMb} MB (initial indexing)\n" +
+                    "  These identically-named settings are confusing and error-prone. Recommend renaming to:\n" +
+                    "  - [context.watcher] watch_max_file_size_mb = ${config.watcher.maxFileSizeMb}\n" +
+                    "  - [context.indexing] index_max_file_size_mb = ${config.indexing.maxFileSizeMb}"
+                )
+            }
+        }
+
         // Validation 5: Security boundaries - ensure watch_paths don't escape project root
         if (config.watcher.watchPaths.isNotEmpty()) {
             config.watcher.watchPaths.forEach { pathString ->
