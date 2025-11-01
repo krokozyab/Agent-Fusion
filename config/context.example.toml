@@ -90,11 +90,6 @@ ignore_patterns = [
     "config"  # Deprecated config directory (use fusionagent.toml instead)
 ]
 
-# Maximum file size (MB) to watch
-# Files larger than this won't trigger re-indexing via watcher
-# Default: 5
-max_file_size_mb = 5
-
 # Use .gitignore patterns for watching
 # Default: true
 use_gitignore = true
@@ -154,9 +149,9 @@ blocked_extensions = [
     ".bin"
 ]
 
-# Maximum file size (MB) to index
-# Files larger than this will be skipped
-# Default: 5
+# Maximum file size (MB) for indexing files
+# Files larger than this size are skipped during indexing
+# Default: 200
 max_file_size_mb = 200
 
 # File size (MB) threshold for warnings
