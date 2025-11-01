@@ -12,13 +12,21 @@ import com.typesafe.config.ConfigFactory
  */
 data class WebServerConfig(
     val host: String = "0.0.0.0",
-    val port: Int = 8081,
+    val port: Int = 9090,
     val staticPath: String = "static",
     val corsEnabled: Boolean = true,
-    val corsAllowedOrigins: List<String> = listOf("http://localhost:8081", "http://127.0.0.1:8081"),
+    val corsAllowedOrigins: List<String>? = null,  // null means auto-generate based on port
     val ssl: SslConfig = SslConfig(),
     val autoLaunchBrowser: Boolean = true
 ) {
+
+    fun getEffectiveCorsOrigins(): List<String> {
+        return corsAllowedOrigins ?: listOf(
+            "http://localhost:$port",
+            "http://127.0.0.1:$port",
+            "http://0.0.0.0:$port"
+        )
+    }
 
     init {
         require(host.isNotBlank()) { "Web server host must not be blank" }
@@ -54,7 +62,7 @@ data class WebServerConfig(
             val corsEnabled = section.getOptionalBoolean("cors.enabled") ?: defaults.corsEnabled
             val corsAllowed = when {
                 section.hasPath("cors.allowedOrigins") -> section.getStringList("cors.allowedOrigins").map { it.expandEnv(env) }
-                else -> defaults.corsAllowedOrigins
+                else -> null  // null means auto-generate based on port
             }
 
             val sslSection = if (section.hasPath("ssl")) section.getConfig("ssl") else null
