@@ -53,15 +53,28 @@ class PathValidator(
             ?: ""
 
         if (!isUnderWatchPaths(absolute, normalizedWatchRoots)) {
-            return invalid(Reason.OUTSIDE_WATCH_PATH, "Path is outside configured watch roots: $absolute")
+            val result = invalid(Reason.OUTSIDE_WATCH_PATH, "Path is outside configured watch roots: $absolute")
+            // Log files with .css, .toml, .csv extensions for debugging
+            if (extension in setOf("css", "toml", "csv")) {
+                System.err.println("[PathValidator] REJECTED (outside watch path): $absolute")
+            }
+            return result
         }
 
         if (!isInIncludePaths(absolute)) {
-            return invalid(Reason.NOT_IN_INCLUDE_PATHS, "Path is not in configured include paths: $absolute")
+            val result = invalid(Reason.NOT_IN_INCLUDE_PATHS, "Path is not in configured include paths: $absolute")
+            if (extension in setOf("css", "toml", "csv")) {
+                System.err.println("[PathValidator] REJECTED (not in include paths): $absolute")
+            }
+            return result
         }
 
         if (isInIgnorePatterns(absolute)) {
-            return invalid(Reason.IGNORED_BY_PATTERN, "Path matches ignore patterns: $absolute")
+            val result = invalid(Reason.IGNORED_BY_PATTERN, "Path matches ignore patterns: $absolute")
+            if (extension in setOf("css", "toml", "csv")) {
+                System.err.println("[PathValidator] REJECTED (ignored pattern): $absolute")
+            }
+            return result
         }
 
         if (Files.isSymbolicLink(absolute)) {
@@ -74,16 +87,32 @@ class PathValidator(
         }
 
         if (!isAllowedExtension(absolute)) {
-            return invalid(Reason.EXTENSION_NOT_ALLOWED, "File extension is not allowed: $absolute")
+            val result = invalid(Reason.EXTENSION_NOT_ALLOWED, "File extension is not allowed: $absolute")
+            if (extension in setOf("css", "toml", "csv")) {
+                System.err.println("[PathValidator] REJECTED (extension not allowed): $absolute (extension: .$extension)")
+            }
+            return result
         }
 
         if (!BINARY_ALLOWED_EXTENSIONS.contains(extension) && BinaryDetector.isBinary(absolute)) {
-            return invalid(Reason.BINARY_FILE, "Binary files are excluded from indexing: $absolute")
+            val result = invalid(Reason.BINARY_FILE, "Binary files are excluded from indexing: $absolute")
+            if (extension in setOf("css", "toml", "csv")) {
+                System.err.println("[PathValidator] REJECTED (binary file): $absolute")
+            }
+            return result
         }
 
         val sizeCheck = checkSizeLimit(absolute)
         if (!sizeCheck.valid) {
+            if (extension in setOf("css", "toml", "csv")) {
+                System.err.println("[PathValidator] REJECTED (size limit): $absolute - ${sizeCheck.message}")
+            }
             return sizeCheck
+        }
+
+        // Log successful validation of target extensions for debugging
+        if (extension in setOf("css", "toml", "csv")) {
+            System.err.println("[PathValidator] ACCEPTED: $absolute")
         }
 
         return ValidationResult.Valid
