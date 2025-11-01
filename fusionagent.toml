@@ -140,8 +140,6 @@ retry_attempts = 3
 
 [context.storage]
 db_path = "./context.duckdb"
-backup_enabled = false
-backup_interval_hours = 24
 
 # ------------------------------------------------------------------------------
 # [context.watcher] - File system watcher configuration
@@ -167,6 +165,9 @@ ignore_patterns = [
     ".vscode",
     "out"
 ]
+# Maximum file size for the file watcher during runtime monitoring.
+# Files larger than this are skipped when watching for changes.
+# Note: This is DIFFERENT from indexing.max_file_size_mb
 max_file_size_mb = 5
 use_gitignore = true
 use_contextignore = false  # .contextignore is deprecated, use [ignore] section
@@ -180,6 +181,11 @@ allowed_extensions = [
     ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
     ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml"
 ]
+# Maximum file size for initial indexing during bootstrap and bulk operations.
+# Files larger than this are skipped during indexing.
+# Note: This is DIFFERENT from watcher.max_file_size_mb (which is 5MB by default)
+# Watcher (5MB) prevents watching very large files for changes
+# Indexing (200MB) allows large files to be indexed initially
 max_file_size_mb = 200
 warn_file_size_mb = 10
 size_exceptions = []
