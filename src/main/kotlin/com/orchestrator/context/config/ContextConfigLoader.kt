@@ -49,7 +49,6 @@ object ContextConfigLoader {
         } else {
             ContextConfig(
                 enabled = contextTable.getBoolean("enabled") ?: defaults.enabled,
-                fallbackEnabled = contextTable.getBoolean("fallback_enabled") ?: defaults.fallbackEnabled,
                 engine = parseEngine(contextTable.getTable("engine"), env),
                 storage = parseStorage(contextTable.getTable("storage"), env),
                 watcher = parseWatcher(contextTable.getTable("watcher"), env),

@@ -6,7 +6,6 @@ package com.orchestrator.context.config
  */
 data class ContextConfig(
     val enabled: Boolean = true,
-    val fallbackEnabled: Boolean = true,
     val engine: EngineConfig = EngineConfig(),
     val storage: StorageConfig = StorageConfig(),
     val watcher: WatcherConfig = WatcherConfig(),
