@@ -122,7 +122,8 @@ ignore_patterns = [
     "target",
     ".idea",
     ".vscode",
-    "out"
+    "out",
+    "config"  # Deprecated config directory (use fusionagent.toml instead)
 ]
 # Maximum file size for the file watcher during runtime monitoring.
 # Files larger than this are skipped when watching for changes.
