@@ -47,7 +47,7 @@ class Main {
 
             // Configure context module
             ContextModule.configure(config.context)
-            log.info("Context module configured: enabled=${config.context.enabled}, mode=${config.context.mode}")
+            log.info("Context module configured: enabled=${config.context.enabled}")
 
             // Initialize context database
             log.info("Initializing context database...")

@@ -36,7 +36,7 @@ object ContextModule {
 
     fun configure(config: ContextConfig) {
         moduleConfig = config
-        log.info("Context module configured (enabled={}, mode={})", config.enabled, config.mode)
+        log.info("Context module configured (enabled={})", config.enabled)
     }
 
     fun configuration(): ContextConfig = moduleConfig

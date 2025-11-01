@@ -49,7 +49,6 @@ object ContextConfigLoader {
         } else {
             ContextConfig(
                 enabled = contextTable.getBoolean("enabled") ?: defaults.enabled,
-                mode = contextTable.getString("mode")?.let { parseMode(it) } ?: defaults.mode,
                 fallbackEnabled = contextTable.getBoolean("fallback_enabled") ?: defaults.fallbackEnabled,
                 engine = parseEngine(contextTable.getTable("engine"), env),
                 storage = parseStorage(contextTable.getTable("storage"), env),
@@ -69,11 +68,6 @@ object ContextConfigLoader {
 
         validate(config, baseDir)
         return config
-    }
-
-    private fun parseMode(value: String): DeploymentMode {
-        return runCatching { DeploymentMode.valueOf(value.trim().uppercase()) }
-            .getOrElse { throw IllegalArgumentException("Invalid context.mode '$value'. Allowed: ${DeploymentMode.entries.joinToString(", ") { it.name.lowercase() }}") }
     }
 
     private fun parseEngine(table: Toml?, env: Map<String, String>): EngineConfig {
