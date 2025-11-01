@@ -97,13 +97,8 @@ class Main {
 
             // Start web dashboard server
             runCatching {
-                // Use context.engine configuration for web server port and host
-                val webConfig = config.web.copy(
-                    host = config.context.engine.host,
-                    port = config.context.engine.port
-                )
-                log.info("Starting web dashboard server on ${webConfig.host}:${webConfig.port} (autoLaunchBrowser=${config.web.autoLaunchBrowser})")
-                val webServer = com.orchestrator.web.WebServer.create(webConfig)
+                log.info("Starting web dashboard server on ${config.web.host}:${config.web.port}")
+                val webServer = com.orchestrator.web.WebServer.create(config.web)
                 webServer.start()
                 webServerModule = webServer
                 log.info("Web dashboard server started")
@@ -132,31 +127,16 @@ class Main {
     }
     
     private fun parseArgs(args: Array<String>): CliArgs {
-        var configPath: String? = null
         var agentsPath: String? = null
         var contextPath: String? = null
         var help = false
-        
+
         var i = 0
         while (i < args.size) {
             when (args[i]) {
-                "-c", "--config" -> {
-                    if (i + 1 < args.size) {
-                        configPath = args[++i]
-                    } else {
-                        throw IllegalArgumentException("Missing value for ${args[i]}")
-                    }
-                }
                 "-a", "--agents" -> {
                     if (i + 1 < args.size) {
                         agentsPath = args[++i]
-                    } else {
-                        throw IllegalArgumentException("Missing value for ${args[i]}")
-                    }
-                }
-                "-x", "--context-config" -> {
-                    if (i + 1 < args.size) {
-                        contextPath = args[++i]
                     } else {
                         throw IllegalArgumentException("Missing value for ${args[i]}")
                     }
@@ -166,31 +146,37 @@ class Main {
             }
             i++
         }
-        
+
         if (help) {
             printHelp()
             exitProcess(0)
         }
-        
-        return CliArgs(configPath, agentsPath, contextPath)
+
+        return CliArgs(configPath = null, agentsPath, contextPath)
     }
     
     private fun printHelp() {
         println("""
             Codex to Claude Orchestrator
-            
+
             Usage: orchestrator [options]
-            
+
             Options:
-              -c, --config <path>        Path to application.conf (default: classpath resource)
-              -a, --agents <path>        Path to agents.toml (default: config/agents.toml)
-              -x, --context-config <path> Path to context.toml (default: config/context.toml)
+              -a, --agents <path>        Path to fusionagent.toml (default: fusionagent.toml)
               -h, --help                 Show this help message
-            
+
+            Configuration:
+              All configuration is loaded from fusionagent.toml including:
+              - [orchestrator.server]   - MCP server settings (host, port)
+              - [web]                   - Web dashboard settings
+              - [agents.<id>]           - AI agent configurations
+              - [context]               - Code context system settings
+
             Environment Variables:
-              ORCHESTRATOR_HOST     Server host (default: localhost)
-              ORCHESTRATOR_PORT     Server port (default: 8080)
-              DATABASE_PATH         Database file path (default: data/orchestrator.duckdb)
+              SERVER_HOST               Orchestrator server host (default: 127.0.0.1)
+              SERVER_PORT               Orchestrator server port (default: 3000)
+              WEB_HOST                  Web dashboard host (default: 0.0.0.0)
+              WEB_PORT                  Web dashboard port (default: 8081)
         """.trimIndent())
     }
     

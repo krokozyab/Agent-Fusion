@@ -12,7 +12,7 @@ import com.typesafe.config.ConfigFactory
  */
 data class WebServerConfig(
     val host: String = "0.0.0.0",
-    val port: Int = 9090,
+    val port: Int = 8081,
     val staticPath: String = "static",
     val corsEnabled: Boolean = true,
     val corsAllowedOrigins: List<String>? = null,  // null means auto-generate based on port

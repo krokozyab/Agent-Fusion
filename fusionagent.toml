@@ -6,6 +6,51 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
+# [orchestrator.server] - MCP server configuration
+# ------------------------------------------------------------------------------
+# Configure the orchestrator MCP server that handles inter-agent communication.
+# Default: host = "127.0.0.1", port = 3000, transport = "HTTP"
+# Override with environment variables: SERVER_HOST, SERVER_PORT, SERVER_TRANSPORT
+# ------------------------------------------------------------------------------
+
+[orchestrator.server]
+host = "127.0.0.1"
+port = 3000
+transport = "HTTP"  # HTTP or GRPC
+
+# ==============================================================================
+# SUMMARY OF ALL SERVERS IN FUSIONAGENT
+# ==============================================================================
+# This configuration defines two independent servers:
+# 1. [orchestrator.server]  - MCP server (port 3000)  - Inter-agent communication
+# 2. [web]                  - Dashboard UI (port 8081) - Web dashboard interface
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [web] - Web dashboard server configuration
+# ------------------------------------------------------------------------------
+# Configure the embedded web dashboard server that provides a UI for the orchestrator.
+# This server hosts the web interface for monitoring agents and tasks.
+# Default: host = "0.0.0.0", port = 8081
+# Override with environment variables: WEB_HOST, WEB_PORT, WEB_CORS_ENABLED, etc.
+# ------------------------------------------------------------------------------
+
+[web]
+host = "0.0.0.0"
+port = 8081
+staticPath = "static"
+
+[web.cors]
+enabled = true
+allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
+
+[web.ssl]
+enabled = false
+# keyStorePath = "/path/to/keystore.p12"
+# keyStorePassword = "changeit"
+# privateKeyPassword = "changeit"
+
+# ------------------------------------------------------------------------------
 # [agents] - Agent definitions
 # ------------------------------------------------------------------------------
 # Configure the AI agents that will be used by the orchestrator.
@@ -83,15 +128,15 @@ name = "Gemini"
 enabled = true
 
 # ------------------------------------------------------------------------------
-# [context.engine] - Context engine server configuration
-# The port defined here is used for the embedded web dashboard server.
-# Configure this to change the port the application listens on.
-# Default: port = 9090, host = "0.0.0.0"
+# [context.engine] - Context system engine configuration
+# Configuration for the file indexing and semantic search engine.
+# This is internal configuration and does not control any external server port.
+# The web dashboard is controlled by [web] section instead.
+# Default: timeout_ms = 10000, retry_attempts = 3
+# Override with environment variables: CONTEXT_ENGINE_TIMEOUT_MS, CONTEXT_ENGINE_RETRY_ATTEMPTS
 # ------------------------------------------------------------------------------
 
 [context.engine]
-host = "0.0.0.0"
-port = 9090
 timeout_ms = 10000
 retry_attempts = 3
 
