@@ -1,6 +1,7 @@
 package com.orchestrator.context.config
 
 import com.moandjiezana.toml.Toml
+import com.orchestrator.context.bootstrap.ProjectConfigValidator
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -49,6 +50,8 @@ object ContextConfigLoader {
         } else {
             ContextConfig(
                 enabled = contextTable.getBoolean("enabled") ?: defaults.enabled,
+                mode = parseMode(contextTable.getString("mode"), defaults.mode),
+                fallbackEnabled = contextTable.getBoolean("fallback_enabled") ?: defaults.fallbackEnabled,
                 engine = parseEngine(contextTable.getTable("engine"), env),
                 storage = parseStorage(contextTable.getTable("storage"), env),
                 watcher = parseWatcher(contextTable.getTable("watcher"), env),
@@ -69,6 +72,14 @@ object ContextConfigLoader {
         return config
     }
 
+    private fun parseMode(raw: String?, defaultMode: DeploymentMode): DeploymentMode {
+        if (raw == null) return defaultMode
+        return DeploymentMode.entries.firstOrNull { it.name.equals(raw.trim(), ignoreCase = true) }
+            ?: throw IllegalArgumentException(
+                "Invalid context.mode '$raw'. Allowed: ${DeploymentMode.entries.joinToString(", ") { it.name.lowercase() }}"
+            )
+    }
+
     private fun parseEngine(table: Toml?, env: Map<String, String>): EngineConfig {
         val defaults = EngineConfig()
         if (table == null) return defaults
@@ -84,9 +95,7 @@ object ContextConfigLoader {
         val defaults = StorageConfig()
         if (table == null) return defaults
         return StorageConfig(
-            dbPath = table.getString("db_path")?.expandEnv(env) ?: defaults.dbPath,
-            backupEnabled = table.getBoolean("backup_enabled") ?: defaults.backupEnabled,
-            backupIntervalHours = table.getLong("backup_interval_hours")?.toInt() ?: defaults.backupIntervalHours
+            dbPath = table.getString("db_path")?.expandEnv(env) ?: defaults.dbPath
         )
     }
 
@@ -394,6 +403,13 @@ object ContextConfigLoader {
                     errors += "providers.$id.combines references unknown provider '$combined'"
                 }
             }
+        }
+
+        // Additional validation from ProjectConfigValidator
+        val projectValidator = ProjectConfigValidator()
+        val validationResult = projectValidator.validate(config)
+        if (!validationResult.isValid) {
+            errors.addAll(validationResult.errors)
         }
 
         if (errors.isNotEmpty()) {
