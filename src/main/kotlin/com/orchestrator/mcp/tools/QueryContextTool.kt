@@ -15,7 +15,14 @@ import kotlin.math.max
  * MCP Tool: query_context
  *
  * Explicit context query tool for agents to retrieve relevant code snippets
- * based on a natural language query with optional filters and scoping.
+ * based on keyword-based queries with optional filters and scoping.
+ *
+ * IMPORTANT: Use short, specific keywords (like grep/find commands), NOT long natural language phrases.
+ * Examples of effective queries:
+ *   ✅ "ignorePatterns" or "PathFilter shouldIgnore"
+ *   ✅ "authentication JWT token"
+ *   ❌ "ignore patterns configuration usage in context system"
+ *   ❌ "how does the path filtering work"
  */
 class QueryContextTool(
     private val config: ContextConfig = ContextConfig()
