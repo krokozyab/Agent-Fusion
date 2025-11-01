@@ -56,14 +56,6 @@ retry_attempts = 3
 # Default: "./context.duckdb"
 db_path = "./context.duckdb"
 
-# Enable automatic database backups
-# Default: false
-backup_enabled = false
-
-# Interval between automatic backups (in hours)
-# Default: 24
-backup_interval_hours = 24
-
 
 # ------------------------------------------------------------------------------
 # [context.watcher] - File system watcher configuration
