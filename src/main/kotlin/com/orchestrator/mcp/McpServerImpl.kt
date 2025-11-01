@@ -2095,11 +2095,11 @@ class McpServerImpl(
                 - excludePatterns (optional): Exclude files matching patterns (e.g., ["test/", "*.md"])
                 - providers (optional): Use specific providers (e.g., ["semantic", "symbol"])
 
-                ## Example Queries
-                1. "Find authentication implementation"
-                2. "Show me database connection handling"
-                3. "Classes implementing ContextProvider interface"
-                4. "Error handling in task processing"
+                ## Example Queries (use short specific keywords like grep/find)
+                1. "authentication JWT token"
+                2. "database connection"
+                3. "PathFilter shouldIgnore"
+                4. "error handling exception"
 
                 ## Returns
                 - hits: List of code snippets with score, file path, text, metadata
