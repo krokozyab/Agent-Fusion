@@ -82,9 +82,6 @@ name = "Gemini"
 # Enable or disable the entire context subsystem
 enabled = true
 
-# Enable fallback to alternative providers if primary fails
-fallback_enabled = true
-
 # ------------------------------------------------------------------------------
 # [context.engine] - Context engine server/client settings
 # ------------------------------------------------------------------------------
