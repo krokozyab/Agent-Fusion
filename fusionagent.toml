@@ -44,12 +44,6 @@ staticPath = "static"
 enabled = true
 allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
 
-[web.ssl]
-enabled = false
-# keyStorePath = "/path/to/keystore.p12"
-# keyStorePassword = "changeit"
-# privateKeyPassword = "changeit"
-
 # ------------------------------------------------------------------------------
 # [agents] - Agent definitions
 # ------------------------------------------------------------------------------

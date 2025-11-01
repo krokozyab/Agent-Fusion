@@ -33,12 +33,11 @@ class BrowserLauncher(
     }
 
     private fun defaultUrl(): String {
-        val scheme = if (config.ssl.enabled) "https" else "http"
         val host = when (config.host) {
             "0.0.0.0", "::", "::1", "*" -> "localhost"
             else -> config.host
         }
-        return "$scheme://$host:${config.port}"
+        return "http://$host:${config.port}"
     }
 
     private fun tryDesktop(url: String): Boolean {

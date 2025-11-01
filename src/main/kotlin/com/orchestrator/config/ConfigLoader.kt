@@ -61,21 +61,12 @@ object ConfigLoader {
     )
 
     @Serializable
-    private data class WebSslToml(
-        val enabled: Boolean? = null,
-        val keyStorePath: String? = null,
-        val keyStorePassword: String? = null,
-        val privateKeyPassword: String? = null
-    )
-
-    @Serializable
     private data class WebToml(
         val host: String? = null,
         val port: Int? = null,
         val staticPath: String? = null,
         val autoLaunchBrowser: Boolean? = null,
-        val cors: WebCorsToml? = null,
-        val ssl: WebSslToml? = null
+        val cors: WebCorsToml? = null
     )
 
     @Serializable
@@ -281,24 +272,12 @@ object ConfigLoader {
             val corsEnabled = webToml.cors?.enabled ?: defaults.corsEnabled
             val corsAllowedOrigins = webToml.cors?.allowedOrigins?.map { it.expandEnv(env) }
 
-            val ssl = if (webToml.ssl != null) {
-                WebServerConfig.SslConfig(
-                    enabled = webToml.ssl.enabled ?: false,
-                    keyStorePath = webToml.ssl.keyStorePath?.expandEnv(env),
-                    keyStorePassword = webToml.ssl.keyStorePassword?.expandEnv(env),
-                    privateKeyPassword = webToml.ssl.privateKeyPassword?.expandEnv(env)
-                )
-            } else {
-                WebServerConfig.SslConfig()
-            }
-
             WebServerConfig(
                 host = host,
                 port = port,
                 staticPath = staticPath,
                 corsEnabled = corsEnabled,
                 corsAllowedOrigins = corsAllowedOrigins,
-                ssl = ssl,
                 autoLaunchBrowser = autoLaunchBrowser
             )
         } catch (e: Exception) {
