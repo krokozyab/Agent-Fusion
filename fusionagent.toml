@@ -142,7 +142,7 @@ use_contextignore = false  # .contextignore is deprecated, use [ignore] section
 [context.indexing]
 allowed_extensions = [
     ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
-    ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v"
+    ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml"
 ]
 max_file_size_mb = 200
 warn_file_size_mb = 10

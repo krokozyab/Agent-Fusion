@@ -60,7 +60,11 @@ class WatcherDaemon(
     private val extensionFilter: ExtensionFilter = ExtensionFilter.fromConfig(
         indexingConfig.allowedExtensions,
         emptyList()
-    )
+    ).also {
+        log.info("WatcherDaemon initialized with {} allowed extensions: {}",
+                 indexingConfig.allowedExtensions.size,
+                 indexingConfig.allowedExtensions.sorted())
+    }
     private val includePathsFilter: IncludePathsFilter = IncludePathsFilter.fromConfig(
         watcherConfig.includePaths,
         projectRoot
