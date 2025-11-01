@@ -26,7 +26,7 @@ data class ContextConfig(
 }
 
 data class EngineConfig(
-    val host: String = "localhost",
+    val host: String = "0.0.0.0",
     val port: Int = 9090,
     val timeoutMs: Long = 10_000,
     val retryAttempts: Int = 3

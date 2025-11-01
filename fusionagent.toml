@@ -83,11 +83,14 @@ name = "Gemini"
 enabled = true
 
 # ------------------------------------------------------------------------------
-# [context.engine] - Context engine server/client settings
+# [context.engine] - Context engine server configuration
+# The port defined here is used for the embedded web dashboard server.
+# Configure this to change the port the application listens on.
+# Default: port = 9090, host = "0.0.0.0"
 # ------------------------------------------------------------------------------
 
 [context.engine]
-host = "localhost"
+host = "0.0.0.0"
 port = 9090
 timeout_ms = 10000
 retry_attempts = 3

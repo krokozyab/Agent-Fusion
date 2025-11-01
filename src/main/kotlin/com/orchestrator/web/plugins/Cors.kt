@@ -23,7 +23,7 @@ internal fun Application.configureCors(config: WebServerConfig) {
         allowMethod(HttpMethod.Options)
         allowMethod(HttpMethod.Patch)
 
-        config.corsAllowedOrigins.forEach { origin ->
+        config.getEffectiveCorsOrigins().forEach { origin ->
             val uri = runCatching { URI(origin) }.getOrNull()
             val scheme = uri?.scheme ?: "http"
             val authority = uri?.authority ?: uri?.host ?: origin

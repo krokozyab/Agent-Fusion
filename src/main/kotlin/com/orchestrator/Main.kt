@@ -97,8 +97,13 @@ class Main {
 
             // Start web dashboard server
             runCatching {
-                log.info("Starting web dashboard server on ${config.web.host}:${config.web.port} (autoLaunchBrowser=${config.web.autoLaunchBrowser})")
-                val webServer = com.orchestrator.web.WebServer.create(config.web)
+                // Use context.engine configuration for web server port and host
+                val webConfig = config.web.copy(
+                    host = config.context.engine.host,
+                    port = config.context.engine.port
+                )
+                log.info("Starting web dashboard server on ${webConfig.host}:${webConfig.port} (autoLaunchBrowser=${config.web.autoLaunchBrowser})")
+                val webServer = com.orchestrator.web.WebServer.create(webConfig)
                 webServer.start()
                 webServerModule = webServer
                 log.info("Web dashboard server started")
