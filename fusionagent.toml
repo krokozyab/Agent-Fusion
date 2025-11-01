@@ -163,7 +163,8 @@ ignore_patterns = [
     "target",
     ".idea",
     ".vscode",
-    "out"
+    "out",
+    "config"  # Deprecated config directory (use fusionagent.toml instead)
 ]
 # Maximum file size for the file watcher during runtime monitoring.
 # Files larger than this are skipped when watching for changes.
@@ -185,7 +186,7 @@ allowed_extensions = [
 # Files larger than this are skipped during indexing.
 # Note: This is DIFFERENT from watcher.max_file_size_mb (which is 5MB by default)
 # Watcher (5MB) prevents watching very large files for changes
-# Indexing (200MB) allows large files to be indexed initially
+# Indexing (200MB) allows may large files to be indexed initially
 max_file_size_mb = 200
 warn_file_size_mb = 10
 size_exceptions = []

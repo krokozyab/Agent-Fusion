@@ -86,7 +86,8 @@ ignore_patterns = [
     ".venv",
     "target",
     ".idea",
-    ".vscode"
+    ".vscode",
+    "config"  # Deprecated config directory (use fusionagent.toml instead)
 ]
 
 # Maximum file size (MB) to watch
