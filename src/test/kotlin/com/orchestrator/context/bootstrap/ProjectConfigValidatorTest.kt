@@ -138,4 +138,46 @@ class ProjectConfigValidatorTest {
         assertTrue(!result.isValid)
         assertTrue(result.errors.any { it.contains("Path traversal detected") })
     }
+
+    @Test
+    fun `validate should detect ambiguous max_file_size_mb configuration`() {
+        // This mirrors the actual fusionagent.toml situation: watcher=5MB, indexing=200MB
+        val config = ContextConfig(
+            watcher = com.orchestrator.context.config.WatcherConfig(
+                watchPaths = listOf(tempDir.toString()),
+                maxFileSizeMb = 5
+            ),
+            indexing = com.orchestrator.context.config.IndexingConfig(
+                maxFileSizeMb = 200
+            )
+        )
+
+        val result = validator.validate(config)
+
+        assertTrue(!result.isValid, "Config with ambiguous max_file_size_mb should be invalid")
+        assertTrue(result.errors.any { it.contains("CONFIGURATION ERROR: Ambiguous 'max_file_size_mb'") })
+        assertTrue(result.errors.any { it.contains("[context.watcher] max_file_size_mb = 5 MB") })
+        assertTrue(result.errors.any { it.contains("[context.indexing] max_file_size_mb = 200 MB") })
+        assertTrue(result.errors.any { it.contains("watch_max_file_size_mb") })
+        assertTrue(result.errors.any { it.contains("index_max_file_size_mb") })
+    }
+
+    @Test
+    fun `validate should allow similar max_file_size_mb values`() {
+        // When values are similar, it's not necessarily an error (could be intentional)
+        val config = ContextConfig(
+            watcher = com.orchestrator.context.config.WatcherConfig(
+                watchPaths = listOf(tempDir.toString()),
+                maxFileSizeMb = 10
+            ),
+            indexing = com.orchestrator.context.config.IndexingConfig(
+                maxFileSizeMb = 15
+            )
+        )
+
+        val result = validator.validate(config)
+
+        assertTrue(result.isValid, "Config with similar max_file_size_mb values should be valid")
+        assertTrue(result.errors.isEmpty())
+    }
 }
