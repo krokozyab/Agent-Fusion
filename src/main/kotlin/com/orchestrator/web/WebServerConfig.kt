@@ -16,7 +16,6 @@ data class WebServerConfig(
     val staticPath: String = "static",
     val corsEnabled: Boolean = true,
     val corsAllowedOrigins: List<String>? = null,  // null means auto-generate based on port
-    val ssl: SslConfig = SslConfig(),
     val autoLaunchBrowser: Boolean = true
 ) {
 
@@ -31,21 +30,6 @@ data class WebServerConfig(
     init {
         require(host.isNotBlank()) { "Web server host must not be blank" }
         require(port in 1..65_535) { "Web server port must be between 1 and 65535" }
-        ssl.validate()
-    }
-
-    data class SslConfig(
-        val enabled: Boolean = false,
-        val keyStorePath: String? = null,
-        val keyStorePassword: String? = null,
-        val privateKeyPassword: String? = null
-    ) {
-        fun validate() {
-            if (enabled) {
-                require(!keyStorePath.isNullOrBlank()) { "TLS keyStorePath is required when SSL is enabled" }
-                require(!keyStorePassword.isNullOrBlank()) { "TLS keyStorePassword is required when SSL is enabled" }
-            }
-        }
     }
 
     companion object {
@@ -65,18 +49,6 @@ data class WebServerConfig(
                 else -> null  // null means auto-generate based on port
             }
 
-            val sslSection = if (section.hasPath("ssl")) section.getConfig("ssl") else null
-            val ssl = if (sslSection != null) {
-                SslConfig(
-                    enabled = sslSection.getOptionalBoolean("enabled") ?: false,
-                    keyStorePath = sslSection.getOptionalString("keyStorePath", env),
-                    keyStorePassword = sslSection.getOptionalString("keyStorePassword", env),
-                    privateKeyPassword = sslSection.getOptionalString("privateKeyPassword", env)
-                )
-            } else {
-                SslConfig()
-            }
-
             val autoLaunchBrowser = section.getOptionalBoolean("autoLaunchBrowser") ?: defaults.autoLaunchBrowser
 
             return WebServerConfig(
@@ -85,7 +57,6 @@ data class WebServerConfig(
                 staticPath = staticPath,
                 corsEnabled = corsEnabled,
                 corsAllowedOrigins = corsAllowed,
-                ssl = ssl,
                 autoLaunchBrowser = autoLaunchBrowser
             )
         }
