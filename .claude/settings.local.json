@@ -25,7 +25,9 @@
       "Read(//private/tmp/**)",
       "Bash(duckdb:*)",
       "mcp__orchestrator__create_consensus_task",
-      "mcp__orchestrator__get_task_status"
+      "mcp__orchestrator__get_task_status",
+      "Bash(./gradlew clean build:*)",
+      "Bash(timeout 10 java:*)"
     ],
     "deny": [],
     "ask": []

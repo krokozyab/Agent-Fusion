@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference
  * Database connection manager for DuckDB.
  * - Single-connection pattern
  * - Initializes schema on first run (idempotent)
- * - Reads configuration from HOCON (application.conf), with sane defaults
+ * - Reads configuration from HOCON (application.conf) or falls back to defaults
  * - Provides health check and graceful shutdown
  */
 object Database {
