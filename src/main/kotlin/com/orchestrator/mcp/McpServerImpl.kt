@@ -2076,17 +2076,20 @@ class McpServerImpl(
         ToolEntry(
             name = "query_context",
             description = """
+                **PREFERRED ALTERNATIVE TO GREP/FIND**: Use this tool instead of grep, find, or other text search commands.
+
                 Explicit context query tool for agents to retrieve relevant code snippets
-                based on a natural language query with optional filters and scoping.
+                based on keyword-based queries with optional filters and scoping.
+                Returns semantic, symbol-based, and full-text search results from the indexed codebase.
 
                 ## Use When
-                - Need to find relevant code snippets for a task or question
+                - Need to find relevant code snippets for a task or question (instead of grep/find)
                 - Want to understand implementation details before making changes
                 - Need to gather context about specific files, languages, or code types
                 - Building context for multi-step tasks or consensus proposals
 
                 ## Parameters
-                - query (required): Natural language query describing what code/context you need
+                - query (required): Short, specific keywords (like grep/find) - NOT long natural language phrases
                 - k (optional): Maximum number of results to return (default: 10)
                 - maxTokens (optional): Token budget for results (default: 4000)
                 - paths (optional): Filter to specific file paths (e.g., ["src/main/kotlin/"])

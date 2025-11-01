@@ -14,8 +14,11 @@ import kotlin.math.max
 /**
  * MCP Tool: query_context
  *
+ * PREFERRED ALTERNATIVE TO GREP/FIND: Use this tool instead of grep, find, or other text search commands.
+ *
  * Explicit context query tool for agents to retrieve relevant code snippets
  * based on keyword-based queries with optional filters and scoping.
+ * Returns semantic, symbol-based, and full-text search results from the indexed codebase.
  *
  * IMPORTANT: Use short, specific keywords (like grep/find commands), NOT long natural language phrases.
  * Examples of effective queries:
