@@ -738,8 +738,12 @@ class RebuildContextTool(
         // Create extension filter
         val extensionFilter = com.orchestrator.context.discovery.ExtensionFilter.fromConfig(
             allowlist = config.indexing.allowedExtensions,
-            blocklist = config.indexing.blockedExtensions
-        )
+            blocklist = emptyList()
+        ).also {
+            log.info("RebuildContextTool using {} allowed extensions: {}",
+                     config.indexing.allowedExtensions.size,
+                     config.indexing.allowedExtensions.sorted())
+        }
 
         // Create include paths filter
         val includePathsFilter = com.orchestrator.context.discovery.IncludePathsFilter.fromConfig(

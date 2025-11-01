@@ -95,7 +95,7 @@ class RefreshContextTool(
         )
         val extensionFilter = ExtensionFilter.fromConfig(
             allowlist = config.indexing.allowedExtensions,
-            blocklist = config.indexing.blockedExtensions
+            blocklist = emptyList()
         )
         val includePathsFilter = IncludePathsFilter.fromConfig(
             includePaths = config.watcher.includePaths,
