@@ -82,9 +82,6 @@ name = "Gemini"
 # Enable or disable the entire context subsystem
 enabled = true
 
-# Deployment mode: EMBEDDED (in-process), STANDALONE (separate service), HYBRID
-mode = "EMBEDDED"
-
 # Enable fallback to alternative providers if primary fails
 fallback_enabled = true
 

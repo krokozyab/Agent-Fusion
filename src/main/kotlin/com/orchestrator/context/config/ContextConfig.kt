@@ -6,7 +6,6 @@ package com.orchestrator.context.config
  */
 data class ContextConfig(
     val enabled: Boolean = true,
-    val mode: DeploymentMode = DeploymentMode.EMBEDDED,
     val fallbackEnabled: Boolean = true,
     val engine: EngineConfig = EngineConfig(),
     val storage: StorageConfig = StorageConfig(),
@@ -26,8 +25,6 @@ data class ContextConfig(
     val enabledProviders: Map<String, ProviderConfig>
         get() = providers.filterValues { it.enabled }
 }
-
-enum class DeploymentMode { EMBEDDED, STANDALONE, HYBRID }
 
 data class EngineConfig(
     val host: String = "localhost",
