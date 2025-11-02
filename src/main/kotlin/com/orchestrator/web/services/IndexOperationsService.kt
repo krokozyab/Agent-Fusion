@@ -26,6 +26,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.util.AttributeKey
 import java.time.Instant
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.LinkedHashMap
@@ -430,6 +431,7 @@ private class DefaultIndexOperationsService(
         val normalized = candidate.normalize()
         val segments = normalized.map { it.toString() }
 
+        // First, try to match paths that have root prefix (e.g., "codex_to_claude/src/main/Foo.kt")
         roots.forEach { root ->
             val rootName = root.fileName?.toString() ?: return@forEach
 
@@ -447,6 +449,16 @@ private class DefaultIndexOperationsService(
             return resolved.toAbsolutePath().normalize()
         }
 
+        // Second, try to resolve the path directly under each root (for paths without root prefix)
+        // This handles catalog entries stored as relative paths (e.g., ".codex/prompts/AGENTS.md")
+        for (root in roots) {
+            val potentialPath = root.resolve(normalized).toAbsolutePath().normalize()
+            if (Files.exists(potentialPath)) {
+                return potentialPath
+            }
+        }
+
+        // Fallback: resolve against projectRoot (last resort, for backward compatibility)
         return projectRoot.resolve(normalized).toAbsolutePath().normalize()
     }
 

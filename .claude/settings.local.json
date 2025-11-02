@@ -27,7 +27,11 @@
       "mcp__orchestrator__create_consensus_task",
       "mcp__orchestrator__get_task_status",
       "Bash(./gradlew clean build:*)",
-      "Bash(timeout 10 java:*)"
+      "Bash(timeout 10 java:*)",
+      "Bash(./gradlew run:*)",
+      "Bash(timeout 20 ./gradlew run:*)",
+      "Bash(timeout 25 ./gradlew run:*)",
+      "Bash(wait)"
     ],
     "deny": [],
     "ask": []
