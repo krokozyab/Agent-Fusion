@@ -17,6 +17,12 @@ import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
+import com.orchestrator.context.bootstrap.StartupReconciler
+import com.orchestrator.context.discovery.DirectoryScanner
+import com.orchestrator.context.discovery.ExtensionFilter
+import com.orchestrator.context.discovery.IncludePathsFilter
+import com.orchestrator.context.discovery.PathFilter
+import com.orchestrator.context.discovery.SymlinkHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +70,21 @@ class Main {
                 val indexStatus = ContextModule.getIndexStatus()
                 val pendingBootstrap = getBootstrapPendingCount()
                 val hasExistingIndex = indexStatus.indexedFiles > 0 && pendingBootstrap == 0
+
+                // Run startup reconciliation if there's an existing index
+                if (hasExistingIndex) {
+                    log.info("Running startup reconciliation to detect filesystem changes...")
+                    val projectRoot = Paths.get("").toAbsolutePath()
+                    val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.context.watcher.watchPaths)
+                    runCatching {
+                        runBlocking {
+                            performStartupReconciliation(config, watcher, projectRoot, resolvedWatchRoots)
+                        }
+                    }.onFailure { error ->
+                        log.warn("Startup reconciliation failed: ${error.message}", error)
+                    }
+                }
+
                 watcher.start(skipStartupScan = hasExistingIndex)
                 log.info("File watcher started, monitoring ${config.context.watcher.watchPaths}")
             } else {
@@ -253,6 +274,90 @@ class Main {
             log.error("Failed to initialize metrics module: ${e.message}")
             throw e
         }
+    }
+
+    private suspend fun performStartupReconciliation(
+        config: ConfigLoader.ApplicationConfig,
+        watcher: WatcherDaemon,
+        projectRoot: Path,
+        resolvedWatchRoots: List<Path>
+    ) {
+        val pathValidator = createPathValidator(config, projectRoot, resolvedWatchRoots)
+        val scanner = DirectoryScanner(pathValidator, parallel = resolvedWatchRoots.size > 1)
+
+        val embedder = LocalEmbedder(
+            modelPath = null,
+            modelName = config.context.embedding.model,
+            dimension = config.context.embedding.dimension,
+            normalize = config.context.embedding.normalize,
+            maxBatchSize = config.context.embedding.batchSize
+        )
+        val fileIndexer = FileIndexer(
+            embedder = embedder,
+            projectRoot = projectRoot,
+            watchRoots = resolvedWatchRoots,
+            embeddingBatchSize = config.context.embedding.batchSize,
+            maxFileSizeMb = config.context.indexing.maxFileSizeMb,
+            warnFileSizeMb = config.context.indexing.warnFileSizeMb
+        )
+        val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
+        val batchIndexer = BatchIndexer(fileIndexer)
+        val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)
+
+        val reconciler = StartupReconciler(
+            roots = resolvedWatchRoots.ifEmpty { listOf(projectRoot) },
+            pathValidator = pathValidator,
+            scanner = scanner,
+            incrementalIndexer = incrementalIndexer
+        )
+
+        val result = reconciler.reconcile()
+
+        log.info(
+            "Startup reconciliation completed: " +
+            "database=${result.filesInDatabase}, filesystem=${result.filesInFilesystem}, " +
+            "new=${result.newFilesIndexed}, deleted=${result.deletedFilesRemoved}, " +
+            "duration=${result.durationMillis}ms"
+        )
+
+        if (!result.isSuccessful) {
+            log.warn("Reconciliation error: ${result.error}")
+        }
+    }
+
+    private fun createPathValidator(
+        config: ConfigLoader.ApplicationConfig,
+        projectRoot: Path,
+        resolvedWatchRoots: List<Path>
+    ): com.orchestrator.context.discovery.PathValidator {
+        val pathFilter = PathFilter.fromSources(
+            projectRoot.toAbsolutePath().normalize(),
+            configPatterns = config.context.watcher.ignorePatterns,
+            includeGitignore = config.context.watcher.useGitignore,
+            includeContextignore = config.context.watcher.useContextignore,
+            includeDockerignore = true
+        )
+        val extensionFilter = ExtensionFilter.fromConfig(
+            allowlist = config.context.indexing.allowedExtensions,
+            blocklist = emptyList()
+        )
+        val includePathsFilter = IncludePathsFilter.fromConfig(
+            includePaths = config.context.watcher.includePaths,
+            baseDir = projectRoot
+        )
+        val symlinkHandler = SymlinkHandler(
+            allowedRoots = resolvedWatchRoots.ifEmpty { listOf(projectRoot) },
+            defaultConfig = config.context.indexing
+        )
+
+        return com.orchestrator.context.discovery.PathValidator(
+            watchPaths = resolvedWatchRoots.ifEmpty { listOf(projectRoot) },
+            pathFilter = pathFilter,
+            extensionFilter = extensionFilter,
+            includePathsFilter = includePathsFilter,
+            symlinkHandler = symlinkHandler,
+            indexingConfig = config.context.indexing
+        )
     }
 
     private fun initializeWatcher(config: ConfigLoader.ApplicationConfig): WatcherDaemon {
