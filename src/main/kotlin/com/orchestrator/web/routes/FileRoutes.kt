@@ -341,13 +341,24 @@ private fun queryFiles(params: FileQueryParams): Pair<List<FileState>, Int> {
 
 
 /**
- * Determine the status of a file (indexed, outdated, error, pending)
+ * Determine the status of a file (indexed, outdated, error, pending).
+ *
+ * Status is based on whether the file has been modified since it was last indexed:
+ * - "error": File is marked as deleted
+ * - "pending": File has never been indexed (contentHash is empty)
+ * - "outdated": File has been modified on disk but not yet re-indexed
+ * - "indexed": File is current (indexed time matches or is after modification time)
  */
 private fun determineFileStatus(file: FileState): String {
     return when {
         file.isDeleted -> "error"
         file.contentHash.isEmpty() -> "pending"
-        file.indexedAt.isBefore(Instant.now().minusSeconds(3600)) -> "outdated"
+        // Check if file was modified after it was last indexed
+        // modifiedTimeNs is in nanoseconds, convert to Instant for comparison
+        Instant.ofEpochSecond(
+            file.modifiedTimeNs / 1_000_000_000,
+            file.modifiedTimeNs % 1_000_000_000
+        ).isAfter(file.indexedAt) -> "outdated"
         else -> "indexed"
     }
 }
