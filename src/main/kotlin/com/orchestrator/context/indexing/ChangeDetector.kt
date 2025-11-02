@@ -33,8 +33,14 @@ class ChangeDetector(
     /**
      * Inspect the provided file paths, compare them with persisted state, and surface a summary of
      * which files are new, modified, unchanged, or deleted.
+     *
+     * @param paths The file paths to analyze
+     * @param detectImplicitDeletions If true, any indexed files not in the provided paths that don't exist
+     *                                on disk will be marked as deleted. Set to false when calling with only
+     *                                changed/modified files from the watcher (incremental updates). Set to true
+     *                                when calling with a complete directory scan (bootstrap/full rescan).
      */
-    fun detectChanges(paths: List<Path>): ChangeSet {
+    fun detectChanges(paths: List<Path>, detectImplicitDeletions: Boolean = true): ChangeSet {
         val indexedStates = repository.listAllFiles().filter { it.isActive }.associateBy { it.relativePath }
         val newFiles = mutableListOf<FileChange>()
         val modifiedFiles = mutableListOf<FileChange>()
@@ -91,12 +97,16 @@ class ChangeDetector(
         }
 
         // Identify deletions that were not part of the provided path set (e.g., removed files).
-        for ((relativePath, state) in indexedStates) {
-            if (seenDeleted.contains(relativePath)) continue
-            val absolutePath = safeResolve(relativePath) ?: continue
-            if (!Files.exists(absolutePath)) {
-                deletedFiles += DeletedFile(relativePath, state)
-                seenDeleted += relativePath
+        // Only do this when we've performed a complete scan (detectImplicitDeletions=true).
+        // Skip this for incremental updates from the watcher where we only get changed files.
+        if (detectImplicitDeletions) {
+            for ((relativePath, state) in indexedStates) {
+                if (seenDeleted.contains(relativePath)) continue
+                val absolutePath = safeResolve(relativePath) ?: continue
+                if (!Files.exists(absolutePath)) {
+                    deletedFiles += DeletedFile(relativePath, state)
+                    seenDeleted += relativePath
+                }
             }
         }
 

@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
+import com.orchestrator.context.config.DeploymentMode
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -40,8 +41,6 @@ class ContextConfigLoaderTest {
             
             [context.storage]
             db_path = "${'$'}{DB_PATH}"
-            backup_enabled = true
-            backup_interval_hours = 2
             
             [context.watcher]
             enabled = true

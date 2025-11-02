@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import com.orchestrator.context.config.DeploymentMode
 
 class ContextConfigTest {
 
@@ -21,8 +22,6 @@ class ContextConfigTest {
         assertEquals(3, config.engine.retryAttempts)
 
         assertEquals("./context.duckdb", config.storage.dbPath)
-        assertFalse(config.storage.backupEnabled)
-        assertEquals(24, config.storage.backupIntervalHours)
 
         assertTrue(config.watcher.enabled)
         assertEquals(500, config.watcher.debounceMs)

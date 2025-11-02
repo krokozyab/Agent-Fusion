@@ -6,6 +6,8 @@ package com.orchestrator.context.config
  */
 data class ContextConfig(
     val enabled: Boolean = true,
+    val mode: DeploymentMode = DeploymentMode.EMBEDDED,
+    val fallbackEnabled: Boolean = true,
     val engine: EngineConfig = EngineConfig(),
     val storage: StorageConfig = StorageConfig(),
     val watcher: WatcherConfig = WatcherConfig(),
@@ -25,17 +27,17 @@ data class ContextConfig(
         get() = providers.filterValues { it.enabled }
 }
 
+enum class DeploymentMode { EMBEDDED, STANDALONE, HYBRID }
+
 data class EngineConfig(
-    val host: String = "0.0.0.0",
+    val host: String = "localhost",
     val port: Int = 9090,
     val timeoutMs: Long = 10_000,
     val retryAttempts: Int = 3
 )
 
 data class StorageConfig(
-    val dbPath: String = "./context.duckdb",
-    val backupEnabled: Boolean = false,
-    val backupIntervalHours: Int = 24
+    val dbPath: String = "./context.duckdb"
 )
 
 data class WatcherConfig(
@@ -57,7 +59,6 @@ data class WatcherConfig(
         ".venv",
         "target"
     ),
-    val maxFileSizeMb: Int = 5,
     val useGitignore: Boolean = true,
     val useContextignore: Boolean = true
 )
