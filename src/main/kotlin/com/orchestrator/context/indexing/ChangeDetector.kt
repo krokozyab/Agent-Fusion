@@ -25,7 +25,10 @@ class ChangeDetector(
     private val log = Logger.logger("com.orchestrator.context.indexing.ChangeDetector")
     private val projectRoot: Path = projectRoot.toAbsolutePath().normalize()
     private val allRoots: List<Path> = if (watchRoots.isNotEmpty()) {
-        (listOf(projectRoot) + watchRoots).map { it.toAbsolutePath().normalize() }.distinct()
+        (listOf(projectRoot) + watchRoots)
+            .map { it.toAbsolutePath().normalize() }
+            .distinct()
+            .sortedByDescending { it.toString().length }  // Match most specific roots first
     } else {
         listOf(projectRoot)
     }
