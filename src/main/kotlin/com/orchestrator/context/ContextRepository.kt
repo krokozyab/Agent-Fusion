@@ -351,6 +351,40 @@ object ContextRepository {
         }
     }
 
+    fun deleteFileArtifactsByAbsPath(absolutePath: String): Boolean {
+        val state = ContextDatabase.withConnection { conn -> getFileStateByAbsPath(conn, absolutePath) } ?: return true
+        val fileId = state.id
+        val artifacts = fetchFileArtifactsByPath(state.relativePath) ?: FileArtifacts(state, emptyList())
+        val chunkIds = artifacts.chunks.map { it.chunk.id }
+
+        return try {
+            ContextDatabase.transaction { conn ->
+                if (chunkIds.isNotEmpty()) {
+                    deleteEmbeddings(conn, chunkIds)
+                    deleteLinks(conn, chunkIds)
+                    deleteUsageMetrics(conn, fileId, chunkIds)
+                    deleteSymbolsByChunkIds(conn, chunkIds)
+                }
+                deleteUsageMetricsForFile(conn, fileId)
+                deleteSymbolsByFile(conn, fileId)
+                deleteLinksByTargetFile(conn, fileId)
+            }
+
+            ContextDatabase.transaction { conn ->
+                deleteChunks(conn, fileId)
+            }
+
+            ContextDatabase.transaction { conn ->
+                deleteFileStateRow(conn, fileId)
+            }
+
+            true
+        } catch (t: Throwable) {
+            restoreArtifacts(artifacts)
+            throw t
+        }
+    }
+
     // endregion
 
     // region Internal helpers

@@ -35,4 +35,7 @@ class ContextDataService(
 
     /** Delete all persisted artefacts for the provided file path. */
     fun deleteFile(relativePath: String): Boolean = repository.deleteFileArtifacts(relativePath)
+
+    /** Delete all persisted artefacts for the provided absolute path (unique across multiple watch roots). */
+    fun deleteFileByAbsPath(absolutePath: String): Boolean = repository.deleteFileArtifactsByAbsPath(absolutePath)
 }
