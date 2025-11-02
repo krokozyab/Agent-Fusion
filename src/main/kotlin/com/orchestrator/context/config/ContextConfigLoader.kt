@@ -114,7 +114,6 @@ object ContextConfigLoader {
             },
             includePaths = includePaths ?: defaults.includePaths,
             ignorePatterns = ignorePatterns ?: defaults.ignorePatterns,
-            maxFileSizeMb = table.getLong("max_file_size_mb")?.toInt() ?: defaults.maxFileSizeMb,
             useGitignore = table.getBoolean("use_gitignore") ?: defaults.useGitignore,
             useContextignore = table.getBoolean("use_contextignore") ?: defaults.useContextignore
         )
