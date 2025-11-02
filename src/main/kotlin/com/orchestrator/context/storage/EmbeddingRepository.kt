@@ -108,7 +108,7 @@ object EmbeddingRepository {
                         c.content,
                         c.summary,
                         c.created_at AS chunk_created_at,
-                        f.rel_path,
+                        f.abs_path,
                         f.language
                     FROM embeddings e
                     INNER JOIN chunks c ON e.chunk_id = c.chunk_id
@@ -207,7 +207,7 @@ object EmbeddingRepository {
         return EmbeddingWithMetadata(
             embedding = embedding,
             chunk = chunk,
-            relativePath = getString("rel_path"),
+            relativePath = getString("abs_path"),
             language = getString("language")
         )
     }

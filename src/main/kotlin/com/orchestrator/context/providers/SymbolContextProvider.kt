@@ -40,7 +40,7 @@ class SymbolContextProvider(
                         val name = rs.getString("name")
                         val qualified = rs.getString("qualified_name")
                         val symbolType = rs.getString("symbol_type") ?: "UNKNOWN"
-                        val path = rs.getString("rel_path") ?: continue
+                        val path = rs.getString("abs_path") ?: continue
                         val language = rs.getString("language") ?: rs.getString("file_language")
                         val chunkKind = rs.getString("kind")
                             ?.let { runCatching { ChunkKind.valueOf(it) }.getOrNull() }
@@ -136,7 +136,7 @@ class SymbolContextProvider(
         }
 
         if (scope.paths.isNotEmpty()) {
-            val expr = scope.paths.map { "f.rel_path LIKE ?" }.joinToString(" OR ")
+            val expr = scope.paths.map { "f.abs_path LIKE ?" }.joinToString(" OR ")
             conditions += "($expr)"
             scope.paths.forEach { params += "${it.trim()}%" }
         }
@@ -162,7 +162,7 @@ class SymbolContextProvider(
                    c.kind,
                    c.content,
                    c.token_count,
-                   f.rel_path,
+                   f.abs_path,
                    f.language AS file_language
             FROM symbols s
             JOIN file_state f ON f.file_id = s.file_id

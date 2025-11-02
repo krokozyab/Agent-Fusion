@@ -58,7 +58,7 @@ object ContextRepository {
                 val existing = if (fileState.id > 0) {
                     getFileStateById(conn, fileState.id)
                 } else {
-                    getFileStateByPath(conn, fileState.relativePath)
+                    getFileStateByPath(conn, fileState.absolutePath)
                 }
                 existingFileId = existing?.id
 
@@ -171,8 +171,8 @@ object ContextRepository {
             }
         }
 
-    fun fetchFileArtifactsByPath(relativePath: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
-        val file = getFileStateByPath(conn, relativePath) ?: return@withConnection null
+    fun fetchFileArtifactsByPath(absolutePath: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
+        val file = getFileStateByPath(conn, absolutePath) ?: return@withConnection null
         val chunks = getChunksByFileId(conn, file.id)
         val chunkIds = chunks.map { it.chunk.id }
         val embeddings = getEmbeddingsByChunkIds(conn, chunkIds)
@@ -201,7 +201,7 @@ object ContextRepository {
                        c.content,
                        c.summary,
                        c.created_at,
-                       f.rel_path,
+                       f.abs_path,
                        f.language
                 FROM chunks c
                 JOIN file_state f ON f.file_id = c.file_id
@@ -209,7 +209,7 @@ object ContextRepository {
                 """.trimIndent()
             )
             if (scope.paths.isNotEmpty()) {
-                append(" AND f.rel_path IN (" + scope.paths.joinToString(",") { "?" } + ")")
+                append(" AND f.abs_path IN (" + scope.paths.joinToString(",") { "?" } + ")")
             }
             if (scope.languages.isNotEmpty()) {
                 append(" AND f.language IN (" + scope.languages.joinToString(",") { "?" } + ")")
@@ -219,10 +219,10 @@ object ContextRepository {
             }
             if (scope.excludePatterns.isNotEmpty()) {
                 scope.excludePatterns.forEach {
-                    append(" AND f.rel_path NOT LIKE ?")
+                    append(" AND f.abs_path NOT LIKE ?")
                 }
             }
-            append(" ORDER BY f.rel_path, c.ordinal")
+            append(" ORDER BY f.abs_path, c.ordinal")
         }
         conn.prepareStatement(sql).use { ps ->
             var idx = 1
@@ -236,7 +236,7 @@ object ContextRepository {
                     results.add(
                         ChunkWithFile(
                             chunk = rs.toChunk(),
-                            filePath = rs.getString("rel_path"),
+                            filePath = rs.getString("abs_path"),
                             language = rs.getString("language")
                         )
                     )
@@ -279,7 +279,7 @@ object ContextRepository {
 
     fun listAllFiles(limit: Int? = null): List<FileState> = ContextDatabase.withConnection { conn ->
         val sql = buildString {
-            append("SELECT * FROM file_state ORDER BY rel_path")
+            append("SELECT * FROM file_state ORDER BY abs_path")
             if (limit != null) append(" LIMIT $limit")
         }
         conn.prepareStatement(sql).use { ps ->
@@ -317,9 +317,9 @@ object ContextRepository {
         }
     }
 
-    fun deleteFileArtifacts(relativePath: String): Boolean {
-        val state = ContextDatabase.withConnection { conn -> getFileStateByPath(conn, relativePath) } ?: return true
-        val artifacts = fetchFileArtifactsByPath(relativePath) ?: FileArtifacts(state, emptyList())
+    fun deleteFileArtifacts(absolutePath: String): Boolean {
+        val state = ContextDatabase.withConnection { conn -> getFileStateByPath(conn, absolutePath) } ?: return true
+        val artifacts = fetchFileArtifactsByPath(absolutePath) ?: FileArtifacts(state, emptyList())
         val fileId = artifacts.file.id
         val chunkIds = artifacts.chunks.map { it.chunk.id }
 
@@ -354,7 +354,7 @@ object ContextRepository {
     fun deleteFileArtifactsByAbsPath(absolutePath: String): Boolean {
         val state = ContextDatabase.withConnection { conn -> getFileStateByAbsPath(conn, absolutePath) } ?: return true
         val fileId = state.id
-        val artifacts = fetchFileArtifactsByPath(state.relativePath) ?: FileArtifacts(state, emptyList())
+        val artifacts = fetchFileArtifactsByPath(state.absolutePath) ?: FileArtifacts(state, emptyList())
         val chunkIds = artifacts.chunks.map { it.chunk.id }
 
         return try {
@@ -546,12 +546,11 @@ object ContextRepository {
         return persisted
     }
 
-    private fun getFileStateByPath(conn: Connection, relativePath: String): FileState? {
-        // Deprecated: Use getFileStateByAbsPath for multi-root support
-        // Keeping for backward compatibility but it may return incorrect results
-        val sql = "SELECT * FROM file_state WHERE rel_path = ? LIMIT 1"
+    private fun getFileStateByPath(conn: Connection, absolutePath: String): FileState? {
+        // Use absolute path for all lookups
+        val sql = "SELECT * FROM file_state WHERE abs_path = ? LIMIT 1"
         conn.prepareStatement(sql).use { ps ->
-            ps.setString(1, relativePath)
+            ps.setString(1, absolutePath)
             ps.executeQuery().use { rs ->
                 return if (rs.next()) rs.toFileState() else null
             }
@@ -580,7 +579,7 @@ object ContextRepository {
 
     private fun getChunksByFileId(conn: Connection, fileId: Long): List<ChunkWithFile> {
         val sql = """
-            SELECT c.*, f.rel_path, f.language
+            SELECT c.*, f.abs_path, f.language
             FROM chunks c
             JOIN file_state f ON f.file_id = c.file_id
             WHERE c.file_id = ?
@@ -594,7 +593,7 @@ object ContextRepository {
                     results.add(
                         ChunkWithFile(
                             chunk = rs.toChunk(),
-                            filePath = rs.getString("rel_path"),
+                            filePath = rs.getString("abs_path"),
                             language = rs.getString("language")
                         )
                     )

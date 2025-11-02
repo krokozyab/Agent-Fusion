@@ -94,12 +94,12 @@ class SemanticContextProvider(
 
     private fun fetchFileMetadata(fileId: Long): FileMetadata =
         ContextDatabase.withConnection { conn ->
-            conn.prepareStatement("SELECT rel_path, language FROM file_state WHERE file_id = ?").use { ps ->
+            conn.prepareStatement("SELECT abs_path, language FROM file_state WHERE file_id = ?").use { ps ->
                 ps.setLong(1, fileId)
                 ps.executeQuery().use { rs ->
                     if (rs.next()) {
                         FileMetadata(
-                            path = rs.getString("rel_path"),
+                            path = rs.getString("abs_path"),
                             language = rs.getString("language")
                         )
                     } else {

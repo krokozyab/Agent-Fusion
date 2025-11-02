@@ -47,7 +47,7 @@ class FullTextContextProvider(
                         val summary = rs.getString("summary")
                         val kind = rs.getString("kind")
                         val tokenEstimate = rs.getInt("token_count").takeIf { !rs.wasNull() } ?: content.length / 4
-                        val path = rs.getString("rel_path")
+                        val path = rs.getString("abs_path")
                         val language = rs.getString("language")
 
                         val score = scoreKeywords(content.lowercase(Locale.US), keywords)
@@ -107,7 +107,7 @@ class FullTextContextProvider(
         }
 
         if (scope.paths.isNotEmpty()) {
-            val pathClauses = scope.paths.map { "f.rel_path LIKE ?" }
+            val pathClauses = scope.paths.map { "f.abs_path LIKE ?" }
             conditions += "(${pathClauses.joinToString(" OR ")})"
             scope.paths.forEach { params += "${it.trim()}%" }
         }
@@ -128,7 +128,7 @@ class FullTextContextProvider(
 
         val sql = """
             SELECT c.chunk_id, c.file_id, c.kind, c.content, c.summary,
-                   c.token_count, f.rel_path, f.language
+                   c.token_count, f.abs_path, f.language
             FROM chunks c
             JOIN file_state f ON f.file_id = c.file_id
             WHERE $where
