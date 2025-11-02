@@ -72,18 +72,19 @@ class IncrementalIndexer(
 
         val deletionResults = changeSet.deletedFiles.map { deleted ->
             runCatching {
-                val removed = dataService.deleteFile(deleted.relativePath)
+                // Use absolute path to ensure uniqueness when multiple watch roots have files with same relative names
+                val removed = dataService.deleteFileByAbsPath(deleted.absolutePath)
                 if (removed) {
-                    log.debug("Removed artefacts for {}", deleted.relativePath)
+                    log.debug("Removed artefacts for {}", deleted.absolutePath)
                     DeletionResult(deleted.relativePath, true, null)
                 } else {
-                    val message = "No persisted state found for ${deleted.relativePath}"
+                    val message = "No persisted state found for ${deleted.absolutePath}"
                     log.warn(message)
                     DeletionResult(deleted.relativePath, false, message)
                 }
             }.getOrElse { throwable ->
                 val message = throwable.message ?: throwable::class.simpleName ?: "Unknown deletion error"
-                log.error("Failed deleting artefacts for ${deleted.relativePath}: $message", throwable)
+                log.error("Failed deleting artefacts for ${deleted.absolutePath}: $message", throwable)
                 DeletionResult(deleted.relativePath, false, message)
             }
         }

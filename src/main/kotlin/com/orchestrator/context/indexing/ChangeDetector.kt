@@ -44,12 +44,12 @@ class ChangeDetector(
      *                                when calling with a complete directory scan (bootstrap/full rescan).
      */
     fun detectChanges(paths: List<Path>, detectImplicitDeletions: Boolean = true): ChangeSet {
-        val indexedStates = repository.listAllFiles().filter { it.isActive }.associateBy { it.relativePath }
+        val indexedStates = repository.listAllFiles().filter { it.isActive }.associateBy { it.absolutePath }
         val newFiles = mutableListOf<FileChange>()
         val modifiedFiles = mutableListOf<FileChange>()
         val unchangedFiles = mutableListOf<FileChange>()
         val deletedFiles = mutableListOf<DeletedFile>()
-        val seenDeleted = LinkedHashSet<String>()
+        val seenDeleted = LinkedHashSet<String>()  // Track absolute paths to avoid collisions
 
         log.info("ChangeDetector.detectChanges: Processing {} paths, allRoots={}", paths.size, allRoots)
 
@@ -76,11 +76,11 @@ class ChangeDetector(
         for ((_, normalizedPath) in normalizedPaths) {
             val absolutePath = normalizedPath.absolutePath
             val relativePath = normalizedPath.relativePath
-            val previousState = indexedStates[relativePath]
+            val previousState = indexedStates[absolutePath.toString()]
             if (!Files.exists(absolutePath)) {
                 if (previousState != null) {
-                    deletedFiles += DeletedFile(relativePath, previousState)
-                    seenDeleted += relativePath
+                    deletedFiles += DeletedFile(relativePath, absolutePath.toString(), previousState)
+                    seenDeleted += absolutePath.toString()
                 } else {
                     log.debug("Path {} missing from disk and no previous state recorded; skipping", absolutePath)
                 }
@@ -111,12 +111,12 @@ class ChangeDetector(
         // Only do this when we've performed a complete scan (detectImplicitDeletions=true).
         // Skip this for incremental updates from the watcher where we only get changed files.
         if (detectImplicitDeletions) {
-            for ((relativePath, state) in indexedStates) {
-                if (seenDeleted.contains(relativePath)) continue
-                val absolutePath = safeResolve(relativePath) ?: continue
-                if (!Files.exists(absolutePath)) {
-                    deletedFiles += DeletedFile(relativePath, state)
-                    seenDeleted += relativePath
+            for ((absolutePath, state) in indexedStates) {
+                if (seenDeleted.contains(absolutePath)) continue
+                val resolvedPath = Path.of(absolutePath)
+                if (!Files.exists(resolvedPath)) {
+                    deletedFiles += DeletedFile(state.relativePath, absolutePath, state)
+                    seenDeleted += absolutePath
                 }
             }
         }
@@ -200,5 +200,6 @@ data class FileChange(
 
 data class DeletedFile(
     val relativePath: String,
+    val absolutePath: String,
     val previousState: FileState
 )
