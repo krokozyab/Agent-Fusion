@@ -341,7 +341,7 @@ class Main {
         )
         val extensionFilter = ExtensionFilter.fromConfig(
             allowlist = config.context.indexing.allowedExtensions,
-            blocklist = emptyList()
+            blocklist = config.context.indexing.blockedExtensions
         )
         val includePathsFilter = IncludePathsFilter.fromConfig(
             includePaths = config.context.watcher.includePaths,
