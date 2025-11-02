@@ -49,7 +49,7 @@ class VectorSearchEngine(
         val scored = buildList<ScoredChunk> {
             for (row in rows) {
                 if (row.embedding.dimensions != normalizedQuery.size) continue
-                if (!filters.matches(row.language, row.chunk.kind, row.relativePath)) continue
+                if (!filters.matches(row.language, row.chunk.kind, row.relativePath)) continue  // Note: relativePath field in EmbeddingRepository.EmbeddingWithMetadata now contains abs_path
 
                 val candidateVector = row.embedding.vector.toFloatArray()
                 val normalizedCandidate = when {

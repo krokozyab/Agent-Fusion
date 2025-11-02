@@ -165,7 +165,7 @@ object ContextModule {
             val sql = buildString {
                 append(
                     """
-                    SELECT fs.rel_path,
+                    SELECT fs.abs_path,
                            fs.size_bytes,
                            fs.mtime_ns,
                            fs.indexed_at,
@@ -173,8 +173,8 @@ object ContextModule {
                     FROM file_state fs
                     LEFT JOIN chunks c ON c.file_id = fs.file_id
                     WHERE fs.is_deleted = FALSE
-                    GROUP BY fs.rel_path, fs.size_bytes, fs.mtime_ns, fs.indexed_at
-                    ORDER BY fs.rel_path
+                    GROUP BY fs.abs_path, fs.size_bytes, fs.mtime_ns, fs.indexed_at
+                    ORDER BY fs.abs_path
                     """.trimIndent()
                 )
                 if (limit != null && limit > 0) {
@@ -188,7 +188,7 @@ object ContextModule {
                 }
                 ps.executeQuery().use { rs ->
                     while (rs.next()) {
-                        val path = rs.getString("rel_path") ?: continue
+                        val path = rs.getString("abs_path") ?: continue
                         val size = rs.getLong("size_bytes")
                         val modifiedNs = rs.getLong("mtime_ns")
                         val indexedAt = rs.getTimestamp("indexed_at")?.toInstant()

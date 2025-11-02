@@ -46,9 +46,9 @@ object FileStateRepository {
         }
     }
 
-    fun findByPath(relPath: String): FileState? = ContextDatabase.withConnection { conn ->
-        conn.prepareStatement("SELECT * FROM file_state WHERE rel_path = ?").use { ps ->
-            ps.setString(1, relPath)
+    fun findByPath(absPath: String): FileState? = ContextDatabase.withConnection { conn ->
+        conn.prepareStatement("SELECT * FROM file_state WHERE abs_path = ?").use { ps ->
+            ps.setString(1, absPath)
             ps.executeQuery().use { rs ->
                 if (rs.next()) rs.toFileState() else null
             }
@@ -56,7 +56,7 @@ object FileStateRepository {
     }
 
     fun findAll(limit: Int = Int.MAX_VALUE): List<FileState> = ContextDatabase.withConnection { conn ->
-        val sql = if (limit == Int.MAX_VALUE) "SELECT * FROM file_state ORDER BY rel_path" else "SELECT * FROM file_state ORDER BY rel_path LIMIT ?"
+        val sql = if (limit == Int.MAX_VALUE) "SELECT * FROM file_state ORDER BY abs_path" else "SELECT * FROM file_state ORDER BY abs_path LIMIT ?"
         conn.prepareStatement(sql).use { ps ->
             if (limit != Int.MAX_VALUE) ps.setInt(1, limit)
             ps.executeQuery().use { rs ->
@@ -113,10 +113,10 @@ object FileStateRepository {
         }
     }
 
-    fun deleteByPath(relPath: String) {
+    fun deleteByPath(absPath: String) {
         ContextDatabase.transaction { conn ->
-            conn.prepareStatement("DELETE FROM file_state WHERE rel_path = ?").use { ps ->
-                ps.setString(1, relPath)
+            conn.prepareStatement("DELETE FROM file_state WHERE abs_path = ?").use { ps ->
+                ps.setString(1, absPath)
                 ps.executeUpdate()
             }
         }
@@ -137,7 +137,7 @@ object FileStateRepository {
     }
 
     fun findByLanguage(lang: String): List<FileState> = ContextDatabase.withConnection { conn ->
-        val sql = "SELECT * FROM file_state WHERE language = ? ORDER BY rel_path"
+        val sql = "SELECT * FROM file_state WHERE language = ? ORDER BY abs_path"
         conn.prepareStatement(sql).use { ps ->
             ps.setString(1, lang)
             ps.executeQuery().use { rs ->

@@ -106,12 +106,12 @@ class StartupReconciler(
         var deletedFilesRemoved = 0
         for (deletedFile in changeSet.deletedFiles) {
             try {
-                val removed = repository.deleteFileArtifacts(deletedFile.relativePath)
+                val removed = repository.deleteFileArtifacts(deletedFile.absolutePath)
                 if (removed) {
                     deletedFilesRemoved++
                 }
             } catch (e: Exception) {
-                log.error("Failed to remove ${deletedFile.relativePath} from database: ${e.message}", e)
+                log.error("Failed to remove ${deletedFile.absolutePath} from database: ${e.message}", e)
             }
         }
 

@@ -152,7 +152,7 @@ class GitHistoryContextProvider(
      */
     private fun findPathByFileName(fileName: String, scope: ContextScope): Path? {
         val sql = buildString {
-            append("SELECT rel_path FROM file_state WHERE rel_path LIKE ? AND is_deleted = FALSE")
+            append("SELECT abs_path FROM file_state WHERE abs_path LIKE ? AND is_deleted = FALSE")
             if (scope.languages.isNotEmpty()) {
                 val placeholders = scope.languages.joinToString(",") { "?" }
                 append(" AND language IN ($placeholders)")
@@ -160,7 +160,7 @@ class GitHistoryContextProvider(
             append(" LIMIT 1")
         }
 
-        val relPath = ContextDatabase.withConnection { conn ->
+        val absPath = ContextDatabase.withConnection { conn ->
             conn.prepareStatement(sql).use { ps ->
                 ps.setString(1, "%$fileName")
                 var paramIndex = 2
@@ -168,7 +168,7 @@ class GitHistoryContextProvider(
 
                 ps.executeQuery().use { rs ->
                     if (rs.next()) {
-                        rs.getString("rel_path")
+                        rs.getString("abs_path")
                     } else {
                         null
                     }
@@ -176,20 +176,8 @@ class GitHistoryContextProvider(
             }
         } ?: return null
 
-        // Try to find the git repository root by looking for .git directory
-        // Start from current directory and work up
-        var current = Paths.get("").toAbsolutePath()
-        while (current != null) {
-            val gitDir = current.resolve(".git")
-            if (java.nio.file.Files.exists(gitDir)) {
-                // Found git root, resolve relative path from here
-                return current.resolve(relPath)
-            }
-            current = current.parent
-        }
-
-        // If no git root found, return the relative path as-is
-        return Paths.get(relPath)
+        // Return the absolute path directly
+        return Paths.get(absPath)
     }
 
     /**
@@ -205,10 +193,10 @@ class GitHistoryContextProvider(
         val sql = buildString {
             append("""
                 SELECT c.chunk_id, c.content, c.token_count, c.kind, c.start_line, c.end_line,
-                       f.rel_path, f.language
+                       f.abs_path, f.language
                 FROM chunks c
                 JOIN file_state f ON f.file_id = c.file_id
-                WHERE (f.rel_path = ? OR f.rel_path = ?) AND f.is_deleted = FALSE
+                WHERE (f.abs_path = ? OR f.abs_path = ?) AND f.is_deleted = FALSE
             """.trimIndent())
             if (scope.languages.isNotEmpty()) {
                 val placeholders = scope.languages.joinToString(",") { "?" }
@@ -235,7 +223,7 @@ class GitHistoryContextProvider(
                             } ?: ChunkKind.CODE_BLOCK,
                             startLine = rs.getInt("start_line"),
                             endLine = rs.getInt("end_line"),
-                            relPath = rs.getString("rel_path"),
+                            absPath = rs.getString("abs_path"),
                             language = rs.getString("language")
                         )
                     } else {
@@ -316,7 +304,7 @@ class GitHistoryContextProvider(
                 val sourceFile = candidate.metadata["source_file"] ?: ""
                 "Co-changed with $sourceFile"
             }
-            else -> chunk.relPath
+            else -> chunk.absPath
         }
 
         val metadata = mutableMapOf(
@@ -330,7 +318,7 @@ class GitHistoryContextProvider(
         return ContextSnippet(
             chunkId = chunk.chunkId,
             score = candidate.score.coerceIn(0.0, 1.0),
-            filePath = chunk.relPath,
+            filePath = chunk.absPath,
             label = label,
             kind = chunk.kind,
             text = chunk.content,
@@ -353,7 +341,7 @@ class GitHistoryContextProvider(
         val kind: ChunkKind,
         val startLine: Int,
         val endLine: Int,
-        val relPath: String,
+        val absPath: String,
         val language: String?
     )
 }
