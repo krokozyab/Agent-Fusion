@@ -151,21 +151,11 @@ debounce_ms = 500
 # Monitor these top-level workspaces. Each entry can be absolute or relative.
 watch_paths = [
     "/Users/sergeyrudenko/projects/codex_to_claude",
-    "/Users/sergeyrudenko/projects/of_mcp"
+    "/Users/sergeyrudenko/projects/of_mcp",
+    "/Users/sergeyrudenko/projects/ofjdbc"
 ]
 
-ignore_patterns = [
-    ".git",
-    "node_modules",
-    "build",
-    "dist",
-    ".venv",
-    "target",
-    ".idea",
-    ".vscode",
-    "out",
-    "config"  # Deprecated config directory (use fusionagent.toml instead)
-]
+ignore_patterns = []
 use_gitignore = true
 use_contextignore = false  # .contextignore is deprecated, use [ignore] section
 

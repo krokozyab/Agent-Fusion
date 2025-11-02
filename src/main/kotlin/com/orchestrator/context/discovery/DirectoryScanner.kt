@@ -83,7 +83,7 @@ class DirectoryScanner(
         synchronized(validationLock) { validator.validate(path) }
 
     private fun shouldIgnore(path: Path): Boolean =
-        synchronized(validationLock) { validator.isInIgnorePatterns(path) }
+        false  // DISABLED: Ignore pattern filtering removed per user request
 
     companion object {
         fun scan(roots: List<Path>, validator: PathValidator): List<Path> =

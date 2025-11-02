@@ -356,7 +356,7 @@ object ContextRepository {
     // region Internal helpers
 
     private fun upsertFileState(conn: Connection, state: FileState): FileState {
-        val existing = if (state.id > 0) getFileStateById(conn, state.id) else getFileStateByPath(conn, state.relativePath)
+        val existing = if (state.id > 0) getFileStateById(conn, state.id) else getFileStateByAbsPath(conn, state.absolutePath)
         val payload = state.copy(id = existing?.id ?: state.id)
         return if (existing == null) insertFileState(conn, payload) else updateFileState(conn, payload)
     }
@@ -365,14 +365,15 @@ object ContextRepository {
         val id = if (state.id > 0) state.id else nextId(conn, "file_state_seq")
         val sql = """
             INSERT INTO file_state (
-                file_id, rel_path, content_hash, size_bytes, mtime_ns,
+                file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns,
                 language, kind, fingerprint, indexed_at, is_deleted
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
         conn.prepareStatement(sql).use { ps ->
             var idx = 1
             ps.setLong(idx++, id)
             ps.setString(idx++, state.relativePath)
+            ps.setString(idx++, state.absolutePath)
             ps.setString(idx++, state.contentHash)
             ps.setLong(idx++, state.sizeBytes)
             ps.setLong(idx++, state.modifiedTimeNs)
@@ -390,6 +391,7 @@ object ContextRepository {
         val sql = """
             UPDATE file_state SET
                 rel_path = ?,
+                abs_path = ?,
                 content_hash = ?,
                 size_bytes = ?,
                 mtime_ns = ?,
@@ -403,6 +405,7 @@ object ContextRepository {
         conn.prepareStatement(sql).use { ps ->
             var idx = 1
             ps.setString(idx++, state.relativePath)
+            ps.setString(idx++, state.absolutePath)
             ps.setString(idx++, state.contentHash)
             ps.setLong(idx++, state.sizeBytes)
             ps.setLong(idx++, state.modifiedTimeNs)
@@ -510,9 +513,21 @@ object ContextRepository {
     }
 
     private fun getFileStateByPath(conn: Connection, relativePath: String): FileState? {
-        val sql = "SELECT * FROM file_state WHERE rel_path = ?"
+        // Deprecated: Use getFileStateByAbsPath for multi-root support
+        // Keeping for backward compatibility but it may return incorrect results
+        val sql = "SELECT * FROM file_state WHERE rel_path = ? LIMIT 1"
         conn.prepareStatement(sql).use { ps ->
             ps.setString(1, relativePath)
+            ps.executeQuery().use { rs ->
+                return if (rs.next()) rs.toFileState() else null
+            }
+        }
+    }
+
+    private fun getFileStateByAbsPath(conn: Connection, absolutePath: String): FileState? {
+        val sql = "SELECT * FROM file_state WHERE abs_path = ?"
+        conn.prepareStatement(sql).use { ps ->
+            ps.setString(1, absolutePath)
             ps.executeQuery().use { rs ->
                 return if (rs.next()) rs.toFileState() else null
             }
@@ -1203,6 +1218,7 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
         return FileState(
             id = getLong("file_id"),
             relativePath = getString("rel_path"),
+            absolutePath = getString("abs_path"),
             contentHash = getString("content_hash"),
             sizeBytes = getLong("size_bytes"),
             modifiedTimeNs = getLong("mtime_ns"),
