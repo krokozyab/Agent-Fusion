@@ -56,9 +56,6 @@ object ContextDatabase {
             }
             val conn = openConnection(config.dbPath)
             applyPragmas(conn)
-            if (config.backupEnabled) {
-                log.info("Context database backups enabled (interval: ${config.backupIntervalHours}h)")
-            }
             ensureSchema(conn)
             connection = conn
             if (initialized.compareAndSet(false, true)) {

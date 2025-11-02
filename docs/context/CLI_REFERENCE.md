@@ -45,7 +45,7 @@ The CLI and orchestrator load the same schema defined in `ContextConfig`. Settin
 - **engine** – Connection settings used in standalone/hybrid deployments.
   - `host` (`"localhost"`), `port` (`9090`), `timeout_ms` (`10_000`), `retry_attempts` (`3`).
 - **storage**
-  - `db_path` (`"./context.duckdb"`), `backup_enabled` (`false`), `backup_interval_hours` (`24`).
+  - `db_path` (`"./context.duckdb"`).
 - **watcher**
   - `enabled` (`true`), `debounce_ms` (`500`), `watch_paths` (`["auto"]`), `ignore_patterns` (defaults include `.git`, `node_modules`, etc.).
   - `max_file_size_mb` (`5`), `use_gitignore` (`true`), `use_contextignore` (`true`).

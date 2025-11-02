@@ -23,25 +23,45 @@ class IncrementalIndexer(
 
     /**
      * Blocking entry-point that performs an incremental update for the provided file paths.
+     *
+     * @param paths The file paths to analyze (typically changed files from watcher or a complete scan)
+     * @param parallelism Optional parallelism level for indexing
+     * @param onProgress Optional callback for progress updates
+     * @param detectImplicitDeletions If true, scan all indexed files for implicit deletions.
+     *                                Set to false for watcher incremental updates (default).
+     *                                Set to true for full rescan operations.
      */
     fun update(
         paths: List<Path>,
         parallelism: Int? = null,
-        onProgress: ((BatchProgress) -> Unit)? = null
+        onProgress: ((BatchProgress) -> Unit)? = null,
+        detectImplicitDeletions: Boolean = false
     ): UpdateResult = runBlocking {
-        updateAsync(paths, parallelism, onProgress)
+        updateAsync(paths, parallelism, onProgress, detectImplicitDeletions)
     }
 
     /**
      * Suspend-friendly variant allowing callers to integrate with existing coroutine scopes.
+     *
+     * This method performs incremental indexing for the provided file paths.
+     * It does NOT auto-detect implicit deletions (files that were indexed but are no longer on disk)
+     * unless the calling code explicitly requests it via detectImplicitDeletions parameter.
+     *
+     * @param paths The file paths to analyze (typically changed files from watcher or a complete scan)
+     * @param parallelism Optional parallelism level for indexing
+     * @param onProgress Optional callback for progress updates
+     * @param detectImplicitDeletions If true, scan all indexed files for implicit deletions.
+     *                                Set to false for watcher incremental updates (default).
+     *                                Set to true for full rescan operations.
      */
     suspend fun updateAsync(
         paths: List<Path>,
         parallelism: Int? = null,
-        onProgress: ((BatchProgress) -> Unit)? = null
+        onProgress: ((BatchProgress) -> Unit)? = null,
+        detectImplicitDeletions: Boolean = false
     ): UpdateResult {
         val startedAt = Instant.now(clock)
-        val changeSet = changeDetector.detectChanges(paths)
+        val changeSet = changeDetector.detectChanges(paths, detectImplicitDeletions)
 
         val candidates = (changeSet.newFiles + changeSet.modifiedFiles).map { it.path }
         val batchResult = when {

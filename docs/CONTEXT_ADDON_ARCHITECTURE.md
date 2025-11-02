@@ -183,8 +183,7 @@ This ensures zero hardcoding - new providers can be added by:
 
 **Storage Configuration:**
 - db_path: Path to DuckDB database file (default: ./context.duckdb)
-- backup_enabled: Enable periodic backups
-- backup_interval_hours: Backup frequency
+- db_path: DuckDB file location
 
 **Watcher Configuration:**
 - enabled: Enable file watching
@@ -306,7 +305,7 @@ Settings for initial indexing when starting fresh:
 Hierarchical configuration with nested structures:
 - Top level: enabled, mode, fallback settings
 - EngineConfig: Connection settings for standalone mode
-- StorageConfig: Database and backup settings
+- StorageConfig: Database location settings
 - WatcherConfig: File monitoring settings
 - EmbeddingConfig: Model and vector settings
 - ChunkingConfig: Per-language chunking rules (map of language to config)
