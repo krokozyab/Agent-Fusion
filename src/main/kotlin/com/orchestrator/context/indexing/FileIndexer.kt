@@ -152,6 +152,7 @@ class FileIndexer(
             val fileState = FileState(
                 id = 0,
                 relativePath = relativePath,
+                absolutePath = absolutePath.toString(),
                 contentHash = metadata.contentHash,
                 sizeBytes = metadata.sizeBytes,
                 modifiedTimeNs = metadata.modifiedTimeNs,

@@ -8,6 +8,7 @@ import java.time.Instant
 data class FileState(
     val id: Long,
     val relativePath: String,
+    val absolutePath: String,
     val contentHash: String,
     val sizeBytes: Long,
     val modifiedTimeNs: Long,

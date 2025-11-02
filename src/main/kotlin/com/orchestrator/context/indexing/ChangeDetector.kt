@@ -51,23 +51,31 @@ class ChangeDetector(
         val deletedFiles = mutableListOf<DeletedFile>()
         val seenDeleted = LinkedHashSet<String>()
 
-        val normalizedPaths = LinkedHashMap<String, Path>()
+        log.info("ChangeDetector.detectChanges: Processing {} paths, allRoots={}", paths.size, allRoots)
+
+        data class NormalizedPath(val absolutePath: Path, val relativePath: String, val root: Path)
+        val normalizedPaths = LinkedHashMap<String, NormalizedPath>()  // Key is absolute path string to avoid collisions
+        val rejectedPaths = mutableListOf<String>()
         for (path in paths) {
             val absolute = path.toAbsolutePath().normalize()
 
             // Find which root this path belongs to
             val matchingRoot = findMatchingRoot(absolute)
             if (matchingRoot == null) {
-                log.warn("Skipping path that doesn't belong to any configured root: {}", absolute)
+                rejectedPaths.add(absolute.toString())
+                log.warn("Skipping path that doesn't belong to any configured root: {} (allRoots={})", absolute, allRoots)
                 continue
             }
 
             val relative = matchingRoot.relativize(absolute).toString()
-            // Preserve the first occurrence to keep stable ordering.
-            normalizedPaths.putIfAbsent(relative, absolute)
+            // Use absolute path as key to avoid collisions when multiple roots have files with same relative paths
+            // e.g., codex_to_claude/README.md and of_mcp/README.md both have relative="README.md"
+            normalizedPaths.putIfAbsent(absolute.toString(), NormalizedPath(absolute, relative, matchingRoot))
         }
 
-        for ((relativePath, absolutePath) in normalizedPaths) {
+        for ((_, normalizedPath) in normalizedPaths) {
+            val absolutePath = normalizedPath.absolutePath
+            val relativePath = normalizedPath.relativePath
             val previousState = indexedStates[relativePath]
             if (!Files.exists(absolutePath)) {
                 if (previousState != null) {
@@ -111,6 +119,13 @@ class ChangeDetector(
                     seenDeleted += relativePath
                 }
             }
+        }
+
+        log.info("ChangeDetector.detectChanges: Processed {} paths, accepted={}, rejected={}",
+            paths.size, normalizedPaths.size, rejectedPaths.size)
+        if (rejectedPaths.isNotEmpty()) {
+            log.warn("ChangeDetector.detectChanges: {} paths rejected - {}",
+                rejectedPaths.size, rejectedPaths.take(3).joinToString(", "))
         }
 
         return ChangeSet(

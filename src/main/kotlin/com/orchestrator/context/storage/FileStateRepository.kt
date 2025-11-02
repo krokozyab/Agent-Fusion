@@ -15,14 +15,15 @@ object FileStateRepository {
         val id = if (fileState.id > 0) fileState.id else nextId(conn)
         val sql = """
             INSERT INTO file_state (
-                file_id, rel_path, content_hash, size_bytes, mtime_ns,
+                file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns,
                 language, kind, fingerprint, indexed_at, is_deleted
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
         conn.prepareStatement(sql).use { ps ->
             var idx = 1
             ps.setLong(idx++, id)
             ps.setString(idx++, fileState.relativePath)
+            ps.setString(idx++, fileState.absolutePath)
             ps.setString(idx++, fileState.contentHash)
             ps.setLong(idx++, fileState.sizeBytes)
             ps.setLong(idx++, fileState.modifiedTimeNs)
@@ -74,6 +75,7 @@ object FileStateRepository {
             val sql = """
                 UPDATE file_state SET
                     rel_path = ?,
+                    abs_path = ?,
                     content_hash = ?,
                     size_bytes = ?,
                     mtime_ns = ?,
@@ -87,6 +89,7 @@ object FileStateRepository {
             conn.prepareStatement(sql).use { ps ->
                 var idx = 1
                 ps.setString(idx++, fileState.relativePath)
+                ps.setString(idx++, fileState.absolutePath)
                 ps.setString(idx++, fileState.contentHash)
                 ps.setLong(idx++, fileState.sizeBytes)
                 ps.setLong(idx++, fileState.modifiedTimeNs)
@@ -168,6 +171,7 @@ object FileStateRepository {
     private fun ResultSet.toFileState(): FileState = FileState(
         id = getLong("file_id"),
         relativePath = getString("rel_path"),
+        absolutePath = getString("abs_path"),
         contentHash = getString("content_hash"),
         sizeBytes = getLong("size_bytes"),
         modifiedTimeNs = getLong("mtime_ns"),

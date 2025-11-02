@@ -222,7 +222,8 @@ object ContextDatabase {
             """
             CREATE TABLE IF NOT EXISTS file_state (
                 file_id               BIGINT PRIMARY KEY,
-                rel_path              VARCHAR NOT NULL UNIQUE,
+                rel_path              VARCHAR NOT NULL,
+                abs_path              VARCHAR NOT NULL UNIQUE,
                 content_hash          VARCHAR,
                 size_bytes            BIGINT NOT NULL,
                 mtime_ns              BIGINT NOT NULL,
