@@ -2,7 +2,7 @@ package com.orchestrator.context.bootstrap
 
 import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.discovery.DirectoryScanner
-import com.orchestrator.context.discovery.PathValidator
+import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.IncrementalIndexer
 import com.orchestrator.utils.Logger
 import java.nio.file.Path
@@ -13,17 +13,19 @@ import java.time.Instant
  *
  * When the server restarts, files may have been added or deleted from the filesystem.
  * Instead of doing a full rescan (which is slow), this reconciler:
- * 1. Gets all indexed files from the database
- * 2. Scans the current filesystem
- * 3. Detects new files and deleted files
- * 4. Indexes new files and removes database records for deleted files
+ * 1. Scans the current filesystem for all files
+ * 2. Uses ChangeDetector to compare with database state (handles multiple roots correctly)
+ * 3. Indexes new files and removes database records for deleted files
  *
  * This provides fast startup reconciliation without a full rescan.
+ *
+ * NOTE: Uses ChangeDetector which properly handles multiple watch roots and relative path resolution.
  */
 class StartupReconciler(
+    private val projectRoot: Path,
     private val roots: List<Path>,
-    private val pathValidator: PathValidator,
     private val scanner: DirectoryScanner,
+    private val changeDetector: ChangeDetector,
     private val incrementalIndexer: IncrementalIndexer,
     private val repository: ContextRepository = ContextRepository
 ) {
@@ -70,61 +72,39 @@ class StartupReconciler(
             )
         }
 
-        val indexedRelativePaths = indexedFiles.map { it.relativePath }.toSet()
-        val filesystemRelativePaths = mutableSetOf<String>()
-
-        // Map filesystem paths to relative paths
-        for (path in filesystemPaths) {
-            for (root in roots) {
-                if (path.startsWith(root)) {
-                    val relative = root.relativize(path).toString()
-                    filesystemRelativePaths.add(relative)
-                    break
-                }
-            }
-        }
-
-        // Detect changes
-        val newFiles = filesystemPaths.filter { path ->
-            // Find the relative path for this filesystem path
-            var relative: String? = null
-            for (root in roots) {
-                if (path.startsWith(root)) {
-                    relative = root.relativize(path).toString()
-                    break
-                }
-            }
-            relative != null && relative !in indexedRelativePaths
-        }
-
-        val deletedFiles = indexedFiles.filter { indexed ->
-            indexed.relativePath !in filesystemRelativePaths
-        }
+        // Use ChangeDetector to properly handle multiple roots and path resolution
+        // detectImplicitDeletions=true because we're doing a full filesystem scan
+        val changeSet = changeDetector.detectChanges(filesystemPaths, detectImplicitDeletions = true)
 
         log.info(
             "Reconciliation analysis: ${indexedFiles.size} indexed, ${filesystemPaths.size} in filesystem, " +
-            "${newFiles.size} new files, ${deletedFiles.size} deleted files"
+            "${changeSet.newFiles.size} new files, ${changeSet.modifiedFiles.size} modified files, " +
+            "${changeSet.deletedFiles.size} deleted files"
         )
 
-        // Index new files
+        // Index new and modified files
         var newFilesIndexed = 0
-        if (newFiles.isNotEmpty()) {
-            log.info("Indexing ${newFiles.size} new file(s)...")
+        var modifiedFilesIndexed = 0
+        val filesToIndex = changeSet.newFiles + changeSet.modifiedFiles
+        if (filesToIndex.isNotEmpty()) {
+            log.info("Indexing ${filesToIndex.size} file(s)...")
             try {
+                val indexPaths = filesToIndex.map { it.path }
                 val result = incrementalIndexer.updateAsync(
-                    newFiles,
+                    indexPaths,
                     detectImplicitDeletions = false
                 )
                 newFilesIndexed = result.newCount
-                log.info("Indexed $newFilesIndexed new file(s)")
+                modifiedFilesIndexed = result.modifiedCount
+                log.info("Indexed $newFilesIndexed new file(s) and $modifiedFilesIndexed modified file(s)")
             } catch (e: Exception) {
-                log.error("Failed to index new files: ${e.message}", e)
+                log.error("Failed to index files: ${e.message}", e)
             }
         }
 
         // Remove deleted files from database
         var deletedFilesRemoved = 0
-        for (deletedFile in deletedFiles) {
+        for (deletedFile in changeSet.deletedFiles) {
             try {
                 val removed = repository.deleteFileArtifacts(deletedFile.relativePath)
                 if (removed) {

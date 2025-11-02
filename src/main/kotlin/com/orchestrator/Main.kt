@@ -282,6 +282,7 @@ class Main {
         projectRoot: Path,
         resolvedWatchRoots: List<Path>
     ) {
+        // Create pathValidator for DirectoryScanner
         val pathValidator = createPathValidator(config, projectRoot, resolvedWatchRoots)
         val scanner = DirectoryScanner(pathValidator, parallel = resolvedWatchRoots.size > 1)
 
@@ -305,9 +306,10 @@ class Main {
         val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)
 
         val reconciler = StartupReconciler(
+            projectRoot = projectRoot,
             roots = resolvedWatchRoots.ifEmpty { listOf(projectRoot) },
-            pathValidator = pathValidator,
             scanner = scanner,
+            changeDetector = changeDetector,
             incrementalIndexer = incrementalIndexer
         )
 
