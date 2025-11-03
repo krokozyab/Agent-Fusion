@@ -40,12 +40,7 @@ Design a plugin-based, extensible architecture for the Universal Project Context
   - Context Manager (coordinates retrieval)
   - Query Optimizer (MMR re-ranking, relevance)
   - Budget Manager (token allocation)
-  - Context Provider SPI Registry (discovers providers)
-    - Semantic Provider (embedding-based search)
-    - Symbol Provider (AST/symbol-based)
-    - Full-Text Provider (keyword/BM25)
-    - Git History Provider (blame, commits)
-    - Hybrid Provider (combines strategies)
+- Embedding Provider (primary retrieval mode)
 - Extended MCP Tools: query_context, refresh_context, get_context_stats, rebuild_context, get_rebuild_status
 
 **CONTEXT ENGINE (Standalone Service)**
@@ -74,25 +69,14 @@ Orchestrator Core → Context Module → MCP/HTTP → Context Engine → DuckDB
 Following the existing AgentFactory SPI pattern:
 
 **ContextProvider Interface:**
-- Service Provider Interface for context providers
+- Service Provider Interface for the embedding provider
 - Implementations discovered via Java SPI (same as AgentFactory)
-- Each provider has:
-  - Unique ID (e.g., "semantic", "symbol", "git_history")
-  - Human-readable name
-  - Provider type/category
+- Each provider has a unique ID and human-readable name
 - Core methods:
-  - query(): Accepts natural language query, scope, and budget; returns ranked snippets
-  - isAvailable(): Checks if provider is configured and ready
-  - initialize(): Sets up provider with configuration map
-  - shutdown(): Cleanup resources
-
-**Provider Types:**
-- SEMANTIC: Embedding-based vector search
-- SYMBOL: AST/symbol-based search
-- FULL_TEXT: BM25/keyword search
-- GIT_HISTORY: Git blame, commit history
-- DEPENDENCY: Dependency graph traversal
-- HYBRID: Combines multiple strategies
+  - `query()`: Accepts natural language query, scope, and budget; returns ranked snippets
+  - `isAvailable()`: Checks if provider is configured and ready
+  - `initialize()`: Sets up provider with configuration map
+  - `shutdown()`: Cleanup resources
 
 **Core Data Structures:**
 
@@ -132,31 +116,21 @@ Following the existing AgentFactory SPI pattern:
 ### 3.2 SPI Registration
 
 **Service Registration File:**
-Location: src/main/resources/META-INF/services/com.orchestrator.context.ContextProvider
+Location: `src/main/resources/META-INF/services/com.orchestrator.context.ContextProvider`
 
-Contents list all provider implementations:
-- com.orchestrator.context.providers.SemanticContextProvider
-- com.orchestrator.context.providers.SymbolContextProvider
-- com.orchestrator.context.providers.FullTextContextProvider
-- com.orchestrator.context.providers.GitHistoryContextProvider
-- com.orchestrator.context.providers.HybridContextProvider
+Contents:
+- `com.orchestrator.context.providers.SemanticContextProvider`
 
 This follows the exact same pattern as the existing AgentFactory registration.
 
 ### 3.3 Context Provider Registry
 
 **ContextProviderRegistry:**
-- Singleton object that discovers and manages providers
-- Mirrors the AgentRegistry pattern exactly
+- Singleton that discovers and manages the embedding provider
 - Uses Java ServiceLoader for automatic discovery
-- Initialization:
-  - Loads all providers via SPI
-  - Registers them in internal map by ID
-  - Prints discovery messages to console
 - Public API:
-  - getProvider(id): Retrieve specific provider by ID
-  - getAllProviders(): Get all registered providers
-  - getProvidersByType(type): Filter providers by type category
+  - `getProvider(id)`: Retrieve provider by ID
+  - `getAllProviders()`: Get all registered providers
 
 This ensures zero hardcoding - new providers can be added by:
 1. Creating provider implementation
@@ -248,30 +222,12 @@ TypeScript settings:
 - reserve_for_prompt: Tokens reserved for prompt (default: 500)
 - warn_threshold_percent: Warn when exceeding this % (default: 80)
 
-**Provider Configurations:**
-
-Semantic provider:
-- enabled: true
-- weight: 0.6 (relative importance)
-
-Symbol provider:
-- enabled: true
-- weight: 0.3
-- index_ast: true (build AST index)
-
-Full-text provider:
-- enabled: false (disabled by default, hybrid covers this)
-- weight: 0.1
-
-Git history provider:
-- enabled: true
-- weight: 0.2
-- max_commits: 100
-
-Hybrid provider:
-- enabled: true
-- combines: [semantic, symbol, git_history]
-- fusion_strategy: "rrf" (Reciprocal Rank Fusion)
+**Embedding Provider Configuration:**
+- `enabled`: true
+- `model`: embedding model identifier (default `sentence-transformers/all-MiniLM-L6-v2`)
+- `dimension`: embedding dimension (default 384)
+- `top_k`: default number of results (default 12)
+- `min_score_threshold`: drop low-similarity matches (default 0.3)
 
 **Metrics Configuration:**
 - enabled: true
@@ -311,7 +267,7 @@ Hierarchical configuration with nested structures:
 - ChunkingConfig: Per-language chunking rules (map of language to config)
 - QueryConfig: Search and ranking parameters
 - BudgetConfig: Token allocation settings
-- ProviderConfig: Per-provider settings (map of provider ID to config)
+- ProviderConfig: Settings for the embedding provider
 - MetricsConfig: Monitoring settings
 - SecurityConfig: Security and privacy settings
 
@@ -334,26 +290,25 @@ Hierarchical configuration with nested structures:
 ### 5.1 Context Module (Orchestrator Plugin)
 
 **ContextModule Class:**
-Integrates context retrieval into the orchestrator, following the same pattern as RoutingModule, ConsensusModule, and MetricsModule.
+Integrates embedding-based context retrieval into the orchestrator, following the same pattern as `RoutingModule`, `ConsensusModule`, and `MetricsModule`.
 
 **Responsibilities:**
-- Coordinates context retrieval across multiple providers
+- Coordinates queries to the embedding provider
 - Manages query optimization and result re-ranking
 - Enforces token budgets
 - Tracks metrics for token usage reduction
 - Provides graceful degradation when unavailable
 
 **Components:**
-- providers: List of enabled ContextProvider instances
+- embeddingProvider: registered ContextProvider instance
 - queryOptimizer: Handles MMR re-ranking and relevance tuning
 - budgetManager: Calculates and enforces token budgets
 
 **Initialization:**
-- Loads configuration from context.toml
-- Discovers providers via ContextProviderRegistry
-- Filters to only enabled providers from configuration
-- Initializes each provider with its specific configuration
-- Creates QueryOptimizer and BudgetManager instances
+- Loads configuration from `context.toml`
+- Discovers the embedding provider via `ContextProviderRegistry`
+- Initializes the provider with its configuration
+- Creates `QueryOptimizer` and `BudgetManager` instances
 
 **Core Method: getTaskContext()**
 Primary integration point - called before task execution to retrieve relevant context.
@@ -363,11 +318,11 @@ Primary integration point - called before task execution to retrieve relevant co
 2. Build semantic query from task title, description, and metadata
 3. Determine search scope from task hints (paths, languages, chunk types)
 4. Calculate token budget based on task complexity and type
-5. Query all enabled providers in parallel
-6. Merge and deduplicate results by chunk ID
+5. Query the embedding provider
+6. Deduplicate results by chunk ID
 7. Apply MMR re-ranking for diversity (using QueryOptimizer)
-8. Record metrics to usage_metrics table
-9. Return TaskContext object with snippets
+8. Record metrics to `usage_metrics`
+9. Return `TaskContext` object with snippets
 
 **Error Handling:**
 - If context retrieval fails and fallback_enabled is true:
@@ -388,11 +343,11 @@ determineScope():
 - Builds ContextScope with paths, languages, chunk kinds
 - Applies global ignore patterns from configuration
 
-queryProviders():
-- Queries all enabled providers in parallel using coroutines
-- Each provider query wrapped in try-catch for resilience
-- Adds provider ID to snippet metadata
-- Returns flattened and deduplicated results
+queryProvider():
+- Invokes the embedding provider using coroutines
+- Wrapped in try/catch for resilience
+- Annotates snippet metadata with provider ID
+- Returns deduplicated results
 
 recordMetrics():
 - Logs context retrieval metrics to DuckDB
@@ -400,15 +355,14 @@ recordMetrics():
 - Used for before/after comparison reporting
 
 shutdown():
-- Gracefully shuts down all providers
-- Releases resources
+- Gracefully shuts down the embedding provider and releases resources
 
 **TaskContext Data Structure:**
 Contains results of context retrieval for a specific task:
 - taskId: Associated task identifier
-- snippets: List of ranked ContextSnippet objects
+- snippets: List of ranked `ContextSnippet` objects
 - totalTokens: Estimated total tokens consumed
-- providers: Snippets grouped by provider ID (for transparency)
+- providerId: ID of the provider that produced the snippets (currently just the embedding provider)
 
 empty() factory method: Returns empty context for disabled/failed scenarios
 
@@ -448,7 +402,7 @@ Applies MMR algorithm to snippet list with token budget constraints.
 **Similarity Calculation:**
 - cosineSimilarity(): Computes text overlap similarity
 - Placeholder implementation: Jaccard similarity on word sets
-- Real implementation: Use embedding vectors from providers
+- Real implementation: Use embedding vectors from the provider
 - Returns value between 0.0 (no similarity) and 1.0 (identical)
 
 **Token Estimation:**
@@ -552,7 +506,7 @@ Process Flow:
 1. Parse and validate parameters
 2. Build ContextScope from scope parameter
 3. Create TokenBudget from filters.maxTokens or default
-4. Query ContextModule (which queries all enabled providers)
+4. Query ContextModule (which consults the embedding provider)
 5. Filter by minScore threshold if specified
 6. Convert ContextSnippet objects to HitDTO format
 7. Return results with metadata
@@ -598,12 +552,12 @@ Use Cases:
 Returns statistics and health information about the context system.
 
 Parameters:
-- None (or optional filters for specific providers/languages)
+- None (or optional filters for languages)
 
 Response Structure:
 - enabled: Boolean - is context system enabled
 - mode: Deployment mode (embedded/standalone/hybrid)
-- providers: Array of provider status
+- embeddingProvider:
   - id: Provider identifier
   - name: Provider name
   - enabled: Is provider active
@@ -958,7 +912,7 @@ The orchestrator tracks token usage before and after context integration to meas
 - context_tokens: Tokens consumed by context block
 - query_latency_ms: Time to retrieve context
 - snippets_count: Number of snippets provided
-- providers_used: Which providers contributed
+- provider_id: Provider responsible for the retrieval (embedding)
 
 **Storage:**
 All metrics stored in usage_metrics table (already defined in base spec).
@@ -989,7 +943,7 @@ Each task record includes:
 
 **Dashboard Queries:**
 - Top 10 tasks by token savings
-- Provider effectiveness (snippets used vs provided)
+- Retrieval effectiveness (snippets used vs provided)
 - Languages with best/worst context coverage
 - Time-series of token usage trends
 
@@ -1692,150 +1646,34 @@ Response:
 
 ---
 
-## 9. Provider Implementations
+## 9. Provider Implementation
 
-### 9.1 Semantic Context Provider
+### 9.1 Embedding Context Provider
 
 **Implementation Strategy:**
-- Uses sentence transformer models for embeddings
-- Stores vectors in embeddings table
-- Cosine similarity search via DuckDB
-- MMR re-ranking for diversity
+- Uses sentence-transformer models for embeddings
+- Stores vectors in DuckDB alongside chunk metadata
+- Cosine similarity search with optional MMR re-ranking
 
 **Query Process:**
-1. Embed query text using configured model
-2. Compute cosine similarity with all chunk embeddings
+1. Embed query text using the configured model
+2. Compute cosine similarity with stored embeddings
 3. Filter by scope (paths, languages, kinds)
-4. Return top-K by score
-5. Apply minimum score threshold
+4. Return top-k results that satisfy the minimum score threshold
 
 **Configuration:**
-- model: sentence-transformers/all-MiniLM-L6-v2 (default)
-- dimension: 384
-- weight: 0.6 (relative importance in hybrid)
+- `model`: embedding model identifier (default `sentence-transformers/all-MiniLM-L6-v2`)
+- `dimension`: embedding vector dimension (default 384)
+- `top_k`: maximum results to return
+- `min_score`: drop low-similarity matches
 
 **Strengths:**
-- Semantic understanding
-- Handles synonyms and paraphrasing
-- Good for conceptual queries
+- Captures semantic similarity and paraphrasing
+- Works across languages and file types without extra indexes
 
-**Weaknesses:**
-- Slower than keyword search
-- Requires embedding model
-- Less precise for exact symbol lookups
-
-### 9.2 Symbol Context Provider
-
-**Implementation Strategy:**
-- Builds AST index using tree-sitter
-- Indexes: classes, functions, variables, imports
-- Fast symbol lookup by name
-- Cross-reference tracking
-
-**Query Process:**
-1. Extract symbols from query (heuristic or LLM-based)
-2. Lookup symbols in index
-3. Return definitions + call sites
-4. Include imports and dependencies
-
-**Configuration:**
-- index_ast: true (build AST index)
-- weight: 0.3
-
-**Strengths:**
-- Extremely fast
-- Precise for symbol lookups
-- Shows usage patterns
-
-**Weaknesses:**
-- Requires parsing
-- Language-specific
-- Doesn't understand semantics
-
-### 9.3 Full-Text Context Provider
-
-**Implementation Strategy:**
-- BM25 scoring algorithm
-- Keyword-based search
-- DuckDB full-text index
-
-**Query Process:**
-1. Tokenize query
-2. Compute BM25 scores
-3. Rank by relevance
-4. Return top-K
-
-**Configuration:**
-- enabled: false (disabled by default, hybrid covers this)
-- weight: 0.1
-
-**Strengths:**
-- Very fast
-- No ML dependencies
-- Good for exact keyword matches
-
-**Weaknesses:**
-- No semantic understanding
-- Requires exact terms
-- Poor for conceptual queries
-
-### 9.4 Git History Context Provider
-
-**Implementation Strategy:**
-- Mines git commit history
-- git blame for file authorship
-- Recent changes analysis
-- Co-change patterns
-
-**Query Process:**
-1. Extract file paths from query
-2. Get recent commits affecting those files
-3. Find co-changed files (files modified together)
-4. Return relevant commit messages and diffs
-
-**Configuration:**
-- max_commits: 100 (limit history depth)
-- weight: 0.2
-
-**Strengths:**
-- Temporal context
-- Understands change patterns
-- Good for "what changed recently" queries
-
-**Weaknesses:**
-- Requires git repository
-- Slower than other providers
-- Less useful for new files
-
-### 9.5 Hybrid Context Provider
-
-**Implementation Strategy:**
-- Combines results from multiple providers
-- Reciprocal Rank Fusion (RRF) for score merging
-- Configurable fusion strategy
-
-**Query Process:**
-1. Query all configured sub-providers in parallel
-2. Collect results with scores
-3. Apply RRF formula:
-   - RRF(chunk) = Σ 1/(k + rank_in_provider_i)
-   - k = 60 (constant)
-4. Re-rank by fused scores
-5. Return top-K
-
-**Configuration:**
-- combines: [semantic, symbol, git_history]
-- fusion_strategy: "rrf"
-- Alternative strategies: weighted_average, cascade
-
-**Strengths:**
-- Best of all providers
-- Robust to individual provider failures
-- Balanced results
-
-**Weaknesses:**
-- Higher latency (parallel queries)
-- More complex configuration
+**Considerations:**
+- Requires downloading/serving the embedding model locally
+- No keyword/symbol fallback in the current architecture
 
 ---
 
@@ -2096,16 +1934,11 @@ After: password = "[REDACTED]"
 - ✓ DuckDB schema creation
 - ✓ Basic file watcher (no debouncing yet)
 
-### Phase 2: Core Providers (Week 3-4)
-- Implement SemanticContextProvider
+### Phase 2: Core Provider (Week 3-4)
+- Implement EmbeddingContextProvider
   - Embedding integration
   - Vector storage
   - Cosine similarity search
-- Implement SymbolContextProvider
-  - Tree-sitter integration
-  - AST indexing
-  - Symbol lookup
-- Basic full-text provider (simple keyword matching)
 
 ### Phase 3: Chunking Pipeline (Week 5-6)
 - Language-aware chunkers:
@@ -2135,8 +1968,6 @@ After: password = "[REDACTED]"
 - Integration tests
 
 ### Phase 6: Advanced Features (Week 10-12)
-- Git history provider
-- Hybrid provider with RRF
 - Secret scrubbing
 - Metrics collection and reporting
 - Performance optimization
@@ -2271,18 +2102,18 @@ All stored in usage_metrics table:
 - tokens_output: Response tokens
 - notes: Additional context
 
-### 15.2 Provider Effectiveness
+### 15.2 Retrieval Effectiveness
 
 **Metrics Tracked:**
-- Snippets provided vs used (selection rate)
-- Average score by provider
-- Query latency by provider
-- Cache hit rate
+- Snippets returned vs inserted into final prompts
+- Average similarity score of served chunks
+- Query latency distribution
+- Cache hit rate (if embedding cache is enabled)
 
 **Analysis:**
-- Which providers contribute most to final results?
-- Are certain providers redundant?
-- Optimize weights based on effectiveness
+- Do embeddings surface the right context for accepted answers?
+- Are certain paths or languages underrepresented?
+- When we add additional retrieval modes in the future, compare their impact here.
 
 ### 15.3 Dashboard Queries
 

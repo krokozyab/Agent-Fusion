@@ -39,6 +39,11 @@ internal fun Application.configureStaticContent() {
                 contentType = ContentType.Application.JavaScript
             )
             serveVersionedAsset(
+                slug = "js/index-status.js",
+                resourcePath = "static/js/index-status.js",
+                contentType = ContentType.Application.JavaScript
+            )
+            serveVersionedAsset(
                 slug = "js/pagination.js",
                 resourcePath = "static/js/pagination.js",
                 contentType = ContentType.Application.JavaScript

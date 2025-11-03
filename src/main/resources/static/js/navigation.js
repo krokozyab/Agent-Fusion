@@ -147,24 +147,45 @@
   }
 
   /**
+   * Wire HTMX lifecycle hooks so boosted navigation stays in sync
+   */
+  function attachHtmxNavigationHandlers() {
+    if (!window.htmx || window.__navigationHtmxHandlers) {
+      return;
+    }
+
+    const scheduleUpdate = function() {
+      window.requestAnimationFrame(updateActiveNavigation);
+    };
+
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      scheduleUpdate();
+
+      const target = evt?.detail?.target || evt.target;
+      if (target && target.id === 'main-content') {
+        closeMobileMenu();
+      }
+    });
+
+    document.body.addEventListener('htmx:afterSettle', scheduleUpdate);
+
+    window.__navigationHtmxHandlers = true;
+  }
+
+  /**
    * Initialize on DOM ready
    */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
       initNavigation();
       updateActiveNavigation();
+      attachHtmxNavigationHandlers();
     });
   } else {
     initNavigation();
     updateActiveNavigation();
+    attachHtmxNavigationHandlers();
   }
-
-  /**
-   * Update navigation after HTMX page swaps
-   */
-  document.body.addEventListener('htmx:afterSwap', function() {
-    updateActiveNavigation();
-  });
 
   // Expose toggle function globally for inline onclick handlers
   window.toggleMobileMenu = toggleMobileMenu;

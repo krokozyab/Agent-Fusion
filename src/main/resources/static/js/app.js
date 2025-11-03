@@ -48,9 +48,10 @@
   }
 
   function configureHtmx() {
-    if (window.htmx) {
-      window.htmx.config.defaultSwapStyle = 'outerHTML';
-    }
+    if (!window.htmx) return;
+
+    // Preserve HTMX defaults so boosted navigation targets can opt into their own swap behaviour.
+    window.htmx.config.defaultSwapStyle = 'innerHTML';
   }
 
   whenReady(function () {

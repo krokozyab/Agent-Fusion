@@ -213,7 +213,7 @@ class McpServerImpl(
                     val message = if (accept.isNullOrBlank()) {
                         "Client must send an Accept header supporting text/event-stream or application/json"
                     } else {
-                        "Received unsupported Accept header '$accept'. Expected text/event-stream for SSE or application/json"
+                        "Received unsupported Accept header '$accept'. Expected content negotiable as JSON or SSE."
                     }
                     call.respond(HttpStatusCode.NotAcceptable, errorBody("not_acceptable", message))
                 }
@@ -348,6 +348,8 @@ class McpServerImpl(
             }
         })
     }
+
+    private fun acceptsEventStream(@Suppress("unused") acceptHeader: String?): Boolean = true
 
     private suspend fun ApplicationCall.handleSsePost(sessionId: String) {
         val transport = sseSessions[sessionId]

@@ -154,6 +154,10 @@ object Navigation {
             a(href = link.href, classes = linkClasses) {
                 if (htmxBoost) {
                     attributes["hx-boost"] = "true"
+                    attributes["hx-target"] = "#main-content"
+                    attributes["hx-select"] = "#main-content"
+                    attributes["hx-swap"] = "outerHTML"
+                    attributes["hx-push-url"] = "true"
                 }
                 if (link.active) {
                     attributes["aria-current"] = "page"
