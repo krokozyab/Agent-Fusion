@@ -1,5 +1,6 @@
 package com.orchestrator.context.domain
 
+import java.nio.file.Paths
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,6 +15,7 @@ class ContextDomainModelsTest {
         val state = FileState(
             id = 1,
             relativePath = "src/Main.kt",
+            absolutePath = Paths.get("src/Main.kt").toAbsolutePath().toString(),
             contentHash = "hash",
             sizeBytes = 42,
             modifiedTimeNs = 1234,

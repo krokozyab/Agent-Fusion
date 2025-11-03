@@ -4,7 +4,6 @@ import com.orchestrator.config.ConfigLoader
 import com.orchestrator.config.OrchestratorConfig
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
 import com.orchestrator.context.config.ContextConfig
-import com.orchestrator.context.config.ProviderConfig
 import com.orchestrator.context.config.StorageConfig
 import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.modules.context.ContextModule
@@ -32,8 +31,8 @@ import kotlin.io.path.div
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
-import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class IndexRoutesTest {
 
@@ -47,11 +46,7 @@ class IndexRoutesTest {
         val dbPath = (tempDir / "context.duckdb").toString()
 
         contextConfig = ContextConfig(
-            storage = StorageConfig(dbPath = dbPath),
-            providers = mapOf(
-                "semantic" to ProviderConfig(enabled = true, weight = 0.7),
-                "symbol" to ProviderConfig(enabled = false, weight = 0.3)
-            )
+            storage = StorageConfig(dbPath = dbPath)
         )
 
         ContextModule.configure(contextConfig)
@@ -96,18 +91,13 @@ class IndexRoutesTest {
         assertEquals("text/html; charset=UTF-8", response.headers["Content-Type"])
 
         val body = response.bodyAsText()
-
-        assertContains(body, "<title>Index Status - Orchestrator</title>")
-        assertContains(body, "data-testid=\"stat-total-files\"")
-        assertContains(body, "id=\"index-summary\"")
-        assertContains(body, "sse-swap=\"indexSummary\"")
-        assertContains(body, "data-sse-url=\"/sse/index\"")
-        assertContains(body, "data-testid=\"action-refresh\"")
-        assertContains(body, "data-action-endpoint=\"/index/refresh\"")
-        assertContains(body, "data-testid=\"action-rebuild\"")
-        assertContains(body, "data-testid=\"provider-semantic-status\"")
-        assertContains(body, "data-testid=\"provider-symbol-status\"")
-        assertContains(body, "data-testid=\"file-row-src/app/Indexed.kt\"")
+        assertTrue(body.contains("<title>Index Status - Orchestrator</title>"), "expected page title")
+        assertTrue(body.contains("data-testid=\"stat-total-files\""), "missing summary card stat-total-files")
+        assertTrue(body.contains("id=\"index-summary\""), "missing index summary container")
+        assertTrue(body.contains("sse-swap=\"indexSummary\""), "missing index summary SSE hook")
+        assertTrue(body.contains("data-sse-url=\"/sse/index\""), "missing SSE data attribute")
+        assertTrue(body.contains("data-testid=\"action-rebuild\""), "missing rebuild action button")
+        assertTrue(body.contains("data-action-endpoint=\"/index/rebuild\""), "missing rebuild action endpoint")
     }
 
     private fun seedContextData() {
@@ -162,21 +152,22 @@ class IndexRoutesTest {
         conn.prepareStatement(
             """
             INSERT INTO file_state (
-                file_id, rel_path, content_hash, size_bytes, mtime_ns,
+                file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns,
                 language, kind, fingerprint, indexed_at, is_deleted
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent()
         ).use { ps ->
             ps.setLong(1, fileId)
             ps.setString(2, path)
-            ps.setString(3, "hash-${fileId}")
-            ps.setLong(4, sizeBytes)
-            ps.setLong(5, modifiedNs)
-            ps.setString(6, "kotlin")
-            ps.setString(7, "code")
-            ps.setNull(8, java.sql.Types.VARCHAR)
-            ps.setTimestamp(9, Timestamp.from(indexedAt))
-            ps.setBoolean(10, false)
+            ps.setString(3, tempDir.resolve(path).normalize().toString())
+            ps.setString(4, "hash-${fileId}")
+            ps.setLong(5, sizeBytes)
+            ps.setLong(6, modifiedNs)
+            ps.setString(7, "kotlin")
+            ps.setString(8, "code")
+            ps.setNull(9, java.sql.Types.VARCHAR)
+            ps.setTimestamp(10, Timestamp.from(indexedAt))
+            ps.setBoolean(11, false)
             ps.executeUpdate()
         }
 
@@ -206,7 +197,7 @@ class IndexRoutesTest {
     }
 
     @Test
-    fun `POST refresh invokes operations service`() = testApplication {
+    fun `POST rebuild invokes operations service`() = testApplication {
         application {
             install(SSE)
             IndexOperationsService.install(this, stubOperations)
@@ -221,9 +212,9 @@ class IndexRoutesTest {
             configureRouting(WebServerConfig())
         }
 
-        val response = client.post("/index/refresh")
+        val response = client.post("/index/rebuild")
         assertEquals(HttpStatusCode.NoContent, response.status)
-        assertEquals(1, stubOperations.refreshCalls.get())
+        assertEquals(1, stubOperations.rebuildCalls.get())
     }
 }
 

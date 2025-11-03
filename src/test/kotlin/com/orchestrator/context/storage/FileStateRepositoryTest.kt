@@ -34,6 +34,7 @@ class FileStateRepositoryTest {
         FileState(
             id = id,
             relativePath = path,
+            absolutePath = tempDir.resolve(path).normalize().toString(),
             contentHash = "hash-$path",
             sizeBytes = 100,
             modifiedTimeNs = 1,

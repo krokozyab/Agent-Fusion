@@ -91,6 +91,7 @@ class ChangeDetectorTest {
         val state = FileState(
             id = 0,
             relativePath = relativePath,
+            absolutePath = path.toAbsolutePath().normalize().toString(),
             contentHash = metadata.contentHash,
             sizeBytes = metadata.sizeBytes,
             modifiedTimeNs = metadata.modifiedTimeNs,

@@ -1,12 +1,8 @@
 package com.orchestrator.web.routes
 
-import com.orchestrator.context.config.ContextConfig
-import com.orchestrator.context.config.ProviderConfig
-import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.dto.toDTO
 import com.orchestrator.web.pages.IndexStatusPage
-import com.orchestrator.web.plugins.ApplicationConfigKey
 import com.orchestrator.web.services.IndexOperationsService
 import com.orchestrator.web.services.OperationTriggerResult
 import io.ktor.http.ContentType
@@ -20,7 +16,6 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.application
 import java.time.Clock
 import java.time.Instant
-import java.util.Locale
 
 /**
  * Index status routes for the Orchestrator dashboard.
@@ -52,50 +47,13 @@ private fun Route.buildIndexStatusConfig(clock: Clock): IndexStatusPage.Config {
     val operations = IndexOperationsService.forApplication(application)
     val filesystemSnapshot = operations.filesystemSnapshot()
     val snapshotDto = ContextModule.getIndexStatus().toDTO(filesystemSnapshot)
-    val providerStatuses = buildProviderStatuses()
     val actions = defaultAdminActions()
 
     return IndexStatusPage.Config(
         status = snapshotDto,
-        providers = providerStatuses,
         actions = actions,
         generatedAt = Instant.now(clock)
     )
-}
-
-private fun Route.buildProviderStatuses(): List<IndexStatusPage.ProviderStatus> {
-    val appConfig = application.attributes.getOrNull(ApplicationConfigKey)
-    val contextConfig = appConfig?.context ?: ContextConfig()
-
-    val providerConfigs = contextConfig.providers.ifEmpty {
-        // Fallback to discovered providers if config is empty
-        ContextProviderRegistry.getAllProviders().associate { provider ->
-            provider.id to ProviderConfig(enabled = true, weight = 1.0)
-        }
-    }
-
-    if (providerConfigs.isEmpty()) {
-        return emptyList()
-    }
-
-    return providerConfigs.entries.map { (rawId, cfg) ->
-        val providerId = rawId.lowercase(Locale.US)
-        val provider = ContextProviderRegistry.getProvider(providerId)
-        val providerType = provider?.type?.name?.lowercase(Locale.US)
-        val health = when {
-            !cfg.enabled -> IndexStatusPage.ProviderHealth.DISABLED
-            provider == null -> IndexStatusPage.ProviderHealth.UNAVAILABLE
-            else -> IndexStatusPage.ProviderHealth.HEALTHY
-        }
-
-        IndexStatusPage.ProviderStatus(
-            id = providerId,
-            displayName = formatProviderName(rawId),
-            type = providerType,
-            weight = cfg.weight,
-            health = health
-        )
-    }.sortedBy { it.displayName.lowercase(Locale.US) }
 }
 
 private fun defaultAdminActions(): List<IndexStatusPage.AdminAction> = listOf(
@@ -108,16 +66,6 @@ private fun defaultAdminActions(): List<IndexStatusPage.AdminAction> = listOf(
         confirm = "Rebuild will clear and re-index all data. Continue?"
     )
 )
-
-private fun formatProviderName(id: String): String {
-    return id.split('-', '_')
-        .filter { it.isNotBlank() }
-        .joinToString(" ") { token ->
-            token.lowercase(Locale.US).replaceFirstChar { ch ->
-                if (ch.isLowerCase()) ch.titlecase(Locale.US) else ch.toString()
-            }
-        }
-}
 
 private suspend fun io.ktor.server.application.ApplicationCall.respondWithIndexFragment(
     config: IndexStatusPage.Config,

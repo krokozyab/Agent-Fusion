@@ -42,16 +42,7 @@ import kotlin.math.pow
 
 object IndexStatusPage {
 
-    enum class ProviderHealth { HEALTHY, UNAVAILABLE, DISABLED }
     enum class StatTone { NEUTRAL, WARNING, DANGER }
-
-    data class ProviderStatus(
-        val id: String,
-        val displayName: String,
-        val type: String?,
-        val weight: Double,
-        val health: ProviderHealth
-    )
 
     data class AdminAction(
         val id: String,
@@ -64,7 +55,6 @@ object IndexStatusPage {
 
     data class Config(
         val status: IndexStatusDTO,
-        val providers: List<ProviderStatus>,
         val actions: List<AdminAction>,
         val generatedAt: Instant
     )
@@ -440,16 +430,6 @@ object IndexStatusPage {
                     }
                 }
 
-                if (config.providers.isNotEmpty()) {
-                    div {
-                        span(classes = "text-muted block") { +"Providers" }
-                        p(classes = "font-semibold mb-0") {
-                            val healthyProviders = config.providers.count { it.health == ProviderHealth.HEALTHY }
-                            +("$healthyProviders/${config.providers.size} Healthy")
-                        }
-                    }
-                }
-
                 div {
                     span(classes = "text-muted block") { +"Pending Files" }
                     p(classes = "font-semibold mb-0") {
@@ -576,53 +556,6 @@ object IndexStatusPage {
         }
     }
 
-    private fun FlowContent.providerSection(providers: List<ProviderStatus>) {
-        div(classes = "card mt-xl") {
-            h3(classes = "mt-0") { +"Provider Health" }
-
-            if (providers.isEmpty()) {
-                p(classes = "text-muted") {
-                    +"No providers configured. Update context configuration to enable providers."
-                }
-                return@div
-            }
-
-            table(classes = "data-table mt-md") {
-                thead {
-                    tr {
-                        th { +"Provider" }
-                        th { +"Type" }
-                        th { +"Weight" }
-                        th { +"Status" }
-                    }
-                }
-                tbody {
-                    providers.forEach { provider ->
-                        tr {
-                            attributes["data-testid"] = "provider-${provider.id}"
-                            td {
-                                span(classes = "font-semibold") { +provider.displayName }
-                            }
-                            td {
-                                +(provider.type?.uppercase() ?: "—")
-                            }
-                            td {
-                                +"${"%.2f".format(Locale.US, provider.weight)}"
-                            }
-                            td {
-                                attributes["data-testid"] = "provider-${provider.id}-status"
-                                val (label, tone) = provider.health.toLabelAndTone()
-                                with(StatusBadge) {
-                                    badge(StatusBadge.Config(label = label, tone = tone))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
 
 
     private fun String?.toLabel(): String =
@@ -637,12 +570,6 @@ object IndexStatusPage {
         "degraded" -> StatusBadge.Tone.WARNING
         "critical" -> StatusBadge.Tone.DANGER
         else -> StatusBadge.Tone.INFO
-    }
-
-    private fun ProviderHealth.toLabelAndTone(): Pair<String, StatusBadge.Tone> = when (this) {
-        ProviderHealth.HEALTHY -> "Healthy" to StatusBadge.Tone.SUCCESS
-        ProviderHealth.UNAVAILABLE -> "Unavailable" to StatusBadge.Tone.WARNING
-        ProviderHealth.DISABLED -> "Disabled" to StatusBadge.Tone.DEFAULT
     }
 
     private fun String.toStatusLabel(): String =
@@ -811,6 +738,5 @@ object IndexStatusPage {
             adminActions(config.actions)
         }
 
-        providerSection(config.providers)
     }
 }

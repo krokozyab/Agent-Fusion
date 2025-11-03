@@ -306,6 +306,7 @@ class QueryContextToolTest {
             FileState(
                 id = 0,
                 relativePath = path,
+                absolutePath = tempDir.resolve(path).normalize().toString(),
                 contentHash = "hash-$path",
                 sizeBytes = size,
                 modifiedTimeNs = 0,

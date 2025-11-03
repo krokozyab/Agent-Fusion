@@ -135,6 +135,7 @@ class GetContextStatsToolTest {
             FileState(
                 id = 0,
                 relativePath = path,
+                absolutePath = tempDir.resolve(path).normalize().toString(),
                 contentHash = "hash",
                 sizeBytes = size,
                 modifiedTimeNs = 0,

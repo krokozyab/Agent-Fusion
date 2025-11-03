@@ -104,6 +104,7 @@ class VectorSearchEngineTest {
             FileState(
                 id = 0,
                 relativePath = relativePath,
+                absolutePath = tempDir.resolve(relativePath).normalize().toString(),
                 contentHash = "hash-$relativePath",
                 sizeBytes = content.length.toLong(),
                 modifiedTimeNs = 1,
