@@ -134,6 +134,7 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
         val (tasks, _) = queryTasks(defaultParams)
         val gridData = buildTasksGridData(tasks, clock, defaultParams.pageSize)
         val html = TasksPage.render(gridData)
+        call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
         call.respondText(html, io.ktor.http.ContentType.Text.Html)
     }
 
