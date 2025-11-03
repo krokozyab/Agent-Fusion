@@ -147,8 +147,9 @@ th, td {
 .main-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 9999;
   background: var(--background-color);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--muted-border-color);
   height: var(--header-height);
   display: flex;
