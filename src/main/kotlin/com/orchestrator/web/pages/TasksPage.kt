@@ -51,6 +51,8 @@ object TasksPage {
                                 h2(classes = "mt-0 mb-0") { +"Tasks" }
                             }
 
+                            script(src = "/static/js/task-grid.js") {}
+
                             with(AgGrid) {
                                 agGrid(
                                     AgGrid.GridConfig(
@@ -126,7 +128,6 @@ object TasksPage {
             script(src = "/static/js/modal.js") {}
             script(src = "/static/js/sse-status.js") {}
             script(src = "/static/js/task-updates.js") {}
-            script(src = "/static/js/task-grid.js") {}
         }
     }.let { "<!DOCTYPE html>\n$it" }
 }
