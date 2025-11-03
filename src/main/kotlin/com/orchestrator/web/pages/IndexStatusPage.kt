@@ -72,35 +72,7 @@ object IndexStatusPage {
 
                 link(rel = "stylesheet", href = "/static/css/base.css")
                 link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
-                link(rel = "stylesheet", href = "/static/css/orchestrator.css")
-
-                style {
-                    unsafe {
-                        +"""
-                            #index-status-container { padding: 0 !important; margin: 0 !important; }
-                            #index-status-container .page-header { margin-bottom: 0.5rem !important; }
-                            #index-status-container .card { padding: 0.5rem 0.75rem !important; margin: 0 !important; }
-                            #index-status-container .stat-card { padding: 0.25rem 0.5rem !important; }
-                            #index-status-container .stat-card__value { font-size: 1.25rem !important; margin-bottom: 0.125rem !important; }
-                            #index-status-container .stat-card__label { font-size: 0.65rem !important; margin: 0 !important; }
-                            #index-status-container .stat-card__subtext { font-size: 0.65rem !important; display: block !important; opacity: 0.8; margin-top: 0.125rem !important; }
-                            #index-status-container .stat-card__value--warning { color: #b45309 !important; }
-                            #index-status-container .stat-card__value--danger { color: #b91c1c !important; }
-                            #index-status-container .grid { gap: 0.5rem !important; }
-                            #index-status-container h2 { margin: 0 0 0.25rem 0 !important; font-size: 1.25rem !important; }
-                            #index-status-container h3 { margin: 0.25rem 0 !important; font-size: 1rem !important; }
-                            #index-status-container h4 { margin: 0.25rem 0 !important; font-size: 0.95rem !important; }
-                            #index-status-container p { margin: 0.125rem 0 !important; font-size: 0.875rem !important; }
-                            #index-status-container ul { margin: 0.25rem 0 !important; padding-left: 1rem !important; }
-                            #index-status-container li { margin: 0.125rem 0 !important; }
-                            #index-status-container .mt-lg { margin-top: 0.5rem !important; }
-                            #index-status-container .mt-xl { margin-top: 0.5rem !important; }
-                            #index-status-container .mb-lg { margin-bottom: 0.5rem !important; }
-                            #index-status-container .gap-lg { gap: 0.5rem !important; }
-                            #index-status-container .gap-md { gap: 0.375rem !important; }
-                        """.trimIndent()
-                    }
-                }
+                link(rel = "stylesheet", href = "/static/css/orchestrator.css?v=20241103")
 
                 script(src = "/static/js/htmx.min.js") {}
                 // Load our custom SSE extension IMMEDIATELY after HTMX
