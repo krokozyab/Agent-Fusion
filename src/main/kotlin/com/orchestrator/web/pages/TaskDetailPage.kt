@@ -49,7 +49,7 @@ object TaskDetailPage {
             title("Task ${config.task.id.value} - Orchestrator")
             link(rel = "stylesheet", href = "/static/css/base.css")
             link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
-            link(rel = "stylesheet", href = "/static/css/orchestrator.css")
+            link(rel = "stylesheet", href = "/static/css/orchestrator.css?v=20241103")
             script(src = "/static/js/htmx.min.js") {}
         }
 
