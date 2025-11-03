@@ -106,19 +106,19 @@ object HomePage {
                     label = "Index Status",
                     href = "/index",
                     ariaLabel = "View index status and progress",
-                    icon = "⚙️"
+                    icon = "📊"
                 ),
                 Navigation.Link(
                     label = "Files",
                     href = "/files",
                     ariaLabel = "Browse indexed files",
-                    icon = "📁"
+                    icon = "📂"
                 ),
                 Navigation.Link(
                     label = "Metrics",
                     href = "/metrics",
                     ariaLabel = "View metrics and analytics",
-                    icon = "📊"
+                    icon = "📈"
                 )
             )
         )
