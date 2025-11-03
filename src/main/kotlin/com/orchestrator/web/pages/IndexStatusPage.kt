@@ -72,7 +72,7 @@ object IndexStatusPage {
 
                 link(rel = "stylesheet", href = "/static/css/base.css")
                 link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
-                link(rel = "stylesheet", href = "/static/css/orchestrator.css?v=20241103")
+                link(rel = "stylesheet", href = "/static/css/orchestrator.css?v=20241104")
 
                 script(src = "/static/js/htmx.min.js") {}
                 // Load our custom SSE extension IMMEDIATELY after HTMX

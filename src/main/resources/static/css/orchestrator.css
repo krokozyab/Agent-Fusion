@@ -149,8 +149,9 @@ th, td {
   position: sticky;
   top: 0;
   z-index: 9999;
-  background: var(--background-color);
-  backdrop-filter: blur(10px);
+  background-color: var(--gray-100);
+  background: var(--gray-100);
+  backdrop-filter: none;
   border-bottom: 1px solid var(--muted-border-color);
   height: var(--header-height);
   display: flex;
@@ -186,10 +187,18 @@ th, td {
 }
 
 .main-content {
+  --header-offset: var(--header-height);
   max-width: var(--content-max-width);
   margin: 0 auto;
   padding: var(--spacing-md);
+  padding-top: calc(var(--spacing-md) + var(--header-offset));
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    --header-offset: calc(var(--header-height) + 0.5rem);
+  }
 }
 
 .main-footer {
