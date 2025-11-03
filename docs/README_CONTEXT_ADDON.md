@@ -4,7 +4,7 @@ The Context Addon extends the Task Orchestrator with a fast local knowledge base
 
 ## What It Delivers
 - **Live File Indexing** – a multi-root watcher (`WatcherDaemon`) streams changes into DuckDB with language-aware chunking.
-- **Embeddings & Search** – semantic + symbol + full-text providers power `query_context`, `list_tables_json`, and other MCP tools.
+- **Embedding Retrieval** – chunk embeddings power `query_context` and other MCP tools (the addon now runs exclusively in embedding mode).
 - **Filesystem Inventory** – `/index` shows catalog counts vs real filesystem counts, highlights mismatches, and lets you rebuild/refresh safely.
 - **Bootstrap & Rebuild Pipeline** – `RebuildContextTool` and `RefreshContextTool` orchestrate background indexing with progress SSE.
 - **Provider Health** – metrics on which retrieval providers are enabled and their contribution to query results.
@@ -40,4 +40,3 @@ The Context Addon extends the Task Orchestrator with a fast local knowledge base
 - [INSTALL.md](INSTALL.md) – enabling the addon with the orchestrator
 - [WEB_DASHBOARD_ARCHITECTURE.md](WEB_DASHBOARD_ARCHITECTURE.md) – explains the `/index` UX
 - [API_REFERENCE.md](API_REFERENCE.md) – HTTP endpoints for triggering refresh/rebuild
-

@@ -111,6 +111,10 @@ class NavigationTest {
 
         // Check for hx-boost attribute
         assertContains(html, "hx-boost=\"true\"", ignoreCase = false)
+        assertContains(html, "hx-target=\"#main-content\"", ignoreCase = false)
+        assertContains(html, "hx-select=\"#main-content\"", ignoreCase = false)
+        assertContains(html, "hx-swap=\"outerHTML\"", ignoreCase = false)
+        assertContains(html, "hx-push-url=\"true\"", ignoreCase = false)
     }
 
     @Test
@@ -126,6 +130,10 @@ class NavigationTest {
 
         // Should not contain hx-boost
         assertFalse(html.contains("hx-boost=\"true\""), "Should not contain hx-boost when disabled")
+        assertFalse(html.contains("hx-target=\"#main-content\""), "Should not contain hx-target when HTMX boost disabled")
+        assertFalse(html.contains("hx-select=\"#main-content\""), "Should not contain hx-select when HTMX boost disabled")
+        assertFalse(html.contains("hx-swap=\"outerHTML\""), "Should not contain hx-swap when HTMX boost disabled")
+        assertFalse(html.contains("hx-push-url=\"true\""), "Should not contain hx-push-url when HTMX boost disabled")
     }
 
     @Test
