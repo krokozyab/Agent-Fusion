@@ -16,6 +16,12 @@ class BootstrapProgressTracker {
         const val TABLE_NAME = "bootstrap_progress"
     }
 
+    data class ProgressEntry(
+        val path: String,
+        val status: String,
+        val error: String?
+    )
+
     init {
         ContextDatabase.withConnection { conn ->
             ensureTable(conn)
@@ -86,6 +92,22 @@ class BootstrapProgressTracker {
                     remaining.add(Path.of(rs.getString(1)))
                 }
                 remaining
+            }
+        }
+    }
+
+    /** Returns all bootstrap progress entries including their status and error message. */
+    fun getEntries(): List<ProgressEntry> = ContextDatabase.withConnection { conn ->
+        conn.prepareStatement("SELECT path, status, error FROM " + TABLE_NAME).use { ps ->
+            ps.executeQuery().use { rs ->
+                val entries = mutableListOf<ProgressEntry>()
+                while (rs.next()) {
+                    val path = rs.getString("path") ?: continue
+                    val status = rs.getString("status") ?: continue
+                    val error = rs.getString("error")
+                    entries += ProgressEntry(path = path, status = status, error = error)
+                }
+                entries
             }
         }
     }
