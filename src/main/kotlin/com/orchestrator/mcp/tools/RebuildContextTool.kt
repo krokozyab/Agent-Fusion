@@ -601,6 +601,7 @@ class RebuildContextTool(
                 CREATE TABLE file_state (
                     file_id               BIGINT PRIMARY KEY,
                     rel_path              VARCHAR NOT NULL UNIQUE,
+                    abs_path              VARCHAR NOT NULL UNIQUE,
                     content_hash          VARCHAR,
                     size_bytes            BIGINT NOT NULL,
                     mtime_ns              BIGINT NOT NULL,
