@@ -46,6 +46,7 @@ class ContextRepositoryTest {
         val fileState = FileState(
             id = 0,
             relativePath = "src/Main.kt",
+            absolutePath = tempDir.resolve("src/Main.kt").toString(),
             contentHash = "hash-1",
             sizeBytes = 128,
             modifiedTimeNs = 1000,
@@ -114,6 +115,7 @@ class ContextRepositoryTest {
         val fileState = FileState(
             id = 0,
             relativePath = "src/Test.kt",
+            absolutePath = tempDir.resolve("src/Test.kt").toString(),
             contentHash = "hash-fk",
             sizeBytes = 100,
             modifiedTimeNs = 3000,
@@ -161,6 +163,7 @@ class ContextRepositoryTest {
         val fileState = FileState(
             id = 0,
             relativePath = "src/Example.kt",
+            absolutePath = tempDir.resolve("src/Example.kt").toString(),
             contentHash = "hash-2",
             sizeBytes = 256,
             modifiedTimeNs = 2000,

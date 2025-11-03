@@ -63,6 +63,7 @@ class IncrementalIndexerTest {
         val previousState = FileState(
             id = 42,
             relativePath = "src/Modified.kt",
+            absolutePath = Path.of("/repo/src/Modified.kt").toString(),
             contentHash = "old-hash",
             sizeBytes = 111,
             modifiedTimeNs = 200,
@@ -146,6 +147,7 @@ class IncrementalIndexerTest {
         val fileState = FileState(
             id = 0,
             relativePath = "src/Deleted.kt",
+            absolutePath = projectRoot.resolve("src/Deleted.kt").toString(),
             contentHash = "hash",
             sizeBytes = 10,
             modifiedTimeNs = 100,
@@ -234,6 +236,7 @@ class IncrementalIndexerTest {
         }
         val deleted = DeletedFile(
             relativePath = "src/Deleted.kt",
+            absolutePath = persisted.file.absolutePath,
             previousState = persisted.file
         )
         val changeSet = ChangeSet(
