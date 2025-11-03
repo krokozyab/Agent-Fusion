@@ -30,6 +30,7 @@ interface ContextService {
 
 object ContextModule {
     private val log = Logger.logger("com.orchestrator.modules.context.ContextModule")
+    private val bootstrapProgressTracker: BootstrapProgressTracker by lazy { BootstrapProgressTracker() }
 
     @Volatile
     private var moduleConfig: ContextConfig = ContextConfig()
@@ -222,42 +223,32 @@ object ContextModule {
         }
 
         runCatching {
-            ContextDatabase.withConnection { conn ->
-                conn.prepareStatement(
-                    "SELECT path, status FROM ${BootstrapProgressTracker.TABLE_NAME}"
-                ).use { ps ->
-                    ps.executeQuery().use { rs ->
-                        while (rs.next()) {
-                            val rawPath = rs.getString("path") ?: continue
-                            val status = rs.getString("status")?.uppercase(Locale.US) ?: continue
-                            val normalized = normalizePath(rawPath)
-                            when (status) {
-                                "FAILED" -> {
-                                    val existing = entriesByPath[normalized]
-                                    val entry = (existing?.copy(status = FileIndexStatus.ERROR))
-                                        ?: FileIndexEntry(
-                                            path = normalized,
-                                            status = FileIndexStatus.ERROR,
-                                            sizeBytes = 0,
-                                            lastModified = null,
-                                            chunkCount = 0
-                                        )
-                                    entriesByPath[normalized] = entry
-                                }
-                                "PENDING", "PROCESSING" -> {
-                                    entriesByPath.putIfAbsent(
-                                        normalized,
-                                        FileIndexEntry(
-                                            path = normalized,
-                                            status = FileIndexStatus.PENDING,
-                                            sizeBytes = 0,
-                                            lastModified = null,
-                                            chunkCount = 0
-                                        )
-                                    )
-                                }
-                            }
-                        }
+            bootstrapProgressTracker.getEntries().forEach { record ->
+                val normalized = normalizePath(record.path)
+                when (record.status.uppercase(Locale.US)) {
+                    "FAILED" -> {
+                        val existing = entriesByPath[normalized]
+                        val entry = (existing?.copy(status = FileIndexStatus.ERROR))
+                            ?: FileIndexEntry(
+                                path = normalized,
+                                status = FileIndexStatus.ERROR,
+                                sizeBytes = 0,
+                                lastModified = null,
+                                chunkCount = 0
+                            )
+                        entriesByPath[normalized] = entry
+                    }
+                    "PENDING", "PROCESSING" -> {
+                        entriesByPath.putIfAbsent(
+                            normalized,
+                            FileIndexEntry(
+                                path = normalized,
+                                status = FileIndexStatus.PENDING,
+                                sizeBytes = 0,
+                                lastModified = null,
+                                chunkCount = 0
+                            )
+                        )
                     }
                 }
             }
