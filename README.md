@@ -1,162 +1,82 @@
 # Agent Fusion
 
-A multi-agent orchestration system that enables Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist to collaborate bidirectionally through intelligent task routing and consensus-based decision making.
+Agent Fusion is a local MCP (Model Context Protocol) stack that lets multiple coding agents collaborate while sharing a rich project index. It is composed of two flagship modules:
 
-## Architecture Overview
+- **Task Orchestrator** – multi-agent workflow engine, consensus router, and web dashboard.
+- **Context Addon** – live filesystem indexer with embeddings, search providers, and context tools.
 
-### Core Concept
+🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see consensus collaboration in action.
 
-The system enables multiple AI agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) to collaborate on complex tasks through a central MCP (Model Context Protocol) server that maintains shared context and orchestrates their interactions.
+---
 
-```
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│              │  │              │  │              │  │              │
-│ Claude Code  │  │  Codex CLI   │  │  Amazon Q    │  │   Gemini     │
-│  (Agent 1)   │  │  (Agent 2)   │  │  (Agent 3)   │  │  (Agent 4)   │
-│              │  │              │  │              │  │              │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                 │                 │                 │
-       │     MCP Client Connections (bidirectional)          │
-       │                 │                 │                 │
-       └─────────────────┼─────────────────┼─────────────────┘
-                         ▼                 ▼
-    ┌─────────────────────────────────────────────────────────────┐
-    │                                                             │
-    │                 MCP Orchestrator Server                     │
-    │                                                             │
-    │  ┌───────────────────────────────────────────────────────┐  │
-    │  │         Shared Context & Task Queue                   │  │
-    │  │  • Task routing & assignment                          │  │
-    │  │  • Proposals & consensus voting                       │  │
-    │  │  • Multi-agent conversation history                   │  │
-    │  └───────────────────────────────────────────────────────┘  │
-    │                                                             │
-    │  ┌───────────────────────────────────────────────────────┐  │
-    │  │          Persistent Storage (DuckDB)                  │  │
-    │  │  • Tasks, Proposals, Decisions                        │  │
-    │  │  • Agent metrics & performance                        │  │
-    │  │  • Context snapshots                                  │  │
-    │  └───────────────────────────────────────────────────────┘  │
-    │                                                             │
-    └─────────────────────────────────────────────────────────────┘
-```
+## Quick Links
 
-### How It Works
+| Resource | Purpose |
+|----------|---------|
+| [Installation](docs/INSTALL.md) | Set up the orchestrator, context addon, and agent clients |
+| [Agent playbook](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) | Share with Claude/Codex/Gemini/Q before they connect |
+| [Task Orchestrator README](docs/README_TASK_ORCHESTRATOR.md) | Deep dive on routing, consensus, UI, and APIs |
+| [Context Addon README](docs/README_CONTEXT_ADDON.md) | Indexing pipeline, MCP tools, dashboard, troubleshooting |
+| [API reference](docs/API_REFERENCE.md) | HTTP + MCP endpoints |
+| [Development guide](docs/DEVELOPMENT.md) | Build, test, contribution workflow |
 
-1. **Agents Connect**: Multiple AI agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) connect to the MCP server as clients
-2. **Task Creation**: Any agent can create tasks (simple, consensus, or assigned)
-3. **Context Sharing**: The server maintains shared context visible to all agents
-4. **Collaboration**: Agents submit proposals, vote on solutions, and review each other's work
-5. **Routing**: Intelligent routing decides whether tasks need single-agent or multi-agent collaboration
+---
 
-**Key Benefits:**
-- **Multi-Agent Support**: Works with Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist
-- **Bidirectional**: All agents can initiate tasks and respond to each other
-- **Context Preservation**: Full conversation history and task context maintained centrally
-- **Flexible Workflows**: Supports solo, consensus, sequential, and parallel execution modes
+## Module Overview
 
-## Features
+### Task Orchestrator
+The control plane for multi-agent work. It manages task queues, consensus voting, routing policies (solo/consensus/sequential/parallel), and surfaces activity through the `/tasks`, `/files`, and `/index` dashboards. Read the dedicated guide here → [docs/README_TASK_ORCHESTRATOR.md](docs/README_TASK_ORCHESTRATOR.md).
 
-🎥 **[Watch Demo Video](https://youtu.be/kXkTh0fJ0Lc)** - See consensus collaboration in action
+### Context Addon
+Ingests project files, keeps DuckDB-based embeddings in sync, and exposes retrieval tools (semantic, symbol, raw text) to every agent. It also powers the `/index` status page with filesystem reconciliations and rebuild controls. Details live here → [docs/README_CONTEXT_ADDON.md](docs/README_CONTEXT_ADDON.md).
 
-### What Makes This Unique
-
-- **True Bidirectional Collaboration**: All agents can initiate tasks, respond to each other, and manage workflows - not just sequential handoffs
-- **Multi-Agent Support**: Works with Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist
-- **Consensus-Based Decision Making**: Multiple agents propose solutions and vote on the best approach for critical architectural and security decisions
-- **Intelligent Task Routing**: Automatically analyzes task complexity and risk to select optimal execution approach - supports solo execution for simple tasks and multi-agent consensus for critical decisions
-- **Persistent Task Queue**: Agents check pending work assigned to them, enabling asynchronous collaboration across sessions
-- **Flexible Workflow Control**: Supports solo execution, multi-agent consensus, direct assignments, and emergency bypass modes
-- **Event-Driven Architecture**: Async event bus enables decoupled, scalable component communication
-
-## Installation
-
-**No API keys required** - All agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) run using your existing local installations and connect via MCP.
-
-See [Installation Guide](docs/INSTALL.md) for setup instructions for all supported agents.
+---
 
 ## Getting Started
 
-### Agent Configuration
+1. **Install & configure**  
+   Follow [docs/INSTALL.md](docs/INSTALL.md) to build the server and point your agents at the MCP endpoint. Configure watch roots and indexing limits in `fusionagent.toml`.
 
-For optimal collaboration, it's **highly recommended** to provide the [Agent Orchestrator Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) to your AI agents before starting work. This enables agents to:
+2. **Prime your agents**  
+   In their first session, tell each agent:  
+   ```text
+   Read and follow the instructions in docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md
+   ```
+   That equips them with routing intents, tool protocols, and handoff etiquette.
 
-- Understand how to create and manage tasks
-- Detect user routing directives from natural language
-- Follow proper handoff workflows between agents
-- Use MCP tools correctly for collaboration
+3. **Run the orchestrator**  
+   ```bash
+   ./gradlew run
+   ```  
+   - Web UI: `http://localhost:8081`  
+   - MCP endpoint: configured in `fusionagent.toml`
 
-**Recommended approach:**
+4. **Connect agents & collaborate**  
+   Agents can now create tasks, join consensus rounds, and query the shared index. Watch `/tasks` for live proposals and `/index` for indexing health.
 
-In your first message to the agent, say:
-```
-"Read and follow the instructions in docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md"
-```
+---
 
-Or include the content as context at the start of your session.
+## Documentation Map
 
-### Usage Examples
+| Topic | Key References |
+|-------|----------------|
+| Architecture & sequences | [WEB_DASHBOARD_ARCHITECTURE.md](docs/WEB_DASHBOARD_ARCHITECTURE.md), [SEQUENCE_DIAGRAMS.md](docs/SEQUENCE_DIAGRAMS.md) |
+| Task routing & decision making | [TASK_ROUTING_GUIDE.md](docs/TASK_ROUTING_GUIDE.md), [STATE_MACHINE.md](docs/STATE_MACHINE.md) |
+| Consensus workflows | [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [FUNCTIONAL_REQUIREMENTS.md](docs/FUNCTIONAL_REQUIREMENTS.md) |
+| Context indexing | [CONTEXT_ADDON_ARCHITECTURE.md](docs/CONTEXT_ADDON_ARCHITECTURE.md), [CONTEXT_IMPLEMENTATION_PLAN.md](docs/CONTEXT_IMPLEMENTATION_PLAN.md) |
+| MCP tools & usage | [MCP_TOOL_QUICK_REFERENCE.md](docs/MCP_TOOL_QUICK_REFERENCE.md), [API_REFERENCE.md](docs/API_REFERENCE.md) |
+| Deployment & operations | [DEPLOYMENT_NOTES.md](docs/DEPLOYMENT_NOTES.md), [ONNX_MODEL_SETUP.md](docs/ONNX_MODEL_SETUP.md) |
 
-For detailed workflow examples, see [Conversation Handoff Workflow](docs/CONVERSATION_HANDOFF_WORKFLOW.md).
+---
 
-## Developer Resources
+## Why Agent Fusion?
 
-### Build Dependencies
-- Gradle with JDK 21+
-- Ktor server modules (`ktor-server-core`, `ktor-server-netty`, `ktor-server-content-negotiation`, `ktor-server-cors`, `ktor-server-compression`, `ktor-server-sse`, `ktor-server-html-builder`)
-- `kotlinx-html` for server-side rendering
-- DuckDB JDBC driver
+- **True bidirectional collaboration** – any agent can open tasks, route work, or trigger consensus.
+- **Rich project context** – fast, multi-root indexing with embeddings, chunking, and filesystem reconciliation.
+- **Evidence-driven decisions** – proposals, votes, and final decisions are persisted with full audit history.
+- **Event-driven architecture** – async event bus feeds dashboards, SSE progress streams, and external integrations.
 
-### API Documentation
-📚 **[MCP Server API Reference](docs/API_REFERENCE.md)** - Complete documentation of MCP server endpoints, tools, and resources
-
-### Development Guide
-🛠️ **[Development Guide](docs/DEVELOPMENT.md)** - Project structure, setup instructions, testing, and contribution guidelines
-
-### Deployment Notes
-📦 **[Deployment Notes](docs/DEPLOYMENT_NOTES.md)** - Runtime configuration flags and operational considerations for different environments
-
-
-
-## Architecture
-
-📊 **[View Sequence Diagrams](docs/SEQUENCE_DIAGRAMS.md)** - Detailed workflow visualizations showing task flow from creation to completion
-
-### Core Components
-
-- **Routing Module**: Classifies tasks and selects optimal routing strategy
-  - SOLO: Single agent execution
-  - CONSENSUS: Multiple agents collaborate
-  - SEQUENTIAL: Agents work in sequence
-  - PARALLEL: Agents work in parallel
-
-- **Consensus Module**: Coordinates multi-agent collaboration
-  - Voting Strategy: Democratic voting
-  - Reasoning Quality: Best reasoning wins
-  - Token Optimization: Minimize token usage
-
-- **Metrics Module**: Comprehensive tracking
-  - Token usage per task/agent
-  - Performance monitoring
-  - Decision analytics
-  - Alert system
-
-- **MCP Server**: HTTP-based tool interface
-  - RESTful endpoints
-  - JSON request/response
-  - Error handling
-
-- **Event Bus**: Async communication
-  - Pub/sub pattern
-  - Event-driven architecture
-  - Decoupled components
-
-- **Storage**: DuckDB persistence
-  - Tasks, proposals, decisions
-  - Metrics time series
-  - Context snapshots
-
-### Routing Strategies
+Agent Fusion makes local multi-agent workflows practical: plug in your favorite coding LLMs, give them a shared brain, and keep everything observable from one unified UI.
 
 The system supports four routing strategies that are automatically determined based on task characteristics:
 
