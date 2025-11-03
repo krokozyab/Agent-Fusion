@@ -27,6 +27,36 @@ Agent Fusion is a local MCP (Model Context Protocol) stack that lets multiple co
 ### Task Orchestrator
 The control plane for multi-agent work. It manages task queues, consensus voting, routing policies (solo/consensus/sequential/parallel), and surfaces activity through the `/tasks`, `/files`, and `/index` dashboards. Read the dedicated guide here → [docs/README_TASK_ORCHESTRATOR.md](docs/README_TASK_ORCHESTRATOR.md).
 
+```
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│              │  │              │  │              │  │              │
+│ Claude Code  │  │  Codex CLI   │  │  Amazon Q    │  │   Gemini     │
+│  (Agent 1)   │  │  (Agent 2)   │  │  (Agent 3)   │  │  (Agent 4)   │
+│              │  │              │  │              │  │              │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                 │                 │
+       │     MCP Client Connections (bidirectional)          │
+       │                 │                 │                 │
+       └─────────────────┼─────────────────┼─────────────────┘
+                         ▼                                     
+    ┌─────────────────────────────────────────────────────────────┐
+    │                     MCP Orchestrator Server                 │
+    │─────────────────────────────────────────────────────────────│
+    │  Shared Context & Task Queue                                │
+    │   • Task routing & assignment                               │
+    │   • Proposals, reviews, consensus voting                    │
+    │   • Persistent history & metrics                            │
+    │                                                             │
+    │  Context Storage (DuckDB)                                   │
+    │   • Tasks, decisions, snapshots                             │
+    │   • Embeddings & filesystem metadata (via Context Addon)    │
+    │                                                             │
+    │  Event Bus + Web Dashboard                                  │
+    │   • Live SSE feeds for tasks/index progress                 │
+    │   • `/tasks`, `/files`, `/index` observability              │
+    └─────────────────────────────────────────────────────────────┘
+```
+
 ### Context Addon
 Ingests project files, keeps DuckDB-based embeddings in sync, and exposes retrieval tools (semantic, symbol, raw text) to every agent. It also powers the `/index` status page with filesystem reconciliations and rebuild controls. Details live here → [docs/README_CONTEXT_ADDON.md](docs/README_CONTEXT_ADDON.md).
 
