@@ -2503,3 +2503,37 @@ th, td {
     max-width: 1100px;
   }
 }
+
+.index-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--border-radius-sm);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: none;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+}
+
+.index-action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.32);
+}
+
+.index-action-button:active {
+  transform: translateY(1px);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+}
+
+.index-action-button:disabled,
+.index-action-button.button--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
