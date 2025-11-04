@@ -46,12 +46,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
+            event.preventDefault();
             const openModals = document.querySelectorAll('.modal.is-open');
             openModals.forEach(modal => {
                 window.closeModal(modal.id);
             });
         }
-    });
+    }, true);
 });
 
 // Handle HTMX swap events - open modal after content is loaded
