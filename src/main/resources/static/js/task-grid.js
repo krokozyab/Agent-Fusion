@@ -74,12 +74,41 @@
     if (!gridApi) return;
 
     gridApi.addEventListener('rowDoubleClicked', (params) => {
-      if (!params || !params.data || !params.data.detailUrl || !window.htmx) return;
-      window.htmx.ajax('GET', params.data.detailUrl, {
-        target: '#modal-container',
-        swap: 'innerHTML',
-        indicator: '#tasks-grid-indicator'
-      });
+      console.log('Row double-clicked!', { url: params?.data?.detailUrl });
+      if (!params || !params.data || !params.data.detailUrl) {
+        console.log('Row double-click skipped - missing data');
+        return;
+      }
+      const detailUrl = params.data.detailUrl;
+      console.log('Fetching modal content from:', detailUrl);
+      fetch(detailUrl)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.text();
+        })
+        .then(html => {
+          // Ensure modal container exists
+          const modalContainer = typeof ensureModalContainer === 'function'
+            ? ensureModalContainer()
+            : document.getElementById('modal-container');
+
+          if (!modalContainer) {
+            console.error('Modal container not found and could not be created!');
+            return;
+          }
+          console.log('Inserting HTML into modal-container');
+          modalContainer.innerHTML = html;
+
+          if (window.htmx && typeof window.htmx.process === 'function') {
+            window.htmx.process(modalContainer);
+          }
+
+          console.log('Opening modal after content loaded');
+          window.openModal('modal-container');
+        })
+        .catch(err => {
+          console.error('Failed to load modal content:', err);
+        });
     });
   }
 
@@ -325,16 +354,47 @@
 
     // Attach click handler directly to the button
     button.addEventListener('click', (event) => {
+      console.log('View button clicked!', { detailUrl });
       event.preventDefault();
       event.stopPropagation();
 
-      if (!detailUrl || detailUrl === '#' || !window.htmx) return;
+      if (!detailUrl || detailUrl === '#' || !window.htmx) {
+        console.log('View button skipped - missing data', { detailUrl, hasHtmx: !!window.htmx });
+        return;
+      }
 
-      // Use HTMX to load the modal content
-      window.htmx.ajax('GET', detailUrl, {
-        target: '#modal-container',
-        swap: 'innerHTML'
-      });
+      // Load modal content directly
+      console.log('Making fetch request to:', detailUrl);
+      fetch(detailUrl)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.text();
+        })
+        .then(html => {
+          // Ensure modal container exists (it should, but just in case)
+          const modalContainer = typeof ensureModalContainer === 'function'
+            ? ensureModalContainer()
+            : document.getElementById('modal-container');
+
+          if (!modalContainer) {
+            console.error('Modal container not found and could not be created!');
+            return;
+          }
+          console.log('Inserting HTML into modal-container');
+          modalContainer.innerHTML = html;
+
+          // Process any HTMX elements that were added
+          if (window.htmx && typeof window.htmx.process === 'function') {
+            window.htmx.process(modalContainer);
+          }
+
+          // Open the modal
+          console.log('Opening modal after content loaded');
+          window.openModal('modal-container');
+        })
+        .catch(err => {
+          console.error('Failed to load modal content:', err);
+        });
     });
 
     return button;
@@ -359,14 +419,36 @@
         button.setAttribute('hx-trigger', 'click consume');
 
         const triggerHtmx = function (event) {
-          if (!window.htmx) {
-            return;
-          }
           event?.preventDefault();
-          window.htmx.ajax('GET', url, {
-            target: '#modal-container',
-            swap: 'innerHTML'
-          });
+          console.log('Action button clicked:', { label, url });
+          fetch(url)
+            .then(response => {
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              return response.text();
+            })
+            .then(html => {
+              // Ensure modal container exists
+              const modalContainer = typeof ensureModalContainer === 'function'
+                ? ensureModalContainer()
+                : document.getElementById('modal-container');
+
+              if (!modalContainer) {
+                console.error('Modal container not found and could not be created!');
+                return;
+              }
+              console.log('Inserting HTML into modal-container');
+              modalContainer.innerHTML = html;
+
+              if (window.htmx && typeof window.htmx.process === 'function') {
+                window.htmx.process(modalContainer);
+              }
+
+              console.log('Opening modal after content loaded');
+              window.openModal('modal-container');
+            })
+            .catch(err => {
+              console.error('Failed to load action content:', err);
+            });
           return false;
         };
 

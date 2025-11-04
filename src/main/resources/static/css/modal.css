@@ -58,6 +58,19 @@
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
+    color: #333;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.modal__close:hover {
+    color: #000;
+    transform: scale(1.2);
+}
+
+.modal__close:active {
+    transform: scale(0.95);
 }
 
 .modal__body {
