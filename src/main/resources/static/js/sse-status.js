@@ -34,20 +34,44 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial state
     updateStatus('connecting', 'Connecting...');
 
-    // Listen for HTMX SSE events
+    // Track if we've received at least one message (indicates connection is live)
+    let hasReceivedMessage = false;
+
+    // Listen for HTMX SSE events - the custom extension dispatches htmx:sseMessage instead of htmx:sseOpen
+    document.addEventListener('htmx:sseMessage', function(event) {
+        console.log('SSE message received, marking as connected');
+        if (!hasReceivedMessage) {
+            hasReceivedMessage = true;
+            updateStatus('connected', 'Connected');
+        }
+    });
+
+    // Alternative: Listen for message events before they're processed
+    document.addEventListener('htmx:sseBeforeMessage', function(event) {
+        console.log('SSE message before processing');
+        if (!hasReceivedMessage) {
+            hasReceivedMessage = true;
+            updateStatus('connected', 'Connected');
+        }
+    });
+
+    // Standard HTMX SSE events (for compatibility with standard HTMX SSE)
     document.addEventListener('htmx:sseOpen', function(event) {
-        console.log('SSE connection opened');
+        console.log('SSE connection opened (standard event)');
         updateStatus('connected', 'Connected');
+        hasReceivedMessage = true;
     });
 
     document.addEventListener('htmx:sseError', function(event) {
         console.error('SSE connection error', event);
         updateStatus('disconnected', 'Connection error');
+        hasReceivedMessage = false;
     });
 
     document.addEventListener('htmx:sseClose', function(event) {
         console.log('SSE connection closed');
         updateStatus('disconnected', 'Disconnected');
+        hasReceivedMessage = false;
     });
 
     // Fallback: Check connection every 5 seconds

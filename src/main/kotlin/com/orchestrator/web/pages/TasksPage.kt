@@ -33,12 +33,14 @@ object TasksPage {
             link(rel = "stylesheet", href = "/static/css/ag-theme-quartz.css")
 
             script(src = "/static/js/htmx.min.js") {}
+            script(src = "/static/js/htmx-sse.min.js") {}
+            script(src = "/static/js/sse-status.js") {}
             script(src = "/static/js/ag-grid-community.min.js") {}
         }
 
         body(classes = "dashboard-layout") {
             attributes["hx-ext"] = "sse"
-            attributes["sse-connect"] = "/sse/tasks"
+            attributes["data-sse-url"] = "/sse/tasks"
 
             with(PageLayout) {
                 dashboardShell(
@@ -126,7 +128,6 @@ object TasksPage {
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
             script(src = "/static/js/modal.js") {}
-            script(src = "/static/js/sse-status.js") {}
             script(src = "/static/js/task-updates.js") {}
         }
     }.let { "<!DOCTYPE html>\n$it" }
