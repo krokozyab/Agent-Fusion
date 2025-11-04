@@ -894,7 +894,24 @@ class McpServerImpl(
     }
 
     private fun executeTool(name: String, params: JsonElement): Any = when (name) {
-        "create_simple_task" -> createSimpleTaskTool.execute(mapCreateSimpleParams(params))
+        "create_simple_task" -> {
+            // Get current agent from session context for auto-assignment
+            val currentAgent = try {
+                val sessionId = currentSessionId.get()
+                sessionId?.let { sessionToAgent[it]?.value }
+                    ?: run {
+                        // Fall back to resolving default agent if session-based mapping not available
+                        try {
+                            resolveAgentIdOrDefault(null)
+                        } catch (e: Exception) {
+                            null  // If resolution fails, continue without auto-assignment
+                        }
+                    }
+            } catch (e: Exception) {
+                null  // Silently ignore if we can't determine current agent
+            }
+            createSimpleTaskTool.execute(mapCreateSimpleParams(params, currentAgent))
+        }
         "create_consensus_task" -> createConsensusTaskTool.execute(mapCreateConsensusParams(params))
         "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
         "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
@@ -2351,18 +2368,38 @@ class McpServerImpl(
     }
 
     // ---- JSON mapping helpers ----
-    private fun mapCreateSimpleParams(el: JsonElement): CreateSimpleTaskTool.Params {
+    private fun mapCreateSimpleParams(el: JsonElement, currentAgentId: String? = null): CreateSimpleTaskTool.Params {
         val o = el.asObj()
+        val userSpecifiedAssignee = o.obj("directives")?.str("assignToAgent")?.takeIf { it.isNotBlank() }
+        val assignToAgent = when {
+            userSpecifiedAssignee != null -> normalizeAgentId(userSpecifiedAssignee)
+            currentAgentId != null -> currentAgentId  // Auto-assign to current agent if not specified
+            else -> null
+        }
+
         val directives = o.obj("directives")?.let { d ->
             CreateSimpleTaskTool.Params.Directives(
                 skipConsensus = d.bool("skipConsensus"),
-                assignToAgent = normalizeAgentId(d.str("assignToAgent")),
+                assignToAgent = assignToAgent,
                 immediate = d.bool("immediate"),
                 isEmergency = d.bool("isEmergency"),
                 notes = d.str("notes"),
                 originalText = d.str("originalText")
             )
-        }
+        } ?: (if (assignToAgent != null) {
+            // Create minimal directives just to set assignToAgent if current agent is auto-assigned
+            CreateSimpleTaskTool.Params.Directives(
+                skipConsensus = null,
+                assignToAgent = assignToAgent,
+                immediate = null,
+                isEmergency = null,
+                notes = null,
+                originalText = null
+            )
+        } else {
+            null
+        })
+
         return CreateSimpleTaskTool.Params(
             title = o.reqStr("title"),
             description = o.str("description"),
