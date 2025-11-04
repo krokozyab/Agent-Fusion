@@ -279,7 +279,7 @@ object IndexStatusPage {
 
             div(classes = "flex flex-wrap gap-sm") {
                 actions.forEach { action ->
-                    button(classes = "button button--primary") {
+                    button(classes = "btn btn-primary index-action-button") {
                         attributes["type"] = "button"
                         attributes["data-testid"] = "action-${action.id}"
                         attributes["data-index-action"] = action.id

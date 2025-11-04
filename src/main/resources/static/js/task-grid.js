@@ -287,13 +287,13 @@
   function renderAssignees(params) {
     const data = params?.data || {};
     const assignees = data.assignees;
-    let content = 'Unassigned';
-    if (Array.isArray(assignees) && assignees.length > 0) {
-      content = assignees.map((agent) => `<span class="task-row__agent">${escapeHtml(agent)}</span>`).join('');
-    } else if (typeof data.assigneesDisplay === 'string') {
-      content = `<span class="task-row__agent">${escapeHtml(data.assigneesDisplay)}</span>`;
+    let displayText = 'Unassigned';
+    if (typeof data.assigneesDisplay === 'string' && data.assigneesDisplay.trim().length > 0) {
+      displayText = data.assigneesDisplay;
+    } else if (Array.isArray(assignees) && assignees.length > 0) {
+      displayText = assignees.join(', ');
     }
-    return `<div class="task-row__agents">${content}</div>`;
+    return `<span class="task-row__agents-text">${escapeHtml(displayText)}</span>`;
   }
 
   function renderUpdatedAt(params) {
