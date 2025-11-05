@@ -912,7 +912,15 @@ class McpServerImpl(
             }
             createSimpleTaskTool.execute(mapCreateSimpleParams(params, currentAgent))
         }
-        "create_consensus_task" -> createConsensusTaskTool.execute(mapCreateConsensusParams(params))
+        "create_consensus_task" -> {
+            // Extract current agent (creating agent should be primary)
+            val currentAgent = try {
+                normalizeAgentId(currentAgentId)
+            } catch (e: Exception) {
+                null  // Silently ignore if we can't determine current agent
+            }
+            createConsensusTaskTool.execute(mapCreateConsensusParams(params, currentAgent))
+        }
         "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
         "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
         "complete_task" -> completeTaskTool.execute(mapCompleteTaskParams(params))
@@ -2754,7 +2762,7 @@ class McpServerImpl(
         )
     }
 
-    private fun mapCreateConsensusParams(el: JsonElement): CreateConsensusTaskTool.Params {
+    private fun mapCreateConsensusParams(el: JsonElement, currentAgentId: String? = null): CreateConsensusTaskTool.Params {
         val o = el.asObj()
         val directives = o.obj("directives")?.let { d ->
             CreateConsensusTaskTool.Params.Directives(
@@ -2776,7 +2784,8 @@ class McpServerImpl(
             dependencyIds = o.listStr("dependencyIds"),
             dueAt = o.str("dueAt"),
             metadata = o.mapStr("metadata"),
-            directives = directives
+            directives = directives,
+            creatingAgentId = currentAgentId  // Pass creating agent to become primary
         )
     }
 
