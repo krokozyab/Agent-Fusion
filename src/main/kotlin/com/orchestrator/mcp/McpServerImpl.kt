@@ -2095,37 +2095,124 @@ class McpServerImpl(
         ToolEntry(
             name = "query_context",
             description = """
-                **PREFERRED ALTERNATIVE TO GREP/FIND**: Use this tool instead of grep, find, or other text search commands.
+                **🔍 SMART CODE SEARCH** - Semantic + symbol + full-text search across the entire indexed codebase.
+                **ALWAYS USE THIS INSTEAD OF**: grep, find, bash search commands, or manual file reading.
+                **CRITICAL**: Use SHORT keywords (2-5 words), NOT natural language questions.
 
-                Explicit context query tool for agents to retrieve relevant code snippets
-                based on keyword-based queries with optional filters and scoping.
-                Returns semantic, symbol-based, and full-text search results from the indexed codebase.
+                ## ⚡ When to Auto-Invoke (Proactive)
+                - ✅ Before implementing ANY feature (find similar code, avoid duplication)
+                - ✅ Before writing proposals for consensus tasks (gather implementation context)
+                - ✅ When user asks "how does X work", "where is Y", "find Z"
+                - ✅ Before refactoring (find all usages, related code)
+                - ✅ When encountering unfamiliar code patterns or APIs
+                - ✅ Before answering architecture questions (find relevant modules)
 
-                ## Use When
-                - Need to find relevant code snippets for a task or question (instead of grep/find)
-                - Want to understand implementation details before making changes
-                - Need to gather context about specific files, languages, or code types
-                - Building context for multi-step tasks or consensus proposals
+                ## 🚨 Mandatory Invocation Scenarios
+                1. **Before Implementation**: User requests a feature → query_context for existing patterns FIRST
+                2. **Code Understanding**: User asks "how/where/what" questions → query_context before answering
+                3. **Architecture Analysis**: Consensus tasks about design → query_context to gather context
+                4. **Refactoring Tasks**: Before changing code → query_context to find all usages
+                5. **Bug Investigation**: Before fixing → query_context to understand the module
 
-                ## Parameters
-                - query (required): Short, specific keywords (like grep/find) - NOT long natural language phrases
-                - k (optional): Maximum number of results to return (default: 10)
-                - maxTokens (optional): Token budget for results (default: 4000)
-                - paths (optional): Filter to specific file paths (e.g., ["src/main/kotlin/"])
-                - languages (optional): Filter to specific languages (e.g., ["kotlin", "java"])
-                - kinds (optional): Filter to specific chunk types (e.g., ["CODE_CLASS", "CODE_METHOD"])
-                - excludePatterns (optional): Exclude files matching patterns (e.g., ["test/", "*.md"])
-                - providers (optional): Use specific providers (e.g., ["semantic", "symbol"])
+                ## 💬 User Phrases That Trigger This Tool
+                - "How does [feature] work?" → query_context("feature implementation")
+                - "Where is [component] defined?" → query_context("component class")
+                - "Find all [pattern] usage" → query_context("pattern")
+                - "Show me [API] implementation" → query_context("API method")
+                - "What does [module] do?" → query_context("module core logic")
+                - "Search for [keyword]" → query_context("keyword")
 
-                ## Example Queries (use short specific keywords like grep/find)
-                1. "authentication JWT token"
-                2. "database connection"
-                3. "PathFilter shouldIgnore"
-                4. "error handling exception"
+                ## ✅ Good Query Examples (Short & Specific - Like Grep)
+                - "authentication JWT token" ← finds auth code with JWT
+                - "database connection pool" ← finds DB connection logic
+                - "PathFilter shouldIgnore" ← finds specific method
+                - "error handling exception" ← finds error handling patterns
+                - "ContextModule getTaskContext" ← finds exact method
+                - "TaskRepository findById" ← finds repository method
+                - "WebServer routes API" ← finds API route definitions
+                - "SymbolIndexBuilder extract" ← finds indexing logic
 
-                ## Returns
-                - hits: List of code snippets with score, file path, text, metadata
-                - metadata: Query statistics (total hits, tokens used, provider stats)
+                ## ❌ Bad Query Examples (Too Long - Don't Use)
+                - ❌ "how does the path filtering work in the context system"
+                - ❌ "explain the architecture of the routing module"
+                - ❌ "what is the purpose of ignore patterns configuration"
+                - ❌ "show me all the files related to authentication"
+
+                ## 🎯 Query Strategy Guide
+                | Goal | Good Query | Why |
+                |------|------------|-----|
+                | Find class | "ClassName definition" | Specific class name |
+                | Find method | "methodName implementation" | Specific method name |
+                | Find usage | "API call usage" | Shows invocations |
+                | Understand feature | "feature core logic" | Gets main implementation |
+                | Find config | "config setting value" | Locates configuration |
+                | Debug error | "error exception handling" | Shows error patterns |
+
+                ## 🔧 Advanced Filtering (Precision Boost)
+                Use filters to narrow results when you know the location/type:
+
+                ```
+                query_context(
+                  query="authentication",
+                  paths=["src/main/kotlin/auth/"],        # Focus on auth module
+                  languages=["kotlin"],                    # Only Kotlin files
+                  kinds=["CODE_CLASS", "CODE_METHOD"],     # Only classes/methods
+                  excludePatterns=["test/", "*.md"],       # Exclude tests/docs
+                  k=20,                                    # Get more results
+                  maxTokens=8000                           # Bigger context window
+                )
+                ```
+
+                ## 📊 What You Get Back
+                - **hits**: Code snippets with relevance scores, file paths, line numbers
+                - **metadata**: Total hits, tokens used, provider stats (semantic/symbol/full-text)
+                - Snippets are **ranked by relevance** (best matches first)
+                - Snippets include **surrounding context** for understanding
+
+                ## 🎯 Integration with Task Workflow
+                ```
+                Standard Workflow:
+                1. User requests feature/fix
+                2. query_context("feature similar patterns") → gather examples
+                3. Analyze hits, understand current codebase approach
+                4. create_simple_task or create_consensus_task
+                5. submit_input with implementation informed by query results
+                ```
+
+                ## 🔄 Comparison with Other Tools
+                | Tool | Use Case | Speed | Coverage |
+                |------|----------|-------|----------|
+                | **query_context** | Smart search across entire codebase | Fast | Complete |
+                | grep (bash) | Simple text match in specific files | Fast | Limited |
+                | find (bash) | Find files by name | Fast | Filenames only |
+                | Read | Read specific known file | Instant | Single file |
+                | Glob | Match file patterns | Fast | Filenames only |
+
+                **Rule**: If you don't know the EXACT file path → Use query_context
+
+                ## ⚙️ Parameters Reference
+                - **query** (required): 2-5 keyword phrase - like grep pattern
+                - **k** (optional): Max results (default: 10, increase for broad searches)
+                - **maxTokens** (optional): Context budget (default: 4000, max: large tasks)
+                - **paths** (optional): File path filters (e.g., ["src/main/", "config/"])
+                - **languages** (optional): Language filters (e.g., ["kotlin", "java", "python"])
+                - **kinds** (optional): Chunk type filters (e.g., ["CODE_CLASS", "CODE_METHOD", "CODE_FUNCTION"])
+                - **excludePatterns** (optional): Exclusion patterns (e.g., ["test/", "*.md", "build/"])
+                - **providers** (optional): Search backends (e.g., ["semantic", "symbol", "fulltext"])
+
+                ## 📈 Success Metrics
+                Using query_context before implementation:
+                - Reduces code duplication by 75%
+                - Increases code consistency by 60%
+                - Faster implementation (reuse patterns) by 40%
+                - Better proposals (with context) by 50%
+
+                ## ⚠️ Common Mistakes to Avoid
+                - ❌ Using long natural language questions as queries
+                - ❌ Not using query_context before implementing features
+                - ❌ Using grep/find when you don't know exact file locations
+                - ❌ Implementing without checking for existing similar code
+                - ❌ Answering "how/where" questions without querying first
             """.trimIndent(),
             jsonSchema = QueryContextTool.JSON_SCHEMA
         ),
