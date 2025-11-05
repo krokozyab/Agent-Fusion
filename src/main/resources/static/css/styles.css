@@ -1,0 +1,313 @@
+/* Minimal dashboard placeholder styles */
+:root {
+    color-scheme: light dark;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+}
+
+body {
+    margin: 0;
+    padding: 2rem;
+    background: radial-gradient(circle at top, #f5f7fa, #e4ecf4);
+    color: #1f2933;
+}
+
+main {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+header {
+    margin-bottom: 2rem;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(6px);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 15px 35px rgba(15, 23, 42, 0.12);
+}
+
+.data-table__container {
+    background: rgba(255, 255, 255, 0.65);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+}
+
+.data-table__scroll {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 720px;
+}
+
+.data-table__head th {
+    text-align: left;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(55, 65, 81, 0.85);
+    background: rgba(148, 163, 184, 0.12);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.data-table__body td {
+    padding: 0.85rem 1.1rem;
+    vertical-align: top;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.data-table__row.task-row {
+    cursor: pointer;
+    transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.data-table__row.task-row:hover {
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.badge--default {
+    background: rgba(148, 163, 184, 0.25);
+    color: #1f2937;
+}
+
+.badge--success {
+    background: rgba(16, 185, 129, 0.18);
+    color: #047857;
+}
+
+.badge--warning {
+    background: rgba(245, 158, 11, 0.18);
+    color: #92400e;
+}
+
+.badge--danger {
+    background: rgba(248, 113, 113, 0.2);
+    color: #b91c1c;
+}
+
+.badge--info {
+    background: rgba(96, 165, 250, 0.18);
+    color: #1d4ed8;
+}
+
+.badge--outline {
+    background: transparent;
+    border: 1px solid currentColor;
+}
+
+.task-row__id {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.75rem;
+    color: rgba(55, 65, 81, 0.75);
+}
+
+.task-row__main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.task-row__title {
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.task-row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: rgba(55, 65, 81, 0.7);
+}
+
+.task-row__status,
+.task-row__type {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.task-row__status-text,
+.task-row__type-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(55, 65, 81, 0.9);
+    text-transform: capitalize;
+}
+
+.task-row__meta-item {
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.18);
+}
+
+.task-row__agents {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.task-row__agent {
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    background: rgba(59, 130, 246, 0.16);
+    color: #1d4ed8;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.task-row__timestamp {
+    font-size: 0.75rem;
+    color: rgba(55, 65, 81, 0.75);
+}
+
+.task-row__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.task-row__action {
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.task-row__action:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.task-row__action--edit {
+    border-color: rgba(29, 78, 216, 0.25);
+    background: rgba(29, 78, 216, 0.1);
+    color: #0f172a;
+}
+
+.task-row__action--edit:hover {
+    background: rgba(29, 78, 216, 0.18);
+    border-color: rgba(29, 78, 216, 0.4);
+}
+
+/* Task Detail Component */
+.task-detail {
+    padding: 1.5rem;
+}
+
+.task-detail__header {
+    margin-bottom: 1.5rem;
+}
+
+.task-detail__title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.task-detail__id-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.task-detail__id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+.task-detail__copy-button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background-color: #e5e7eb;
+    border: 1px solid #d1d5db;
+    cursor: pointer;
+}
+
+.task-detail__timestamps {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.task-detail__section {
+    margin-bottom: 1.5rem;
+}
+
+.task-detail__section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.task-detail__metadata-list {
+    list-style: none;
+    padding: 0;
+}
+
+.task-detail__indicators {
+    display: flex;
+    gap: 1rem;
+}
+
+.task-detail__proposal, .task-detail__decision {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.task-detail__actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+.task-detail__action-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid #d1d5db;
+    background-color: #f3f4f6;
+    cursor: pointer;
+}
+
+.task-detail__action-button--danger {
+    background-color: #fee2e2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+@media (max-width: 640px) {
+    .task-detail {
+        padding: 1rem;
+    }
+
+    .task-detail__title {
+        font-size: 1.25rem;
+    }
+}

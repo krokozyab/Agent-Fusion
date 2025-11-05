@@ -7,6 +7,7 @@ import com.orchestrator.domain.TaskId
 import com.orchestrator.mcp.resources.MetricsResource
 import com.orchestrator.mcp.resources.TasksResource
 import com.orchestrator.mcp.tools.*
+import com.orchestrator.modules.context.ContextModule
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -25,6 +26,8 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.http.content.resources
+import io.ktor.server.http.content.static
 import io.ktor.server.sse.SSE
 import io.ktor.server.sse.SSEServerContent
 import io.ktor.server.sse.ServerSSESession
@@ -93,7 +96,8 @@ private val log = LoggerFactory.getLogger(McpServerImpl::class.java)
  */
 class McpServerImpl(
     private val config: OrchestratorConfig,
-    private val agentRegistry: AgentRegistry
+    private val agentRegistry: AgentRegistry,
+    private val contextConfig: com.orchestrator.context.config.ContextConfig = ContextModule.configuration()
 ) {
     private var engine: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 
@@ -119,13 +123,19 @@ class McpServerImpl(
     private val getTaskStatusTool by lazy { GetTaskStatusTool() }
     private val submitInputTool by lazy { SubmitInputTool() }
     private val respondToTaskTool by lazy { RespondToTaskTool() }
+    private val queryContextTool by lazy { QueryContextTool(contextConfig) }
+    private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
+    private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
+    private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
+    private val rebuildContextTool by lazy { RebuildContextTool(contextConfig) }
+    private val getRebuildStatusTool by lazy { GetRebuildStatusTool(contextConfig) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
     private val metricsResource by lazy { MetricsResource() }
 
     private val sseSessions = ConcurrentHashMap<String, SseServerTransport>()
-    private val streamableSessions = StreamableHttpSessionManager(::createMcpServer, STREAMABLE_REQUEST_TIMEOUT_MS)
+    private val streamableSessions = StreamableHttpSessionManager({ sessionId -> createMcpServer(sessionId) }, STREAMABLE_REQUEST_TIMEOUT_MS)
 
     // Track session -> agent mapping for automatic agent identification
     private val sessionToAgent = ConcurrentHashMap<String, AgentId>()
@@ -157,7 +167,6 @@ class McpServerImpl(
             }
             install(CallLogging) {
                 callIdMdc("requestId")
-                disableDefaultColors()
             }
             install(CORS) {
                 anyHost()
@@ -204,7 +213,7 @@ class McpServerImpl(
                     val message = if (accept.isNullOrBlank()) {
                         "Client must send an Accept header supporting text/event-stream or application/json"
                     } else {
-                        "Received unsupported Accept header '$accept'. Expected text/event-stream for SSE or application/json"
+                        "Received unsupported Accept header '$accept'. Expected content negotiable as JSON or SSE."
                     }
                     call.respond(HttpStatusCode.NotAcceptable, errorBody("not_acceptable", message))
                 }
@@ -214,6 +223,9 @@ class McpServerImpl(
             }
 
             routing {
+                static("/static") {
+                    resources("static")
+                }
                 get("/healthz") {
                     call.respond(mapOf("status" to "ok"))
                 }
@@ -308,19 +320,23 @@ class McpServerImpl(
     // ---- Transport handlers ----
 
     private suspend fun ApplicationCall.handleSseGet() {
+        log.info("Handling SSE GET request")
         respond(SSEServerContent(this) {
             val transport = SseServerTransport(SSE_POST_ENDPOINT, this)
+            val sessionId = transport.sessionId
+            log.info("[Session: $sessionId] Created SSE transport")
             val closed = AtomicBoolean(false)
             val cleanup = {
                 if (closed.compareAndSet(false, true)) {
-                    sseSessions.remove(transport.sessionId)
+                    sseSessions.remove(sessionId)
+                    log.info("[Session: $sessionId] Cleaned up SSE session")
                 }
             }
 
-            sseSessions[transport.sessionId] = transport
+            sseSessions[sessionId] = transport
             transport.onClose(cleanup)
 
-            val server = createMcpServer()
+            val server = createMcpServer(sessionId)
             server.onClose(cleanup)
 
             try {
@@ -332,6 +348,8 @@ class McpServerImpl(
             }
         })
     }
+
+    private fun acceptsEventStream(@Suppress("unused") acceptHeader: String?): Boolean = true
 
     private suspend fun ApplicationCall.handleSsePost(sessionId: String) {
         val transport = sseSessions[sessionId]
@@ -385,6 +403,7 @@ class McpServerImpl(
     }
 
     private suspend fun ApplicationCall.handleStreamableHandshake(message: JSONRPCMessage) {
+        log.info("Handling Streamable HTTP handshake request")
         if (message !is JSONRPCRequest || message.method != INITIALIZE_METHOD) {
             respond(HttpStatusCode.BadRequest, errorBody("invalid_request", "First message must be an initialize request"))
             return
@@ -397,6 +416,8 @@ class McpServerImpl(
             respond(HttpStatusCode.InternalServerError, errorBody("internal_error", "Unable to create session"))
             return
         }
+
+        log.info("Created Streamable HTTP session with ID: ${session.sessionId}")
 
         // Extract agent identity from initialize request if available
         extractAgentIdFromInitialize(message)?.let { agentId ->
@@ -448,20 +469,21 @@ class McpServerImpl(
     }
 
     private inner class StreamableHttpSessionManager(
-        private val serverFactory: () -> Server,
+        private val serverFactory: (String) -> Server,
         private val requestTimeoutMs: Long
     ) {
         private val sessions = ConcurrentHashMap<String, StreamableHttpSession>()
 
         suspend fun createSession(): StreamableHttpSession {
             val transport = StreamableHttpServerTransport(requestTimeoutMs)
-            val server = serverFactory()
+            val sessionId = transport.sessionId  // Use the transport's session ID
+            val server = serverFactory(sessionId)
             val session = StreamableHttpSession(server, transport) { id -> sessions.remove(id) }
-            sessions[session.sessionId] = session
+            sessions[sessionId] = session
             try {
                 session.connect()
             } catch (t: Throwable) {
-                sessions.remove(session.sessionId)
+                sessions.remove(sessionId)
                 throw t
             }
             return session
@@ -683,7 +705,8 @@ class McpServerImpl(
         }
     }
 
-    private fun createMcpServer(): Server {
+    private fun createMcpServer(sessionId: String): Server {
+        log.info("[Session: $sessionId] Creating new MCP Server instance (Thread: ${Thread.currentThread().name})")
         val server = Server(
             serverInfo = Implementation(
                 name = "codex-to-claude-orchestrator",
@@ -698,14 +721,16 @@ class McpServerImpl(
             instructions = "Use orchestrator tools to manage tasks and submit work products."
         )
 
-        registerTools(server)
+        registerTools(server, sessionId)
         registerResources(server)
+        log.info("[Session: $sessionId] MCP Server instance created with ${tools().size} tools registered")
 
         return server
     }
 
-    private fun registerTools(server: Server) {
+    private fun registerTools(server: Server, sessionId: String) {
         tools().forEach { entry ->
+            log.info("[Session: $sessionId] Registering tool: ${entry.name}")
             val inputSchema = toolInputFromJsonSchema(entry.jsonSchema)
             server.addTool(
                 name = entry.name,
@@ -869,7 +894,24 @@ class McpServerImpl(
     }
 
     private fun executeTool(name: String, params: JsonElement): Any = when (name) {
-        "create_simple_task" -> createSimpleTaskTool.execute(mapCreateSimpleParams(params))
+        "create_simple_task" -> {
+            // Get current agent from session context for auto-assignment
+            val currentAgent = try {
+                val sessionId = currentSessionId.get()
+                sessionId?.let { sessionToAgent[it]?.value }
+                    ?: run {
+                        // Fall back to resolving default agent if session-based mapping not available
+                        try {
+                            resolveAgentIdOrDefault(null)
+                        } catch (e: Exception) {
+                            null  // If resolution fails, continue without auto-assignment
+                        }
+                    }
+            } catch (e: Exception) {
+                null  // Silently ignore if we can't determine current agent
+            }
+            createSimpleTaskTool.execute(mapCreateSimpleParams(params, currentAgent))
+        }
         "create_consensus_task" -> createConsensusTaskTool.execute(mapCreateConsensusParams(params))
         "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
         "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
@@ -887,6 +929,11 @@ class McpServerImpl(
             val (p, resolvedId) = mapRespondToTaskParams(params)
             respondToTaskTool.execute(p, resolvedId)
         }
+        "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
+        "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
+        "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
+        "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
+        "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
         else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
@@ -900,6 +947,11 @@ class McpServerImpl(
         is GetTaskStatusTool.Result -> getTaskStatusResultToJson(result)
         is SubmitInputTool.Result -> submitInputResultToJson(result)
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
+        is QueryContextTool.Result -> queryContextResultToJson(result)
+        is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
+        is RefreshContextTool.Result -> refreshContextResultToJson(result)
+        is RebuildContextTool.Result -> rebuildContextResultToJson(result)
+        is GetRebuildStatusTool.Result -> getRebuildStatusResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1211,6 +1263,285 @@ class McpServerImpl(
                 }
             })
         })
+    }
+
+    private fun queryContextResultToJson(result: QueryContextTool.Result): JsonObject = buildJsonObject {
+        put("hits", buildJsonArray {
+            result.hits.forEach { hit ->
+                add(buildJsonObject {
+                    put("chunkId", JsonPrimitive(hit.chunkId))
+                    put("score", JsonPrimitive(hit.score))
+                    put("filePath", JsonPrimitive(hit.filePath))
+                    if (hit.label == null) {
+                        put("label", JsonNull)
+                    } else {
+                        put("label", JsonPrimitive(hit.label))
+                    }
+                    put("kind", JsonPrimitive(hit.kind))
+                    put("text", JsonPrimitive(hit.text))
+                    if (hit.language == null) {
+                        put("language", JsonNull)
+                    } else {
+                        put("language", JsonPrimitive(hit.language))
+                    }
+                    if (hit.startLine == null) {
+                        put("startLine", JsonNull)
+                    } else {
+                        put("startLine", JsonPrimitive(hit.startLine))
+                    }
+                    if (hit.endLine == null) {
+                        put("endLine", JsonNull)
+                    } else {
+                        put("endLine", JsonPrimitive(hit.endLine))
+                    }
+                    put("metadata", buildJsonObject {
+                        hit.metadata.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
+                    })
+                })
+            }
+        })
+        put("metadata", anyToJsonElement(result.metadata))
+    }
+
+    private fun getContextStatsResultToJson(result: GetContextStatsTool.Result): JsonObject = buildJsonObject {
+        put("providerStatus", buildJsonArray {
+            result.providerStatus.forEach { provider ->
+                add(buildJsonObject {
+                    put("id", JsonPrimitive(provider.id))
+                    put("enabled", JsonPrimitive(provider.enabled))
+                    put("weight", JsonPrimitive(provider.weight))
+                    if (provider.type == null) {
+                        put("type", JsonNull)
+                    } else {
+                        put("type", JsonPrimitive(provider.type))
+                    }
+                })
+            }
+        })
+        put("storage", buildJsonObject {
+            put("files", JsonPrimitive(result.storage.files))
+            put("chunks", JsonPrimitive(result.storage.chunks))
+            put("embeddings", JsonPrimitive(result.storage.embeddings))
+            put("totalSizeBytes", JsonPrimitive(result.storage.totalSizeBytes))
+        })
+        put("languageDistribution", buildJsonArray {
+            result.languageDistribution.forEach { stat ->
+                add(buildJsonObject {
+                    put("language", JsonPrimitive(stat.language))
+                    put("fileCount", JsonPrimitive(stat.fileCount))
+                })
+            }
+        })
+        put("recentActivity", buildJsonArray {
+            result.recentActivity.forEach { activity ->
+                add(buildJsonObject {
+                    if (activity.taskId == null) {
+                        put("taskId", JsonNull)
+                    } else {
+                        put("taskId", JsonPrimitive(activity.taskId))
+                    }
+                    put("snippets", JsonPrimitive(activity.snippets))
+                    put("tokens", JsonPrimitive(activity.tokens))
+                    put("latencyMs", JsonPrimitive(activity.latencyMs))
+                    put("recordedAt", JsonPrimitive(activity.recordedAt.toString()))
+                })
+            }
+        })
+        if (result.performance == null) {
+            put("performance", JsonNull)
+        } else {
+            put("performance", buildJsonObject {
+                put("totalRecords", JsonPrimitive(result.performance.totalRecords))
+                put("totalContextTokens", JsonPrimitive(result.performance.totalContextTokens))
+                put("averageLatencyMs", JsonPrimitive(result.performance.averageLatencyMs))
+            })
+        }
+    }
+
+    private fun refreshContextResultToJson(result: RefreshContextTool.Result): JsonObject = buildJsonObject {
+        put("mode", JsonPrimitive(result.mode))
+        put("status", JsonPrimitive(result.status))
+        if (result.jobId == null) {
+            put("jobId", JsonNull)
+        } else {
+            put("jobId", JsonPrimitive(result.jobId))
+        }
+        if (result.newFiles == null) {
+            put("newFiles", JsonNull)
+        } else {
+            put("newFiles", JsonPrimitive(result.newFiles))
+        }
+        if (result.modifiedFiles == null) {
+            put("modifiedFiles", JsonNull)
+        } else {
+            put("modifiedFiles", JsonPrimitive(result.modifiedFiles))
+        }
+        if (result.deletedFiles == null) {
+            put("deletedFiles", JsonNull)
+        } else {
+            put("deletedFiles", JsonPrimitive(result.deletedFiles))
+        }
+        if (result.unchangedFiles == null) {
+            put("unchangedFiles", JsonNull)
+        } else {
+            put("unchangedFiles", JsonPrimitive(result.unchangedFiles))
+        }
+        if (result.indexingFailures == null) {
+            put("indexingFailures", JsonNull)
+        } else {
+            put("indexingFailures", JsonPrimitive(result.indexingFailures))
+        }
+        if (result.deletionFailures == null) {
+            put("deletionFailures", JsonNull)
+        } else {
+            put("deletionFailures", JsonPrimitive(result.deletionFailures))
+        }
+        if (result.durationMs == null) {
+            put("durationMs", JsonNull)
+        } else {
+            put("durationMs", JsonPrimitive(result.durationMs))
+        }
+        put("startedAt", JsonPrimitive(result.startedAt.toString()))
+        if (result.completedAt == null) {
+            put("completedAt", JsonNull)
+        } else {
+            put("completedAt", JsonPrimitive(result.completedAt.toString()))
+        }
+        if (result.message == null) {
+            put("message", JsonNull)
+        } else {
+            put("message", JsonPrimitive(result.message))
+        }
+    }
+
+    private fun mapRebuildContextParams(el: JsonElement): RebuildContextTool.Params {
+        val o = el.asObj()
+        return RebuildContextTool.Params(
+            confirm = o.bool("confirm") ?: false,
+            async = o.bool("async") ?: false,
+            paths = o.listStr("paths"),
+            validateOnly = o.bool("validateOnly") ?: false,
+            parallelism = o.int("parallelism")
+        )
+    }
+
+    private fun rebuildContextResultToJson(result: RebuildContextTool.Result): JsonObject = buildJsonObject {
+        put("mode", JsonPrimitive(result.mode))
+        put("status", JsonPrimitive(result.status))
+        if (result.jobId == null) {
+            put("jobId", JsonNull)
+        } else {
+            put("jobId", JsonPrimitive(result.jobId))
+        }
+        put("phase", JsonPrimitive(result.phase))
+        if (result.totalFiles == null) {
+            put("totalFiles", JsonNull)
+        } else {
+            put("totalFiles", JsonPrimitive(result.totalFiles))
+        }
+        if (result.processedFiles == null) {
+            put("processedFiles", JsonNull)
+        } else {
+            put("processedFiles", JsonPrimitive(result.processedFiles))
+        }
+        if (result.successfulFiles == null) {
+            put("successfulFiles", JsonNull)
+        } else {
+            put("successfulFiles", JsonPrimitive(result.successfulFiles))
+        }
+        if (result.failedFiles == null) {
+            put("failedFiles", JsonNull)
+        } else {
+            put("failedFiles", JsonPrimitive(result.failedFiles))
+        }
+        if (result.durationMs == null) {
+            put("durationMs", JsonNull)
+        } else {
+            put("durationMs", JsonPrimitive(result.durationMs))
+        }
+        put("startedAt", JsonPrimitive(result.startedAt.toString()))
+        if (result.completedAt == null) {
+            put("completedAt", JsonNull)
+        } else {
+            put("completedAt", JsonPrimitive(result.completedAt.toString()))
+        }
+        if (result.message == null) {
+            put("message", JsonNull)
+        } else {
+            put("message", JsonPrimitive(result.message))
+        }
+        if (result.validationErrors == null) {
+            put("validationErrors", JsonNull)
+        } else {
+            put("validationErrors", buildJsonArray {
+                result.validationErrors.forEach { add(JsonPrimitive(it)) }
+            })
+        }
+    }
+
+    private fun mapGetRebuildStatusParams(el: JsonElement): GetRebuildStatusTool.Params {
+        val o = el.asObj()
+        return GetRebuildStatusTool.Params(
+            jobId = o.str("jobId") ?: throw IllegalArgumentException("jobId is required"),
+            includeLogs = o.bool("includeLogs") ?: false
+        )
+    }
+
+    private fun getRebuildStatusResultToJson(result: GetRebuildStatusTool.Result): JsonObject = buildJsonObject {
+        put("jobId", JsonPrimitive(result.jobId))
+        put("status", JsonPrimitive(result.status))
+        put("phase", JsonPrimitive(result.phase))
+
+        if (result.progress == null) {
+            put("progress", JsonNull)
+        } else {
+            put("progress", buildJsonObject {
+                put("totalFiles", JsonPrimitive(result.progress.totalFiles))
+                put("processedFiles", JsonPrimitive(result.progress.processedFiles))
+                put("successfulFiles", JsonPrimitive(result.progress.successfulFiles))
+                put("failedFiles", JsonPrimitive(result.progress.failedFiles))
+                put("percentComplete", JsonPrimitive(result.progress.percentComplete))
+            })
+        }
+
+        put("timing", buildJsonObject {
+            put("startedAt", JsonPrimitive(result.timing.startedAt.toString()))
+            if (result.timing.completedAt == null) {
+                put("completedAt", JsonNull)
+            } else {
+                put("completedAt", JsonPrimitive(result.timing.completedAt.toString()))
+            }
+            if (result.timing.durationMs == null) {
+                put("durationMs", JsonNull)
+            } else {
+                put("durationMs", JsonPrimitive(result.timing.durationMs))
+            }
+            if (result.timing.estimatedRemainingMs == null) {
+                put("estimatedRemainingMs", JsonNull)
+            } else {
+                put("estimatedRemainingMs", JsonPrimitive(result.timing.estimatedRemainingMs))
+            }
+        })
+
+        if (result.error == null) {
+            put("error", JsonNull)
+        } else {
+            put("error", JsonPrimitive(result.error))
+        }
+
+        if (result.logs == null) {
+            put("logs", JsonNull)
+        } else {
+            put("logs", buildJsonArray {
+                result.logs.forEach { log ->
+                    add(buildJsonObject {
+                        put("timestamp", JsonPrimitive(log.timestamp.toString()))
+                        put("level", JsonPrimitive(log.level))
+                        put("message", JsonPrimitive(log.message))
+                    })
+                }
+            })
+        }
     }
 
     private fun anyToJsonElement(value: Any?): JsonElement = when (value) {
@@ -1760,6 +2091,252 @@ class McpServerImpl(
                 3. Done! Task updated, other agents can see your response
             """.trimIndent(),
             jsonSchema = RespondToTaskTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "query_context",
+            description = """
+                **PREFERRED ALTERNATIVE TO GREP/FIND**: Use this tool instead of grep, find, or other text search commands.
+
+                Explicit context query tool for agents to retrieve relevant code snippets
+                based on keyword-based queries with optional filters and scoping.
+                Returns semantic, symbol-based, and full-text search results from the indexed codebase.
+
+                ## Use When
+                - Need to find relevant code snippets for a task or question (instead of grep/find)
+                - Want to understand implementation details before making changes
+                - Need to gather context about specific files, languages, or code types
+                - Building context for multi-step tasks or consensus proposals
+
+                ## Parameters
+                - query (required): Short, specific keywords (like grep/find) - NOT long natural language phrases
+                - k (optional): Maximum number of results to return (default: 10)
+                - maxTokens (optional): Token budget for results (default: 4000)
+                - paths (optional): Filter to specific file paths (e.g., ["src/main/kotlin/"])
+                - languages (optional): Filter to specific languages (e.g., ["kotlin", "java"])
+                - kinds (optional): Filter to specific chunk types (e.g., ["CODE_CLASS", "CODE_METHOD"])
+                - excludePatterns (optional): Exclude files matching patterns (e.g., ["test/", "*.md"])
+                - providers (optional): Use specific providers (e.g., ["semantic", "symbol"])
+
+                ## Example Queries (use short specific keywords like grep/find)
+                1. "authentication JWT token"
+                2. "database connection"
+                3. "PathFilter shouldIgnore"
+                4. "error handling exception"
+
+                ## Returns
+                - hits: List of code snippets with score, file path, text, metadata
+                - metadata: Query statistics (total hits, tokens used, provider stats)
+            """.trimIndent(),
+            jsonSchema = QueryContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "get_context_stats",
+            description = """
+                Return comprehensive statistics about the context system including provider status,
+                storage metrics, performance data, language distribution, and recent activity.
+
+                ## Use When
+                - Need to understand the current state of the context system
+                - Debugging context retrieval issues
+                - Monitoring storage usage and performance
+                - Checking which providers are enabled and configured
+                - Analyzing recent context query patterns
+
+                ## Parameters
+                - recentLimit (optional): Number of recent activity entries to return (default: 10)
+
+                ## Returns
+                - providerStatus: List of all configured providers with enabled status, weight, and type
+                - storage: Storage statistics (file count, chunk count, embeddings, total size)
+                - languageDistribution: Breakdown of files by programming language
+                - recentActivity: Recent context queries with task ID, snippets returned, tokens used, latency
+                - performance: Aggregate performance metrics (total records, total tokens, average latency)
+
+                ## Example Use Cases
+                1. Check which providers are currently enabled
+                2. Monitor storage growth over time
+                3. Identify performance bottlenecks
+                4. Understand which languages dominate the codebase
+                5. Debug recent context retrieval issues
+            """.trimIndent(),
+            jsonSchema = GetContextStatsTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "refresh_context",
+            description = """
+                Manually trigger re-indexing of files to update the context database. Supports both
+                synchronous (blocking) and asynchronous (background) execution modes.
+
+                ## Use When
+                - Files have been modified outside the watcher's scope
+                - Need to force re-indexing of specific paths
+                - Want to manually refresh context after bulk file operations
+                - Testing or debugging indexing pipeline
+                - After restoring from backup or changing configuration
+
+                ## Parameters
+                - paths (optional): List of file/directory paths to refresh. If null, uses config watch paths.
+                - force (optional): Force re-indexing even if files haven't changed (default: false)
+                - async (optional): Run in background and return jobId immediately (default: false)
+                - parallelism (optional): Number of parallel workers for indexing
+
+                ## Execution Modes
+
+                ### Synchronous (async=false)
+                - Blocks until indexing completes
+                - Returns immediate results with file counts and duration
+                - Use for small refreshes or when you need to wait for completion
+
+                ### Asynchronous (async=true)
+                - Returns jobId immediately
+                - Indexing runs in background
+                - Use getJobStatus() to check progress
+                - Use for large refreshes or when you don't want to block
+
+                ## Returns
+                - mode: "sync" or "async"
+                - status: "completed", "completed_with_errors", "running", "failed", or "error"
+                - jobId: Job identifier for async mode (null for sync)
+                - newFiles: Number of new files indexed
+                - modifiedFiles: Number of modified files re-indexed
+                - deletedFiles: Number of deleted files removed
+                - unchangedFiles: Number of unchanged files skipped
+                - indexingFailures: Number of files that failed to index
+                - deletionFailures: Number of deletions that failed
+                - durationMs: Time taken in milliseconds (null for async until complete)
+                - message: Human-readable status message
+
+                ## Example Use Cases
+                1. Refresh specific directory: `paths: ["/src/components"]`
+                2. Force complete re-index: `paths: null, force: true`
+                3. Background refresh: `async: true` then poll with getJobStatus()
+                4. Fast parallel refresh: `parallelism: 8`
+            """.trimIndent(),
+            jsonSchema = RefreshContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "rebuild_context",
+            description = """
+                Perform a complete rebuild of the context database. This is a DESTRUCTIVE operation that
+                clears all existing context data and re-indexes from scratch.
+
+                ## SAFETY CHECKS
+                - Requires explicit `confirm: true` to execute (safety check against accidental deletion)
+                - Blocks if another rebuild is already in progress
+                - Validates all paths before starting destructive operations
+                - Supports dry-run mode (`validateOnly: true`) to test before executing
+
+                ## Use When
+                - Context database is corrupted or inconsistent
+                - Major configuration changes (new embedding model, chunking strategy)
+                - After significant codebase restructuring
+                - Migrating to new database version
+                - Starting fresh with clean state
+
+                ## Parameters
+                - confirm (REQUIRED): Must be `true` to execute. Safety check to prevent accidental data loss.
+                - async (optional): Run in background and return jobId immediately (default: false)
+                - paths (optional): Paths to rebuild. If null, rebuilds all watched paths.
+                - validateOnly (optional): Dry-run mode. Validates without executing (default: false)
+                - parallelism (optional): Number of parallel workers for indexing
+
+                ## Process Flow
+                1. **Validation Phase**: Verify confirm=true, check for in-progress rebuild, validate paths
+                2. **Pre-rebuild Phase**: Create job record, acquire rebuild lock
+                3. **Destructive Phase**: Clear all context data (chunks, embeddings, file_state, etc.)
+                4. **Rebuild Phase**: Run full bootstrap indexing from scratch
+                5. **Post-rebuild Phase**: Optimize database (VACUUM, ANALYZE), release lock
+
+                ## Async Mode
+                - Returns immediately with jobId
+                - Poll status with `getJobStatus(jobId)`
+                - Job status tracks current phase: validation, pre-rebuild, destructive, rebuild, post-rebuild
+                - Returns progress counts: totalFiles, processedFiles, successfulFiles, failedFiles
+
+                ## Response Format
+                - mode: "sync" or "async"
+                - status: "validated", "completed", "completed_with_errors", "running", "failed", "error"
+                - jobId: Job identifier for async mode (null for sync)
+                - phase: Current phase (validation, pre-rebuild, destructive, rebuild, post-rebuild, completed)
+                - totalFiles: Total number of files to index
+                - processedFiles: Number of files processed so far
+                - successfulFiles: Number of files successfully indexed
+                - failedFiles: Number of files that failed
+                - durationMs: Time taken in milliseconds
+                - message: Human-readable status message
+                - validationErrors: List of validation errors (if any)
+
+                ## Example Use Cases
+                1. Dry-run validation: `validateOnly: true` (checks paths without executing)
+                2. Full rebuild with confirmation: `confirm: true, paths: null` (rebuilds everything)
+                3. Partial rebuild: `confirm: true, paths: ["/src"]` (rebuilds only /src)
+                4. Background rebuild: `confirm: true, async: true` (non-blocking execution)
+                5. Fast rebuild: `confirm: true, parallelism: 8` (use 8 workers)
+
+                ## WARNING
+                This operation deletes ALL existing context data. Always use `validateOnly: true` first
+                to verify paths and configuration before executing. Ensure you have backups if needed.
+            """.trimIndent(),
+            jsonSchema = RebuildContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "get_rebuild_status",
+            description = """
+                Check the status of a background rebuild job started by rebuild_context.
+
+                This tool provides real-time progress updates for async rebuild operations, including:
+                - Current execution phase and status
+                - File processing progress (total, processed, successful, failed)
+                - Timing information (started, duration, estimated remaining time)
+                - Optional execution logs for debugging
+
+                ## When to Use
+                - After starting an async rebuild (`rebuild_context` with `async: true`)
+                - To monitor long-running rebuild operations
+                - To check if a rebuild has completed before performing other operations
+                - To troubleshoot rebuild failures with detailed logs
+
+                ## Parameters
+                - **jobId** (required): Job ID returned from `rebuild_context` when `async: true`
+                - **includeLogs** (optional, default: false): Include execution logs in response
+
+                ## Response Fields
+                - **jobId**: The job identifier
+                - **status**: Current status (running, completed, completed_with_errors, failed, not_found)
+                - **phase**: Current phase (pre-rebuild, destructive, rebuild, post-rebuild, completed)
+                - **progress**: File processing progress (null if not started)
+                  - totalFiles: Total files to index
+                  - processedFiles: Files processed so far
+                  - successfulFiles: Files successfully indexed
+                  - failedFiles: Files that failed
+                  - percentComplete: Progress percentage (0-100)
+                - **timing**: Timing information
+                  - startedAt: When the job started
+                  - completedAt: When the job finished (null if still running)
+                  - durationMs: Time elapsed in milliseconds
+                  - estimatedRemainingMs: Estimated time remaining (null if complete or can't estimate)
+                - **error**: Error message if status is 'failed' (null otherwise)
+                - **logs**: Execution logs if includeLogs is true (null otherwise)
+
+                ## Example Use Cases
+                1. Poll for completion: Call periodically until status is 'completed' or 'failed'
+                2. Show progress: Display percentComplete and estimatedRemainingMs to user
+                3. Debug failures: Use `includeLogs: true` to see what went wrong
+                4. Check before operations: Ensure no rebuild is running before performing other tasks
+
+                ## Status Values
+                - **running**: Rebuild is in progress
+                - **completed**: Rebuild finished successfully
+                - **completed_with_errors**: Rebuild finished but some files failed
+                - **failed**: Rebuild encountered a fatal error
+                - **not_found**: Job ID doesn't exist (may have been cleaned up)
+
+                ## Notes
+                - Job statuses are kept in memory and will be lost on server restart
+                - Completed jobs may be periodically cleaned up to save memory
+                - For sync rebuilds, use the immediate response from rebuild_context instead
+            """.trimIndent(),
+            jsonSchema = GetRebuildStatusTool.JSON_SCHEMA
         )
         )
     }
@@ -1791,18 +2368,38 @@ class McpServerImpl(
     }
 
     // ---- JSON mapping helpers ----
-    private fun mapCreateSimpleParams(el: JsonElement): CreateSimpleTaskTool.Params {
+    private fun mapCreateSimpleParams(el: JsonElement, currentAgentId: String? = null): CreateSimpleTaskTool.Params {
         val o = el.asObj()
+        val userSpecifiedAssignee = o.obj("directives")?.str("assignToAgent")?.takeIf { it.isNotBlank() }
+        val assignToAgent = when {
+            userSpecifiedAssignee != null -> normalizeAgentId(userSpecifiedAssignee)
+            currentAgentId != null -> currentAgentId  // Auto-assign to current agent if not specified
+            else -> null
+        }
+
         val directives = o.obj("directives")?.let { d ->
             CreateSimpleTaskTool.Params.Directives(
                 skipConsensus = d.bool("skipConsensus"),
-                assignToAgent = normalizeAgentId(d.str("assignToAgent")),
+                assignToAgent = assignToAgent,
                 immediate = d.bool("immediate"),
                 isEmergency = d.bool("isEmergency"),
                 notes = d.str("notes"),
                 originalText = d.str("originalText")
             )
-        }
+        } ?: (if (assignToAgent != null) {
+            // Create minimal directives just to set assignToAgent if current agent is auto-assigned
+            CreateSimpleTaskTool.Params.Directives(
+                skipConsensus = null,
+                assignToAgent = assignToAgent,
+                immediate = null,
+                isEmergency = null,
+                notes = null,
+                originalText = null
+            )
+        } else {
+            null
+        })
+
         return CreateSimpleTaskTool.Params(
             title = o.reqStr("title"),
             description = o.str("description"),
@@ -1950,18 +2547,28 @@ class McpServerImpl(
         // Treat common aliases as the active single agent when unambiguous
         val wantsDefault = trimmed == null || normalized == "user" || normalized == "me"
         if (wantsDefault) {
+            log.debug("Resolving default agent. Requested: '$requestedRaw', agents count: ${agents.size}")
+            
             if (agents.size == 1) {
-                return agents.first().id.value
+                val agent = agents.first()
+                log.info("Single agent configuration detected. Defaulting to: ${agent.id.value}")
+                return agent.id.value
             }
 
             // Check if we have session-based agent identity in multi-agent setup
             val sessionId = currentSessionId.get()
+            log.debug("Multi-agent setup. Checking session ID: $sessionId")
+            
             if (sessionId != null) {
                 val sessionAgent = sessionToAgent[sessionId]
                 if (sessionAgent != null) {
-                    log.debug("Resolved agentId from session $sessionId: ${sessionAgent.value}")
+                    log.info("Resolved agentId from session $sessionId: ${sessionAgent.value}")
                     return sessionAgent.value
+                } else {
+                    log.warn("Session $sessionId found but no agent mapping exists. Available mappings: ${sessionToAgent.keys}")
                 }
+            } else {
+                log.warn("No session ID available for agent resolution")
             }
 
             throw IllegalArgumentException(
@@ -1971,13 +2578,21 @@ class McpServerImpl(
             )
         }
 
+        log.debug("Resolving explicit agent: '$trimmed'")
+        
         // Exact match on id
         runCatching { AgentId(trimmed!!) }.getOrNull()?.let { candidate ->
-            agentRegistry.getAgent(candidate)?.let { return it.id.value }
+            agentRegistry.getAgent(candidate)?.let { 
+                log.info("Resolved agent by exact ID match: ${it.id.value}")
+                return it.id.value 
+            }
         }
 
         // Match on display name for convenience
-        agents.firstOrNull { it.displayName.equals(trimmed, ignoreCase = true) }?.let { return it.id.value }
+        agents.firstOrNull { it.displayName.equals(trimmed, ignoreCase = true) }?.let { 
+            log.info("Resolved agent by display name match: ${it.id.value}")
+            return it.id.value 
+        }
 
         throw IllegalArgumentException("Unknown agentId '${requestedRaw?.trim()}'. Available: ${availableAgents()}")
     }
@@ -2001,15 +2616,35 @@ class McpServerImpl(
             val params = message.params as? JsonObject ?: return null
             val clientInfo = params["clientInfo"] as? JsonObject ?: return null
             val clientName = (clientInfo["name"] as? JsonPrimitive)?.contentOrNull ?: return null
+            
+            log.info("Extracting agent ID from initialize request. Client name: '$clientName'")
 
             // Try to match client name to registered agent IDs or display names
             val agents = agentRegistry.getAllAgents()
-            agents.firstOrNull { agent ->
+            
+            // Normalize client name for matching
+            val normalizedClientName = clientName.lowercase().replace(Regex("[\\s-_]"), "")
+            
+            val matchedAgent = agents.firstOrNull { agent ->
+                val normalizedAgentId = agent.id.value.lowercase().replace(Regex("[\\s-_]"), "")
+                val normalizedDisplayName = agent.displayName.lowercase().replace(Regex("[\\s-_]"), "")
+                
+                // Check various matching strategies
                 agent.id.value.equals(clientName, ignoreCase = true) ||
                 agent.displayName.equals(clientName, ignoreCase = true) ||
-                clientName.contains(agent.id.value, ignoreCase = true) ||
-                clientName.contains(agent.displayName, ignoreCase = true)
-            }?.id
+                normalizedClientName.contains(normalizedAgentId) ||
+                normalizedClientName.contains(normalizedDisplayName) ||
+                normalizedAgentId.contains(normalizedClientName) ||
+                normalizedDisplayName.contains(normalizedClientName)
+            }
+            
+            if (matchedAgent != null) {
+                log.info("Matched client '$clientName' to agent '${matchedAgent.id.value}' (${matchedAgent.displayName})")
+            } else {
+                log.warn("Could not match client '$clientName' to any registered agent. Available agents: ${agents.map { "${it.id.value} (${it.displayName})" }}")
+            }
+            
+            matchedAgent?.id
         } catch (e: Exception) {
             log.warn("Failed to extract agent ID from initialize request", e)
             null
@@ -2056,6 +2691,37 @@ class McpServerImpl(
 
         val resolvedId = resolveAgentIdOrDefault(params.agentId)
         return params to resolvedId
+    }
+
+    private fun mapQueryContextParams(el: JsonElement): QueryContextTool.Params {
+        val o = el.asObj()
+        return QueryContextTool.Params(
+            query = o.reqStr("query"),
+            k = o.int("k"),
+            maxTokens = o.int("maxTokens"),
+            paths = o.listStr("paths"),
+            languages = o.listStr("languages"),
+            kinds = o.listStr("kinds"),
+            excludePatterns = o.listStr("excludePatterns"),
+            providers = o.listStr("providers")
+        )
+    }
+
+    private fun mapGetContextStatsParams(el: JsonElement): GetContextStatsTool.Params {
+        val o = el.asObj()
+        return GetContextStatsTool.Params(
+            recentLimit = o.int("recentLimit") ?: 10
+        )
+    }
+
+    private fun mapRefreshContextParams(el: JsonElement): RefreshContextTool.Params {
+        val o = el.asObj()
+        return RefreshContextTool.Params(
+            paths = o.listStr("paths"),
+            force = o.bool("force") ?: false,
+            async = o.bool("async") ?: false,
+            parallelism = o.int("parallelism")
+        )
     }
 
     // JsonObject helpers

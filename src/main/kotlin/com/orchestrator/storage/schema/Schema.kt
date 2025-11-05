@@ -18,7 +18,7 @@ object Schema {
     /**
      * Ordered list of SQL DDL statements. Execute them sequentially.
      */
-    val statements: List<String> = listOf(
+    private val baseStatements: List<String> = listOf(
         // --- Tables ---
         // tasks
         """
@@ -305,4 +305,34 @@ object Schema {
         CREATE INDEX IF NOT EXISTS idx_ctx_created_at ON context_snapshots(created_at);
         """.trimIndent()
     )
+
+    val statements: List<String> = baseStatements + loadResourceStatements("/context/schema.sql")
+
+    private fun loadResourceStatements(resourcePath: String): List<String> {
+        val stream = Schema::class.java.getResourceAsStream(resourcePath) ?: return emptyList()
+        val statements = mutableListOf<String>()
+        val builder = StringBuilder()
+        stream.bufferedReader().useLines { lines ->
+            lines.forEach { rawLine ->
+                val line = rawLine.trim()
+                if (line.isEmpty() || line.startsWith("--")) return@forEach
+                builder.append(rawLine).append(' ')
+                if (line.endsWith(';')) {
+                    val statement = builder.toString().trim()
+                    if (statement.isNotEmpty()) {
+                        statements.add(statement)
+                    }
+                    builder.setLength(0)
+                }
+            }
+        }
+        val remainder = builder.toString().trim()
+        if (remainder.isNotEmpty()) {
+            statements.add(if (remainder.endsWith(';')) remainder else "$remainder;")
+        }
+        return statements.map { stmt ->
+            val trimmed = stmt.trim()
+            if (trimmed.endsWith(';')) trimmed else "$trimmed;"
+        }
+    }
 }

@@ -1,0 +1,22 @@
+[
+  {
+    "moduleId": "org.jetbrains.kotlinx:atomicfu:0.29.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/org.jetbrains.kotlinx-atomicfu-0.29.0-linuxMain-cinterop/org.jetbrains.kotlinx_atomicfu-cinterop-interop-_oc16w.klib",
+    "sourceSetName": "linuxMain"
+  },
+  {
+    "moduleId": "io.ktor:ktor-server-core:3.3.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/io.ktor-ktor-server-core-3.3.0-linuxMain-cinterop/io.ktor_ktor-server-core-cinterop-host_common-IBVW8w.klib",
+    "sourceSetName": "linuxMain"
+  },
+  {
+    "moduleId": "io.ktor:ktor-utils:3.3.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/io.ktor-ktor-utils-3.3.0-linuxMain-cinterop/io.ktor_ktor-utils-cinterop-threadUtils-Y6k6Pw.klib",
+    "sourceSetName": "linuxMain"
+  },
+  {
+    "moduleId": "io.ktor:ktor-io:3.3.0",
+    "file": "/Users/sergeyrudenko/projects/codex_to_claude/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/io.ktor-ktor-io-3.3.0-linuxMain-cinterop/io.ktor_ktor-io-cinterop-mutex-xr2PqQ.klib",
+    "sourceSetName": "linuxMain"
+  }
+]

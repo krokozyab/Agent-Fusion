@@ -1,0 +1,109 @@
+/* SSE Connection Status Indicator */
+
+.sse-status {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    font-size: 0.875rem;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+.sse-status__light {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.sse-status__light--connected {
+    background-color: #22c55e;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+    animation: pulse-green 2s infinite;
+}
+
+.sse-status__light--disconnected {
+    background-color: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+    animation: pulse-red 1s infinite;
+}
+
+.sse-status__light--connecting {
+    background-color: #f59e0b;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+    animation: pulse-yellow 1.5s infinite;
+}
+
+.sse-status__text {
+    color: #666;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Animations */
+
+@keyframes pulse-green {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes pulse-red {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes pulse-yellow {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Dark mode support */
+
+@media (prefers-color-scheme: dark) {
+    .sse-status {
+        background-color: #1f2937;
+        border-color: #374151;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .sse-status__text {
+        color: #d1d5db;
+    }
+}
+
+/* Mobile responsive */
+
+@media (max-width: 640px) {
+    .sse-status {
+        bottom: 1rem;
+        right: 1rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.75rem;
+    }
+
+    .sse-status__light {
+        width: 0.5rem;
+        height: 0.5rem;
+    }
+}

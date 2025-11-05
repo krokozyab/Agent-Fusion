@@ -46,3 +46,9 @@ logs/
 
 docs/IMPLEMENTATION_PLAN.md
 docs/CLAUDE.md
+
+# Local DuckDB databases
+context.duckdb
+context.duckdb.wal
+data/*.duckdb
+data/*.duckdb.wal

@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "mcp__orchestrator__query_context",
+      "Bash(curl:*)",
+      "Bash(./gradlew build:*)",
+      "Bash(./gradlew compileKotlin:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(pkill:*)",
+      "mcp__orchestrator__create_simple_task",
+      "mcp__orchestrator__get_pending_tasks",
+      "mcp__orchestrator__respond_to_task",
+      "Bash(git checkout:*)",
+      "mcp__orchestrator__submit_input",
+      "mcp__orchestrator__continue_task",
+      "Bash(git add:*)",
+      "mcp__orchestrator__get_rebuild_status",
+      "Bash(timeout 5 java:*)",
+      "Bash(java -jar build/libs/orchestrator-1.0-SNAPSHOT-all.jar:*)",
+      "Bash(java -jar build/libs/orchestrator-0.1.0-all.jar:*)",
+      "Bash(./gradlew shadowJar:*)",
+      "Read(//private/tmp/**)",
+      "Bash(duckdb:*)",
+      "mcp__orchestrator__create_consensus_task",
+      "mcp__orchestrator__get_task_status",
+      "Bash(./gradlew clean build:*)",
+      "Bash(timeout 10 java:*)",
+      "Bash(./gradlew run:*)",
+      "Bash(timeout 20 ./gradlew run:*)",
+      "Bash(timeout 25 ./gradlew run:*)",
+      "Bash(wait)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

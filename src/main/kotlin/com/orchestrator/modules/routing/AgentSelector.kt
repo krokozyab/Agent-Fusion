@@ -26,6 +26,8 @@ class AgentSelector(
     }
 
     fun selectAgentForTask(task: Task, directive: UserDirective? = null): Agent? {
+        log("Selecting agent for task ${task.id}. Directive assignToAgent: ${directive?.assignToAgent?.value}, taskAssignees: ${task.assigneeIds.map { it.value }}")
+
         // 1) User directive override
         directive?.assignToAgent?.let { forcedId ->
             val confidence = directive.assignmentConfidence
@@ -55,6 +57,8 @@ class AgentSelector(
             .filter { it.status != AgentStatus.OFFLINE }
             .filter { agent -> requiredCaps.all { it in agent.capabilities } }
 
+        log("Found ${candidates.size} candidates for task ${task.id} with caps=$requiredCaps: ${candidates.map { "${it.id.value}(${it.displayName})" }}")
+
         if (candidates.isEmpty()) {
             log("No available agents found for task ${task.id} requiring $requiredCaps")
             return null
@@ -74,10 +78,15 @@ class AgentSelector(
             ScoredAgent(agent, base, strengthScore, availabilityPenalty, loadPenalty)
         }
 
+        // Log all scores for debugging
+        scored.forEach {
+            log("  Agent ${it.agent.id.value}(${it.agent.displayName}): total=${"%.2f".format(it.total)} strength=${it.strengthScore} avail=${it.availabilityPenalty} load=${it.loadPenalty}")
+        }
+
         val best = scored.maxByOrNull { it.total }
         best?.let {
             log(
-                "Selected ${it.agent.displayName} for task ${task.id}. " +
+                "Selected ${it.agent.displayName} (${it.agent.id.value}) for task ${task.id}. " +
                         "reason: caps=$requiredCaps strength=${it.strengthScore} availabilityPen=${it.availabilityPenalty} loadPen=${it.loadPenalty} total=${"%.2f".format(it.total)}"
             )
         }
