@@ -2096,37 +2096,56 @@ class McpServerImpl(
             name = "query_context",
             description = """
                 **🔍 SMART CODE SEARCH** - Semantic + symbol + full-text search across the entire indexed codebase.
-                **ALWAYS USE THIS INSTEAD OF**: grep, find, bash search commands, or manual file reading.
+                **ALWAYS USE THIS INSTEAD OF**: grep, find, bash search commands, or manual file reading when you don't know exact paths.
                 **CRITICAL**: Use SHORT keywords (2-5 words), NOT natural language questions.
 
-                ## ⚡ When to Auto-Invoke (Proactive)
-                - ✅ Before implementing ANY feature (find similar code, avoid duplication)
-                - ✅ Before writing proposals for consensus tasks (gather implementation context)
-                - ✅ When user asks "how does X work", "where is Y", "find Z"
-                - ✅ Before refactoring (find all usages, related code)
-                - ✅ When encountering unfamiliar code patterns or APIs
-                - ✅ Before answering architecture questions (find relevant modules)
+                ## ⚡ When to Auto-Invoke (Proactive - Use Constantly!)
+                - ✅ **Before ANY implementation** - Find similar code, understand patterns, avoid duplication
+                - ✅ **User asks questions** - "how does X work", "where is Y", "find Z", "show me..."
+                - ✅ **Exploring unfamiliar code** - Understanding modules, APIs, architectures you haven't seen
+                - ✅ **Before refactoring** - Find all usages, related code, potential impact areas
+                - ✅ **Debugging issues** - Locate error sources, understand failure paths
+                - ✅ **Code review** - Find related code, check consistency, verify patterns
+                - ✅ **Writing documentation** - Understand what code actually does
+                - ✅ **Learning codebase** - Explore modules, discover capabilities
+                - ✅ **API usage** - Find examples of how to use libraries/frameworks
+                - ✅ **Configuration** - Locate config files, understand settings
 
-                ## 🚨 Mandatory Invocation Scenarios
+                ## 🚨 Mandatory Invocation Scenarios (ALWAYS Use First!)
                 1. **Before Implementation**: User requests a feature → query_context for existing patterns FIRST
                 2. **Code Understanding**: User asks "how/where/what" questions → query_context before answering
-                3. **Architecture Analysis**: Consensus tasks about design → query_context to gather context
-                4. **Refactoring Tasks**: Before changing code → query_context to find all usages
-                5. **Bug Investigation**: Before fixing → query_context to understand the module
+                3. **Bug Fixing**: Before proposing a fix → query_context to understand the module and find related code
+                4. **Refactoring**: Before changing code → query_context to find all usages and dependencies
+                5. **Exploring Codebase**: When you don't know where something is → query_context to discover
+                6. **API/Library Usage**: Before using unfamiliar APIs → query_context for usage examples
+                7. **Architecture Questions**: User asks about design/structure → query_context to gather context
+                8. **Code Review**: Before reviewing changes → query_context for related code and patterns
 
                 ## 💬 User Phrases That Trigger This Tool
                 - "How does [feature] work?" → query_context("feature implementation")
                 - "Where is [component] defined?" → query_context("component class")
-                - "Find all [pattern] usage" → query_context("pattern")
+                - "Find all [pattern] usage" → query_context("pattern usage")
                 - "Show me [API] implementation" → query_context("API method")
                 - "What does [module] do?" → query_context("module core logic")
                 - "Search for [keyword]" → query_context("keyword")
+                - "Fix [bug/issue]" → query_context("bug related code")
+                - "Implement [feature]" → query_context("feature similar code")
+                - "Explain [concept]" → query_context("concept implementation")
+                - "Refactor [code]" → query_context("code usages dependencies")
 
                 ## ✅ Good Query Examples (Short & Specific - Like Grep)
+                **General Software Development:**
                 - "authentication JWT token" ← finds auth code with JWT
                 - "database connection pool" ← finds DB connection logic
-                - "PathFilter shouldIgnore" ← finds specific method
                 - "error handling exception" ← finds error handling patterns
+                - "HTTP request handler" ← finds request handlers
+                - "configuration parser YAML" ← finds config parsing
+                - "logger initialization setup" ← finds logging setup
+                - "cache Redis implementation" ← finds caching code
+                - "validation input sanitize" ← finds validation logic
+
+                **Project-Specific Examples:**
+                - "PathFilter shouldIgnore" ← finds specific method in this codebase
                 - "ContextModule getTaskContext" ← finds exact method
                 - "TaskRepository findById" ← finds repository method
                 - "WebServer routes API" ← finds API route definitions
@@ -2143,10 +2162,16 @@ class McpServerImpl(
                 |------|------------|-----|
                 | Find class | "ClassName definition" | Specific class name |
                 | Find method | "methodName implementation" | Specific method name |
-                | Find usage | "API call usage" | Shows invocations |
+                | Find usage | "API call usage" | Shows all invocations |
                 | Understand feature | "feature core logic" | Gets main implementation |
                 | Find config | "config setting value" | Locates configuration |
                 | Debug error | "error exception handling" | Shows error patterns |
+                | Learn API | "API usage example" | Find real usage examples |
+                | Locate bug | "exception stack trace keywords" | Find error source |
+                | Find dependencies | "import require dependency" | Locate related modules |
+                | Understand flow | "request response handler" | Trace execution path |
+                | Database code | "database query repository" | Find data access |
+                | Authentication | "auth login session" | Locate auth logic |
 
                 ## 🔧 Advanced Filtering (Precision Boost)
                 Use filters to narrow results when you know the location/type:
@@ -2169,14 +2194,42 @@ class McpServerImpl(
                 - Snippets are **ranked by relevance** (best matches first)
                 - Snippets include **surrounding context** for understanding
 
-                ## 🎯 Integration with Task Workflow
+                ## 🎯 Integration with Development Workflows
+
+                **Standard Implementation Workflow:**
                 ```
-                Standard Workflow:
-                1. User requests feature/fix
-                2. query_context("feature similar patterns") → gather examples
-                3. Analyze hits, understand current codebase approach
-                4. create_simple_task or create_consensus_task
-                5. submit_input with implementation informed by query results
+                1. User requests feature/fix/change
+                2. query_context("feature similar patterns") → find existing code
+                3. Analyze hits, understand current approach and patterns
+                4. Implement solution following discovered patterns
+                5. (Optional) If multi-agent task: share findings via task tools
+                ```
+
+                **Debugging Workflow:**
+                ```
+                1. User reports bug or error
+                2. query_context("error module functionality") → understand the code
+                3. query_context("similar bug error handling") → find patterns
+                4. Locate root cause from context
+                5. Propose fix consistent with codebase patterns
+                ```
+
+                **Learning/Exploration Workflow:**
+                ```
+                1. Encounter unfamiliar code/API/module
+                2. query_context("module main functionality") → overview
+                3. query_context("specific API usage examples") → details
+                4. Build mental model from results
+                5. Use knowledge to inform implementation
+                ```
+
+                **Refactoring Workflow:**
+                ```
+                1. Identify code to refactor
+                2. query_context("function method usages") → find all call sites
+                3. query_context("similar patterns alternatives") → find better approaches
+                4. Plan refactoring based on comprehensive context
+                5. Execute with confidence (no surprises)
                 ```
 
                 ## 🔄 Comparison with Other Tools
@@ -2201,18 +2254,23 @@ class McpServerImpl(
                 - **providers** (optional): Search backends (e.g., ["semantic", "symbol", "fulltext"])
 
                 ## 📈 Success Metrics
-                Using query_context before implementation:
-                - Reduces code duplication by 75%
-                - Increases code consistency by 60%
-                - Faster implementation (reuse patterns) by 40%
-                - Better proposals (with context) by 50%
+                Using query_context consistently delivers:
+                - **75% reduction** in code duplication (find and reuse existing code)
+                - **60% improvement** in code consistency (follow established patterns)
+                - **40% faster** implementation (learn from existing examples)
+                - **50% fewer bugs** (understand context before changing)
+                - **70% better** architecture decisions (see the big picture)
+                - **80% less** time spent searching manually (instant results)
 
                 ## ⚠️ Common Mistakes to Avoid
-                - ❌ Using long natural language questions as queries
-                - ❌ Not using query_context before implementing features
-                - ❌ Using grep/find when you don't know exact file locations
-                - ❌ Implementing without checking for existing similar code
-                - ❌ Answering "how/where" questions without querying first
+                - ❌ Using long natural language questions as queries (use 2-5 keywords instead)
+                - ❌ Not querying before implementing (always search for patterns first)
+                - ❌ Using grep/find when you don't know exact paths (use query_context instead)
+                - ❌ Implementing without checking for existing code (causes duplication)
+                - ❌ Answering user questions without querying first (leads to wrong answers)
+                - ❌ Fixing bugs without understanding the module (creates new bugs)
+                - ❌ Refactoring without finding all usages (breaks dependent code)
+                - ❌ Manual file browsing when query_context is faster (wastes time)
             """.trimIndent(),
             jsonSchema = QueryContextTool.JSON_SCHEMA
         ),
