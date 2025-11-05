@@ -74,41 +74,58 @@
     if (!gridApi) return;
 
     gridApi.addEventListener('rowDoubleClicked', (params) => {
-      console.log('Row double-clicked!', { url: params?.data?.detailUrl });
-      if (!params || !params.data || !params.data.detailUrl) {
-        console.log('Row double-click skipped - missing data');
-        return;
-      }
+      if (!params || !params.data || !params.data.detailUrl) return;
       const detailUrl = params.data.detailUrl;
-      console.log('Fetching modal content from:', detailUrl);
+      console.log('rowDoubleClicked - loading modal from:', detailUrl);
+
       fetch(detailUrl)
-        .then(response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return response.text();
-        })
+        .then(response => response.text())
         .then(html => {
-          // Ensure modal container exists
-          const modalContainer = typeof ensureModalContainer === 'function'
-            ? ensureModalContainer()
-            : document.getElementById('modal-container');
+          console.log('Modal content received, updating DOM and opening modal');
+          let container = document.getElementById('modal-container');
 
-          if (!modalContainer) {
-            console.error('Modal container not found and could not be created!');
-            return;
+          // Create modal-container if it doesn't exist
+          if (!container) {
+            console.warn('modal-container not found, creating it');
+            container = document.createElement('div');
+            container.id = 'modal-container';
+            container.className = 'modal';
+            container.setAttribute('role', 'dialog');
+            container.setAttribute('aria-modal', 'true');
+            container.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(container);
           }
-          console.log('Inserting HTML into modal-container');
-          modalContainer.innerHTML = html;
 
-          if (window.htmx && typeof window.htmx.process === 'function') {
-            window.htmx.process(modalContainer);
-          }
+          // Parse HTML to extract and re-execute scripts
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const scripts = Array.from(doc.querySelectorAll('script'));
 
-          console.log('Opening modal after content loaded');
-          window.openModal('modal-container');
+          // Get HTML without scripts
+          const htmlWithoutScripts = doc.body.innerHTML;
+          container.innerHTML = htmlWithoutScripts;
+
+          // Re-execute scripts
+          scripts.forEach(script => {
+            const newScript = document.createElement('script');
+            if (script.src) {
+              newScript.src = script.src;
+            } else {
+              newScript.textContent = script.textContent;
+            }
+            container.appendChild(newScript);
+          });
+
+          setTimeout(() => {
+            console.log('Calling window.openModal from rowDoubleClicked');
+            if (typeof window.openModal === 'function') {
+              window.openModal('modal-container');
+            } else {
+              console.error('window.openModal is not a function');
+            }
+          }, 50);
         })
-        .catch(err => {
-          console.error('Failed to load modal content:', err);
-        });
+        .catch(error => console.error('Error loading modal:', error));
     });
   }
 
@@ -316,13 +333,13 @@
   function renderAssignees(params) {
     const data = params?.data || {};
     const assignees = data.assignees;
-    let displayText = 'Unassigned';
-    if (typeof data.assigneesDisplay === 'string' && data.assigneesDisplay.trim().length > 0) {
-      displayText = data.assigneesDisplay;
-    } else if (Array.isArray(assignees) && assignees.length > 0) {
-      displayText = assignees.join(', ');
+    let content = 'Unassigned';
+    if (Array.isArray(assignees) && assignees.length > 0) {
+      content = assignees.map((agent) => `<span class="task-row__agent">${escapeHtml(agent)}</span>`).join('');
+    } else if (typeof data.assigneesDisplay === 'string') {
+      content = `<span class="task-row__agent">${escapeHtml(data.assigneesDisplay)}</span>`;
     }
-    return `<span class="task-row__agents-text">${escapeHtml(displayText)}</span>`;
+    return `<div class="task-row__agents">${content}</div>`;
   }
 
   function renderUpdatedAt(params) {
@@ -354,47 +371,61 @@
 
     // Attach click handler directly to the button
     button.addEventListener('click', (event) => {
-      console.log('View button clicked!', { detailUrl });
       event.preventDefault();
       event.stopPropagation();
 
-      if (!detailUrl || detailUrl === '#' || !window.htmx) {
-        console.log('View button skipped - missing data', { detailUrl, hasHtmx: !!window.htmx });
-        return;
-      }
+      if (!detailUrl || detailUrl === '#') return;
 
-      // Load modal content directly
-      console.log('Making fetch request to:', detailUrl);
+      console.log('View button clicked - loading modal from:', detailUrl);
+
       fetch(detailUrl)
-        .then(response => {
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          return response.text();
-        })
+        .then(response => response.text())
         .then(html => {
-          // Ensure modal container exists (it should, but just in case)
-          const modalContainer = typeof ensureModalContainer === 'function'
-            ? ensureModalContainer()
-            : document.getElementById('modal-container');
+          console.log('Modal content received, updating DOM and opening modal');
+          let container = document.getElementById('modal-container');
 
-          if (!modalContainer) {
-            console.error('Modal container not found and could not be created!');
-            return;
-          }
-          console.log('Inserting HTML into modal-container');
-          modalContainer.innerHTML = html;
-
-          // Process any HTMX elements that were added
-          if (window.htmx && typeof window.htmx.process === 'function') {
-            window.htmx.process(modalContainer);
+          // Create modal-container if it doesn't exist
+          if (!container) {
+            console.warn('modal-container not found, creating it');
+            container = document.createElement('div');
+            container.id = 'modal-container';
+            container.className = 'modal';
+            container.setAttribute('role', 'dialog');
+            container.setAttribute('aria-modal', 'true');
+            container.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(container);
           }
 
-          // Open the modal
-          console.log('Opening modal after content loaded');
-          window.openModal('modal-container');
+          // Parse HTML to extract and re-execute scripts
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const scripts = Array.from(doc.querySelectorAll('script'));
+
+          // Get HTML without scripts
+          const htmlWithoutScripts = doc.body.innerHTML;
+          container.innerHTML = htmlWithoutScripts;
+
+          // Re-execute scripts
+          scripts.forEach(script => {
+            const newScript = document.createElement('script');
+            if (script.src) {
+              newScript.src = script.src;
+            } else {
+              newScript.textContent = script.textContent;
+            }
+            container.appendChild(newScript);
+          });
+
+          setTimeout(() => {
+            console.log('Calling window.openModal from View button');
+            if (typeof window.openModal === 'function') {
+              window.openModal('modal-container');
+            } else {
+              console.error('window.openModal is not a function');
+            }
+          }, 50);
         })
-        .catch(err => {
-          console.error('Failed to load modal content:', err);
-        });
+        .catch(error => console.error('Error loading modal:', error));
     });
 
     return button;
@@ -420,35 +451,56 @@
 
         const triggerHtmx = function (event) {
           event?.preventDefault();
-          console.log('Action button clicked:', { label, url });
+          console.log('Action button clicked - loading modal from:', url);
+
           fetch(url)
-            .then(response => {
-              if (!response.ok) throw new Error(`HTTP ${response.status}`);
-              return response.text();
-            })
+            .then(response => response.text())
             .then(html => {
-              // Ensure modal container exists
-              const modalContainer = typeof ensureModalContainer === 'function'
-                ? ensureModalContainer()
-                : document.getElementById('modal-container');
+              console.log('Modal content received, updating DOM and opening modal');
+              let container = document.getElementById('modal-container');
 
-              if (!modalContainer) {
-                console.error('Modal container not found and could not be created!');
-                return;
+              // Create modal-container if it doesn't exist
+              if (!container) {
+                console.warn('modal-container not found, creating it');
+                container = document.createElement('div');
+                container.id = 'modal-container';
+                container.className = 'modal';
+                container.setAttribute('role', 'dialog');
+                container.setAttribute('aria-modal', 'true');
+                container.setAttribute('aria-hidden', 'true');
+                document.body.appendChild(container);
               }
-              console.log('Inserting HTML into modal-container');
-              modalContainer.innerHTML = html;
 
-              if (window.htmx && typeof window.htmx.process === 'function') {
-                window.htmx.process(modalContainer);
-              }
+              // Parse HTML to extract and re-execute scripts
+              const parser = new DOMParser();
+              const doc = parser.parseFromString(html, 'text/html');
+              const scripts = Array.from(doc.querySelectorAll('script'));
 
-              console.log('Opening modal after content loaded');
-              window.openModal('modal-container');
+              // Get HTML without scripts
+              const htmlWithoutScripts = doc.body.innerHTML;
+              container.innerHTML = htmlWithoutScripts;
+
+              // Re-execute scripts
+              scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                if (script.src) {
+                  newScript.src = script.src;
+                } else {
+                  newScript.textContent = script.textContent;
+                }
+                container.appendChild(newScript);
+              });
+
+              setTimeout(() => {
+                console.log('Calling window.openModal from action button');
+                if (typeof window.openModal === 'function') {
+                  window.openModal('modal-container');
+                } else {
+                  console.error('window.openModal is not a function');
+                }
+              }, 50);
             })
-            .catch(err => {
-              console.error('Failed to load action content:', err);
-            });
+            .catch(error => console.error('Error loading modal:', error));
           return false;
         };
 
