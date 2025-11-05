@@ -125,10 +125,10 @@ object TasksPage {
                 }
             }
 
-            script(src = "/static/js/theme-toggle.js") {}
-            script(src = "/static/js/navigation.js") {}
-            script(src = "/static/js/modal.js") {}
-            script(src = "/static/js/task-updates.js") {}
+            script(src = "/static/js/theme-toggle.js?v=20241105e") {}
+            script(src = "/static/js/navigation.js?v=20241105e") {}
+            script(src = "/static/js/modal.js?v=20241105e") {}
+            script(src = "/static/js/task-updates.js?v=20241105e") {}
         }
     }.let { "<!DOCTYPE html>\n$it" }
 }
