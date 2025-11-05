@@ -77,6 +77,21 @@ object TaskRepository {
         }
     }
 
+    /**
+     * Find all non-terminal tasks (PENDING, IN_PROGRESS, WAITING_INPUT).
+     * Useful for loading active tasks on startup.
+     */
+    fun findAllActive(): List<Task> = Database.withConnection { conn ->
+        val sql = """
+            SELECT * FROM tasks
+            WHERE status IN ('PENDING', 'IN_PROGRESS', 'WAITING_INPUT')
+            ORDER BY created_at ASC
+        """.trimIndent()
+        conn.prepareStatement(sql).use { ps ->
+            ps.executeQuery().use { rs -> rs.toTaskList() }
+        }
+    }
+
     fun update(task: Task) = Database.withConnection { conn ->
         val sql = """
             UPDATE tasks

@@ -5,6 +5,7 @@ import com.orchestrator.domain.Task
 import com.orchestrator.domain.TaskId
 import com.orchestrator.domain.TaskStatus
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * State of a workflow execution lifecycle.
@@ -39,12 +40,16 @@ data class Checkpoint(
 data class WorkflowRuntime(
     val task: Task,
     var currentStatus: TaskStatus,
-    val tokenAccounting: MutableMap<String, Int> = mutableMapOf(),
+    val tokenAccounting: MutableMap<String, Int> = ConcurrentHashMap(),
     val metadata: MutableMap<String, Any> = mutableMapOf(),
     val startedAt: Instant = Instant.now()
 ) {
     fun recordTokens(agentId: String, tokens: Int) {
-        tokenAccounting[agentId] = (tokenAccounting[agentId] ?: 0) + tokens
+        if (tokens == 0) {
+            tokenAccounting.putIfAbsent(agentId, 0)
+        } else {
+            tokenAccounting.merge(agentId, tokens) { existing, addition -> existing + addition }
+        }
     }
 
     fun totalTokens(): Int = tokenAccounting.values.sum()

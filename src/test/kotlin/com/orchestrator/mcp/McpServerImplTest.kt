@@ -42,7 +42,8 @@ class McpServerImplTest {
             server = ServerConfig(host = "127.0.0.1", port = port)
         )
         val agents = buildTestRegistry()
-        server = McpServerImpl(cfg, agents)
+        val contextConfig = com.orchestrator.context.config.ContextConfig() // Use default context config
+        server = McpServerImpl(cfg, agents, contextConfig)
         server.start()
         // Give Netty a short moment to bind
         Thread.sleep(150)

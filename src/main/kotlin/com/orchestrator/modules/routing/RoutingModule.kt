@@ -24,6 +24,7 @@ class RoutingModule(
 ) {
     private val agentSelector = AgentSelector(agentRegistry)
     private val directiveParser = DirectiveParser(agentRegistry)
+    private val toolAdvisor = McpToolAdvisor()
 
     fun routeTask(task: Task): RoutingDecision {
         val directive = UserDirective(originalText = "")
@@ -42,10 +43,14 @@ class RoutingModule(
         val classification = TaskClassifier.classify(text)
         log("Classification: complexity=${classification.complexity} risk=${classification.risk} critical=${classification.criticalKeywords} conf=${"%.2f".format(classification.confidence)}")
 
-        // 2) Determine strategy (directive already given; routeTask uses neutral directive)
-        val strategy = strategyPicker.pickStrategy(task, directive, classification)
+        // 2) Determine strategy
+        // FIRST, consult the hard-coded advisor
+        val advisedStrategy = toolAdvisor.advise(task, directive)
+
+        val strategy = advisedStrategy ?: strategyPicker.pickStrategy(task, directive, classification)
         log(
             "Strategy selected: $strategy (" +
+                (if (advisedStrategy != null) "reason=McpToolAdvisor; " else "") +
                 "force=${directive.forceConsensus} conf=${formatConfidence(directive.forceConsensusConfidence)}, " +
                 "prevent=${directive.preventConsensus} conf=${formatConfidence(directive.preventConsensusConfidence)}, " +
                 "assigned=${directive.assignToAgent} conf=${formatConfidence(directive.assignmentConfidence)}, " +

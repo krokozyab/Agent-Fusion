@@ -1,0 +1,5 @@
+com.orchestrator.context.providers.SemanticContextProvider
+com.orchestrator.context.providers.SymbolContextProvider
+com.orchestrator.context.providers.FullTextContextProvider
+com.orchestrator.context.providers.GitHistoryContextProvider
+com.orchestrator.context.providers.HybridContextProvider
