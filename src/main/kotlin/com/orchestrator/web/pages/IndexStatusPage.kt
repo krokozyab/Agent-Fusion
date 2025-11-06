@@ -32,6 +32,7 @@ import kotlinx.html.title
 import kotlinx.html.tr
 import kotlinx.html.ul
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -59,8 +60,8 @@ object IndexStatusPage {
     )
 
     private val isoFormatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC)
-    private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'")
-        .withZone(ZoneOffset.UTC)
+    private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
+        .withZone(ZoneId.systemDefault())
 
     fun render(config: Config): String {
         val htmlContent = createHTML().html {
