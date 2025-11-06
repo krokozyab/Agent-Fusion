@@ -80,9 +80,16 @@ while IFS= read -r line; do
         # 204 No Content - notification response (no body to send)
         log "Response (HTTP $http_status): Notification (no response)"
     elif [[ "$http_status" == "200" ]]; then
-        response=$(cat /tmp/mcp_response.json 2>/dev/null || echo '{}')
-        log "Response (HTTP $http_status): $response"
-        echo "$response"
+        # Stream response directly to stdout without loading entire response into memory
+        # This avoids shell expansion overhead for large responses (e.g., from query_context)
+        if [[ -f /tmp/mcp_response.json ]]; then
+            response_size=$(stat -f%z /tmp/mcp_response.json 2>/dev/null || wc -c < /tmp/mcp_response.json)
+            log "Response (HTTP $http_status): OK (${response_size} bytes)"
+            cat /tmp/mcp_response.json
+        else
+            log "Response (HTTP $http_status): ERROR - response file not created"
+            send_error "$request_id" -32603 "Internal error: response file not created"
+        fi
     else
         log "ERROR: HTTP $http_status from server"
         send_error "$request_id" -32603 "Internal error: HTTP $http_status from server"
