@@ -139,7 +139,16 @@ object HttpJsonRpcTransport {
 
         return try {
             val result = mcpServer.executeTool(toolName, toolArgs)
-            mcpServer.toolResultToJson(result)
+            val toolResult = mcpServer.toolResultToJson(result)
+            // Wrap tool result in MCP content format for Claude Desktop compatibility
+            buildJsonObject {
+                put("content", buildJsonArray {
+                    add(buildJsonObject {
+                        put("type", JsonPrimitive("text"))
+                        put("text", JsonPrimitive(toolResult.toString()))
+                    })
+                })
+            }
         } catch (e: Exception) {
             JsonRpcError(
                 code = -32000,
