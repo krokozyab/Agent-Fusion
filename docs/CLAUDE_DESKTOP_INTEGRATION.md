@@ -115,35 +115,63 @@ Read a specific resource by URI.
 
 ## Claude Desktop Configuration
 
+Claude Desktop requires a `command` to launch MCP servers with stdio transport. We provide a wrapper script that bridges stdio to the HTTP endpoint.
+
 Edit your Claude Desktop configuration file:
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-### Add the following configuration:
+### Using the Stdio Wrapper (Recommended)
+
+The wrapper script (`orchestrator-stdio-wrapper.sh`) bridges Claude Desktop's stdio transport to the HTTP endpoint.
+
+**Add the following configuration:**
 
 ```json
 {
   "mcpServers": {
     "orchestrator": {
-      "url": "http://127.0.0.1:3000/mcp/json-rpc"
+      "command": "/Users/sergeyrudenko/projects/codex_to_claude/orchestrator-stdio-wrapper.sh",
+      "args": []
     }
   }
 }
 ```
 
-### Full Example Configuration:
+**Full Example Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "fusion-metadata": {
+      "command": "/Users/sergeyrudenko/projects/of_mcp/ofmcp.sh",
+      "args": [
+        "--db",
+        "/Users/sergeyrudenko/projects/of_mcp/metadata.db",
+        "--mode",
+        "stdio"
+      ]
+    },
+    "orchestrator": {
+      "command": "/Users/sergeyrudenko/projects/codex_to_claude/orchestrator-stdio-wrapper.sh",
+      "args": []
+    }
+  }
+}
+```
+
+### Custom Host/Port (Optional)
+
+If your server is running on a different host or port:
 
 ```json
 {
   "mcpServers": {
     "orchestrator": {
-      "url": "http://127.0.0.1:3000/mcp/json-rpc"
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/home/user"]
+      "command": "/Users/sergeyrudenko/projects/codex_to_claude/orchestrator-stdio-wrapper.sh",
+      "args": ["192.168.1.100", "3000"]
     }
   }
 }
@@ -201,24 +229,90 @@ The Orchestrator exposes the following MCP tools:
 
 ## Troubleshooting
 
+### Wrapper Not Found / Command Failed
+- Check the wrapper path in config matches your installation
+- Verify wrapper is executable: `chmod +x orchestrator-stdio-wrapper.sh`
+- Check stderr output for error messages
+
+### "Cannot reach orchestrator server" Error
+- Ensure the HTTP server is running on port 3000
+- Check: `curl http://127.0.0.1:3000/healthz`
+- Start server if needed: `java -jar build/libs/orchestrator-0.1.0-all.jar`
+
 ### Connection Refused
 - Ensure the Orchestrator server is running on port 3000
 - Check firewall settings allow localhost:3000
+- Verify server is listening: `lsof -i :3000`
 
-### "Route not found" Error
+### "Route not found" Error (Direct HTTP Testing)
 - Verify the endpoint is `/mcp/json-rpc` (not `/mcp`)
 - Check request method is `POST`
+- Test with: `curl -X POST http://127.0.0.1:3000/mcp/json-rpc`
 
-### Invalid JSON Response
+### Invalid JSON Response (Direct HTTP Testing)
 - Verify request is valid JSON-RPC 2.0
 - Check `Content-Type` header is `application/json`
 
+### Debugging the Wrapper
+
+Test the wrapper directly:
+
+```bash
+# Test initialization
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | \
+  /Users/sergeyrudenko/projects/codex_to_claude/orchestrator-stdio-wrapper.sh
+
+# Check wrapper logs (stderr)
+/Users/sergeyrudenko/projects/codex_to_claude/orchestrator-stdio-wrapper.sh < /dev/null 2>&1 | head -20
+```
+
+The wrapper logs all activity to stderr, which Claude Desktop captures. Check Claude's logs if needed.
+
 ## Architecture
 
-The integration uses:
-- **HttpJsonRpcTransport.kt** - Translates JSON-RPC to MCP methods
-- **POST /mcp/json-rpc route** - Ktor HTTP endpoint
-- **Stateless request/response** - No session management required
-- **Standard JSON-RPC 2.0** - Compatible with all MCP clients
+### Transport Layer
 
-This allows Claude Desktop to communicate with the Orchestrator directly without custom session management or transport protocols.
+```
+Claude Desktop (stdio)
+        ↓
+orchestrator-stdio-wrapper.sh (stdio-to-HTTP bridge)
+        ↓
+Ktor HTTP Server (port 3000)
+        ↓
+POST /mcp/json-rpc endpoint
+        ↓
+HttpJsonRpcTransport (JSON-RPC routing)
+        ↓
+McpServerImpl (MCP methods)
+```
+
+### Components
+
+- **orchestrator-stdio-wrapper.sh** - Stdio-to-HTTP bridge script
+  - Reads JSON-RPC from stdin (from Claude Desktop)
+  - Forwards to HTTP endpoint
+  - Writes responses to stdout
+  - Health checks before forwarding
+  - Detailed logging to stderr
+
+- **HttpJsonRpcTransport.kt** - Translates JSON-RPC to MCP methods
+  - Routes initialize, tools/list, tools/call, resources/list, resources/read
+  - Error handling with JSON-RPC 2.0 format
+  - Stateless request/response
+
+- **POST /mcp/json-rpc route** - Ktor HTTP endpoint
+  - Receives JSON-RPC requests
+  - Routes to HttpJsonRpcTransport
+  - Returns JSON-RPC responses
+
+- **Stateless Design** - No session management required
+  - Each request is independent
+  - No cookies or custom headers
+  - Simple HTTP POST semantics
+
+- **Standard JSON-RPC 2.0** - Compatible with all MCP clients
+  - Proper error responses
+  - Request/response correlation via ID
+  - Supports all MCP methods
+
+This architecture allows Claude Desktop to communicate with the Orchestrator using its native stdio transport while the server uses HTTP internally.
