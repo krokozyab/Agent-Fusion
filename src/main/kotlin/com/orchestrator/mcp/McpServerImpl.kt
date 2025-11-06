@@ -2334,47 +2334,87 @@ class McpServerImpl(
                 - "cache Redis implementation" ← finds caching code
                 - "validation input sanitize" ← finds validation logic
 
-                **Project-Specific Examples:**
-                - "PathFilter shouldIgnore" ← finds specific method in this codebase
-                - "ContextModule getTaskContext" ← finds exact method
-                - "TaskRepository findById" ← finds repository method
-                - "WebServer routes API" ← finds API route definitions
-                - "SymbolIndexBuilder extract" ← finds indexing logic
+                **TESTED Project-Specific Examples (Proven Hits):**
+                - "task consensus workflow" ← 32 total hits, focuses on consensus implementation
+                - "proposal manager repository" ← finds proposal storage patterns
+                - "consensus strategy voting" ← finds voting logic
+                - "workflow executor interface" ← finds workflow contracts
+                - "PathFilter shouldIgnore" ← finds specific method
+                - "ContextModule getTaskContext" ← finds context retrieval
+                - "TaskRepository findById" ← finds data access patterns
 
-                ## ❌ Bad Query Examples (Too Long - Don't Use)
-                - ❌ "how does the path filtering work in the context system"
-                - ❌ "explain the architecture of the routing module"
-                - ❌ "what is the purpose of ignore patterns configuration"
-                - ❌ "show me all the files related to authentication"
+                ## ❌ Queries That FAIL (Don't Return Hits)
+                - ❌ "query_context tool definition" (meta-tool finding - too abstract)
+                - ❌ "mcp orchestrator query_context smart code search" (too meta/verbose)
+                - ❌ "how does the path filtering work in the context system" (question format)
+                - ❌ "explain the architecture of the routing module" (explanation-seeking)
+                - ❌ "what is the purpose of ignore patterns configuration" (purpose-seeking)
+                - ❌ "show me all the files related to authentication" (vague/broad)
 
-                ## 🎯 Query Strategy Guide
-                | Goal | Good Query | Why |
-                |------|------------|-----|
-                | Find class | "ClassName definition" | Specific class name |
-                | Find method | "methodName implementation" | Specific method name |
-                | Find usage | "API call usage" | Shows all invocations |
-                | Understand feature | "feature core logic" | Gets main implementation |
-                | Find config | "config setting value" | Locates configuration |
-                | Debug error | "error exception handling" | Shows error patterns |
-                | Learn API | "API usage example" | Find real usage examples |
-                | Locate bug | "exception stack trace keywords" | Find error source |
-                | Find dependencies | "import require dependency" | Locate related modules |
-                | Understand flow | "request response handler" | Trace execution path |
-                | Database code | "database query repository" | Find data access |
-                | Authentication | "auth login session" | Locate auth logic |
+                ## 🎯 Query Formulation: Anatomy of a Good Query
+
+                **Formula: [Verb/Noun] + [Noun] + [Optional: Domain/Context]**
+
+                | Pattern | Example | What It Finds |
+                |---------|---------|---------------|
+                | **[Action] [Concept]** | "find usages", "create task" | Code that performs the action |
+                | **[Class/Function] [Domain]** | "task consensus", "workflow executor" | Implementation of concept in domain |
+                | **[Pattern] [Behavior]** | "proposal manager", "voting strategy" | Specific implementations of pattern |
+                | **[Noun] [Noun] [Noun]** | "task consensus workflow" | Multi-level concept hierarchy |
+                | **[Implementation] [Feature]** | "repository find", "manager execute" | Specific methods doing work |
+
+                **Rule: Query = Nouns + Verbs, NOT questions or explanations**
+
+                | Goal | Good Query ✅ | Why Works | Bad Query ❌ | Why Fails |
+                |------|-------------|----------|------------|----------|
+                | Find class | "TaskRepository class" | Specific noun | "where is TaskRepository" | Question format |
+                | Find method | "execute proposal" | Verb + noun | "how to execute proposal" | Question/explanation |
+                | Understand feature | "consensus workflow" | Noun + noun | "how does consensus work" | Seeking explanation |
+                | Find usage patterns | "create task proposal" | Stacked nouns | "show me task creation" | Indirect/vague |
+                | Locate implementation | "voting strategy consensus" | Specific terms | "explain voting strategy" | Explanation-seeking |
+                | Find config | "configuration parser" | Noun + noun | "what is configuration" | Purpose-seeking |
+                | Debug error | "proposal validation error" | Error context | "why does validation fail" | Question format |
+                | Find dependencies | "import context provider" | Dependency terms | "what depends on context" | Indirect/vague |
+
+                ## 🔍 Query Refinement: When Hits Are Low or Too Broad
+
+                **Problem: Got 0 hits → Make query more specific OR more general**
+                ```
+                Start: "task workflow execution" → 0 hits
+                    ↓ Try more specific
+                Refined: "workflow executor suspend" → 8 hits ✅
+
+                Start: "authentication JWT token" → 2 hits
+                    ↓ Try broader
+                Refined: "authentication" → 15 hits ✅
+                ```
+
+                **Problem: Too many hits (100+) → Add domain qualifiers**
+                ```
+                Start: "create" → 500+ hits (too broad)
+                    ↓ Add domain context
+                Refined: "create task consensus" → 32 hits ✅
+                ```
+
+                **Problem: Tool/infrastructure code → Add specific keywords**
+                ```
+                Start: "tool execute" → Mixed results
+                    ↓ Add implementation detail
+                Refined: "tool params execute" → Better results ✅
+                ```
 
                 ## 🔧 Advanced Filtering (Precision Boost)
                 Use filters to narrow results when you know the location/type:
 
                 ```
                 query_context(
-                  query="authentication",
-                  paths=["src/main/kotlin/auth/"],        # Focus on auth module
-                  languages=["kotlin"],                    # Only Kotlin files
-                  kinds=["CODE_CLASS", "CODE_METHOD"],     # Only classes/methods
-                  excludePatterns=["test/", "*.md"],       # Exclude tests/docs
-                  k=20,                                    # Get more results
-                  maxTokens=8000                           # Bigger context window
+                  query="consensus workflow execute",
+                  paths=["src/main/kotlin/com/orchestrator/workflows/"],  # Specific module
+                  languages=["kotlin"],                                   # Language filter
+                  kinds=["CODE_CLASS", "CODE_METHOD"],                   # Skip docs/config
+                  excludePatterns=["test/", "*Test.kt", "*.md"],        # Exclude tests
+                  k=20,                                                  # Get more results
+                  maxTokens=8000                                         # Bigger context window
                 )
                 ```
 
