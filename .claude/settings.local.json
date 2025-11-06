@@ -32,7 +32,9 @@
       "Bash(timeout 20 ./gradlew run:*)",
       "Bash(timeout 25 ./gradlew run:*)",
       "Bash(wait)",
-      "Bash(timeout 5 curl:*)"
+      "Bash(timeout 5 curl:*)",
+      "Bash(kill:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
