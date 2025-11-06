@@ -121,8 +121,21 @@ object HttpJsonRpcTransport {
         val toolName = params["name"]?.jsonPrimitive?.contentOrNull
             ?: return JsonRpcError(code = -32602, message = "Missing 'name' parameter")
 
-        val toolArgs = params["arguments"] as? JsonObject
-            ?: JsonObject(emptyMap())
+        // Handle both formats:
+        // 1. {"name": "...", "arguments": {...}} - standard format
+        // 2. {"name": "...", ...other params...} - Claude Desktop format
+        val toolArgs = if (params.containsKey("arguments")) {
+            params["arguments"] as? JsonObject ?: JsonObject(emptyMap())
+        } else {
+            // Extract all params except "name" as tool arguments
+            buildJsonObject {
+                params.forEach { (key, value) ->
+                    if (key != "name") {
+                        put(key, value)
+                    }
+                }
+            }
+        }
 
         return try {
             val result = mcpServer.executeTool(toolName, toolArgs)
