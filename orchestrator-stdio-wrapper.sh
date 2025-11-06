@@ -76,7 +76,10 @@ while IFS= read -r line; do
         -H "Content-Type: application/json" \
         -d "$line" 2>/dev/null)
 
-    if [[ "$http_status" == "200" ]]; then
+    if [[ "$http_status" == "204" ]]; then
+        # 204 No Content - notification response (no body to send)
+        log "Response (HTTP $http_status): Notification (no response)"
+    elif [[ "$http_status" == "200" ]]; then
         response=$(cat /tmp/mcp_response.json 2>/dev/null || echo '{}')
         log "Response (HTTP $http_status): $response"
         echo "$response"

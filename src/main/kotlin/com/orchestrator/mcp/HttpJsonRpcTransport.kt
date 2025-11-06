@@ -7,41 +7,62 @@ import kotlinx.serialization.Serializable
 /**
  * HTTP JSON-RPC 2.0 Transport Handler
  *
- * Handles standard JSON-RPC 2.0 requests and routes them to MCP server methods.
+ * Handles standard JSON-RPC 2.0 requests and notifications according to the MCP protocol.
  * Designed for Claude Desktop and other standard MCP clients.
  *
  * Supports:
- * - initialize: Server initialization
- * - tools/list: List available tools
- * - tools/call: Execute a tool
- * - resources/list: List available resources
- * - resources/read: Read a resource
+ * - Requests (with id): initialize, tools/list, tools/call, resources/list, resources/read
+ * - Notifications (without id): notifications/initialized
+ *
+ * Returns null for notifications (no response should be sent).
+ * Returns JsonElement for requests (response should be sent).
  */
 object HttpJsonRpcTransport {
 
     /**
-     * Process a JSON-RPC 2.0 request and return JSON-RPC 2.0 response
+     * Process a JSON-RPC 2.0 request or notification
+     * Returns null for notifications (no response), JsonElement for requests (send response)
      */
     fun handleRequest(
         requestJson: JsonElement,
         mcpServer: McpServerImpl
-    ): JsonElement {
+    ): JsonElement? {
         return try {
             val request = parseJsonRpcRequest(requestJson)
+            val isNotification = request.id == null
 
             val result = when (request.method) {
+                // MCP Requests (require responses)
                 "initialize" -> handleInitialize(request, mcpServer)
                 "tools/list" -> handleToolsList(request, mcpServer)
                 "tools/call" -> handleToolsCall(request, mcpServer)
                 "resources/list" -> handleResourcesList(request, mcpServer)
                 "resources/read" -> handleResourcesRead(request, mcpServer)
-                else -> JsonRpcError(
-                    code = -32601,
-                    message = "Method not found: ${request.method}"
-                )
+
+                // MCP Notifications (fire-and-forget, no response)
+                "notifications/initialized" -> {
+                    // Client notifies us that it's initialized - we don't need to respond
+                    return null
+                }
+
+                else -> {
+                    // For notifications, don't send an error response
+                    if (isNotification) {
+                        return null
+                    }
+                    JsonRpcError(
+                        code = -32601,
+                        message = "Method not found: ${request.method}"
+                    )
+                }
             }
 
-            buildJsonResponse(request.id, result)
+            // Only build response if this is a request (has id)
+            if (isNotification) {
+                null
+            } else {
+                buildJsonResponse(request.id, result)
+            }
         } catch (e: Exception) {
             buildJsonErrorResponse(
                 id = null,
