@@ -102,7 +102,7 @@ class McpServerImpl(
     private var engine: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 
     // Tool registration model
-    private data class ToolEntry(
+    internal data class ToolEntry(
         val name: String,
         val description: String,
         val jsonSchema: String
@@ -310,6 +310,32 @@ class McpServerImpl(
                     if (uri.isEmpty()) throw IllegalArgumentException("Missing 'uri' query parameter")
                     val body = fetchResourceBody(uri)
                     call.respondText(body, contentType = ContentType.Application.Json)
+                }
+
+                // MCP: Standard JSON-RPC 2.0 endpoint for Claude Desktop compatibility
+                post("/mcp/json-rpc") {
+                    try {
+                        val requestJson = call.receive<JsonElement>()
+                        val response = HttpJsonRpcTransport.handleRequest(requestJson, this@McpServerImpl)
+                        call.respondText(
+                            response.toString(),
+                            contentType = ContentType.Application.Json
+                        )
+                    } catch (e: Exception) {
+                        val errorResponse = buildJsonObject {
+                            put("jsonrpc", JsonPrimitive("2.0"))
+                            put("error", buildJsonObject {
+                                put("code", JsonPrimitive(-32700))
+                                put("message", JsonPrimitive("Parse error: ${e.message}"))
+                            })
+                            put("id", JsonNull)
+                        }
+                        call.respondText(
+                            errorResponse.toString(),
+                            status = HttpStatusCode.BadRequest,
+                            contentType = ContentType.Application.Json
+                        )
+                    }
                 }
             }
         }
@@ -862,7 +888,7 @@ class McpServerImpl(
             )
         )
 
-    private fun fetchResourceBody(uri: String): String = when {
+    internal fun fetchResourceBody(uri: String): String = when {
         uri.startsWith("tasks://") -> {
             val params = parseQueryParams(uri)
             tasksResource.list(params)
@@ -893,7 +919,7 @@ class McpServerImpl(
         }.toMap()
     }
 
-    private fun executeTool(name: String, params: JsonElement): Any {
+    internal fun executeTool(name: String, params: JsonElement): Any {
         val currentAgent = try {
             val sessionId = currentSessionId.get()
             sessionId?.let { sessionToAgent[it]?.value }
@@ -932,7 +958,7 @@ class McpServerImpl(
         }
     }
 
-    private fun toolResultToJson(result: Any): JsonElement = when (result) {
+    internal fun toolResultToJson(result: Any): JsonElement = when (result) {
         is CreateSimpleTaskTool.Result -> taskCreationResultToJson(result.taskId, result.status, result.routing, result.primaryAgentId, result.participantAgentIds, result.warnings)
         is CreateConsensusTaskTool.Result -> taskCreationResultToJson(result.taskId, result.status, result.routing, result.primaryAgentId, result.participantAgentIds, result.warnings)
         is AssignTaskTool.Result -> taskCreationResultToJson(result.taskId, result.status, result.routing, result.primaryAgentId, result.participantAgentIds, result.warnings)
@@ -2716,7 +2742,7 @@ class McpServerImpl(
         )
     }
 
-    private fun tools(): List<ToolEntry> = toolEntries
+    internal fun tools(): List<ToolEntry> = toolEntries
     // endregion
 
     // region models
