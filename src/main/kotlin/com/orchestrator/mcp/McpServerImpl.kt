@@ -317,10 +317,16 @@ class McpServerImpl(
                     try {
                         val requestJson = call.receive<JsonElement>()
                         val response = HttpJsonRpcTransport.handleRequest(requestJson, this@McpServerImpl)
-                        call.respondText(
-                            response.toString(),
-                            contentType = ContentType.Application.Json
-                        )
+
+                        // For notifications (response is null), send 204 No Content
+                        if (response == null) {
+                            call.respond(HttpStatusCode.NoContent)
+                        } else {
+                            call.respondText(
+                                response.toString(),
+                                contentType = ContentType.Application.Json
+                            )
+                        }
                     } catch (e: Exception) {
                         val errorResponse = buildJsonObject {
                             put("jsonrpc", JsonPrimitive("2.0"))
