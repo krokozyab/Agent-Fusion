@@ -893,56 +893,43 @@ class McpServerImpl(
         }.toMap()
     }
 
-    private fun executeTool(name: String, params: JsonElement): Any = when (name) {
-        "create_simple_task" -> {
-            // Get current agent from session context for auto-assignment
-            val currentAgent = try {
-                val sessionId = currentSessionId.get()
-                sessionId?.let { sessionToAgent[it]?.value }
-                    ?: run {
-                        // Fall back to resolving default agent if session-based mapping not available
-                        try {
-                            resolveAgentIdOrDefault(null)
-                        } catch (e: Exception) {
-                            null  // If resolution fails, continue without auto-assignment
-                        }
-                    }
-            } catch (e: Exception) {
-                null  // Silently ignore if we can't determine current agent
+    private fun executeTool(name: String, params: JsonElement): Any {
+        val currentAgent = try {
+            val sessionId = currentSessionId.get()
+            sessionId?.let { sessionToAgent[it]?.value }
+                ?: resolveAgentIdOrDefault(null)
+        } catch (_: Exception) {
+            null
+        }
+
+        return when (name) {
+            "create_simple_task" ->
+                createSimpleTaskTool.execute(mapCreateSimpleParams(params, currentAgent))
+            "create_consensus_task" ->
+                createConsensusTaskTool.execute(mapCreateConsensusParams(params, currentAgent))
+            "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
+            "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
+            "complete_task" -> completeTaskTool.execute(mapCompleteTaskParams(params))
+            "get_pending_tasks" -> {
+                val (p, resolvedId) = mapGetPendingTasksParams(params)
+                getPendingTasksTool.execute(p, resolvedId)
             }
-            createSimpleTaskTool.execute(mapCreateSimpleParams(params, currentAgent))
-        }
-        "create_consensus_task" -> {
-            // Extract current agent (creating agent should be primary)
-            val currentAgent = try {
-                normalizeAgentId(currentAgentId)
-            } catch (e: Exception) {
-                null  // Silently ignore if we can't determine current agent
+            "get_task_status" -> getTaskStatusTool.execute(mapGetTaskStatusParams(params))
+            "submit_input" -> {
+                val (p, resolvedId) = mapSubmitInputParams(params)
+                submitInputTool.execute(p, resolvedId)
             }
-            createConsensusTaskTool.execute(mapCreateConsensusParams(params, currentAgent))
+            "respond_to_task" -> {
+                val (p, resolvedId) = mapRespondToTaskParams(params)
+                respondToTaskTool.execute(p, resolvedId)
+            }
+            "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
+            "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
+            "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
+            "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
+            "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
+            else -> throw IllegalArgumentException("Unknown tool '$name'")
         }
-        "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
-        "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
-        "complete_task" -> completeTaskTool.execute(mapCompleteTaskParams(params))
-        "get_pending_tasks" -> {
-            val (p, resolvedId) = mapGetPendingTasksParams(params)
-            getPendingTasksTool.execute(p, resolvedId)
-        }
-        "get_task_status" -> getTaskStatusTool.execute(mapGetTaskStatusParams(params))
-        "submit_input" -> {
-            val (p, resolvedId) = mapSubmitInputParams(params)
-            submitInputTool.execute(p, resolvedId)
-        }
-        "respond_to_task" -> {
-            val (p, resolvedId) = mapRespondToTaskParams(params)
-            respondToTaskTool.execute(p, resolvedId)
-        }
-        "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
-        "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
-        "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
-        "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
-        "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
-        else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
     private fun toolResultToJson(result: Any): JsonElement = when (result) {
