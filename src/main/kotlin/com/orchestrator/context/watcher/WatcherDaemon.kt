@@ -191,6 +191,16 @@ class WatcherDaemon(
             log.debug("Skipping directory event {} for {}", event.kind, event.path)
             return
         }
+
+        // DELETE events should bypass validation since the file no longer exists on disk.
+        // The ChangeDetector will detect them as deleted during incremental indexing.
+        if (event.kind == FileWatchEvent.Kind.DELETED) {
+            log.debug("Enqueuing delete event for {} (skipping validation)", event.path)
+            enqueue(event.path)
+            return
+        }
+
+        // For CREATE/MODIFY events, validate to ensure we only index files matching our criteria
         val validation = pathValidator.validate(event.path)
         if (!validation.valid) {
             // Only log the first time we skip a particular path to avoid log spam
