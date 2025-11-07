@@ -47,7 +47,7 @@ class RefreshContextTool(
 
             // Create embedder
             val embedder = com.orchestrator.context.embedding.LocalEmbedder(
-                modelPath = null,  // Will use default model location
+                modelPath = config.embedding.modelPath?.let { java.nio.file.Paths.get(it) },
                 modelName = config.embedding.model,
                 dimension = config.embedding.dimension
             )
