@@ -39,20 +39,12 @@ class VectorSearchEngine(
         model: String? = null
     ): List<SearchResult> {
         require(k > 0) { "k must be positive" }
-        println("[DEBUG VectorSearchEngine] search: vectorSize=${queryVector.size}, k=$k, model=$model")
-        if (queryVector.isEmpty()) {
-            println("[DEBUG VectorSearchEngine] queryVector is empty!")
-            return emptyList()
-        }
+        if (queryVector.isEmpty()) return emptyList()
 
         val normalizedQuery = VectorOps.normalize(queryVector)
-        if (normalizedQuery.all { it == 0f }) {
-            println("[DEBUG VectorSearchEngine] normalizedQuery is all zeros!")
-            return emptyList()
-        }
+        if (normalizedQuery.all { it == 0f }) return emptyList()
 
         val rows = repository.fetchAllWithMetadata(model)
-        println("[DEBUG VectorSearchEngine] fetched ${rows.size} embeddings for model=$model")
 
         val scored = buildList<ScoredChunk> {
             for (row in rows) {
