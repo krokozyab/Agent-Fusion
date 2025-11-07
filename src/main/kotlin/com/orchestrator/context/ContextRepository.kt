@@ -104,11 +104,13 @@ object ContextRepository {
                         try {
                             ContextDatabase.transaction { innerConn ->
                                 if (hasTable(innerConn, "symbols")) {
-                                    log.debug("Step 3: Deleting symbols for {} chunks", existingChunkIds.size)
+                                    log.debug("Step 3: Deleting symbols for file {}", existing.id)
                                     innerConn.createStatement().use { st ->
+                                        // Delete symbols that reference this file (either directly by file_id or through chunks)
                                         st.execute("""
                                             DELETE FROM symbols
-                                            WHERE chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                            WHERE file_id = ${existing.id}
+                                               OR chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
                                         """)
                                     }
                                     log.debug("Step 3 complete: Deleted symbols")
@@ -122,13 +124,32 @@ object ContextRepository {
                         try {
                             ContextDatabase.transaction { innerConn ->
                                 log.debug("Step 4: Deleting chunks for file {}", existing.id)
+
+                                // First, verify if there are any remaining links that would block chunk deletion
+                                val checkSql = """
+                                    SELECT COUNT(*) as link_count FROM links
+                                    WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                       OR target_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ${existing.id})
+                                """
+                                val remainingLinks = innerConn.prepareStatement(checkSql).use { ps ->
+                                    ps.executeQuery().use { rs ->
+                                        if (rs.next()) rs.getInt("link_count") else 0
+                                    }
+                                }
+
+                                if (remainingLinks > 0) {
+                                    log.warn("Step 4 warning: {} links still reference chunks before deletion", remainingLinks)
+                                }
+
                                 innerConn.createStatement().execute("DELETE FROM chunks WHERE file_id = ${existing.id}")
                                 log.debug("Step 4 complete: Successfully deleted chunks")
                             }
                         } catch (fkError: SQLException) {
-                            // Unable to delete due to FK constraint - skip and continue with re-indexing
-                            // The chunks will be marked as stale but the new chunks will be inserted
-                            log.warn("Step 4 failed: Unable to delete old chunks due to FK constraint: {}. New chunks will be inserted alongside old ones.", fkError.message)
+                            // Unable to delete due to FK constraint - this indicates a serious data integrity issue
+                            log.error("Step 4 FAILED: Unable to delete old chunks due to FK constraint: {}. This may leave orphaned chunks referencing file_id {}.", fkError.message, existing.id)
+                            log.error("FK constraint details: {}", fkError)
+                            // Re-throw to prevent silent failures that lead to corrupt state
+                            throw fkError
                         }
 
                         // Step 5: Delete links by target file (in separate transaction)

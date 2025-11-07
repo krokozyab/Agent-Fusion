@@ -177,7 +177,14 @@ allowed_extensions = [
 #   - "*.spec.js" -> skip Jest/Jasmine test files
 #   - "**/dist/**" -> skip everything under dist directories
 #   - "**/.min.*" -> skip all minified files
-skip_patterns = []
+skip_patterns = [
+    "*.min.js",           # Skip minified JS
+    "*.min.css",          # Skip minified CSS
+    "*.test.ts",          # Skip test files
+    "**/dist/**",         # Skip dist directories
+    "**/node_modules/**"  # Skip node_modules
+]
+
 # Maximum file size (MB) for indexing files
 # Files larger than this size are skipped during indexing
 max_file_size_mb = 200
