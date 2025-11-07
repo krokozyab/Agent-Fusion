@@ -23,6 +23,8 @@ import com.orchestrator.context.discovery.ExtensionFilter
 import com.orchestrator.context.discovery.IncludePathsFilter
 import com.orchestrator.context.discovery.PathFilter
 import com.orchestrator.context.discovery.SymlinkHandler
+import com.orchestrator.web.services.FilesystemSnapshotCalculator
+import com.orchestrator.web.sse.IndexStatusUpdatedEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,10 +62,16 @@ class Main {
             ContextDatabase.initialize(config.context.storage)
             log.info("Context database initialized at ${config.context.storage.dbPath}")
 
+            // Initialize event bus early so background services can publish events
+            log.info("Initializing event bus...")
+            val eventBus = EventBus.global
+
+            val filesystemSnapshotCalculator = FilesystemSnapshotCalculator(config.context)
+
             // Initialize and start file watcher
             if (config.context.watcher.enabled) {
                 log.info("Initializing file watcher...")
-                val watcher = initializeWatcher(config)
+                val watcher = initializeWatcher(config, eventBus, filesystemSnapshotCalculator)
                 watcherDaemon = watcher
                 WatcherRegistry.register(watcher)
 
@@ -105,10 +113,6 @@ class Main {
             log.info("Loading agent registry...")
             val agentRegistry = initializeAgentRegistry(cliArgs)
             log.info("Loaded ${agentRegistry.getAllAgents().size} agents")
-            
-            // Initialize event bus
-            log.info("Initializing event bus...")
-            val eventBus = EventBus.global
             
             // Initialize metrics module
             log.info("Initializing metrics module...")
@@ -362,7 +366,11 @@ class Main {
         )
     }
 
-    private fun initializeWatcher(config: ConfigLoader.ApplicationConfig): WatcherDaemon {
+    private fun initializeWatcher(
+        config: ConfigLoader.ApplicationConfig,
+        eventBus: EventBus,
+        snapshotCalculator: FilesystemSnapshotCalculator
+    ): WatcherDaemon {
         return try {
             val projectRoot = Paths.get("").toAbsolutePath()
 
@@ -394,11 +402,25 @@ class Main {
                 watcherConfig = config.context.watcher,
                 indexingConfig = config.context.indexing,
                 incrementalIndexer = incrementalIndexer,
-                onUpdate = { result ->
+                onUpdate = onUpdate@{ result ->
                     log.info(
                         "File watcher indexed: new=${result.newCount}, modified=${result.modifiedCount}, " +
-                        "deleted=${result.deletedCount}, failures=${result.indexingFailures + result.deletionFailures}"
+                            "deleted=${result.deletedCount}, failures=${result.indexingFailures + result.deletionFailures}"
                     )
+
+                    val meaningfulChange = (result.newCount + result.modifiedCount + result.deletedCount) > 0 ||
+                        (result.indexingFailures + result.deletionFailures) > 0
+                    if (!meaningfulChange) {
+                        return@onUpdate
+                    }
+
+                    runCatching {
+                        val snapshot = ContextModule.getIndexStatus()
+                        val filesystem = snapshotCalculator.snapshot()
+                        eventBus.publish(IndexStatusUpdatedEvent(snapshot, filesystem))
+                    }.onFailure { throwable ->
+                        log.warn("Failed to publish index status update: ${throwable.message}")
+                    }
                 },
                 onError = { error ->
                     log.error("File watcher error: ${error.message}", error)

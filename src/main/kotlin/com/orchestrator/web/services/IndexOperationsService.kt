@@ -1,13 +1,6 @@
 package com.orchestrator.web.services
 
 import com.orchestrator.context.config.ContextConfig
-import com.orchestrator.context.config.WatcherConfig
-import com.orchestrator.context.discovery.DirectoryScanner
-import com.orchestrator.context.discovery.ExtensionFilter
-import com.orchestrator.context.discovery.IncludePathsFilter
-import com.orchestrator.context.discovery.PathFilter
-import com.orchestrator.context.discovery.PathValidator
-import com.orchestrator.context.discovery.SymlinkHandler
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
 import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.context.watcher.WatcherRegistry
@@ -17,7 +10,6 @@ import com.orchestrator.mcp.tools.RefreshContextTool.Params as RefreshParams
 import com.orchestrator.mcp.tools.RebuildContextTool
 import com.orchestrator.mcp.tools.RebuildContextTool.Params as RebuildParams
 import com.orchestrator.modules.context.ContextModule
-import com.orchestrator.modules.context.ContextModule.FileIndexStatus
 import com.orchestrator.utils.Logger
 import com.orchestrator.web.plugins.ApplicationConfigKey
 import com.orchestrator.web.sse.IndexProgressEvent
@@ -26,11 +18,7 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopping
 import io.ktor.util.AttributeKey
 import java.time.Instant
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
-import java.util.LinkedHashMap
-import java.util.LinkedHashSet
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
@@ -118,38 +106,8 @@ private class DefaultIndexOperationsService(
     private val refreshTool by lazy { RefreshContextTool(contextConfig) }
     private val rebuildTool by lazy { RebuildContextTool(contextConfig) }
 
-    private val projectRoot: Path = Paths.get("").toAbsolutePath().normalize()
-    private val configuredWatchRoots: List<Path> = resolveWatchRoots(projectRoot, contextConfig.watcher)
-    private val effectiveWatchRoots: List<Path> =
-        if (configuredWatchRoots.isEmpty()) listOf(projectRoot) else configuredWatchRoots
-
-    private val pathFilter: PathFilter = PathFilter.fromSources(
-        projectRoot.toAbsolutePath().normalize(),
-        configPatterns = contextConfig.watcher.ignorePatterns,
-        includeGitignore = contextConfig.watcher.useGitignore,
-        includeContextignore = contextConfig.watcher.useContextignore,
-        includeDockerignore = true
-    )
-    private val extensionFilter: ExtensionFilter = ExtensionFilter.fromConfig(
-        allowlist = contextConfig.indexing.allowedExtensions,
-        blocklist = contextConfig.indexing.blockedExtensions
-    )
-    private val includePathsFilter: IncludePathsFilter = IncludePathsFilter.fromConfig(
-        includePaths = contextConfig.watcher.includePaths,
-        baseDir = projectRoot
-    )
-    private val symlinkHandler: SymlinkHandler = SymlinkHandler(
-        allowedRoots = effectiveWatchRoots,
-        defaultConfig = contextConfig.indexing
-    )
-    private val pathValidator: PathValidator = PathValidator(
-        watchPaths = effectiveWatchRoots,
-        pathFilter = pathFilter,
-        extensionFilter = extensionFilter,
-        includePathsFilter = includePathsFilter,
-        symlinkHandler = symlinkHandler,
-        indexingConfig = contextConfig.indexing
-    )
+    private val snapshotCalculator = FilesystemSnapshotCalculator(contextConfig)
+    private val effectiveWatchRoots: List<Path> = snapshotCalculator.watchRoots
 
     override fun triggerRefresh(): OperationTriggerResult {
         if (!refreshActive.compareAndSet(false, true)) {
@@ -315,153 +273,8 @@ private class DefaultIndexOperationsService(
         )
     }
 
-    override fun filesystemSnapshot(): FilesystemIndexSnapshot {
-        return runCatching { computeFilesystemSnapshot() }
-            .onFailure { throwable ->
-                logger.warn("Failed to compute filesystem snapshot: ${throwable.message}")
-            }
-            .getOrElse {
-                val roots = effectiveWatchRoots.ifEmpty { listOf(projectRoot) }
-                FilesystemIndexSnapshot(
-                    totalFiles = 0,
-                    roots = roots.map { FilesystemIndexSnapshot.RootSummary(it.toString(), 0) },
-                    watchRoots = roots.map(Path::toString),
-                    scannedAt = Instant.now(),
-                    missingFromCatalog = emptyList(),
-                    orphanedInCatalog = emptyList(),
-                    missingTotal = 0,
-                    orphanedTotal = 0
-                )
-            }
-    }
-
-    private fun computeFilesystemSnapshot(): FilesystemIndexSnapshot {
-        val roots = effectiveWatchRoots.ifEmpty { listOf(projectRoot) }
-        if (roots.isEmpty()) {
-            return FilesystemIndexSnapshot(
-                totalFiles = 0,
-                roots = emptyList(),
-                watchRoots = emptyList(),
-                scannedAt = Instant.now(),
-                missingFromCatalog = emptyList(),
-                orphanedInCatalog = emptyList(),
-                missingTotal = 0,
-                orphanedTotal = 0
-            )
-        }
-
-        val scanner = DirectoryScanner(
-            validator = pathValidator,
-            parallel = roots.size > 1
-        )
-
-        val discovered = scanner.scan(roots)
-        if (discovered.isEmpty()) {
-            return FilesystemIndexSnapshot(
-                totalFiles = 0,
-                roots = roots.map { FilesystemIndexSnapshot.RootSummary(it.toString(), 0) },
-                watchRoots = roots.map(Path::toString),
-                scannedAt = Instant.now(),
-                missingFromCatalog = emptyList(),
-                orphanedInCatalog = emptyList(),
-                missingTotal = 0,
-                orphanedTotal = 0
-            )
-        }
-
-        val counts = LinkedHashMap<Path, Int>()
-        roots.forEach { counts[it] = 0 }
-
-        for (path in discovered) {
-            val normalized = path.toAbsolutePath().normalize()
-            val matchingRoot = roots.firstOrNull { normalized.startsWith(it) } ?: roots.first()
-            counts[matchingRoot] = (counts[matchingRoot] ?: 0) + 1
-        }
-
-        val rootSummaries = counts.map { (root, total) ->
-            FilesystemIndexSnapshot.RootSummary(root.toString(), total)
-        }
-
-        val discoveredSet = discovered.map { normalizeAbsolute(it) }.toSet()
-
-        val indexStatus = ContextModule.getIndexStatus()
-        val indexedEntries = indexStatus.files.filter {
-            it.status == FileIndexStatus.INDEXED || it.status == FileIndexStatus.ERROR
-        }
-        val pendingEntries = indexStatus.files.filter { it.status == FileIndexStatus.PENDING }
-
-        val indexedSet = indexedEntries.mapNotNull { entry ->
-            resolveCatalogEntryPath(entry.path, roots)?.let { normalizeAbsolute(it) }
-        }.toSet()
-
-        val pendingSet = pendingEntries.mapNotNull { entry ->
-            resolveCatalogEntryPath(entry.path, roots)?.let { normalizeAbsolute(it) }
-        }.toSet()
-
-        val catalogSet = indexedSet + pendingSet
-
-        val missingAbsolute = (discoveredSet - catalogSet).sorted()
-        val orphanedAbsolute = (indexedSet - discoveredSet).sorted()
-
-        val missingDisplay = missingAbsolute
-            .map { toDisplayPath(Paths.get(it), roots) }
-            .take(MAX_DISCREPANCY_ITEMS)
-
-        val orphanedDisplay = orphanedAbsolute
-            .map { toDisplayPath(Paths.get(it), roots) }
-            .take(MAX_DISCREPANCY_ITEMS)
-
-        return FilesystemIndexSnapshot(
-            totalFiles = discovered.size,
-            roots = rootSummaries,
-            watchRoots = roots.map(Path::toString),
-            scannedAt = Instant.now(),
-            missingFromCatalog = missingDisplay,
-            orphanedInCatalog = orphanedDisplay,
-            missingTotal = missingAbsolute.size,
-            orphanedTotal = orphanedAbsolute.size
-        )
-    }
-
-    private fun resolveCatalogEntryPath(relPath: String, roots: List<Path>): Path? {
-        val candidate = runCatching { Paths.get(relPath) }.getOrElse { Paths.get(relPath) }
-        if (candidate.isAbsolute) return candidate.toAbsolutePath().normalize()
-        if (candidate.nameCount == 0) return null
-
-        val normalized = candidate.normalize()
-        val segments = normalized.map { it.toString() }
-
-        // First, try to match paths that have root prefix (e.g., "codex_to_claude/src/main/Foo.kt")
-        roots.forEach { root ->
-            val rootName = root.fileName?.toString() ?: return@forEach
-
-            var index = 0
-            while (index < segments.size && segments[index] == rootName) {
-                index++
-            }
-
-            if (index == 0) {
-                return@forEach
-            }
-
-            val remaining = segments.subList(index, segments.size)
-            val resolved = remaining.fold(root) { acc, segment -> acc.resolve(segment) }
-            return resolved.toAbsolutePath().normalize()
-        }
-
-        // Second, try to resolve the path directly under each root (for paths without root prefix)
-        // This handles catalog entries stored as relative paths (e.g., ".codex/prompts/AGENTS.md")
-        for (root in roots) {
-            val potentialPath = root.resolve(normalized).toAbsolutePath().normalize()
-            if (Files.exists(potentialPath)) {
-                return potentialPath
-            }
-        }
-
-        // Fallback: resolve against projectRoot (last resort, for backward compatibility)
-        return projectRoot.resolve(normalized).toAbsolutePath().normalize()
-    }
-
+    override fun filesystemSnapshot(): FilesystemIndexSnapshot =
+        snapshotCalculator.snapshot()
 
     private fun monitorRebuildJob(jobId: String, operationId: String) {
         scope.launch {
@@ -573,47 +386,4 @@ private class DefaultIndexOperationsService(
         return if (values.isEmpty()) null else max(values.sum(), 0)
     }
 
-    companion object {
-        private const val MAX_DISCREPANCY_ITEMS = 20
-
-        private fun resolveWatchRoots(projectRoot: Path, watcherConfig: WatcherConfig): List<Path> {
-            val normalizedRoot = projectRoot.toAbsolutePath().normalize()
-            if (watcherConfig.watchPaths.isEmpty()) {
-                return emptyList()
-            }
-
-            val roots = LinkedHashSet<Path>()
-            watcherConfig.watchPaths.forEach { raw ->
-                val trimmed = raw.trim()
-                if (trimmed.isEmpty()) return@forEach
-                if (trimmed.equals("auto", ignoreCase = true)) {
-                    roots.add(normalizedRoot)
-                    return@forEach
-                }
-                val candidate = runCatching { Paths.get(trimmed) }.getOrNull()
-                val resolved = when {
-                    candidate == null -> null
-                    candidate.isAbsolute -> candidate
-                    else -> normalizedRoot.resolve(candidate)
-                } ?: return@forEach
-                roots.add(resolved.toAbsolutePath().normalize())
-            }
-            return roots.toList()
-        }
-
-        private fun normalizeAbsolute(path: Path): String =
-            path.toAbsolutePath().normalize().toString()
-
-        private fun toDisplayPath(absolute: Path, roots: List<Path>): String {
-            val normalized = absolute.toAbsolutePath().normalize()
-            val root = roots.firstOrNull { normalized.startsWith(it) }
-            if (root == null) {
-                return normalized.toString()
-            }
-            val label = root.fileName?.toString() ?: root.toString()
-            val relative = runCatching { root.relativize(normalized).toString() }.getOrElse { normalized.toString() }
-                .removePrefix("./")
-            return if (relative.isEmpty()) label else "$label/$relative"
-        }
-    }
 }
