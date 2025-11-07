@@ -81,6 +81,8 @@ object FilesPage {
             meta(charset = "utf-8")
             meta(name = "viewport", content = "width=device-width, initial-scale=1")
             title("Files - Orchestrator")
+            link(rel = "icon", href = "/static/images/favicon.svg", type = "image/svg+xml")
+            link(rel = "alternate icon", href = "/static/images/favicon.ico", type = "image/x-icon")
 
             // CSS
             link(rel = "stylesheet", href = "/static/css/base.css")
