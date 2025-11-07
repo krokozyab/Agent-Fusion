@@ -17,12 +17,24 @@ class SemanticContextProvider(
     private val reranker: MmrReranker,
 ) : ContextProvider {
 
-    constructor() : this(embedder = object : Embedder {
-        override suspend fun embed(text: String): FloatArray = FloatArray(1) { 1f }
-        override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { FloatArray(1) { 1f } }
-        override fun getDimension(): Int = 1
-        override fun getModel(): String = "noop"
-    }, searchEngine = VectorSearchEngine(), reranker = MmrReranker())
+    // ServiceLoader requires a no-arg constructor, so use lazy initialization
+    constructor() : this(
+        embedder = globalEmbedder ?: defaultNooopEmbedder,
+        searchEngine = VectorSearchEngine(),
+        reranker = MmrReranker()
+    )
+
+    companion object {
+        // Global embedder instance set from Main.kt
+        var globalEmbedder: Embedder? = null
+
+        private val defaultNooopEmbedder = object : Embedder {
+            override suspend fun embed(text: String): FloatArray = FloatArray(1) { 1f }
+            override suspend fun embedBatch(texts: List<String>): List<FloatArray> = texts.map { FloatArray(1) { 1f } }
+            override fun getDimension(): Int = 1
+            override fun getModel(): String = "noop"
+        }
+    }
 
     override val id: String = "semantic"
     override val type: ContextProviderType = ContextProviderType.SEMANTIC

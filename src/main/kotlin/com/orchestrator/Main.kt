@@ -14,6 +14,7 @@ import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.FileIndexer
 import com.orchestrator.context.embedding.LocalEmbedder
+import com.orchestrator.context.providers.SemanticContextProvider
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
@@ -297,6 +298,8 @@ class Main {
             normalize = config.context.embedding.normalize,
             maxBatchSize = config.context.embedding.batchSize
         )
+        // Inject embedder into SemanticContextProvider for ServiceLoader-discovered instances
+        SemanticContextProvider.globalEmbedder = embedder
         val fileIndexer = FileIndexer(
             embedder = embedder,
             projectRoot = projectRoot,
