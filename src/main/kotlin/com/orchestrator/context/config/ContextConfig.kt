@@ -85,6 +85,10 @@ data class IndexingConfig(
         ".pdf"
     ),
     val blockedExtensions: List<String> = emptyList(),
+    // Skip patterns: exclude specific files even if they match allowed extensions
+    // Examples: "*.min.js", "*.test.js", "*.spec.ts", "**/dist/**"
+    // These patterns are applied AFTER extension filtering
+    val skipPatterns: List<String> = emptyList(),
     val maxFileSizeMb: Int = 10,
     val warnFileSizeMb: Int = 2,
     val sizeExceptions: List<String> = emptyList(),
