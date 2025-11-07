@@ -123,12 +123,13 @@ This section configures the vector embedding settings.
 | Option | Description | Wired in Code |
 | :--- | :--- | :--- |
 | `model` | The name of the embedding model to use. | Yes |
+| `model_path` | Path to the ONNX model file. If not specified, uses default bundled model or ONNX_MODEL_PATH env var. | Yes |
 | `dimension` | The dimension of the embedding vectors. | Yes |
 | `batch_size` | The batch size for generating embeddings. | Yes |
 | `normalize` | Whether to normalize the embedding vectors. | Yes |
 | `cache_enabled` | Whether to cache the embeddings. | No |
 
-**Analysis:** The `model`, `dimension`, `batch_size`, and `normalize` options are used in `LocalEmbedder.kt`. The `cache_enabled` option is not currently used.
+**Analysis:** The `model`, `model_path`, `dimension`, `batch_size`, and `normalize` options are used in `LocalEmbedder.kt` (via `Main.kt`). The `cache_enabled` option is not currently used. The `model_path` option allows you to specify a custom ONNX model file path instead of using the bundled default model.
 
 ### `[context.chunking]`
 

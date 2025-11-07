@@ -291,7 +291,7 @@ class Main {
         val scanner = DirectoryScanner(pathValidator, parallel = resolvedWatchRoots.size > 1)
 
         val embedder = LocalEmbedder(
-            modelPath = null,
+            modelPath = config.context.embedding.modelPath?.let { Paths.get(it) },
             modelName = config.context.embedding.model,
             dimension = config.context.embedding.dimension,
             normalize = config.context.embedding.normalize,
@@ -378,7 +378,7 @@ class Main {
             val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.context.watcher.watchPaths)
 
             val embedder = LocalEmbedder(
-                modelPath = null, // Will use default path
+                modelPath = config.context.embedding.modelPath?.let { Paths.get(it) },
                 modelName = config.context.embedding.model,
                 dimension = config.context.embedding.dimension,
                 normalize = config.context.embedding.normalize,
