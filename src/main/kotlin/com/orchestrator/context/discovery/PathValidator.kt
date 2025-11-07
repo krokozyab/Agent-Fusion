@@ -19,6 +19,7 @@ class PathValidator(
 
     private val normalizedWatchRoots: List<Path> = watchPaths.map { it.toAbsolutePath().normalize() }
     private val maxFileSizeBytes: Long = max(0, indexingConfig.maxFileSizeMb) * ONE_MB
+    private val skipFilter: SkipFilter = SkipFilter.fromPatterns(indexingConfig.skipPatterns)
 
     enum class Reason {
         PATH_TRAVERSAL,
@@ -26,6 +27,7 @@ class PathValidator(
         NOT_IN_INCLUDE_PATHS,
         IGNORED_BY_PATTERN,
         EXTENSION_NOT_ALLOWED,
+        SKIPPED_BY_PATTERN,
         BINARY_FILE,
         SYMLINK_NOT_ALLOWED,
         SYMLINK_ESCAPE,
@@ -61,6 +63,11 @@ class PathValidator(
             return invalid(Reason.EXTENSION_NOT_ALLOWED, "File extension is not allowed: $absolute")
         }
 
+        // Check skip patterns AFTER extension matching
+        if (isSkippedByPattern(absolute)) {
+            return invalid(Reason.SKIPPED_BY_PATTERN, "File matches skip pattern: $absolute")
+        }
+
         return ValidationResult.Valid
     }
 
@@ -88,6 +95,8 @@ class PathValidator(
         if (!Files.isRegularFile(path)) return true
         return extensionFilter.shouldInclude(path)
     }
+
+    fun isSkippedByPattern(path: Path): Boolean = skipFilter.shouldSkip(path)
 
     fun isBinary(path: Path): Boolean = BinaryDetector.isBinary(path)
 

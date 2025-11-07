@@ -168,6 +168,16 @@ allowed_extensions = [
     ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
     ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
 ]
+# Skip patterns: exclude specific files even if they match allowed extensions
+# These patterns are applied AFTER extension filtering
+# Examples:
+#   - "*.min.js" -> skip minified JavaScript
+#   - "*.min.css" -> skip minified CSS
+#   - "*.test.ts" -> skip TypeScript test files
+#   - "*.spec.js" -> skip Jest/Jasmine test files
+#   - "**/dist/**" -> skip everything under dist directories
+#   - "**/.min.*" -> skip all minified files
+skip_patterns = []
 # Maximum file size (MB) for indexing files
 # Files larger than this size are skipped during indexing
 max_file_size_mb = 200
