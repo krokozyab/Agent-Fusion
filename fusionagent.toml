@@ -247,7 +247,7 @@ preserve_jsdoc = true
 # ------------------------------------------------------------------------------
 
 [context.query]
-default_k = 12
+default_k = 3  # Default number of results for query_context (cleaner, focused results)
 mmr_lambda = 0.5  # 0.0 = max diversity, 1.0 = max relevance
 min_score_threshold = 0.3
 rerank_enabled = true
