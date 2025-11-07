@@ -60,21 +60,25 @@ class RoutingModule(
         )
 
         // 3) Select agent(s) according to strategy
+        // Dynamic maxAgents: use number of available agents or at least 3
+        val availableAgentCount = agentRegistry.getAllAgents().size
+        val maxConsensusAgents = maxOf(3, availableAgentCount)
+
         val participants: List<AgentId> = when (strategy) {
             RoutingStrategy.SOLO -> {
                 val agent = agentSelector.selectAgentForTask(task, directive)
                 if (agent == null) emptyList() else listOf(agent.id)
             }
             RoutingStrategy.CONSENSUS -> {
-                agentSelector.selectAgentsForConsensus(task, directive, maxAgents = 3).map { it.id }
+                agentSelector.selectAgentsForConsensus(task, directive, maxAgents = maxConsensusAgents).map { it.id }
             }
             RoutingStrategy.SEQUENTIAL -> {
                 // Use consensus selection as a pool; orchestration layer will handle sequential ordering
-                agentSelector.selectAgentsForConsensus(task, directive, maxAgents = 3).map { it.id }
+                agentSelector.selectAgentsForConsensus(task, directive, maxAgents = maxConsensusAgents).map { it.id }
             }
             RoutingStrategy.PARALLEL -> {
                 // Similar candidate selection as consensus, executed in parallel by orchestration
-                agentSelector.selectAgentsForConsensus(task, directive, maxAgents = 3).map { it.id }
+                agentSelector.selectAgentsForConsensus(task, directive, maxAgents = maxConsensusAgents).map { it.id }
             }
         }
 
