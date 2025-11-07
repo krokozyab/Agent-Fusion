@@ -96,6 +96,7 @@ data class IndexingConfig(
 
 data class EmbeddingConfig(
     val model: String = "sentence-transformers/all-MiniLM-L6-v2",
+    val modelPath: String? = null,
     val dimension: Int = 384,
     val batchSize: Int = 128,
     val normalize: Boolean = true,

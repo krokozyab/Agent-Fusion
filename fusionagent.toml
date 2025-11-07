@@ -184,6 +184,8 @@ binary_threshold = 30
 
 [context.embedding]
 model = "sentence-transformers/all-MiniLM-L6-v2"
+# Path to the ONNX model file. If not specified, uses default bundled model or ONNX_MODEL_PATH env var
+# model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
 dimension = 384
 batch_size = 128
 normalize = true

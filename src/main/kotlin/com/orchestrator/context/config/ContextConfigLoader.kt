@@ -146,6 +146,7 @@ object ContextConfigLoader {
         if (table == null) return defaults
         return EmbeddingConfig(
             model = table.getString("model")?.expandEnv(env) ?: defaults.model,
+            modelPath = table.getString("model_path")?.expandEnv(env),
             dimension = table.getLong("dimension")?.toInt() ?: defaults.dimension,
             batchSize = table.getLong("batch_size")?.toInt() ?: defaults.batchSize,
             normalize = table.getBoolean("normalize") ?: defaults.normalize,
