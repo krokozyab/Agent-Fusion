@@ -82,6 +82,21 @@
     }
   }
 
+  /**
+   * Handle HTMX page swaps to maintain theme state
+   */
+  function setupHtmxThemeHandling() {
+    // After HTMX completes a page swap, re-apply theme and re-setup button
+    document.addEventListener('htmx:afterSettle', function() {
+      // Re-apply current theme to ensure new page has correct styles
+      var currentTheme = getPreferredTheme();
+      applyTheme(currentTheme);
+
+      // Re-setup the toggle button on the new page
+      setupToggleButton();
+    });
+  }
+
   // Initialize immediately to prevent flash
   initTheme();
 
@@ -90,10 +105,12 @@
     document.addEventListener('DOMContentLoaded', function() {
       setupToggleButton();
       listenForSystemThemeChanges();
+      setupHtmxThemeHandling();
     });
   } else {
     setupToggleButton();
     listenForSystemThemeChanges();
+    setupHtmxThemeHandling();
   }
 
   // Expose toggle function globally for testing/debugging
