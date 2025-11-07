@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Background circle (optional, can be removed) -->
+  <rect width="256" height="256" fill="#FFFFFF"/>
+  
+  <!-- Magnifying glass circle -->
+  <circle cx="100" cy="100" r="70" fill="none" stroke="#1e3a5f" stroke-width="16"/>
+  
+  <!-- Magnifying glass handle -->
+  <line x1="155" y1="155" x2="220" y2="220" stroke="#2b5f9f" stroke-width="18" stroke-linecap="round"/>
+  
+  <!-- Document icon inside magnifying glass -->
+  <!-- Document shape -->
+  <rect x="70" y="60" width="50" height="70" rx="4" fill="#1e3a5f"/>
+  
+  <!-- Document lines (text representation) -->
+  <line x1="80" y1="75" x2="110" y2="75" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <line x1="80" y1="90" x2="110" y2="90" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Document dots (representing content) -->
+  <circle cx="85" cy="115" r="2.5" fill="white"/>
+  <circle cx="95" cy="115" r="2.5" fill="white"/>
+  
+  <!-- Arrow pointing up -->
+  <g transform="translate(100, 135)">
+    <!-- Arrow shaft -->
+    <line x1="0" y1="0" x2="0" y2="-20" stroke="#2b5f9f" stroke-width="3" stroke-linecap="round"/>
+    <!-- Arrow head -->
+    <line x1="-8" y1="-12" x2="0" y2="-20" stroke="#2b5f9f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="8" y1="-12" x2="0" y2="-20" stroke="#2b5f9f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
