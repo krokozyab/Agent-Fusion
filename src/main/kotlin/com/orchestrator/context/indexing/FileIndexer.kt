@@ -40,6 +40,7 @@ class FileIndexer(
     private val metadataExtractor: FileMetadataExtractor = FileMetadataExtractor,
     private val chunkerRegistry: ChunkerRegistry = ChunkerRegistry,
     private val tokenEstimator: TokenEstimator = TokenEstimator,
+    private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
     private val readCharset: Charset = StandardCharsets.UTF_8,
     private val embeddingBatchSize: Int = 64,
     private val maxFileSizeMb: Int = 5,
@@ -150,9 +151,8 @@ class FileIndexer(
                 isDeleted = false
             )
 
-            val persistedChunkCount = try {
+            val persistedArtifacts = try {
                 dataService.syncFileArtifacts(fileState, chunkArtifacts)
-                chunkArtifacts.size
             } catch (sql: SQLException) {
                 log.warn(
                     "Falling back to metadata-only index for {} after database error: {}",
@@ -160,14 +160,24 @@ class FileIndexer(
                     sql.message
                 )
                 dataService.syncFileArtifacts(fileState, emptyList())
-                0
+            }
+
+            // Index symbols for code files if language detection succeeded
+            if (languageHint != null && persistedArtifacts.file.id > 0) {
+                try {
+                    coroutineContext.ensureActive()
+                    symbolIndexBuilder.indexFile(absolutePath, persistedArtifacts.file.id, languageHint)
+                } catch (e: Exception) {
+                    log.warn("Failed to index symbols for {}: {}", relativePath, e.message)
+                    // Don't fail the entire indexing operation if symbol extraction fails
+                }
             }
 
             IndexResult(
                 success = true,
                 relativePath = relativePath,
-                chunkCount = persistedChunkCount,
-                embeddingCount = if (persistedChunkCount == 0) 0 else embeddings.size,
+                chunkCount = persistedArtifacts.chunks.size,
+                embeddingCount = if (persistedArtifacts.chunks.isEmpty()) 0 else embeddings.size,
                 error = null
             )
         }.getOrElse { throwable ->
