@@ -97,11 +97,14 @@ class SkipFilterTest {
     }
 
     @Test
-    fun `single star matches anything except slash`() {
+    fun `single star matches filename regardless of directory`() {
         val filter = SkipFilter.fromPatterns(listOf("*.js"))
         assertTrue(filter.shouldSkip(Paths.get("app.js")))
         assertTrue(filter.shouldSkip(Paths.get("utils.test.js")))
-        assertFalse(filter.shouldSkip(Paths.get("src/app.js"))) // contains /
+        // Now matches files with .js extension at any directory level
+        assertTrue(filter.shouldSkip(Paths.get("src/app.js")))
+        assertTrue(filter.shouldSkip(Paths.get("src/deep/nested/file.js")))
+        // But doesn't match different extensions
         assertFalse(filter.shouldSkip(Paths.get("src/utils.ts")))
     }
 
