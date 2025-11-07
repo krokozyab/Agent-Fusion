@@ -25,16 +25,14 @@ class SkipFilter private constructor(
 
         return matchers.any { matcher ->
             try {
-                // For simple patterns (no "/" or "**"), only match files without directory separators
+                // For simple patterns (no "/" or "**"), match against the filename component
                 if (!matcher.isAbsolutePattern) {
                     val fileNameMatcher = FileSystems.getDefault().getPathMatcher("glob:${matcher.pattern}")
-                    val pathStr = path.toString().replace("\\", "/")
+                    val fileName = path.fileName ?: return@any false
 
-                    // For simple patterns, only match if the path has no directory separators
-                    // This respects the behavior of * not matching /
-                    if (!pathStr.contains("/")) {
-                        if (fileNameMatcher.matches(path)) return@any true
-                    }
+                    // Match against the filename part - e.g., "*.min.js" should match "htmx-sse.min.js"
+                    // regardless of its directory path
+                    if (fileNameMatcher.matches(fileName)) return@any true
                 } else {
                     // For absolute patterns with "/" or "**", use as-is
                     val pathMatcher = FileSystems.getDefault().getPathMatcher("glob:${matcher.pattern}")
