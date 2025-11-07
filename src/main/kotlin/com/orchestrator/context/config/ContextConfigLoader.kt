@@ -123,7 +123,7 @@ object ContextConfigLoader {
         val defaults = IndexingConfig()
         if (table == null) return defaults
         val allowed = table.getList<String>("allowed_extensions")?.map { it.expandEnv(env) }
-
+        val skipPatterns = table.getList<String>("skip_patterns")?.map { it.expandEnv(env) }
         val sizeExceptions = table.getList<String>("size_exceptions")?.map { it.expandEnv(env) }
         val detection = table.getString("binary_detection")?.let { value ->
             runCatching { BinaryDetectionMode.valueOf(value.trim().uppercase()) }.getOrNull()
@@ -131,6 +131,7 @@ object ContextConfigLoader {
 
         return IndexingConfig(
             allowedExtensions = allowed ?: defaults.allowedExtensions,
+            skipPatterns = skipPatterns ?: defaults.skipPatterns,
             maxFileSizeMb = table.getLong("max_file_size_mb")?.toInt() ?: defaults.maxFileSizeMb,
             warnFileSizeMb = table.getLong("warn_file_size_mb")?.toInt() ?: defaults.warnFileSizeMb,
             sizeExceptions = sizeExceptions ?: defaults.sizeExceptions,
