@@ -457,19 +457,25 @@ class McpServerImpl(
             log.info("Session ${session.sessionId} associated with agent ${agentId.value}")
         }
 
-        val result = session.handleMessage(message)
-        when (result) {
-            is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
-            StreamableHttpServerTransport.PostResult.Accepted -> {
-                response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
-                respond(HttpStatusCode.Accepted)
+        // Set current session for agent resolution during handshake
+        currentSessionId.set(session.sessionId)
+        try {
+            val result = session.handleMessage(message)
+            when (result) {
+                is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
+                StreamableHttpServerTransport.PostResult.Accepted -> {
+                    response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
+                    respond(HttpStatusCode.Accepted)
+                }
+                is StreamableHttpServerTransport.PostResult.Error -> {
+                    // Tear down the session on failure so clients can retry cleanly
+                    streamableSessions.remove(session.sessionId)
+                    sessionToAgent.remove(session.sessionId)
+                    respond(result.status, errorBody(result.code, result.message))
+                }
             }
-            is StreamableHttpServerTransport.PostResult.Error -> {
-                // Tear down the session on failure so clients can retry cleanly
-                streamableSessions.remove(session.sessionId)
-                sessionToAgent.remove(session.sessionId)
-                respond(result.status, errorBody(result.code, result.message))
-            }
+        } finally {
+            currentSessionId.remove()
         }
     }
 
