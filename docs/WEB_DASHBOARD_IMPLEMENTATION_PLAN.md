@@ -270,40 +270,38 @@ DASH-XXX: Brief Description
 **Phase**: 0-Foundation  
 **Component**: UI
 
-**Description**: Create minimal CSS framework or integrate Pico CSS
+**Description**: Integrate Bootstrap CSS framework (using Litera theme)
 
 **Tasks**:
-1. **Option A**: Download Pico CSS (classless, ~10KB):
-   - Add pico.min.css to /static/css/
-   - Configure color scheme
-   - Test responsive behavior
-2. **Option B**: Create custom minimal CSS:
-   - Reset styles
-   - Typography
-   - Layout (flexbox/grid)
-   - Forms
-   - Tables
-   - Buttons
-3. Add custom overrides for:
+1. Download Bootstrap Litera theme (~30KB):
+   - Add bootstrap-litera.min.css to /static/css/
+   - Provides professional, clean styling
+   - Responsive grid system
+2. Create custom overrides:
    - Dashboard layout
-   - DataTable styling
+   - DataTable styling (ag-grid)
    - Status badges
    - Progress bars
-4. Add dark mode support
+   - Custom components
+3. Add base styles:
+   - Reset styles (orchestrator.css)
+   - Typography
+   - Layout (flexbox/grid)
+4. Add dark mode support (future enhancement)
 5. Test across browsers
 
 **Acceptance Criteria**:
-- Total CSS <50KB uncompressed
+- Bootstrap CSS framework integrated
 - Mobile responsive (320px+)
-- Works without JavaScript
-- Dark mode toggle functional
+- ag-Grid tables styled
+- Status badges functional
 - Print styles included
 - Cross-browser tested (Chrome, Firefox, Safari)
 
-**Files to Create**:
-- `src/main/resources/static/css/pico.min.css` OR `base.css`
-- `src/main/resources/static/css/custom.css`
-- `src/main/resources/static/css/dark-mode.css`
+**Files Created**:
+- `src/main/resources/static/css/bootstrap-litera.min.css` (Bootstrap theme)
+- `src/main/resources/static/css/base.css` (custom overrides)
+- `src/main/resources/static/css/orchestrator.css` (project-specific styles)
 
 ---
 
