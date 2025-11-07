@@ -49,15 +49,12 @@ class SemanticContextProvider(
         val vector = embedder.embed(query)
         val k = max(1, minOf(64, budget.availableForSnippets.coerceAtLeast(64)))
         val model = embedder.getModel()
-        println("[DEBUG SemanticContextProvider] query=$query, vectorSize=${vector.size}, model=$model, k=$k")
-
         val filters = VectorSearchEngine.Filters(
             languages = scope.languages,
             kinds = scope.kinds,
             paths = scope.paths.toSet()
         )
         val initial = searchEngine.search(vector, k, filters, model)
-        println("[DEBUG SemanticContextProvider] search returned ${initial.size} results")
         val reranked = reranker.rerank(initial, lambda = 0.6, budget = budget)
 
         if (reranked.isEmpty()) return emptyList()
