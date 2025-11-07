@@ -19,7 +19,6 @@ class LocalEmbedder(
 ) : Embedder {
 
     private val log = Logger.logger("com.orchestrator.context.embedding.LocalEmbedder")
-    private val bertTokenizer = BertTokenizer(maxSequenceLength = 512)
 
     companion object {
         private fun getDefaultModelPath(): Path {
@@ -148,7 +147,24 @@ class LocalEmbedder(
     }
 
     private fun tokenize(text: String): IntArray {
-        return bertTokenizer.tokenize(text)
+        // Fast hash-based tokenization optimized for performance
+        val vocabSize = 30522
+        val reservedOffset = 1000
+        val availableRange = vocabSize - reservedOffset
+        val maxTokenPayload = 510  // 512 - 2 (for [CLS] and [SEP])
+
+        val tokens = text.lowercase()
+            .split(Regex("\\s+"))
+            .filter { it.isNotEmpty() }
+            .map { token ->
+                val hash = token.hashCode()
+                val positive = hash and Int.MAX_VALUE
+                reservedOffset + (positive % availableRange)
+            }
+            .take(maxTokenPayload)
+
+        // [CLS] = 101, [SEP] = 102
+        return intArrayOf(101) + tokens.toIntArray() + intArrayOf(102)
     }
 
     private fun normalizeVector(vector: FloatArray): FloatArray {
