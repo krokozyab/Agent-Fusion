@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.withLock
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.math.sqrt
+import com.orchestrator.utils.Logger
 
 class LocalEmbedder(
     private val modelPath: Path?,
@@ -16,6 +17,8 @@ class LocalEmbedder(
     private val normalize: Boolean = true,
     private val maxBatchSize: Int = 32
 ) : Embedder {
+
+    private val log = Logger.logger("com.orchestrator.context.embedding.LocalEmbedder")
 
     companion object {
         private fun getDefaultModelPath(): Path {
@@ -49,11 +52,14 @@ class LocalEmbedder(
     private suspend fun ensureInitialized() = mutex.withLock {
         if (session == null) {
             val path = modelPath ?: getDefaultModelPath()
+            log.info("Initializing embedder with model: modelPath=$modelPath, resolvedPath=$path, modelName=$modelName, dimension=$dimension")
             if (!path.exists()) {
                 throw IllegalStateException("Model not found at $path. Please download the ONNX model first.")
             }
+            log.info("Model file found at: $path (size=${path.toFile().length()} bytes)")
             environment = OrtEnvironment.getEnvironment()
             session = environment!!.createSession(path.toString())
+            log.info("ONNX session created successfully for model at: $path")
         }
     }
 
