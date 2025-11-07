@@ -387,6 +387,8 @@ class Main {
                 normalize = config.context.embedding.normalize,
                 maxBatchSize = config.context.embedding.batchSize
             )
+            // Inject embedder into SemanticContextProvider for ServiceLoader-discovered instances
+            SemanticContextProvider.globalEmbedder = embedder
             val fileIndexer = FileIndexer(
                 embedder = embedder,
                 projectRoot = projectRoot,
