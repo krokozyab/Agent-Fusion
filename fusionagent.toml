@@ -183,20 +183,21 @@ binary_threshold = 30
 # ------------------------------------------------------------------------------
 
 [context.embedding]
-#model = "sentence-transformers/all-MiniLM-L6-v2"
-# Path to the ONNX model file. If not specified, uses default bundled model or ONNX_MODEL_PATH env var
+model = "sentence-transformers/all-MiniLM-L6-v2"
+# Path to the ONNX model file. If not specified, uses default bundled all-MiniLM-L6-v2 model or ONNX_MODEL_PATH env var
 # model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
-#dimension = 384
-#batch_size = 128
-#normalize = true
-#cache_enabled = true
-
-model = "sentence-transformers/baai-bge-base-en-v1.5-onnx/"
-model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
-dimension = 768  # Adjust to match your model's output dimension
+dimension = 384
 batch_size = 128
 normalize = true
 cache_enabled = true
+
+#bigger external model
+#model = "sentence-transformers/baai-bge-base-en-v1.5-onnx/"
+#model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
+#dimension = 768  # Adjust to match your model's output dimension
+#batch_size = 128
+#normalize = true
+#cache_enabled = true
 
 # ------------------------------------------------------------------------------
 # [context.chunking] - Text chunking strategies per language

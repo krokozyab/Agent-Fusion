@@ -680,14 +680,37 @@ class RebuildContextTool(
                 """.trimIndent()
             )
 
-            conn.createStatement().use { st ->
-                statements.forEach { sql ->
-                    st.execute(sql)
+            // Recreate schema with proper transaction control and error handling
+            val originalAutoCommit = conn.autoCommit
+            conn.autoCommit = false
+            try {
+                conn.createStatement().use { st ->
+                    statements.forEach { sql ->
+                        try {
+                            st.execute(sql)
+                            log.debug("Executed schema statement: {}", sql.take(50))
+                        } catch (e: Exception) {
+                            log.error("Failed to execute schema statement: {}", sql.take(100), e)
+                            throw e
+                        }
+                    }
                 }
+                conn.commit()
+                log.info("Schema recreated successfully")
+            } catch (e: Exception) {
+                try {
+                    conn.rollback()
+                } catch (rollbackError: Exception) {
+                    log.warn("Failed to rollback schema recreation: ${rollbackError.message}")
+                }
+                log.error("Schema recreation failed: ${e.message}", e)
+                throw e
+            } finally {
+                conn.autoCommit = originalAutoCommit
             }
         }
 
-        log.info("Context data cleared successfully")
+        log.info("Context data cleared and schema recreated successfully")
     }
 
     private suspend fun runBootstrap(
@@ -695,6 +718,13 @@ class RebuildContextTool(
         parallelism: Int?,
         onProgress: ((BootstrapProgress) -> Unit)?
     ): com.orchestrator.context.bootstrap.BootstrapResult {
+        // Ensure database is initialized with schema before bootstrap starts
+        val storageConfig = com.orchestrator.context.config.StorageConfig(
+            dbPath = config.storage.dbPath
+        )
+        ContextDatabase.initialize(storageConfig)
+        log.info("ContextDatabase initialized with schema before bootstrap")
+
         // Determine common project root from all paths
         val projectRoot = determineProjectRoot(paths)
 
