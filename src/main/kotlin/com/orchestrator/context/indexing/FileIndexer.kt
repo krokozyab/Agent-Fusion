@@ -80,21 +80,8 @@ class FileIndexer(
     private suspend fun indexFileInternal(path: Path): IndexResult {
         val absolutePath = path.toAbsolutePath().normalize()
 
-        // Find which root this path belongs to
-        val matchingRoot = findMatchingRoot(absolutePath)
-        if (matchingRoot == null) {
-            val message = "Path $absolutePath doesn't belong to any configured root"
-            log.warn(message)
-            return IndexResult(
-                success = false,
-                relativePath = path.toString(),
-                chunkCount = 0,
-                embeddingCount = 0,
-                error = message
-            )
-        }
-
-        val relativePath = matchingRoot.relativize(absolutePath).toString()
+        // Use absolute path consistently to avoid duplicates across watch roots
+        val relativePath = absolutePath.toString()
         return runCatching {
             val extension = absolutePath.fileName.toString()
                 .substringAfterLast('.', "")
