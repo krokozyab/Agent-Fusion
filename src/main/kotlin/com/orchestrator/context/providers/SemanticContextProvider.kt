@@ -42,7 +42,7 @@ class SemanticContextProvider(
             kinds = scope.kinds,
             paths = scope.paths.toSet()
         )
-        val initial = searchEngine.search(vector, k, filters)
+        val initial = searchEngine.search(vector, k, filters, model)
         val reranked = reranker.rerank(initial, lambda = 0.6, budget = budget)
 
         if (reranked.isEmpty()) return emptyList()
