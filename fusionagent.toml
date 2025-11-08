@@ -3,7 +3,7 @@
 # ==============================================================================
 #
 # QUICK START:
-# 1. Set watch_paths to "auto" to auto-detect your project root (recommended)
+# 1. Set watch_paths to "." for current directory (recommended)
 # 2. Adjust allowed_extensions to include your language extensions
 # 3. Review ignore_patterns to exclude large auto-generated directories
 # 4. Tune embedding settings based on hardware (smaller model = faster)
@@ -122,14 +122,13 @@ db_path = "./context.duckdb"
 enabled = true
 debounce_ms = 500
 # Monitor these top-level workspaces. Each entry can be absolute or relative.
-# Special value "auto" auto-detects project root from .git directory
 # Examples:
-#   watch_paths = ["auto"]                                    # Auto-detect single project
-#   watch_paths = ["."]                                       # Current directory
+#   watch_paths = ["."]                                       # Current directory (recommended)
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 #   watch_paths = ["src", "tests", "../shared"]               # Multiple relative paths
+# Note: Special value "auto" is reserved for future use; use "." for current directory
 watch_paths = [
-    "auto"
+    "."
 ]
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
@@ -232,7 +231,7 @@ skip_patterns = [
 # Default: 5MB (skips most binary/compiled files automatically)
 # Increase for large documents (10-50MB for PDFs, documents)
 # Set very high (500+) if you want to index everything
-max_file_size_mb = 5
+max_file_size_mb = 10
 
 # Warn when files exceed this size (during indexing)
 # Set to 0 to disable warnings
