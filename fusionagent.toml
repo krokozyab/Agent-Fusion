@@ -151,8 +151,7 @@ debounce_ms = 500
 # Monitor these top-level workspaces. Each entry can be absolute or relative.
 watch_paths = [
     "/Users/sergeyrudenko/projects/codex_to_claude",
-    "/Users/sergeyrudenko/projects/of_mcp",
-    "/Users/sergeyrudenko/projects/ofjdbc"
+    "/Users/sergeyrudenko/projects/of_mcp"
 ]
 
 ignore_patterns = []
@@ -247,9 +246,9 @@ preserve_jsdoc = true
 # ------------------------------------------------------------------------------
 
 [context.query]
-default_k = 3  # Default number of results for query_context (cleaner, focused results)
+default_k = 5  # Default number of results for query_context (cleaner, focused results)
 mmr_lambda = 0.5  # 0.0 = max diversity, 1.0 = max relevance
-min_score_threshold = 0.5  # Only return results with relevance >= 0.5 (filters weak matches)
+min_score_threshold = 0.2  # Lower threshold to include document-language results (CVs, docs, etc)
 rerank_enabled = true
 
 # ------------------------------------------------------------------------------

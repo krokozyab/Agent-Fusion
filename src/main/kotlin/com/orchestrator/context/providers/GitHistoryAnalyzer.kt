@@ -103,7 +103,7 @@ class GitHistoryAnalyzer(
                 }
 
                 val commits = git.log()
-                    .addPath(relativePath)
+                    .apply { if (relativePath.isNotEmpty()) addPath(relativePath) }
                     .setMaxCount(limit)
                     .call()
                     .map { revCommit -> revCommit.toCommitInfo(repository) }
@@ -238,7 +238,7 @@ class GitHistoryAnalyzer(
 
                 // Get commits affecting the target file
                 val commits = git.log()
-                    .addPath(relativePath)
+                    .apply { if (relativePath.isNotEmpty()) addPath(relativePath) }
                     .setMaxCount(limit)
                     .call()
                     .toList()
