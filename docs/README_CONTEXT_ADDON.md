@@ -11,7 +11,7 @@ The Context Addon extends the Task Orchestrator with a fast local knowledge base
 
 ## Key Docs
 - [Architecture Deep Dive](CONTEXT_ADDON_ARCHITECTURE.md)
-- [Implementation Plan](CONTEXT_IMPLEMENTATION_PLAN.md)
+- [Implementation Plan](../devdoc/CONTEXT_IMPLEMENTATION_PLAN.md)
 - [MCP Tool Reference](MCP_TOOL_QUICK_REFERENCE.md)
 - [Sequence Diagrams](SEQUENCE_DIAGRAMS.md) – see indexing & rebuild flows
 

@@ -141,9 +141,26 @@ retry_attempts = 3
 [context.storage]
 db_path = "./context.duckdb"
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # [context.watcher] - File system watcher configuration
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# The watcher monitors file system changes and decides which files to index.
+# ignore_patterns filter OUT entire directory trees at the WATCHER PHASE,
+# preventing the watcher from monitoring unnecessary directories.
+#
+# ignore_patterns:
+#   - Applied when files are FIRST DISCOVERED by the watcher
+#   - Uses REGEX matching (flexible but complex)
+#   - Can include files from .gitignore, .contextignore, .dockerignore
+#   - Purpose: Prevent watcher overhead for large auto-generated directories
+#
+# Examples of what to put in ignore_patterns:
+#   - Large build directories: build/, dist/, target/, out/
+#   - Version control: .git/, .svn/, .hg/
+#   - Package managers: node_modules/, venv/, .venv/
+#   - IDE configuration: .idea/, .vscode/, .gradle/
+#   - Auto-generated build metadata: .kotlin/, .angular/, .nuxt/
+# ==============================================================================
 
 [context.watcher]
 enabled = true
@@ -154,34 +171,99 @@ watch_paths = [
     "/Users/sergeyrudenko/projects/of_mcp"
 ]
 
-ignore_patterns = []
-use_gitignore = true
-use_contextignore = false  # .contextignore is deprecated, use [ignore] section
+# IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
+# These are checked FIRST, preventing watcher from monitoring these directories
+# Regex patterns are supported (glob-like syntax works: *, **, path/)
+ignore_patterns = [
+    ".kotlin/",           # Kotlin build metadata - auto-generated
+    ".gradle/",           # Gradle build metadata
+    "build/",             # Build outputs
+    "dist/",              # Distribution/compiled outputs
+    "target/",            # Maven build outputs
+    ".git/",              # Version control - skip watching
+    "node_modules/",      # Node packages
+    ".venv/",             # Python virtual environments
+    "venv/",              # Python virtual environments
+]
+use_gitignore = true          # Also respects .gitignore automatically
+use_contextignore = false     # Set true to also respect .contextignore
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # [context.indexing] - File indexing and filtering settings
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# IMPORTANT: Key difference from ignore_patterns:
+#
+# ignore_patterns (watcher phase):
+#   - Blocks entire directories EARLY at watcher discovery
+#   - Prevents watcher from monitoring (efficiency)
+#   - Uses regex matching
+#   - Example: ".kotlin/" blocks entire .kotlin/metadata directory
+#
+# skip_patterns (indexing phase):
+#   - Applied AFTER extension filtering to indexed files
+#   - Fine-grained control at file level
+#   - Uses glob patterns (more intuitive: *, **, file names)
+#   - Example: "*.min.js" blocks minified files that passed extension filter
+#
+# Processing order:
+#   1. ignore_patterns filters at watcher discovery (prevents monitoring)
+#   2. allowed_extensions filters by file type (.ts, .py, .md, etc.)
+#   3. skip_patterns filters specific files (*.test.ts, *.min.js, etc.)
+#   4. Binary detection (ignores .pdf, .jpg, .png, .exe, etc.)
+#   5. Size limits (skips files > maxFileSizeMb)
+#
+# WHY BOTH?
+#   - ignore_patterns: Watcher efficiency (don't monitor huge directories)
+#   - skip_patterns: Indexing precision (don't index build artifacts/tests)
+# ==============================================================================
 
 [context.indexing]
 allowed_extensions = [
     ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
     ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
 ]
-# Skip patterns: exclude specific files even if they match allowed extensions
-# These patterns are applied AFTER extension filtering
-# Examples:
-#   - "*.min.js" -> skip minified JavaScript
-#   - "*.min.css" -> skip minified CSS
-#   - "*.test.ts" -> skip TypeScript test files
-#   - "*.spec.js" -> skip Jest/Jasmine test files
-#   - "**/dist/**" -> skip everything under dist directories
-#   - "**/.min.*" -> skip all minified files
+
+# SKIP_PATTERNS: Exclude specific files AFTER extension filtering
+# These patterns use GLOB syntax (more intuitive than regex)
+# Applied during the INDEXING PHASE to files that passed extension filter
+#
+# Two types of patterns:
+#   Simple patterns (no "/" or "**"):
+#     - "*.min.js" matches only the filename
+#     - Useful for: minified files, test files, generated files
+#
+#   Absolute patterns (contain "/" or "**"):
+#     - "**/dist/**" matches anywhere in path
+#     - Useful for: directory-level filtering after watcher (double-check)
+#
+# Examples of what to put in skip_patterns:
+#   - "*.min.js"          # Minified JavaScript (already watched out, but double-check)
+#   - "*.min.css"         # Minified CSS
+#   - "*.test.ts"         # Test files (TypeScript)
+#   - "*.spec.js"         # Test files (Jest/Jasmine)
+#   - "**/coverage/**"     # Code coverage reports
+#   - "**/dist/**"        # Built/compiled output (redundant with ignore_patterns but safe)
+#   - "*test*"            # Any file with "test" in name
+#   - "*.generated.kt"    # Auto-generated code
 skip_patterns = [
-    "*.min.js",           # Skip minified JS
-    "*.min.css",          # Skip minified CSS
-    "*.test.ts",          # Skip test files
-    "**/dist/**",         # Skip dist directories
-    "**/node_modules/**"  # Skip node_modules
+    # Test and spec files
+    "*.test.ts",          # TypeScript test files
+    "*.test.js",          # JavaScript test files
+    "*.spec.ts",          # TypeScript spec files
+    "*.spec.js",          # JavaScript spec files
+
+    # Minified assets
+    "*.min.js",           # Minified JavaScript
+    "*.min.css",          # Minified CSS
+
+    # Generated/compiled outputs
+    "*.generated.kt",     # Auto-generated Kotlin
+    "*.generated.java",   # Auto-generated Java
+
+    # Build artifacts (redundant with ignore_patterns, but safer as double-check)
+    "**/dist/**",         # Distribution/compiled outputs
+    "**/build/**",        # Build artifacts
+    "**/node_modules/**", # Node packages
 ]
 
 # Maximum file size (MB) for indexing files
@@ -246,9 +328,9 @@ preserve_jsdoc = true
 # ------------------------------------------------------------------------------
 
 [context.query]
-default_k = 5  # Default number of results for query_context (cleaner, focused results)
+default_k = 7  # Default number of results for query_context (cleaner, focused results)
 mmr_lambda = 0.5  # 0.0 = max diversity, 1.0 = max relevance
-min_score_threshold = 0.2  # Lower threshold to include document-language results (CVs, docs, etc)
+min_score_threshold = 0.35  # Lower threshold to include document-language results (CVs, docs, etc)
 rerank_enabled = true
 
 # ------------------------------------------------------------------------------
@@ -330,11 +412,51 @@ secret_patterns = [
 ]
 encrypt_db = false
 
+# ==============================================================================
+# QUICK REFERENCE: ignore_patterns vs skip_patterns (SIDE-BY-SIDE)
+# ==============================================================================
+#
+#                     IGNORE_PATTERNS        │        SKIP_PATTERNS
+#                     ─────────────────────────────────────────────
+# Config section:     [context.watcher]      │    [context.indexing]
+# Processing phase:   WATCHER PHASE          │    INDEXING PHASE
+# Matcher type:       Regex (glob-like)      │    Glob patterns
+# When applied:       File discovery         │    After extension filter
+# Purpose:            Prevent monitoring     │    Fine-grained filtering
+# Scope:              Directory trees        │    Individual files
+#
+# EXAMPLES:
+#   ".kotlin/"        → Blocks entire .kotlin/metadata directory
+#   "build/"          → Blocks entire build/ directory watching
+#   "*.test.ts"       → (skip_patterns) Blocks test files by name
+#   "*.min.js"        → (skip_patterns) Blocks minified JS
+#
+# WHEN TO USE:
+#   Use ignore_patterns for LARGE DIRECTORIES
+#     ✓ .kotlin/, .gradle/, build/, dist/, node_modules/, .git/
+#     ✓ Saves watcher resources, prevents monitoring overhead
+#
+#   Use skip_patterns for SPECIFIC FILES
+#     ✓ *.test.ts, *.spec.js, *.min.js, *.min.css
+#     ✓ Fine-grained control on what actually gets indexed
+#
+# PROCESSING ORDER in the system:
+#   1. ignore_patterns (watcher discovery)
+#   2. includePaths filter (if configured)
+#   3. allowed_extensions (extension filter)
+#   4. skip_patterns (glob filtering)
+#   5. Binary detection
+#   6. Size limits
+#
+# ==============================================================================
+
 # ------------------------------------------------------------------------------
 # [ignore] - File patterns to exclude from context indexing
 # ------------------------------------------------------------------------------
 # These patterns are used during bootstrap and watching to exclude files
 # from being indexed by the context system. This replaces .contextignore.
+# Note: This is a LEGACY section (mirrors context.watcher.ignore_patterns)
+# Prefer using [context.watcher].ignore_patterns above.
 # ------------------------------------------------------------------------------
 
 [ignore]
@@ -351,6 +473,9 @@ patterns = [
     # Gradle
     ".gradle/",
     "gradle-app.setting",
+
+    # Kotlin build metadata - auto-generated and pollutes search
+    ".kotlin/",
 
     # IDE
     ".idea/",

@@ -50,7 +50,11 @@ class FullTextContextProvider(
                         val path = rs.getString("abs_path")
                         val language = rs.getString("language")
 
-                        val score = scoreKeywords(content.lowercase(Locale.US), keywords)
+                        val contentScore = scoreKeywords(content.lowercase(Locale.US), keywords)
+                        // Prefer content matches over path-only matches
+                        // If content is just whitespace/minimal, penalize the score
+                        val score = if (content.length < 50) contentScore * 0.3 else contentScore
+
                         val tokens = max(1, tokenEstimate)
                         if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) {
                             continue
@@ -68,7 +72,7 @@ class FullTextContextProvider(
                             metadata = mapOf(
                                 "provider" to id,
                                 "sources" to id,
-                                "bm25_score" to "%.3f".format(score),
+                                "bm25_score" to "%.3f".format(contentScore),
                                 "file_id" to fileId.toString(),
                                 "token_estimate" to tokens.toString()
                             )
@@ -139,11 +143,96 @@ class FullTextContextProvider(
 
     private fun scoreKeywords(content: String, keywords: List<String>): Double {
         if (keywords.isEmpty() || content.isBlank()) return 0.0
-        val termFrequency = keywords.sumOf { keyword ->
-            content.windowed(keyword.length) { if (it == keyword) 1 else 0 }.sum()
-        }.coerceAtLeast(1)
-        val normaliser = content.length.coerceAtLeast(10)
-        return (termFrequency.toDouble() / normaliser * 10.0).coerceIn(0.0, 1.0)
+
+        val contentLower = content.lowercase(Locale.US)
+
+        // Check for exact phrase match - all keywords in order as separate words/tokens
+        if (keywords.size >= 2) {
+            var pos = 0
+            val positions = mutableListOf<Int>()
+            var foundAll = true
+
+            for (keyword in keywords) {
+                val nextPos = contentLower.indexOf(keyword, pos)
+                if (nextPos == -1) {
+                    foundAll = false
+                    break
+                }
+
+                // Check if this is a word boundary match (not part of a larger word)
+                val isWordStart = nextPos == 0 || !contentLower[nextPos - 1].isLetterOrDigit()
+                val isWordEnd = nextPos + keyword.length >= contentLower.length ||
+                               !contentLower[nextPos + keyword.length].isLetterOrDigit()
+
+                if (isWordStart && isWordEnd) {
+                    positions.add(nextPos)
+                    pos = nextPos + keyword.length
+                } else {
+                    // Not a word boundary match, keep searching
+                    pos = nextPos + 1
+                }
+            }
+
+            // If all keywords found as separate words in order within 50 chars, strong phrase match
+            if (positions.size == keywords.size) {
+                val distance = (positions.last() + keywords.last().length) - positions.first()
+                if (distance <= 50) {
+                    return 0.95  // Excellent score for ordered phrase match
+                }
+            }
+        }
+
+        // Count keyword occurrences - more generous scoring
+        var totalOccurrences = 0
+        for (keyword in keywords) {
+            var searchPos = 0
+            while (true) {
+                val pos = contentLower.indexOf(keyword, searchPos)
+                if (pos == -1) break
+
+                // Only count if it's a word boundary match
+                val isWordStart = pos == 0 || !contentLower[pos - 1].isLetterOrDigit()
+                val isWordEnd = pos + keyword.length >= contentLower.length ||
+                               !contentLower[pos + keyword.length].isLetterOrDigit()
+
+                if (isWordStart && isWordEnd) {
+                    totalOccurrences++
+                }
+                searchPos = pos + 1
+            }
+        }
+
+        if (totalOccurrences == 0) return 0.0
+
+        // All keywords found (scattered): good score
+        val keywordMatches = keywords.count { keyword ->
+            // Check if keyword appears as a separate word
+            var searchPos = 0
+            var found = false
+            while (true) {
+                val pos = contentLower.indexOf(keyword, searchPos)
+                if (pos == -1) break
+
+                val isWordStart = pos == 0 || !contentLower[pos - 1].isLetterOrDigit()
+                val isWordEnd = pos + keyword.length >= contentLower.length ||
+                               !contentLower[pos + keyword.length].isLetterOrDigit()
+
+                if (isWordStart && isWordEnd) {
+                    found = true
+                    break
+                }
+                searchPos = pos + 1
+            }
+            found
+        }
+
+        if (keywordMatches == keywords.size && keywords.size >= 2) {
+            return 0.7  // Good score for all keywords present
+        }
+
+        // Partial matches: score based on occurrence count (less aggressive)
+        // Avoid penalizing longer documents
+        return (totalOccurrences.toDouble() / (keywords.size * 2)).coerceIn(0.0, 0.5)
     }
 
     companion object {

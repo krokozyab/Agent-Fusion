@@ -52,3 +52,6 @@ context.duckdb
 context.duckdb.wal
 data/*.duckdb
 data/*.duckdb.wal
+
+#dev documentation
+devdoc/
