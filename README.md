@@ -93,7 +93,7 @@ Ingests project files, keeps DuckDB-based embeddings in sync, and exposes retrie
 | Architecture & sequences | [WEB_DASHBOARD_ARCHITECTURE.md](docs/WEB_DASHBOARD_ARCHITECTURE.md), [SEQUENCE_DIAGRAMS.md](docs/SEQUENCE_DIAGRAMS.md) |
 | Task routing & decision making | [TASK_ROUTING_GUIDE.md](docs/TASK_ROUTING_GUIDE.md), [STATE_MACHINE.md](docs/STATE_MACHINE.md) |
 | Consensus workflows | [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [FUNCTIONAL_REQUIREMENTS.md](docs/FUNCTIONAL_REQUIREMENTS.md) |
-| Context indexing | [CONTEXT_ADDON_ARCHITECTURE.md](docs/CONTEXT_ADDON_ARCHITECTURE.md), [CONTEXT_IMPLEMENTATION_PLAN.md](docs/CONTEXT_IMPLEMENTATION_PLAN.md) |
+| Context indexing | [CONTEXT_ADDON_ARCHITECTURE.md](docs/CONTEXT_ADDON_ARCHITECTURE.md), [CONTEXT_IMPLEMENTATION_PLAN.md](devdoc/CONTEXT_IMPLEMENTATION_PLAN.md) |
 | MCP tools & usage | [MCP_TOOL_QUICK_REFERENCE.md](docs/MCP_TOOL_QUICK_REFERENCE.md), [API_REFERENCE.md](docs/API_REFERENCE.md) |
 | Deployment & operations | [DEPLOYMENT_NOTES.md](docs/DEPLOYMENT_NOTES.md), [ONNX_MODEL_SETUP.md](docs/ONNX_MODEL_SETUP.md) |
 
