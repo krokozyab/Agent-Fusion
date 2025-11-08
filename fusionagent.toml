@@ -249,7 +249,7 @@ preserve_jsdoc = true
 [context.query]
 default_k = 3  # Default number of results for query_context (cleaner, focused results)
 mmr_lambda = 0.5  # 0.0 = max diversity, 1.0 = max relevance
-min_score_threshold = 0.3
+min_score_threshold = 0.5  # Only return results with relevance >= 0.5 (filters weak matches)
 rerank_enabled = true
 
 # ------------------------------------------------------------------------------
@@ -286,7 +286,7 @@ max_commits = 100
 [context.providers.hybrid]
 enabled = true
 weight = 0.5
-combines = ["semantic", "symbol", "git_history"]
+combines = ["semantic", "symbol", "git_history", "full_text"]  # Include all providers for comprehensive search
 fusion_strategy = "rrf"  # Options: rrf, weighted, cascade
 
 # ------------------------------------------------------------------------------
