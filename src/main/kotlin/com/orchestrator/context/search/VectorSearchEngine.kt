@@ -61,12 +61,20 @@ class VectorSearchEngine(
 
                 val score = VectorOps.dotProduct(normalizedQuery, normalizedCandidate)
                 if (!score.isNaN()) {
+                    // Boost document language scores to match code relevance
+                    // Documents (CVs, PDFs, etc) should be equally visible in search results
+                    val adjustedScore = if (row.language?.lowercase() == "document") {
+                        (score * 1.35f).coerceAtMost(0.99f)  // Boost by 35% but cap at 0.99
+                    } else {
+                        score
+                    }
+
                     add(
                         ScoredChunk(
                             chunk = row.chunk,
                             path = row.relativePath,
                             language = row.language,
-                            score = score,
+                            score = adjustedScore,
                             embeddingId = row.embedding.id,
                             vector = normalizedCandidate
                         )
