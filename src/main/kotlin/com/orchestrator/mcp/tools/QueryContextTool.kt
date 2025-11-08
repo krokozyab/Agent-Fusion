@@ -64,7 +64,7 @@ class QueryContextTool(
     fun execute(params: Params): Result {
         require(params.query.isNotBlank()) { "query cannot be blank" }
 
-        val k = params.k?.coerceAtLeast(1) ?: 10
+        val k = params.k?.coerceAtLeast(1) ?: config.query.defaultK
         val maxTokens = params.maxTokens?.coerceAtLeast(100) ?: 4000
 
         // Build ContextScope from parameters
@@ -116,8 +116,16 @@ class QueryContextTool(
         // Sort by score and deduplicate
         val uniqueSnippets = deduplicateSnippets(allSnippets)
 
+        // Filter by minimum score threshold from config
+        val filteredSnippets = uniqueSnippets.filter { it.score >= config.query.minScoreThreshold }
+        if (filteredSnippets.size < uniqueSnippets.size) {
+            log.debug("Filtered {} snippets below min_score_threshold of {}",
+                uniqueSnippets.size - filteredSnippets.size,
+                config.query.minScoreThreshold)
+        }
+
         // Apply token budget and limit to k results
-        val finalSnippets = applyBudgetAndLimit(uniqueSnippets, budget, k)
+        val finalSnippets = applyBudgetAndLimit(filteredSnippets, budget, k)
 
         // Convert to DTO format
         val hits = finalSnippets.map { snippet ->
