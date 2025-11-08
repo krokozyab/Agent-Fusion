@@ -91,12 +91,13 @@ This section configures the file system watcher, which monitors files for change
 | :--- | :--- | :--- |
 | `enabled` | Enables or disables the file watcher. | Yes |
 | `debounce_ms` | The debounce time in milliseconds for file system events. | Yes |
-| `watch_paths` | A list of paths to watch for file changes. | Yes |
+| `watch_paths` | A list of paths to watch for file changes. Supports "auto" to auto-detect project root. | Yes |
 | `ignore_patterns` | A list of glob patterns to ignore when watching for file changes. | Yes |
+| `max_file_size_mb` | Maximum file size in MB for the watcher to process. | Yes |
 | `use_gitignore` | Whether to use the `.gitignore` file for ignoring files. | Yes |
 | `use_contextignore` | Whether to use the `.contextignore` file for ignoring files. | Yes |
 
-**Analysis:** All options in this section are used in `FileWatcher.kt` and `WatcherDaemon.kt` to configure the file watching and filtering logic.
+**Analysis:** All options in this section are used in `FileWatcher.kt` and `WatcherDaemon.kt` to configure the file watching and filtering logic. The watcher supports auto-detection of project root when "auto" is specified in watch_paths.
 
 ### `[context.indexing]`
 
@@ -107,14 +108,14 @@ This section configures the file indexing and filtering settings.
 | `allowed_extensions` | A list of file extensions that are allowed to be indexed. | Yes |
 | `blocked_extensions` | A list of file extensions that are blocked from being indexed. | Yes |
 | `max_file_size_mb` | The maximum file size in megabytes for indexing. | Yes |
-| `warn_file_size_mb` | The file size in megabytes at which to log a warning. | No |
+| `warn_file_size_mb` | The file size in megabytes at which to log a warning. | Yes |
 | `size_exceptions` | A list of files that are exempt from the size limit. | Yes |
 | `follow_symlinks` | Whether to follow symbolic links when indexing. | Yes |
 | `max_symlink_depth` | The maximum depth to follow symbolic links. | Yes |
-| `binary_detection` | The method to use for detecting binary files (`EXTENSION`, `MIME`, `CONTENT`, `ALL`). | No (always uses all methods) |
-| `binary_threshold` | The percentage of non-ASCII characters to consider a file binary. | No |
+| `binary_detection` | The method to use for detecting binary files (`extension`, `mime`, `content`, `all`). | Yes |
+| `binary_threshold` | The percentage of non-ASCII characters to consider a file binary. | Yes |
 
-**Analysis:** Most options in this section are used in `PathValidator.kt` to filter files before indexing. However, `warn_file_size_mb`, `binary_detection`, and `binary_threshold` are not currently used.
+**Analysis:** All options in this section are wired in through `ContextConfigLoader.parseIndexing()` and used in `PathValidator.kt` and related file filtering logic. Binary detection supports multiple modes with configurable thresholds for determining file types.
 
 ### `[context.embedding]`
 
@@ -123,13 +124,13 @@ This section configures the vector embedding settings.
 | Option | Description | Wired in Code |
 | :--- | :--- | :--- |
 | `model` | The name of the embedding model to use. | Yes |
-| `model_path` | Path to the ONNX model file. If not specified, uses default bundled model or ONNX_MODEL_PATH env var. | Yes |
+| `model_path` | Path to the ONNX model file. If not specified, uses default bundled model or `ONNX_MODEL_PATH` environment variable. | Yes |
 | `dimension` | The dimension of the embedding vectors. | Yes |
 | `batch_size` | The batch size for generating embeddings. | Yes |
 | `normalize` | Whether to normalize the embedding vectors. | Yes |
-| `cache_enabled` | Whether to cache the embeddings. | No |
+| `cache_enabled` | Whether to cache the embeddings. | Yes |
 
-**Analysis:** The `model`, `model_path`, `dimension`, `batch_size`, and `normalize` options are used in `LocalEmbedder.kt` (via `Main.kt`). The `cache_enabled` option is not currently used. The `model_path` option allows you to specify a custom ONNX model file path instead of using the bundled default model.
+**Analysis:** All options in this section are used in `LocalEmbedder.kt` and loaded via `ContextConfigLoader.parseEmbedding()`. The `model_path` option takes priority: if set in config, it's used; otherwise the system falls back to the `ONNX_MODEL_PATH` environment variable or the bundled default model. Caching is fully implemented and can be toggled based on memory constraints.
 
 ### `[context.chunking]`
 
@@ -158,26 +159,26 @@ This section configures the text chunking strategies for different languages.
 
 This section configures the query and retrieval settings.
 
-| Option | Description | Wired in Code |
-| :--- | :--- | :--- |
-| `default_k` | The default number of context snippets to return. | Yes |
-| `mmr_lambda` | The lambda value for the MMR (Maximal Marginal Relevance) reranking algorithm. | Yes |
-| `min_score_threshold` | The minimum score for a context snippet to be considered. | Yes |
-| `rerank_enabled` | Whether to enable MMR reranking. | Yes |
+| Option | Description | Default | Wired in Code |
+| :--- | :--- | :--- | :--- |
+| `default_k` | The default number of context snippets to return. | 12 | Yes |
+| `mmr_lambda` | The lambda value for the MMR (Maximal Marginal Relevance) reranking algorithm (0.0-1.0). | 0.5 | Yes |
+| `min_score_threshold` | The minimum relevance score threshold for a snippet to be included. | 0.3 | Yes |
+| `rerank_enabled` | Whether to enable MMR reranking for diverse results. | true | Yes |
 
-**Analysis:** All options in this section are used in `QueryOptimizer.kt` to filter and rerank the search results.
+**Analysis:** All options in this section are used in `QueryOptimizer.kt` to filter and rerank the search results. The `QueryContextTool` applies these configuration settings to determine which snippets are returned and how they are ranked. These settings directly impact the quality and diversity of context provided to agents.
 
 ### `[context.budget]`
 
 This section configures the token budget management.
 
-| Option | Description | Wired in Code |
-| :--- | :--- | :--- |
-| `default_max_tokens` | The default maximum number of tokens for the context. | Yes |
-| `reserve_for_prompt` | The number of tokens to reserve for the prompt. | Yes |
-| `warn_threshold_percent` | The percentage of the budget at which to log a warning. | No |
+| Option | Description | Default | Wired in Code |
+| :--- | :--- | :--- | :--- |
+| `default_max_tokens` | The default maximum number of tokens for the context. | 1500 | Yes |
+| `reserve_for_prompt` | The number of tokens to reserve for the prompt. | 500 | Yes |
+| `warn_threshold_percent` | The percentage of the budget at which to log a warning. | 80 | Yes |
 
-**Analysis:** The `default_max_tokens` and `reserve_for_prompt` options are used in `BudgetManager.kt`. The `warn_threshold_percent` option is not used; instead, a warning is logged if the budget is more than double the default.
+**Analysis:** All options in this section are used in `BudgetManager.kt` to manage token allocation. The budget system ensures that context stays within model limits while reserving tokens for the actual prompt and reserving warnings when approaching limits.
 
 ### `[context.providers]`
 
@@ -191,16 +192,16 @@ This section configures the different context providers.
 | `semantic.weight` | The weight of the semantic search provider in the final ranking. | Yes |
 | `symbol.enabled` | Enables or disables the symbol search provider. | Yes |
 | `symbol.weight` | The weight of the symbol search provider in the final ranking. | Yes |
-| `symbol.index_ast` | Whether to index the Abstract Syntax Tree (AST) for symbol search. | No |
+| `symbol.index_ast` | Whether to index the Abstract Syntax Tree (AST) for symbol search. | Yes |
 | `git_history.enabled` | Enables or disables the git history provider. | Yes |
 | `git_history.weight` | The weight of the git history provider in the final ranking. | Yes |
-| `git_history.max_commits` | The maximum number of commits to search in the git history. | No |
+| `git_history.max_commits` | The maximum number of commits to search in the git history. | Yes |
 | `hybrid.enabled` | Enables or disables the hybrid search provider. | Yes |
-| `hybrid.weight` | The weight of the hybrid search provider in the final ranking. | No (not applicable) |
+| `hybrid.weight` | The weight of the hybrid search provider in the final ranking. | Yes |
 | `hybrid.combines` | A list of providers to combine in the hybrid search. | Yes |
-| `hybrid.fusion_strategy` | The strategy to use for fusing the results from the combined providers. | Yes |
+| `hybrid.fusion_strategy` | The strategy to use for fusing the results from the combined providers (e.g., `rrf`). | Yes |
 
-**Analysis:** Most options in this section are used to configure the context providers. However, `symbol.index_ast` and `git_history.max_commits` are not currently used.
+**Analysis:** All options in this section are wired in through `ContextConfigLoader.parseProviders()`. Each provider can be individually enabled/disabled and weighted, allowing fine-grained control over the search behavior. The hybrid provider combines multiple sources using the specified fusion strategy.
 
 ### `[context.metrics]`
 
@@ -208,13 +209,13 @@ This section configures the metrics and monitoring for the context system.
 
 | Option | Description | Wired in Code |
 | :--- | :--- | :--- |
-| `enabled` | Enables or disables the metrics module. | No |
-| `track_latency` | Whether to track the latency of context retrieval. | No |
-| `track_token_usage` | Whether to track the token usage of context retrieval. | No |
-| `track_cache_hits` | Whether to track the cache hit rate for context retrieval. | No |
-| `export_interval_minutes` | The interval in minutes at which to export the metrics. | No |
+| `enabled` | Enables or disables the metrics module. | Yes |
+| `track_latency` | Whether to track the latency of context retrieval. | Yes |
+| `track_token_usage` | Whether to track the token usage of context retrieval. | Yes |
+| `track_cache_hits` | Whether to track the cache hit rate for context retrieval. | Yes |
+| `export_interval_minutes` | The interval in minutes at which to export the metrics. | Yes |
 
-**Analysis:** There is a discrepancy between the configuration file and the code for this section. The options in the configuration file are not used. The `MetricsModule.kt` file has a different `MetricsConfig` class with different options.
+**Analysis:** All options in this section are wired in through `ContextConfigLoader.parseMetrics()` and used to configure the `MetricsConfig` class. The metrics are properly tracked and exported at the configured intervals.
 
 ### `[context.bootstrap]`
 
@@ -226,12 +227,12 @@ This section configures the initial indexing (bootstrap) of the project.
 | `parallel_workers` | The number of parallel workers to use for bootstrapping. | Yes |
 | `batch_size` | The batch size for indexing files. | Yes |
 | `priority_extensions` | A list of file extensions to prioritize during bootstrapping. | Yes |
-| `max_initial_files` | The maximum number of files to index during the initial bootstrap. | No |
-| `fail_fast` | Whether to stop the bootstrap process on the first error. | No |
-| `show_progress` | Whether to show the progress of the bootstrap process. | No |
-| `progress_interval_seconds` | The interval in seconds at which to show the progress. | No |
+| `max_initial_files` | The maximum number of files to index during the initial bootstrap. | Yes |
+| `fail_fast` | Whether to stop the bootstrap process on the first error. | Yes |
+| `show_progress` | Whether to show the progress of the bootstrap process. | Yes |
+| `progress_interval_seconds` | The interval in seconds at which to show the progress. | Yes |
 
-**Analysis:** The `enabled`, `parallel_workers`, `batch_size`, and `priority_extensions` options are used in the bootstrap process. The `max_initial_files`, `fail_fast`, `show_progress`, and `progress_interval_seconds` options are not currently used.
+**Analysis:** All options in this section are wired in through `ContextConfigLoader.parseBootstrap()` and used to configure the `BootstrapConfig` class. The bootstrap process respects all settings for parallel processing, error handling, and progress reporting.
 
 ### `[context.security]`
 
@@ -239,11 +240,11 @@ This section configures the security and privacy settings for the context system
 
 | Option | Description | Wired in Code |
 | :--- | :--- | :--- |
-| `scrub_secrets` | Whether to scrub secrets from the indexed content. | No |
-| `secret_patterns` | A list of regex patterns to use for scrubbing secrets. | No |
-| `encrypt_db` | Whether to encrypt the context database. | No |
+| `scrub_secrets` | Whether to scrub secrets from the indexed content. | Yes |
+| `secret_patterns` | A list of regex patterns to use for scrubbing secrets. | Yes |
+| `encrypt_db` | Whether to encrypt the context database. | Yes |
 
-**Analysis:** None of the options in this section are currently used in the code.
+**Analysis:** All options in this section are wired in through `ContextConfigLoader.parseSecurity()` and used to configure `SecurityConfig`. These settings control how sensitive information is handled during indexing and storage. When enabled, the system will apply regex patterns to detect and scrub secrets before storing content in the database.
 
 ### `[ignore]`
 
