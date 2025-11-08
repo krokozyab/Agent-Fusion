@@ -55,3 +55,6 @@ data/*.duckdb.wal
 
 #dev documentation
 devdoc/
+model.onnx
+model.onnx
+model.onnx
