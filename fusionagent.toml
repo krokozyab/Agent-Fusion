@@ -3,30 +3,9 @@
 # ==============================================================================
 #
 # QUICK START:
-# 1. Set watch_paths to "." for current directory (recommended)
+# 1. Set watch_pathses to folders you want to be indexed
 # 2. Adjust allowed_extensions to include your language extensions
 # 3. Review ignore_patterns to exclude large auto-generated directories
-# 4. Tune embedding settings based on hardware (smaller model = faster)
-# 5. Set provider weights based on search patterns (semantic usually highest)
-#
-# PERFORMANCE TUNING:
-# 6. Increase parallel_workers on multi-core machines (CPU cores - 1)
-# 7. Increase batch_size for faster indexing (uses more memory)
-# 8. Lower default_k (e.g., 7-10) for focused results, raise for comprehensive
-# 9. Monitor metrics to identify slow providers or high token usage
-#
-# PRODUCTION RECOMMENDATIONS:
-# 10. Set scrub_secrets = true to prevent leaking credentials
-# 11. Use skip_patterns to exclude test files and minified code
-# 12. Enable show_progress = true during bootstrap to track large indexing
-# 13. Consider environment-specific settings in [agents] for API keys
-#
-# ADVANCED FEATURES:
-# 14. Use size_exceptions to allow specific large files past max_file_size_mb
-# 15. Disable follow_symlinks to prevent infinite loops
-# 16. Adjust mmr_lambda (0.5 = balanced, <0.5 = more diverse, >0.5 = more relevant)
-# 17. Use multiple watch_paths to index across projects
-# 18. Set max_commits lower for faster git history search
 #
 # ==============================================================================
 
@@ -95,7 +74,7 @@ retry_attempts = 3
 # ------------------------------------------------------------------------------
 
 [context.storage]
-db_path = "./context.duckdb"
+db_path = "./context.duckdb" # conext database file
 
 # ==============================================================================
 # [context.watcher] - File system watcher configuration
@@ -123,10 +102,8 @@ enabled = true
 debounce_ms = 500
 # Monitor these top-level workspaces. Each entry can be absolute or relative.
 # Examples:
-#   watch_paths = ["."]                                       # Current directory (recommended)
+#   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
-#   watch_paths = ["src", "tests", "../shared"]               # Multiple relative paths
-# Note: Special value "auto" is reserved for future use; use "." for current directory
 watch_paths = [
     "."
 ]
@@ -147,7 +124,7 @@ ignore_patterns = [
     "venv/",              # Python virtual environments
 ]
 use_gitignore = true          # Also respects .gitignore automatically
-use_contextignore = true      # Also respects .contextignore (default: true)
+use_contextignore = true      # Also respects .contextignore (default: true) .contextignore file: Per-project custom patterns stored in your repo root
 
 # ==============================================================================
 # [context.indexing] - File indexing and filtering settings
@@ -232,7 +209,7 @@ skip_patterns = [
 # Default: 5MB (skips most binary/compiled files automatically)
 # Increase for large documents (10-50MB for PDFs, documents)
 # Set very high (500+) if you want to index everything
-max_file_size_mb = 10
+max_file_size_mb = 50
 
 # Warn when files exceed this size (during indexing)
 # Set to 0 to disable warnings
