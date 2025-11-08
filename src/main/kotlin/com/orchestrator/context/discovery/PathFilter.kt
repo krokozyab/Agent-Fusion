@@ -10,17 +10,29 @@ import kotlin.streams.asSequence
  * Aggregates ignore patterns from configuration and ignore files, then evaluates glob matches.
  */
 class PathFilter private constructor(
+    private val root: Path,
     private val matchers: List<Regex>,
     private val caseInsensitive: Boolean
 ) {
 
     fun shouldIgnore(path: Path): Boolean {
         if (matchers.isEmpty()) return false
-        val absolute = normalize(path.toAbsolutePath().normalize().toString())
-        val relative = path.fileName?.let { normalize(it.toString()) }
-        return matchers.any { regex ->
-            regex.matches(absolute) || (relative != null && regex.matches(relative))
+
+        val absolute = path.toAbsolutePath().normalize()
+        val absoluteStr = normalize(absolute.toString())
+
+        // Check against absolute path
+        if (matchers.any { it.matches(absoluteStr) }) return true
+
+        // Also check relative path from root
+        val relativeStr = try {
+            normalize(root.relativize(absolute).toString())
+        } catch (e: IllegalArgumentException) {
+            // Path is not relative to root, only check absolute
+            return false
         }
+
+        return matchers.any { it.matches(relativeStr) }
     }
 
     private fun normalize(value: String): String {
@@ -56,7 +68,7 @@ class PathFilter private constructor(
             val matchers = collected.mapNotNull { it.trim().takeIf(String::isNotEmpty) }
                 .map { preprocess(it) }
                 .map { globToRegex(it, caseInsensitive) }
-            return PathFilter(matchers, caseInsensitive)
+            return PathFilter(root, matchers, caseInsensitive)
         }
 
         private fun buildIgnoreFileList(

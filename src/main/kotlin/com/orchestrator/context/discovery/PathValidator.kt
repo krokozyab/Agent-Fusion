@@ -49,12 +49,18 @@ class PathValidator(
         }
 
         val absolute = path.toAbsolutePath().normalize()
+
+        // Check ignore patterns for ALL paths (files and directories)
+        if (isInIgnorePatterns(absolute)) {
+            return invalid(Reason.IGNORED_BY_PATTERN, "Path matches ignore pattern: $absolute")
+        }
+
         val extension = absolute.fileName?.toString()
             ?.substringAfterLast('.', "")
             ?.lowercase(Locale.US)
             ?: ""
 
-        // SIMPLIFIED: Only check extension for files, always allow directories
+        // Only apply extension and skip checks to files, not directories
         if (Files.isDirectory(absolute)) {
             return ValidationResult.Valid
         }
