@@ -133,17 +133,17 @@ watch_paths = [
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
 # These are checked FIRST, preventing watcher from monitoring these directories
-# Regex patterns are supported (glob-like syntax works: *, **, path/)
-# Note: Escape dots with backslash for literal matching (e.g., \\.kotlin/ not .kotlin/)
+# Uses glob patterns (same as .gitignore format) - automatically converted to regex
+# * = wildcard, ** = match across directories, . = literal dot
 ignore_patterns = [
-    "\\.kotlin/",         # Kotlin build metadata - auto-generated
-    "\\.gradle/",         # Gradle build metadata
+    ".kotlin/",           # Kotlin build metadata - auto-generated
+    ".gradle/",           # Gradle build metadata
     "build/",             # Build outputs
     "dist/",              # Distribution/compiled outputs
     "target/",            # Maven build outputs
-    "\\.git/",            # Version control - skip watching
+    ".git/",              # Version control - skip watching
     "node_modules/",      # Node packages
-    "\\.venv/",           # Python virtual environments
+    ".venv/",             # Python virtual environments
     "venv/",              # Python virtual environments
 ]
 use_gitignore = true          # Also respects .gitignore automatically
@@ -605,15 +605,15 @@ patterns = [
     "*.war",
 
     # Gradle
-    "\\.gradle/",
+    ".gradle/",
     "gradle-app.setting",
 
     # Kotlin build metadata - auto-generated and pollutes search
-    "\\.kotlin/",
+    ".kotlin/",
 
     # IDE
-    "\\.idea/",
-    "\\.vscode/",
+    ".idea/",
+    ".vscode/",
     "*.iml",
     "*.swp",
     "*.swo",
@@ -627,20 +627,20 @@ patterns = [
     # Python
     "__pycache__/",
     "*.pyc",
-    "\\.venv/",
+    ".venv/",
     "venv/",
     "*.egg-info/",
 
     # Version control
-    "\\.git/",
-    "\\.svn/",
+    ".git/",
+    ".svn/",
 
     # OS
-    "\\.DS_Store",
-    "\\.DS_Store\\?",
-    "\\._.*",
-    "\\.Spotlight-V100",
-    "\\.Trashes",
+    ".DS_Store",
+    ".DS_Store?",
+    "._*",
+    ".Spotlight-V100",
+    ".Trashes",
     "ehthumbs.db",
     "Thumbs.db",
 
@@ -656,11 +656,11 @@ patterns = [
     "*.bak",
 
     # Generated files
-    "*\\.generated\\.kt",
-    "*\\.generated\\.java",
+    "*.generated.kt",
+    "*.generated.java",
 
     # Generated test output
-    "test-output\\.txt"
+    "test-output.txt"
 ]
 
 
