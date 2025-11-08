@@ -133,8 +133,8 @@ watch_paths = [
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
 # These are checked FIRST, preventing watcher from monitoring these directories
-# Uses glob patterns (same as .gitignore format) - automatically converted to regex
-# * = wildcard, ** = match across directories, . = literal dot
+# Uses same glob pattern syntax as .gitignore - no need to learn new syntax!
+# Simply copy patterns from .gitignore and they will work here too
 ignore_patterns = [
     ".kotlin/",           # Kotlin build metadata - auto-generated
     ".gradle/",           # Gradle build metadata
@@ -594,6 +594,8 @@ encrypt_db = false
 # ------------------------------------------------------------------------------
 
 [ignore]
+# NOTE: This section mirrors [context.watcher].ignore_patterns
+# Use [context.watcher].ignore_patterns above instead (this is legacy)
 patterns = [
     # Build artifacts
     "build/",
