@@ -1,8 +1,33 @@
 # ==============================================================================
-# FusionAgent - Unified Configuration Example
+# Configuration Tips for FusionAgent
 # ==============================================================================
-# This file demonstrates ALL available configuration options for FusionAgent.
-# Copy this to fusionagent.toml and adjust values for your setup.
+#
+# QUICK START:
+# 1. Set watch_paths to "auto" to auto-detect your project root (recommended)
+# 2. Adjust allowed_extensions to include your language extensions
+# 3. Review ignore_patterns to exclude large auto-generated directories
+# 4. Tune embedding settings based on hardware (smaller model = faster)
+# 5. Set provider weights based on search patterns (semantic usually highest)
+#
+# PERFORMANCE TUNING:
+# 6. Increase parallel_workers on multi-core machines (CPU cores - 1)
+# 7. Increase batch_size for faster indexing (uses more memory)
+# 8. Lower default_k (e.g., 7-10) for focused results, raise for comprehensive
+# 9. Monitor metrics to identify slow providers or high token usage
+#
+# PRODUCTION RECOMMENDATIONS:
+# 10. Set scrub_secrets = true to prevent leaking credentials
+# 11. Use skip_patterns to exclude test files and minified code
+# 12. Enable show_progress = true during bootstrap to track large indexing
+# 13. Consider environment-specific settings in [agents] for API keys
+#
+# ADVANCED FEATURES:
+# 14. Use size_exceptions to allow specific large files past max_file_size_mb
+# 15. Disable follow_symlinks to prevent infinite loops
+# 16. Adjust mmr_lambda (0.5 = balanced, <0.5 = more diverse, >0.5 = more relevant)
+# 17. Use multiple watch_paths to index across projects
+# 18. Set max_commits lower for faster git history search
+#
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -43,75 +68,6 @@ staticPath = "static"
 [web.cors]
 enabled = true
 allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
-
-# ------------------------------------------------------------------------------
-# [agents] - Agent definitions
-# ------------------------------------------------------------------------------
-# Configure the AI agents that will be used by the orchestrator.
-# Each agent needs a unique ID (the part after agents.) and configuration.
-#
-# Available agent types:
-# - CLAUDE_CODE: Anthropic Claude via Claude Code CLI
-# - CODEX_CLI: OpenAI Codex via Codex CLI
-# - Q_CLI: Amazon Q via Q CLI
-# - GEMINI: Google Gemini
-# - GPT: OpenAI GPT models (requires model parameter)
-# - MISTRAL: Mistral AI models (requires model parameter)
-# - LLAMA: Meta Llama models (requires model parameter)
-# ------------------------------------------------------------------------------
-
-[agents.claude-code]
-type = "CLAUDE_CODE"
-name = "Claude"
-# Optional parameters:
-# model = "claude-3-5-sonnet-20241022"
-# temperature = 0.7
-# maxTokens = 4096
-
-[agents.codex-cli]
-type = "CODEX_CLI"
-name = "Codex"
-# Optional parameters:
-# model = "gpt-4"
-# temperature = 0.7
-
-[agents.q-cli]
-type = "Q_CLI"
-name = "Q"
-# Optional parameters:
-# model = "q-developer"
-
-[agents.gemini]
-type = "GEMINI"
-name = "Gemini"
-# Optional parameters:
-# model = "gemini-1.5-pro"
-# apiKeyRef = "${GOOGLE_API_KEY}"
-
-# Example custom GPT agent
-# [agents.gpt-custom]
-# type = "GPT"
-# name = "Custom GPT"
-# model = "gpt-4-turbo"
-# apiKeyRef = "${OPENAI_API_KEY}"
-# organization = "${OPENAI_ORG}"
-# temperature = 0.7
-# maxTokens = 8192
-
-# Example Mistral agent
-# [agents.mistral]
-# type = "MISTRAL"
-# name = "Mistral Large"
-# model = "mistral-large-latest"
-# apiKeyRef = "${MISTRAL_API_KEY}"
-# temperature = 0.7
-
-# Example Llama agent
-# [agents.llama]
-# type = "LLAMA"
-# name = "Llama 3"
-# model = "llama-3-70b"
-# apiKeyRef = "${LLAMA_API_KEY}"
 
 # ------------------------------------------------------------------------------
 # [context] - Context system configuration
@@ -166,9 +122,14 @@ db_path = "./context.duckdb"
 enabled = true
 debounce_ms = 500
 # Monitor these top-level workspaces. Each entry can be absolute or relative.
+# Special value "auto" auto-detects project root from .git directory
+# Examples:
+#   watch_paths = ["auto"]                                    # Auto-detect single project
+#   watch_paths = ["."]                                       # Current directory
+#   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
+#   watch_paths = ["src", "tests", "../shared"]               # Multiple relative paths
 watch_paths = [
-    "/Users/sergeyrudenko/projects/codex_to_claude",
-    "/Users/sergeyrudenko/projects/of_mcp"
+    "auto"
 ]
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
@@ -186,7 +147,7 @@ ignore_patterns = [
     "venv/",              # Python virtual environments
 ]
 use_gitignore = true          # Also respects .gitignore automatically
-use_contextignore = false     # Set true to also respect .contextignore
+use_contextignore = true      # Also respects .contextignore (default: true)
 
 # ==============================================================================
 # [context.indexing] - File indexing and filtering settings
@@ -266,14 +227,42 @@ skip_patterns = [
     "**/node_modules/**", # Node packages
 ]
 
-# Maximum file size (MB) for indexing files
-# Files larger than this size are skipped during indexing
-max_file_size_mb = 200
-warn_file_size_mb = 10
+# Maximum file size (MB) for indexing
+# Files larger than this are skipped entirely
+# Default: 5MB (skips most binary/compiled files automatically)
+# Increase for large documents (10-50MB for PDFs, documents)
+# Set very high (500+) if you want to index everything
+max_file_size_mb = 5
+
+# Warn when files exceed this size (during indexing)
+# Set to 0 to disable warnings
+# Default: 2MB
+warn_file_size_mb = 2
+
+# Exceptions: Specific files allowed despite exceeding max_file_size_mb
+# Examples: ["docs/large-api-reference.md", "README.md"]
+# Default: none
 size_exceptions = []
+
+# Follow symbolic links when indexing
+# Disable to prevent infinite loops in circular symlinks
+# Default: false
 follow_symlinks = false
+
+# Maximum depth to follow symlinks
+# Only used if follow_symlinks = true
+# Default: 3
 max_symlink_depth = 3
-binary_detection = "ALL"  # Options: EXTENSION, MIME, CONTENT, ALL
+
+# Binary file detection method
+# Options: "extension" (only check file extension), "mime" (use MIME type),
+#          "content" (scan file content), "all" (all three methods)
+# Default: "all" (most reliable)
+binary_detection = "all"
+
+# Binary detection threshold: percentage of non-ASCII chars to consider binary
+# Default: 30 (if >30% non-ASCII, treat as binary)
+# Increase to be more permissive (e.g., 50 for UTF-8 heavy files)
 binary_threshold = 30
 
 # ------------------------------------------------------------------------------
@@ -281,21 +270,49 @@ binary_threshold = 30
 # ------------------------------------------------------------------------------
 
 [context.embedding]
+# Embedding model to use for semantic search
+# Default: "sentence-transformers/all-MiniLM-L6-v2" (384-dim, lightweight, good quality)
+# Available models:
+#   - "sentence-transformers/all-MiniLM-L6-v2" (384-dim, 22MB, fast, good quality)
+#   - "sentence-transformers/all-mpnet-base-v2" (768-dim, 438MB, slower, better quality)
+#   - "sentence-transformers/paraphrase-MiniLM-L6-v2" (384-dim, lightweight, paraphrase-aware)
+#   - Custom ONNX models: use model_path to specify local file
 model = "sentence-transformers/all-MiniLM-L6-v2"
-# Path to the ONNX model file. If not specified, uses default bundled all-MiniLM-L6-v2 model or ONNX_MODEL_PATH env var
+
+# Optional: Path to custom ONNX model file
+# If specified, overrides the default bundled model
+# Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
 # model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
+
+# Embedding dimension (must match your model's output)
+# Default: 384 (matches all-MiniLM-L6-v2)
+# Other common values: 768 (all-mpnet-base-v2), 512, 1024
 dimension = 384
+
+# Batch size for embedding generation
+# Higher values = faster (more GPU utilization) but more memory
+# Lower values = slower but less memory
+# Default: 128 (good balance for typical hardware)
 batch_size = 128
+
+# Normalize embeddings to unit length (recommended for cosine similarity)
+# Required for MMR reranking and semantic search
+# Default: true
 normalize = true
+
+# Cache embeddings in memory to avoid re-computing
+# Saves significant time if same query is used multiple times
+# Disable if memory is constrained
+# Default: true
 cache_enabled = true
 
-#bigger external model
-#model = "sentence-transformers/baai-bge-base-en-v1.5-onnx/"
-#model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
-#dimension = 768  # Adjust to match your model's output dimension
-#batch_size = 128
-#normalize = true
-#cache_enabled = true
+# Example: Using a larger, higher-quality model
+# [context.embedding]
+# model = "sentence-transformers/all-mpnet-base-v2"
+# dimension = 768
+# batch_size = 64  # Reduce for larger model
+# normalize = true
+# cache_enabled = false  # Disable if memory-constrained
 
 # ------------------------------------------------------------------------------
 # [context.chunking] - Text chunking strategies per language
@@ -328,9 +345,27 @@ preserve_jsdoc = true
 # ------------------------------------------------------------------------------
 
 [context.query]
-default_k = 7  # Default number of results for query_context (cleaner, focused results)
-mmr_lambda = 0.5  # 0.0 = max diversity, 1.0 = max relevance
-min_score_threshold = 0.35  # Lower threshold to include document-language results (CVs, docs, etc)
+# default_k: Number of results to return from query_context tool
+# - Lower values (5-7): Focused, high-quality results for targeted searches
+# - Higher values (12-15): More comprehensive coverage for broad searches
+# Default: 12 (balanced for most use cases)
+default_k = 12
+
+# mmr_lambda: Maximal Marginal Relevance tradeoff (0.0 = max diversity, 1.0 = max relevance)
+# - 0.0: Return diverse results (some low-relevance items for diversity)
+# - 0.5: Balanced diversity and relevance (default)
+# - 1.0: Return only highest relevance (less diversity)
+mmr_lambda = 0.5
+
+# min_score_threshold: Minimum relevance score for a snippet to be included
+# - 0.1-0.2: Very permissive (include marginal matches)
+# - 0.3: Default (good balance)
+# - 0.5+: Strict (only high-confidence matches)
+# Default: 0.3
+min_score_threshold = 0.3
+
+# rerank_enabled: Apply MMR re-ranking to improve result diversity
+# Should generally be true unless you only want relevance-based ranking
 rerank_enabled = true
 
 # ------------------------------------------------------------------------------
@@ -342,74 +377,173 @@ default_max_tokens = 1500
 reserve_for_prompt = 500
 warn_threshold_percent = 80
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # [context.providers] - Context provider configurations
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# Each provider searches the codebase in a different way. The hybrid provider
+# combines them for comprehensive results. Adjust weights and enabled status
+# based on your search patterns and priorities.
+# ==============================================================================
 
+# Full-text search: Raw text keyword matching
+# Best for: Finding specific strings, exact matches, log messages
+# Weight: Usually low (0.05-0.2) since it's less semantic
 [context.providers.full_text]
 enabled = true
 weight = 0.1
 
+# Semantic search: Vector embeddings for conceptual matching
+# Best for: Finding similar code/documentation, paraphrase matching
+# Weight: Usually high (0.5-0.7) - most useful for code understanding
 [context.providers.semantic]
 enabled = true
 weight = 0.6
 
+# Symbol search: Finds classes, functions, methods, definitions
+# Best for: Locating specific symbols, method signatures, API definitions
+# index_ast: Parse Abstract Syntax Trees for better symbol extraction
+# Weight: Medium (0.2-0.4) depending on code navigation needs
 [context.providers.symbol]
 enabled = true
 weight = 0.3
 index_ast = true
 
+# Git history search: Finds files changed together in commits
+# Best for: Understanding related changes, finding modules that change together
+# max_commits: How far back in history to search (more = slower but more context)
+# Weight: Usually low (0.1-0.3) - supplementary context
 [context.providers.git_history]
 enabled = true
 weight = 0.2
 max_commits = 100
 
+# Hybrid: Combines multiple providers for comprehensive search
+# Weights here are relative for ranking within hybrid results
+# fusion_strategy: How to combine provider scores
+#   - "rrf" (reciprocal rank fusion): Fair ranking, good for diverse results
+#   - "weighted": Use provider weights directly
+#   - "cascade": Try each provider in order, stop when results found
+# Default combines: ["semantic", "symbol", "git_history"] (excludes full_text)
 [context.providers.hybrid]
 enabled = true
 weight = 0.5
-combines = ["semantic", "symbol", "git_history", "full_text"]  # Include all providers for comprehensive search
-fusion_strategy = "rrf"  # Options: rrf, weighted, cascade
+combines = ["semantic", "symbol", "git_history"]
+fusion_strategy = "rrf"
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # [context.metrics] - Metrics and monitoring
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# Track performance metrics for context retrieval and query optimization
+# ==============================================================================
 
 [context.metrics]
+# Enable/disable all metrics collection
+# Default: true
 enabled = true
+
+# Track latency of context retrieval operations
+# Measures time from query to results returned
+# Useful for identifying slow searches
+# Default: true
 track_latency = true
+
+# Track token usage of context snippets
+# Measure how many tokens are used by context
+# Helps optimize token budgets and context size
+# Default: true
 track_token_usage = true
+
+# Track embedding cache hit rate
+# Shows how often cached embeddings are reused
+# High hit rate = cache is effective and saving compute
+# Default: true
 track_cache_hits = true
+
+# Export collected metrics at this interval
+# Metrics are aggregated and logged/exported periodically
+# Default: 5 minutes
 export_interval_minutes = 5
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # [context.bootstrap] - Initial indexing configuration
-# ------------------------------------------------------------------------------
+# ==============================================================================
+# Configure the initial bootstrap phase when the system starts
+# ==============================================================================
 
 [context.bootstrap]
+# Enable/disable bootstrap process
+# Set to false if you manage indexing externally or have pre-indexed data
+# Default: true
 enabled = true
+
+# Number of parallel workers for indexing
+# Higher = faster (use more CPU cores) but more memory
+# Typical: number of CPU cores minus 1
+# Default: 7
 parallel_workers = 7
+
+# Number of files to process in each batch before committing
+# Higher = faster but more memory, riskier (more loss on crash)
+# Lower = safer but slower
+# Typical range: 32-256
+# Default: 128
 batch_size = 128
+
+# File extensions to prioritize (process first)
+# Useful to get search results quickly for most important files
+# Examples: [".kt", ".py", ".ts", ".java", ".md", ".sql"]
+# Default: [".kt", ".py", ".ts", ".java", ".md"]
 priority_extensions = [".kt", ".py", ".ts", ".java", ".md"]
-max_initial_files = 0  # 0 = no limit
+
+# Maximum number of files to index in initial bootstrap
+# 0 = no limit (index everything)
+# >0 = useful for testing/dev (e.g., 100 for quick bootstrap)
+# Default: 0 (unlimited)
+max_initial_files = 0
+
+# Stop bootstrap on first error (true) or continue (false)
+# true = fail-fast (catch errors early but lose some files)
+# false = resilient (skip problematic files, get most content)
+# Default: false (resilient, recommended for production)
 fail_fast = false
+
+# Show progress updates during bootstrap
+# true = log progress every progress_interval_seconds
+# false = silent bootstrap
+# Default: true
 show_progress = true
+
+# How often to log progress updates (seconds)
+# Lower = more frequent updates (verbose)
+# Higher = less frequent updates (cleaner logs)
+# Default: 30 seconds
 progress_interval_seconds = 30
 
 # ------------------------------------------------------------------------------
 # [context.security] - Security and privacy settings
 # ------------------------------------------------------------------------------
 
+# Scrub secrets from indexed content before storing
+# Applies secret_patterns to remove sensitive values
+# Recommended: true for production, false for dev/testing
+# Default: true
 [context.security]
 scrub_secrets = true
+
+# Regex patterns to match and remove from indexed content
+# Each pattern finds sensitive strings and removes them during indexing
+# Default patterns (basic): passwords, API keys, tokens
+# Add custom patterns for enhanced security: AWS keys, private keys, bearer tokens, etc.
 secret_patterns = [
     "password\\s*=\\s*['\"]?.*['\"]?",
     "api[_-]?key\\s*=\\s*['\"]?.*['\"]?",
-    "token\\s*=\\s*['\"]?.*['\"]?",
-    "secret\\s*=\\s*['\"]?.*['\"]?",
-    "bearer\\s+[A-Za-z0-9\\-._~+/]+=*",
-    "aws_access_key_id\\s*=\\s*[A-Z0-9]{20}",
-    "private[_-]?key\\s*=\\s*['\"]?.*['\"]?"
+    "token\\s*=\\s*['\"]?.*['\"]?"
 ]
+
+# Encrypt the context database at rest
+# Requires system support and impacts performance
+# Recommended: false for most cases (use OS-level encryption if needed)
+# Default: false
 encrypt_db = false
 
 # ==============================================================================
@@ -529,29 +663,73 @@ patterns = [
     "test-output.txt"
 ]
 
-# ==============================================================================
-# Configuration Tips:
-# ==============================================================================
+
+
+# ------------------------------------------------------------------------------
+# [agents] - Agent definitions
+# ------------------------------------------------------------------------------
+# Configure the AI agents that will be used by the orchestrator.
+# Each agent needs a unique ID (the part after agents.) and configuration.
 #
-# 1. Start with this example and adjust based on your project's needs
-# 2. Use environment variables for sensitive data: apiKeyRef = "${API_KEY}"
-# 3. Monitor metrics to tune query performance and token usage
-# 4. Adjust chunking settings if results are too granular or too broad
-# 5. Use priority_extensions to speed up initial indexing of critical files
-# 6. Enable scrub_secrets in production environments
-# 7. Tune provider weights based on the type of queries you perform
-# 8. Increase parallel_workers on machines with more CPU cores
-# 9. Use include_paths in [context.watcher] to limit indexing to specific folders:
-#    - If include_paths is set, ONLY those paths will be indexed
-#    - If include_paths is empty/commented, all paths except ignore_patterns are indexed
-#    - Supports 3 types of paths:
-#      * Relative to project root: "src/", "lib/"
-#      * Absolute paths: "/home/user/projects/my-lib/", "/opt/shared-code/"
-#      * Relative to parent dirs: "../sibling-project/", "../../shared/utils/"
-#    - Examples:
-#      * Single project: include_paths = ["src/", "lib/"]
-#      * Multi-project: include_paths = ["src/", "/home/user/other-project/src/", "/opt/libs/"]
-#      * Sibling access: include_paths = ["src/", "../shared-libs/", "../common/"]
-# 10. Use ignore_patterns to exclude specific directories from indexing
-#
-# ==============================================================================
+# Available agent types:
+# - CLAUDE_CODE: Anthropic Claude via Claude Code CLI
+# - CODEX_CLI: OpenAI Codex via Codex CLI
+# - Q_CLI: Amazon Q via Q CLI
+# - GEMINI: Google Gemini
+# - GPT: OpenAI GPT models (requires model parameter)
+# - MISTRAL: Mistral AI models (requires model parameter)
+# - LLAMA: Meta Llama models (requires model parameter)
+# ------------------------------------------------------------------------------
+
+[agents.claude-code]
+type = "CLAUDE_CODE"
+name = "Claude"
+# Optional parameters:
+# model = "claude-3-5-sonnet-20241022"
+# temperature = 0.7
+# maxTokens = 4096
+
+[agents.codex-cli]
+type = "CODEX_CLI"
+name = "Codex"
+# Optional parameters:
+# model = "gpt-4"
+# temperature = 0.7
+
+[agents.q-cli]
+type = "Q_CLI"
+name = "Q"
+# Optional parameters:
+# model = "q-developer"
+
+[agents.gemini]
+type = "GEMINI"
+name = "Gemini"
+# Optional parameters:
+# model = "gemini-1.5-pro"
+# apiKeyRef = "${GOOGLE_API_KEY}"
+
+# Example custom GPT agent
+# [agents.gpt-custom]
+# type = "GPT"
+# name = "Custom GPT"
+# model = "gpt-4-turbo"
+# apiKeyRef = "${OPENAI_API_KEY}"
+# organization = "${OPENAI_ORG}"
+# temperature = 0.7
+# maxTokens = 8192
+
+# Example Mistral agent
+# [agents.mistral]
+# type = "MISTRAL"
+# name = "Mistral Large"
+# model = "mistral-large-latest"
+# apiKeyRef = "${MISTRAL_API_KEY}"
+# temperature = 0.7
+
+# Example Llama agent
+# [agents.llama]
+# type = "LLAMA"
+# name = "Llama 3"
+# model = "llama-3-70b"
+# apiKeyRef = "${LLAMA_API_KEY}"
