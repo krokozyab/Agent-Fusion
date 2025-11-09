@@ -42,7 +42,7 @@ class FileIndexer(
     private val tokenEstimator: TokenEstimator = TokenEstimator,
     private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
     private val readCharset: Charset = StandardCharsets.UTF_8,
-    private val embeddingBatchSize: Int = 64,
+    private val embeddingBatchSize: Int = 32,  // Reduced from 64 to match LocalEmbedder.maxBatchSize and reduce memory pressure
     private val maxFileSizeMb: Int = 5,
     private val warnFileSizeMb: Int = 2
 ) {
@@ -173,13 +173,26 @@ class FileIndexer(
                 }
             }
 
-            IndexResult(
+            val embeddingCount = embeddings.size
+            val chunkCount = persistedArtifacts.chunks.size
+            val largeFile = normalizedChunks.size > 20
+
+            // Create result object and immediately allow large data structures to be freed
+            val result = IndexResult(
                 success = true,
                 relativePath = relativePath,
-                chunkCount = persistedArtifacts.chunks.size,
-                embeddingCount = if (persistedArtifacts.chunks.isEmpty()) 0 else embeddings.size,
+                chunkCount = chunkCount,
+                embeddingCount = if (persistedArtifacts.chunks.isEmpty()) 0 else embeddingCount,
                 error = null
             )
+
+            // MEMORY CLEANUP: Force GC after file is persisted to free embeddings, chunks, and ONNX tensors
+            // This is critical for large files (PDFs with many chunks) to prevent memory accumulation
+            if (largeFile) {
+                System.gc()
+            }
+
+            result
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
             val message = throwable.message ?: throwable::class.simpleName ?: "Unknown indexing error"
@@ -280,6 +293,12 @@ class FileIndexer(
                 throw IllegalStateException("Embedder returned ${batchResult.size} vectors for batch of size ${batch.size}")
             }
             results.addAll(batchResult)
+
+            // AGGRESSIVE GC: Force memory cleanup between batches to prevent accumulation
+            // This is critical for large files (PDFs) to avoid OOM errors
+            // ONNX inference creates large intermediate tensors that should be freed immediately
+            System.gc()
+
             index = end
         }
 
