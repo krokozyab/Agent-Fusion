@@ -206,9 +206,10 @@ object ContextDatabase {
             st.execute("PRAGMA preserve_insertion_order=false")
             // Force periodic checkpoints to keep transactions from ballooning indefinitely
             st.execute("PRAGMA checkpoint_threshold='8GB'")
-            // Enable compression for embeddings and chunk content (50-70% storage reduction expected)
-            st.execute("PRAGMA compression = 'zstd'")
-            log.info("Applied DuckDB pragmas: threads=$threads, compression=zstd (expected 50-70% storage reduction for embeddings)")
+            // Note: Compression pragma (PRAGMA compression = 'zstd') available in DuckDB 1.5+
+            // Current version (1.4.0) uses automatic compression for column storage
+            // Future optimization: upgrade DuckDB and enable explicit compression
+            log.info("Applied DuckDB pragmas: threads=$threads, memory_limit=16GB")
         }
     }
 
