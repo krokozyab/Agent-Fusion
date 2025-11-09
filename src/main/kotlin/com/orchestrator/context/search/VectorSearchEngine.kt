@@ -10,6 +10,13 @@ class VectorSearchEngine(
     private val repository: EmbeddingRepository = EmbeddingRepository
 ) {
 
+    companion object {
+        // Minimum cosine similarity score threshold (0.0-1.0) for result inclusion
+        // Default 0.3 filters out low-relevance matches while preserving valid results
+        // Can be adjusted per-query via minScore parameter
+        const val DEFAULT_MIN_SCORE = 0.3f
+    }
+
     data class Filters(
         val languages: Set<String> = emptySet(),
         val kinds: Set<ChunkKind> = emptySet(),
@@ -36,9 +43,11 @@ class VectorSearchEngine(
         queryVector: FloatArray,
         k: Int,
         filters: Filters = Filters.NONE,
-        model: String? = null
+        model: String? = null,
+        minScore: Float = DEFAULT_MIN_SCORE
     ): List<SearchResult> {
         require(k > 0) { "k must be positive" }
+        require(minScore in 0f..1f) { "minScore must be between 0.0 and 1.0" }
         if (queryVector.isEmpty()) return emptyList()
 
         val normalizedQuery = VectorOps.normalize(queryVector)
@@ -69,16 +78,20 @@ class VectorSearchEngine(
                         score
                     }
 
-                    add(
-                        ScoredChunk(
-                            chunk = row.chunk,
-                            path = row.relativePath,
-                            language = row.language,
-                            score = adjustedScore,
-                            embeddingId = row.embedding.id,
-                            vector = normalizedCandidate
+                    // Filter by minimum score threshold: reduces result set size and memory usage
+                    // for large indexes, prevents low-relevance matches from being returned
+                    if (adjustedScore >= minScore) {
+                        add(
+                            ScoredChunk(
+                                chunk = row.chunk,
+                                path = row.relativePath,
+                                language = row.language,
+                                score = adjustedScore,
+                                embeddingId = row.embedding.id,
+                                vector = normalizedCandidate
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
