@@ -4,6 +4,9 @@ import com.orchestrator.domain.*
 import com.orchestrator.storage.Database
 import java.sql.SQLException
 import java.sql.Timestamp
+import org.slf4j.LoggerFactory
+
+private val log = LoggerFactory.getLogger(ProposalRepository::class.java)
 
 /**
  * JDBC repository for Proposal entities.
@@ -14,6 +17,7 @@ import java.sql.Timestamp
 object ProposalRepository {
     // region Public API
     fun insert(p: Proposal) = Database.withConnection { conn ->
+        // Verify task exists before inserting proposal
         conn.prepareStatement("SELECT 1 FROM tasks WHERE id = ?").use { checkPs ->
             checkPs.setString(1, p.taskId.value)
             checkPs.executeQuery().use { rs ->
@@ -22,6 +26,7 @@ object ProposalRepository {
                 }
             }
         }
+
         val sql = """
             INSERT INTO proposals (
                 id, task_id, agent_id, input_type, content,
@@ -31,19 +36,29 @@ object ProposalRepository {
                 ?, ?, ?, ?, ?
             )
         """.trimIndent()
-        conn.prepareStatement(sql).use { ps ->
-            var i = 1
-            ps.setString(i++, p.id.value)
-            ps.setString(i++, p.taskId.value)
-            ps.setString(i++, p.agentId.value)
-            ps.setString(i++, p.inputType.name)
-            ps.setString(i++, anyToJson(p.content))
-            ps.setDouble(i++, p.confidence)
-            ps.setInt(i++, p.tokenUsage.inputTokens)
-            ps.setInt(i++, p.tokenUsage.outputTokens)
-            ps.setTimestamp(i++, Timestamp.from(p.createdAt))
-            ps.setString(i, mapToJson(p.metadata))
-            ps.executeUpdate()
+
+        try {
+            conn.prepareStatement(sql).use { ps ->
+                var i = 1
+                ps.setString(i++, p.id.value)
+                ps.setString(i++, p.taskId.value)
+                ps.setString(i++, p.agentId.value)
+                ps.setString(i++, p.inputType.name)
+                ps.setString(i++, anyToJson(p.content))
+                ps.setDouble(i++, p.confidence)
+                ps.setInt(i++, p.tokenUsage.inputTokens)
+                ps.setInt(i++, p.tokenUsage.outputTokens)
+                ps.setTimestamp(i++, Timestamp.from(p.createdAt))
+                ps.setString(i, mapToJson(p.metadata))
+                val rowsInserted = ps.executeUpdate()
+                if (rowsInserted <= 0) {
+                    throw SQLException("Failed to insert proposal: executeUpdate returned $rowsInserted")
+                }
+                log.debug("Inserted proposal ${p.id.value} for task ${p.taskId.value} from agent ${p.agentId.value}")
+            }
+        } catch (e: SQLException) {
+            log.error("Failed to insert proposal ${p.id.value} for task ${p.taskId.value}: ${e.message}", e)
+            throw e
         }
     }
 

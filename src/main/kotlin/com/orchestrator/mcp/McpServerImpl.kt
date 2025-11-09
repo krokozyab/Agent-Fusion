@@ -936,7 +936,8 @@ class McpServerImpl(
             val sessionId = currentSessionId.get()
             sessionId?.let { sessionToAgent[it]?.value }
                 ?: resolveAgentIdOrDefault(null)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            log.warn("Failed to resolve agent: ${e.message}")
             null
         }
 
@@ -959,7 +960,15 @@ class McpServerImpl(
             }
             "respond_to_task" -> {
                 val (p, resolvedId) = mapRespondToTaskParams(params)
-                respondToTaskTool.execute(p, resolvedId)
+                try {
+                    log.debug("Executing respond_to_task for taskId=${p.taskId}, resolvedAgentId=$resolvedId")
+                    val result = respondToTaskTool.execute(p, resolvedId)
+                    log.info("respond_to_task succeeded: proposalId=${(result as? RespondToTaskTool.Result)?.proposalId}")
+                    result
+                } catch (e: Exception) {
+                    log.error("respond_to_task failed: taskId=${p.taskId}, agent=$resolvedId", e)
+                    throw e
+                }
             }
             "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
             "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))

@@ -105,7 +105,8 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    "."
+    ".",
+    "/Users/sergeyrudenko/Downloads"
 ]
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
@@ -269,8 +270,7 @@ dimension = 384
 # Batch size for embedding generation
 # Higher values = faster (more GPU utilization) but more memory
 # Lower values = slower but less memory
-# Default: 128 (good balance for typical hardware)
-batch_size = 128
+batch_size = 16
 
 # Normalize embeddings to unit length (recommended for cosine similarity)
 # Required for MMR reranking and semantic search
@@ -285,7 +285,7 @@ cache_enabled = true
 
 # Example: Using a larger, higher-quality model
 # [context.embedding]
-# model = "sentence-transformers/all-mpnet-base-v2"
+# model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
 # dimension = 768
 # batch_size = 64  # Reduce for larger model
 # normalize = true
@@ -326,7 +326,7 @@ preserve_jsdoc = true
 # - Lower values (5-7): Focused, high-quality results for targeted searches
 # - Higher values (12-15): More comprehensive coverage for broad searches
 # Default: 12 (balanced for most use cases)
-default_k = 12
+default_k = 6
 
 # mmr_lambda: Maximal Marginal Relevance tradeoff (0.0 = max diversity, 1.0 = max relevance)
 # - 0.0: Return diverse results (some low-relevance items for diversity)
@@ -504,6 +504,7 @@ progress_interval_seconds = 30
 # Applies secret_patterns to remove sensitive values
 # Recommended: true for production, false for dev/testing
 # Default: true
+# not implemented yet todo
 [context.security]
 scrub_secrets = true
 
@@ -511,6 +512,7 @@ scrub_secrets = true
 # Each pattern finds sensitive strings and removes them during indexing
 # Default patterns (basic): passwords, API keys, tokens
 # Add custom patterns for enhanced security: AWS keys, private keys, bearer tokens, etc.
+# not implemented yet todo
 secret_patterns = [
     "password\\s*=\\s*['\"]?.*['\"]?",
     "api[_-]?key\\s*=\\s*['\"]?.*['\"]?",
@@ -521,6 +523,7 @@ secret_patterns = [
 # Requires system support and impacts performance
 # Recommended: false for most cases (use OS-level encryption if needed)
 # Default: false
+# not implemented yet todo
 encrypt_db = false
 
 # ==============================================================================
