@@ -20,18 +20,6 @@ It has two independent components (each can be used alone or together):
 | **[Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md)** | How to coordinate multiple AIs (optional) |
 | **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
 
-## Technical Documentation
-
-For developers and advanced users:
-
-| Reference | Details |
-|----------|---------|
-| [Context Engine Architecture](docs/README_CONTEXT_ADDON.md) | File indexing, embeddings, search, and sync |
-| [Task Manager Architecture](docs/README_TASK_ORCHESTRATOR.md) | Task routing, consensus, voting, and workflows |
-| [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md) | How to optimize indexing for your project |
-| [API Reference](docs/API_REFERENCE.md) | All available endpoints and tools |
-| [Development Guide](docs/DEVELOPMENT.md) | Building, testing, contributing |
-
 ---
 
 ## Context Engine: Intelligent Search & Indexing
@@ -96,21 +84,6 @@ Workflow coordination for multiple AIs (optional addon):
 - Tracks all proposals, votes, and final decisions
 - Provides web dashboard with real-time updates
 - Can be used standalone for traditional task management
-
----
-
-## In-Depth Guides
-
-For developers and technical setup:
-
-| Question | Where to Look |
-|----------|---------------|
-| How do I install it? | [Installation Guide](docs/INSTALL.md) |
-| How does the Context Engine work? | [Context Engine Architecture](docs/CONTEXT_ADDON_ARCHITECTURE.md) |
-| How does the Task Manager work? | [Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md) |
-| How do I use it with my AI assistants? | [AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) |
-| What API endpoints are available? | [API Reference](docs/API_REFERENCE.md) |
-| How do I deploy this? | [Deployment Guide](docs/DEPLOYMENT_NOTES.md) |
 
 ---
 
