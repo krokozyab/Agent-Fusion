@@ -4,7 +4,7 @@ Agent Fusion gives multiple AI coding assistants instant access to your files—
 
 It has two independent components (each can be used alone or together):
 
-- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Exposes a `query_context` tool that AI coding agents use to search your indexed files without you pasting them. Semantic search + symbol search + full-text search all in one. Configure which folders to watch and which file types to index in `fusionagent.toml`.
+- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Your AI agents can search everything instantly—just ask them to "use query_context" in your prompts. No more copy-pasting code. Configure which folders to watch and which file types to index in `fusionagent.toml`.
 - **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
 🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
@@ -36,14 +36,14 @@ For developers and advanced users:
 
 ## Context Engine: Intelligent Search & Indexing
 
-The **Context Engine** automatically makes your files searchable through a `query_context` tool that coding agents can call:
+The **Context Engine** automatically indexes your files so AI agents can search them instantly:
 
-1. **Watches configured folders** – Automatically finds and tracks files you specify (code, documents, PDFs; respects `.gitignore`)
-2. **Understands meaning** – Creates AI-powered search so semantic meaning is captured, not just keywords
-3. **Keeps everything in sync** – Changes detected instantly, index always current
-4. **Exposes `query_context` tool** – Agents call this to search without manual pasting. Provides semantic search, symbol lookup, full-text search, and git history in one query
+1. **Watches your folders** – Automatically indexes files you specify (code, documents, PDFs; respects `.gitignore`)
+2. **Understands meaning** – Smart search that finds what you're looking for, not just keyword matches
+3. **Keeps everything fresh** – Changes detected instantly, always up-to-date
+4. **Ready for your agents** – Ask Claude or Codex to "use query_context" in your prompts, and they'll search your indexed files instantly
 
-**How agents use it**: When Claude, Codex, or any AI assistant needs to understand your codebase or find information, they call the `query_context` tool with a question like "authentication token validation" and instantly get relevant code snippets ranked by relevance.
+**How to use it**: Just add to your prompt: *"Use query_context to find [what you're looking for]"* and your AI agent will search your indexed files and give you relevant results. No copy-pasting needed!
 
 The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
@@ -81,14 +81,13 @@ The Task Manager works best when AIs have access to the Context Engine—they st
 
 ### Context Engine
 Intelligent indexing and search for any files (works standalone):
-- Watches configured folders for changes, automatically re-indexes
-- Supports any file types: code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and more
-- Creates semantic search index (understands meaning, not just keywords)
-- Stores everything locally in DuckDB (never sent to cloud)
-- Exposes `query_context` MCP tool that agents call to search without pasting files
-- Provides hybrid search: semantic (AI-powered) + symbol (code definitions) + full-text (keyword) + git history
-- Can be used without Task Manager for standalone intelligent file search
-- Agents (Claude, Codex, etc.) automatically get access to `query_context` and use it throughout conversations
+- **Setup**: Configure folders to watch and file types to index in `fusionagent.toml`
+- **Indexing**: Automatically finds and indexes your files, watches for changes
+- **Supports**: Code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and any file type you configure
+- **Search**: Smart search that understands meaning, not just keywords (semantic + symbol + full-text + git history)
+- **Local**: Everything stored locally in DuckDB, never sent to cloud
+- **Agent Access**: Tell your AI agents "use query_context to find X" and they'll search instantly
+- **Standalone**: Works independently without Task Manager—great for teams who just need smart file search
 
 ### Task Manager
 Workflow coordination for multiple AIs (optional addon):
@@ -117,9 +116,9 @@ For developers and technical setup:
 
 ## Key Features
 
-✅ **`query_context` Tool for Agents** – AI assistants call `query_context` to search your indexed files without you pasting them. Automatic semantic search, symbol lookup, full-text search, git history in one tool
+✅ **Search Without Copy-Pasting** – Just tell your AI agent "use query_context" in your prompts. They'll search your files instantly—no more pasting code snippets
 
-✅ **Multiple AI Assistants, Same Knowledge Base** – Connect Claude, Codex, Gemini, Amazon Q—they all have access to `query_context` and see the same indexed files
+✅ **Multiple AI Assistants Share Everything** – Connect Claude, Codex, Gemini, Amazon Q—they all search the same indexed files and get the same results
 
 ✅ **Automatic Routing** – Simple tasks go to one AI, important/complex tasks automatically go to multiple AIs for discussion
 
