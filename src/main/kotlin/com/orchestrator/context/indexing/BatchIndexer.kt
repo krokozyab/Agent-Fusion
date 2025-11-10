@@ -77,6 +77,11 @@ class BatchIndexer(
         val successes = Collections.synchronizedList(mutableListOf<IndexResult>())
         val failures = Collections.synchronizedList(mutableListOf<BatchFailure>())
 
+        // Performance metrics tracking: monitor embeddings/second to detect memory issues or slowdowns
+        val embeddingCounter = AtomicInteger(0)
+        val reportInterval = 10  // seconds between progress reports
+        var lastReportTime = start
+
         val requestedParallelism = if (parallelism > 0) parallelism else defaultParallelism
         val workerLimit = max(1, min(requestedParallelism, totalFiles))
         log.debug(
@@ -94,6 +99,8 @@ class BatchIndexer(
                         if (result != null && result.success) {
                             successes.add(result)
                             successCounter.incrementAndGet()
+                            // Count embeddings for performance metrics
+                            embeddingCounter.addAndGet(result.embeddingCount)
                         }
                         if (failure != null) {
                             failures.add(failure)
@@ -101,6 +108,24 @@ class BatchIndexer(
                         }
 
                         val processed = processedCounter.incrementAndGet()
+
+                        // Periodic performance metrics reporting (every 10 seconds)
+                        val now = Instant.now(clock)
+                        val elapsedSinceReport = Duration.between(lastReportTime, now).toSeconds()
+                        if (elapsedSinceReport >= reportInterval && processed > 0) {
+                            val embeddingsSoFar = embeddingCounter.get()
+                            val elapsedSeconds = Duration.between(start, now).toSeconds().coerceAtLeast(1)
+                            val embeddingsPerSecond = embeddingsSoFar / elapsedSeconds.toDouble()
+                            log.info(
+                                "Batch indexing progress: {}/{} files, {} embeddings ({:.0f} eps)",
+                                processed,
+                                totalFiles,
+                                embeddingsSoFar,
+                                embeddingsPerSecond
+                            )
+                            lastReportTime = now
+                        }
+
                         progressListener?.invoke(
                             BatchProgress(
                                 totalFiles = totalFiles,
@@ -132,6 +157,27 @@ class BatchIndexer(
             completedAt = completed,
             durationMillis = Duration.between(start, completed).toMillis()
         )
+
+        // Final metrics summary: shows overall performance for debugging and optimization
+        val totalEmbeddings = embeddingCounter.get()
+        val totalSeconds = Duration.between(start, completed).toSeconds().coerceAtLeast(1)
+        val finalEmbeddingsPerSecond = totalEmbeddings / totalSeconds.toDouble()
+        log.info(
+            "Batch indexing complete: {} files ({} succeeded, {} failed), {} embeddings in {}s ({:.0f} eps)",
+            totalFiles,
+            successCounter.get(),
+            failureCounter.get(),
+            totalEmbeddings,
+            totalSeconds,
+            finalEmbeddingsPerSecond
+        )
+        // Alert if performance is degraded: < 100 eps indicates memory or GC issues
+        if (totalEmbeddings > 0 && finalEmbeddingsPerSecond < 100) {
+            log.warn(
+                "Batch indexing performance degraded: {:.0f} eps (expected 500+). Check memory and GC logs.",
+                finalEmbeddingsPerSecond
+            )
+        }
 
         return BatchResult(
             successes = successes.toList(),
