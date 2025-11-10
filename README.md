@@ -4,7 +4,7 @@ Agent Fusion gives multiple AI coding assistants instant access to your files—
 
 It has two independent components (each can be used alone or together):
 
-- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Your AI agents can search everything instantly—just ask them to "use query_context" in your prompts. No more copy-pasting code. Configure which folders to watch and which file types to index in `fusionagent.toml`.
+- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Your AI agents can search everything instantly—just ask them to "use query_context" in your prompts. No more copy-pasting code. Deploy with just 2 files: JAR + `fusionagent.toml`. Includes lightweight embedding model; swap for a more powerful model if needed.
 - **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
 🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
@@ -135,26 +135,6 @@ The system smartly decides how to handle each task:
 - **Complex tasks** (design new feature) → Go to two AIs who discuss and decide together
 - **Critical decisions** (security, architecture) → All AIs vote, you see all viewpoints
 - **Can be parallelized** (test writing, code generation) → Multiple AIs work in parallel on pieces
-
----
-
-## Deployment
-
-Agent Fusion is super simple to deploy. You only need **2 files**:
-
-1. **JAR file** – The full application (download from releases)
-2. **fusionagent.toml** – Your configuration (customize watch paths, file types, etc.)
-
-That's it! No complex setup, no dependencies to install.
-
-### Embedding Models
-
-Agent Fusion comes with a **lightweight embedding model built into the JAR** that works great for most projects. But if you want more powerful semantic search:
-
-- **Use the built-in model** – Fast, low memory (default)
-- **Or configure a more powerful model** – In `fusionagent.toml`, point to a larger embedding model for even better search accuracy
-
-Just one config change if you want to upgrade. Everything else stays the same.
 
 ---
 
