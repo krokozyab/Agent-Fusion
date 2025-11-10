@@ -1,10 +1,10 @@
 # Agent Fusion
 
-Agent Fusion gives multiple AI coding assistants instant access to your codebase through intelligent indexing, and optionally coordinates their work through a task system.
+Agent Fusion gives multiple AI coding assistants instant access to your files—code, documents, PDFs, and more—through intelligent indexing, and optionally coordinates their work through a task system.
 
 It has two independent components (each can be used alone or together):
 
-- **Context Engine** – Automatically indexes and searches your project. Creates a searchable, intelligent knowledge base so any AI assistant can instantly find and understand your code without you pasting it.
+- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Creates a searchable, intelligent knowledge base so any AI assistant can instantly find and understand your files without you pasting them. Configure which folders to watch and which file types to index in `fusionagent.toml`.
 - **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
 🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
@@ -16,7 +16,7 @@ It has two independent components (each can be used alone or together):
 | Start Here | What You'll Learn |
 |----------|---------|
 | **[Installation Guide](docs/INSTALL.md)** | Step-by-step setup (takes 5-10 minutes) |
-| **[Context Engine Guide](docs/README_CONTEXT_ADDON.md)** | How to index your project and search your code |
+| **[Context Engine Guide](docs/README_CONTEXT_ADDON.md)** | How to index and search any files (code, documents, PDFs) |
 | **[Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md)** | How to coordinate multiple AIs (optional) |
 | **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
 
@@ -34,24 +34,26 @@ For developers and advanced users:
 
 ---
 
-## Context Engine: Intelligent Code Indexing
+## Context Engine: Intelligent Search & Indexing
 
-The **Context Engine** automatically makes your code searchable and understandable:
+The **Context Engine** automatically makes your files searchable and understandable:
 
-1. **Watches your project** – Automatically finds and tracks all your code files (respects `.gitignore`)
-2. **Understands the code** – Creates AI-powered search so meaning is captured, not just keywords
+1. **Watches configured folders** – Automatically finds and tracks files you specify (code, documents, PDFs; respects `.gitignore`)
+2. **Understands meaning** – Creates AI-powered search so semantic meaning is captured, not just keywords
 3. **Keeps everything in sync** – Changes detected instantly, index always current
-4. **Answers questions** – Any AI can ask "What is this function?" or "Find code similar to X"
+4. **Answers questions** – Any AI can ask "What is this function?" or "Find documents about X"
 
-The Context Engine is independent—use it alone for smart code search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally.
+The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
 ### Context Engineering
 
-**Context Engineering** is the practice of optimizing how your project is indexed for best results:
+**Context Engineering** is the practice of optimizing how your files are indexed for best results:
 
+- **Watch paths** – Which folders to index (codebase, documents, research, etc.)
+- **File types** – Which extensions to include (.kt, .py, .pdf, .docx, etc.)
 - **Ignore patterns** – What files to skip (build artifacts, node_modules, etc.)
-- **Chunk strategy** – How code is split for understanding (function-level vs file-level)
-- **Embedding tuning** – What aspects of code are emphasized in search
+- **Chunk strategy** – How files are split for understanding (function-level, section-level, paragraph-level)
+- **Embedding tuning** – What aspects of content are emphasized in search
 - **Refresh strategy** – How often to update the index
 
 Learn more in [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md).
@@ -76,12 +78,13 @@ The Task Manager works best when AIs have access to the Context Engine—they st
 ## Architecture: Two Independent Systems
 
 ### Context Engine
-Intelligent code indexing and search (works standalone):
-- Watches filesystem for changes, automatically re-indexes
-- Creates semantic search index (understands code meaning)
+Intelligent indexing and search for any files (works standalone):
+- Watches configured folders for changes, automatically re-indexes
+- Supports any file types: code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and more
+- Creates semantic search index (understands meaning, not just keywords)
 - Stores everything locally in DuckDB (never sent to cloud)
 - Exposes REST API for querying: `query_context`, symbol search, full-text search
-- Can be used without Task Manager for just smart code search
+- Can be used without Task Manager for standalone intelligent file search
 
 ### Task Manager
 Workflow coordination for multiple AIs (optional addon):
@@ -100,7 +103,7 @@ For developers and technical setup:
 | Question | Where to Look |
 |----------|---------------|
 | How do I install it? | [Installation Guide](docs/INSTALL.md) |
-| How does the Shared Brain work? | [Shared Brain Architecture](docs/CONTEXT_ADDON_ARCHITECTURE.md) |
+| How does the Context Engine work? | [Context Engine Architecture](docs/CONTEXT_ADDON_ARCHITECTURE.md) |
 | How does the Task Manager work? | [Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md) |
 | How do I use it with my AI assistants? | [AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) |
 | What API endpoints are available? | [API Reference](docs/API_REFERENCE.md) |
@@ -120,7 +123,7 @@ For developers and technical setup:
 
 ✅ **Private & Local** – Everything runs on your machine. Your code never leaves your computer
 
-✅ **Always Fresh** – Automatically detects file changes and updates the Shared Brain instantly
+✅ **Always Fresh** – Automatically detects file changes and updates the Context Engine index instantly
 
 ## How It Routes Work
 
