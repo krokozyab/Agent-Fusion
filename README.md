@@ -1,127 +1,117 @@
 # Agent Fusion
 
-Agent Fusion is a local MCP (Model Context Protocol) stack that lets multiple coding agents collaborate while sharing a rich project index. It is composed of two flagship modules:
+Agent Fusion lets multiple AI coding assistants work together on your project while sharing a **shared knowledge base**. Instead of each AI starting from scratch, they all work from the same up-to-date understanding of your code.
 
-- **Task Orchestrator** – multi-agent workflow engine, consensus router, and web dashboard.
-- **Context Addon** – live filesystem indexer with embeddings, search providers, and context tools.
+It has two core parts:
 
-🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see consensus collaboration in action.
+- **Shared Brain** – Automatically indexes your project files, remembers them as searchable knowledge, and keeps everything in sync. All AI assistants can instantly search and understand your entire codebase.
+- **Task Manager** – Coordinates work between multiple AIs, lets them vote on important decisions (consensus), and shows you everything happening in a web dashboard.
 
----
-
-## Quick Links
-
-| Resource | Purpose |
-|----------|---------|
-| [Installation](docs/INSTALL.md) | Set up the orchestrator, context addon, and agent clients |
-| [Agent playbook](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) | Share with Claude/Codex/Gemini/Q before they connect |
-| [Task Orchestrator README](docs/README_TASK_ORCHESTRATOR.md) | Deep dive on routing, consensus, UI, and APIs |
-| [Context Addon README](docs/README_CONTEXT_ADDON.md) | Indexing pipeline, MCP tools, dashboard, troubleshooting |
-| [API reference](docs/API_REFERENCE.md) | HTTP + MCP endpoints |
-| [Development guide](docs/DEVELOPMENT.md) | Build, test, contribution workflow |
-
----
-
-## Module Overview
-
-### Task Orchestrator
-The control plane for multi-agent work. It manages task queues, consensus voting, routing policies (solo/consensus/sequential/parallel), and surfaces activity through the `/tasks`, `/files`, and `/index` dashboards. Read the dedicated guide here → [docs/README_TASK_ORCHESTRATOR.md](docs/README_TASK_ORCHESTRATOR.md).
-
-```
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│              │  │              │  │              │  │              │
-│ Claude Code  │  │  Codex CLI   │  │  Amazon Q    │  │   Gemini     │
-│  (Agent 1)   │  │  (Agent 2)   │  │  (Agent 3)   │  │  (Agent 4)   │
-│              │  │              │  │              │  │              │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                 │                 │                 │
-       │     MCP Client Connections (bidirectional)          │
-       │                 │                 │                 │
-       └─────────────────┼─────────────────┼─────────────────┘
-                         ▼                                     
-    ┌─────────────────────────────────────────────────────────────┐
-    │                     MCP Orchestrator Server                 │
-    │─────────────────────────────────────────────────────────────│
-    │  Shared Context & Task Queue                                │
-    │   • Task routing & assignment                               │
-    │   • Proposals, reviews, consensus voting                    │
-    │   • Persistent history & metrics                            │
-    │                                                             │
-    │  Context Storage (DuckDB)                                   │
-    │   • Tasks, decisions, snapshots                             │
-    │   • Embeddings & filesystem metadata (via Context Addon)    │
-    │                                                             │
-    │  Event Bus + Web Dashboard                                  │
-    │   • Live SSE feeds for tasks/index progress                 │
-    │   • `/tasks`, `/files`, `/index` observability              │
-    └─────────────────────────────────────────────────────────────┘
-```
-
-### Context Addon
-Ingests project files, keeps DuckDB-based embeddings in sync, and exposes retrieval tools (semantic, symbol, raw text) to every agent. It also powers the `/index` status page with filesystem reconciliations and rebuild controls. Details live here → [docs/README_CONTEXT_ADDON.md](docs/README_CONTEXT_ADDON.md).
+🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
 
 ---
 
 ## Getting Started
 
-1. **Install & configure**  
-   Follow [docs/INSTALL.md](docs/INSTALL.md) to build the server and point your agents at the MCP endpoint. Configure watch roots and indexing limits in `fusionagent.toml`.
+| Start Here | What You'll Learn |
+|----------|---------|
+| **[Installation Guide](docs/INSTALL.md)** | Step-by-step setup (takes 5-10 minutes) |
+| **[How It Works](docs/CONTEXT_AND_AGENTS.md)** | Simple explanation of Shared Brain and how AI assistants use it |
+| **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
 
-2. **Prime your agents**  
-   In their first session, tell each agent:  
-   ```text
-   Read and follow the instructions in docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md
-   ```
-   That equips them with routing intents, tool protocols, and handoff etiquette.
+## Technical Documentation
 
-3. **Run the orchestrator**  
-   ```bash
-   ./gradlew run
-   ```  
-   - Web UI: `http://localhost:8081`  
-   - MCP endpoint: configured in `fusionagent.toml`
+For developers and advanced users:
 
-4. **Connect agents & collaborate**  
-   Agents can now create tasks, join consensus rounds, and query the shared index. Watch `/tasks` for live proposals and `/index` for indexing health.
+| Reference | Details |
+|----------|---------|
+| [Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md) | How task routing, voting, and coordination works |
+| [Shared Brain Guide](docs/README_CONTEXT_ADDON.md) | How file indexing, search, and sync works |
+| [API Reference](docs/API_REFERENCE.md) | All available endpoints and tools |
+| [Development Guide](docs/DEVELOPMENT.md) | Building, testing, contributing |
 
 ---
 
-## Documentation Map
+## The Shared Brain
 
-| Topic | Key References |
-|-------|----------------|
-| Architecture & sequences | [WEB_DASHBOARD_ARCHITECTURE.md](docs/WEB_DASHBOARD_ARCHITECTURE.md), [SEQUENCE_DIAGRAMS.md](docs/SEQUENCE_DIAGRAMS.md) |
-| Task routing & decision making | [TASK_ROUTING_GUIDE.md](docs/TASK_ROUTING_GUIDE.md), [STATE_MACHINE.md](docs/STATE_MACHINE.md) |
-| Consensus workflows | [IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), [FUNCTIONAL_REQUIREMENTS.md](docs/FUNCTIONAL_REQUIREMENTS.md) |
-| Context indexing | [CONTEXT_ADDON_ARCHITECTURE.md](docs/CONTEXT_ADDON_ARCHITECTURE.md), [CONTEXT_IMPLEMENTATION_PLAN.md](devdoc/CONTEXT_IMPLEMENTATION_PLAN.md) |
-| MCP tools & usage | [MCP_TOOL_QUICK_REFERENCE.md](docs/MCP_TOOL_QUICK_REFERENCE.md), [API_REFERENCE.md](docs/API_REFERENCE.md) |
-| Deployment & operations | [DEPLOYMENT_NOTES.md](docs/DEPLOYMENT_NOTES.md), [ONNX_MODEL_SETUP.md](docs/ONNX_MODEL_SETUP.md) |
+The **Shared Brain** is the heart of Agent Fusion. It automatically:
+
+1. **Watches your project** – Automatically finds and tracks all your code files
+2. **Understands the code** – Creates searchable knowledge (using AI embeddings) so the meaning of code is captured, not just the text
+3. **Keeps everything in sync** – When you change files, the Shared Brain updates instantly
+4. **Answers questions** – All your AI assistants can ask "What is this function?" or "Find code similar to X" and get instant answers
+
+The Shared Brain is configured in `fusionagent.toml` and stores everything in a local database file that never leaves your computer.
+
+**In practice**: Instead of pasting code into every AI conversation, your assistants can search the Shared Brain once—it's always there and always current.
+
+## How AI Assistants Work Together
+
+Your AI assistants (Claude, Codex, etc.) work together using the **Task Manager**:
+
+1. **One AI starts a task** – "Design a new authentication system"
+2. **The system routes it smartly** – Simple tasks go to one AI, complex/important tasks go to multiple AIs to discuss
+3. **AI assistants collaborate** – They can see each other's ideas, discuss pros/cons
+4. **The group decides** – For important decisions, they vote and the system shows you all viewpoints
+5. **Everything is tracked** – All proposals, votes, and final decisions are saved so you can see the full reasoning
+
+You can see everything happening in real-time on the web dashboard. All AIs are working from the same Shared Brain, so they stay coordinated.
+
+## What's Inside
+
+### Shared Brain
+The engine that keeps your code indexed and searchable:
+- Automatically finds all project files
+- Creates AI-powered search index (everything searchable by meaning, not just keywords)
+- Stays in sync as you edit files
+- Provides fast answers to "find code similar to X" or "what does this do?"
+
+### Task Manager
+The coordination system for multiple AIs:
+- Routes tasks to the right AI(s) based on complexity
+- Enables voting and consensus for important decisions
+- Shows all activity on a web dashboard
+- Saves complete history of decisions and reasoning
 
 ---
 
-## Why Agent Fusion?
+## In-Depth Guides
 
-- **True bidirectional collaboration** – any agent can open tasks, route work, or trigger consensus.
-- **Rich project context** – fast, multi-root indexing with embeddings, chunking, and filesystem reconciliation.
-- **Evidence-driven decisions** – proposals, votes, and final decisions are persisted with full audit history.
-- **Event-driven architecture** – async event bus feeds dashboards, SSE progress streams, and external integrations.
+For developers and technical setup:
 
-Agent Fusion makes local multi-agent workflows practical: plug in your favorite coding LLMs, give them a shared brain, and keep everything observable from one unified UI.
+| Question | Where to Look |
+|----------|---------------|
+| How do I install it? | [Installation Guide](docs/INSTALL.md) |
+| How does the Shared Brain work? | [Shared Brain Architecture](docs/CONTEXT_ADDON_ARCHITECTURE.md) |
+| How does the Task Manager work? | [Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md) |
+| How do I use it with my AI assistants? | [AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) |
+| What API endpoints are available? | [API Reference](docs/API_REFERENCE.md) |
+| How do I deploy this? | [Deployment Guide](docs/DEPLOYMENT_NOTES.md) |
 
-The system supports four routing strategies that are automatically determined based on task characteristics:
+---
 
-| Strategy | When Used | Agents | Use Case |
-|----------|-----------|--------|----------|
-| SOLO | Low complexity/risk | 1 | Simple tasks, documentation |
-| CONSENSUS | High risk, critical | 2+ | Architecture, security decisions |
-| SEQUENTIAL | High complexity | 2+ | Planning, multi-phase projects |
-| PARALLEL | Research/testing, divisible tasks | 2+ | Code generation, data analysis |
+## Key Features
 
-**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically select SEQUENTIAL or PARALLEL strategies based on complexity, risk, task type, and natural language signals (e.g., "parallel", "concurrent").
+✅ **Multiple AI Assistants, Same Brain** – Connect Claude, Codex, Gemini, Amazon Q—they all see the same code knowledge
 
-### Agent Directives
+✅ **Automatic Routing** – Simple tasks go to one AI, important/complex tasks automatically go to multiple AIs for discussion
 
-Agents automatically detect routing signals from natural language. For complete directive documentation, see [Agent Orchestrator Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md#directive-reference).
+✅ **Real-Time Collaboration** – Watch AIs collaborate and vote on decisions in real-time on your web dashboard
+
+✅ **Complete Transparency** – Every decision, proposal, and vote is saved with full reasoning—no black boxes
+
+✅ **Private & Local** – Everything runs on your machine. Your code never leaves your computer
+
+✅ **Always Fresh** – Automatically detects file changes and updates the Shared Brain instantly
+
+## How It Routes Work
+
+The system smartly decides how to handle each task:
+
+- **Quick tasks** (fixing a typo, writing a docstring) → Go to one AI
+- **Complex tasks** (design new feature) → Go to two AIs who discuss and decide together
+- **Critical decisions** (security, architecture) → All AIs vote, you see all viewpoints
+- **Can be parallelized** (test writing, code generation) → Multiple AIs work in parallel on pieces
 
 ## License
 
