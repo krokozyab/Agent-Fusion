@@ -4,7 +4,7 @@ Agent Fusion gives multiple AI coding assistants instant access to your files—
 
 It has two independent components (each can be used alone or together):
 
-- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Creates a searchable, intelligent knowledge base so any AI assistant can instantly find and understand your files without you pasting them. Configure which folders to watch and which file types to index in `fusionagent.toml`.
+- **Context Engine** – Automatically indexes and searches any folders you configure (code, documents, PDFs, etc.). Exposes a `query_context` tool that AI coding agents use to search your indexed files without you pasting them. Semantic search + symbol search + full-text search all in one. Configure which folders to watch and which file types to index in `fusionagent.toml`.
 - **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
 🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
@@ -36,12 +36,14 @@ For developers and advanced users:
 
 ## Context Engine: Intelligent Search & Indexing
 
-The **Context Engine** automatically makes your files searchable and understandable:
+The **Context Engine** automatically makes your files searchable through a `query_context` tool that coding agents can call:
 
 1. **Watches configured folders** – Automatically finds and tracks files you specify (code, documents, PDFs; respects `.gitignore`)
 2. **Understands meaning** – Creates AI-powered search so semantic meaning is captured, not just keywords
 3. **Keeps everything in sync** – Changes detected instantly, index always current
-4. **Answers questions** – Any AI can ask "What is this function?" or "Find documents about X"
+4. **Exposes `query_context` tool** – Agents call this to search without manual pasting. Provides semantic search, symbol lookup, full-text search, and git history in one query
+
+**How agents use it**: When Claude, Codex, or any AI assistant needs to understand your codebase or find information, they call the `query_context` tool with a question like "authentication token validation" and instantly get relevant code snippets ranked by relevance.
 
 The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
@@ -83,8 +85,10 @@ Intelligent indexing and search for any files (works standalone):
 - Supports any file types: code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and more
 - Creates semantic search index (understands meaning, not just keywords)
 - Stores everything locally in DuckDB (never sent to cloud)
-- Exposes REST API for querying: `query_context`, symbol search, full-text search
+- Exposes `query_context` MCP tool that agents call to search without pasting files
+- Provides hybrid search: semantic (AI-powered) + symbol (code definitions) + full-text (keyword) + git history
 - Can be used without Task Manager for standalone intelligent file search
+- Agents (Claude, Codex, etc.) automatically get access to `query_context` and use it throughout conversations
 
 ### Task Manager
 Workflow coordination for multiple AIs (optional addon):
@@ -113,7 +117,9 @@ For developers and technical setup:
 
 ## Key Features
 
-✅ **Multiple AI Assistants, Same Brain** – Connect Claude, Codex, Gemini, Amazon Q—they all see the same code knowledge
+✅ **`query_context` Tool for Agents** – AI assistants call `query_context` to search your indexed files without you pasting them. Automatic semantic search, symbol lookup, full-text search, git history in one tool
+
+✅ **Multiple AI Assistants, Same Knowledge Base** – Connect Claude, Codex, Gemini, Amazon Q—they all have access to `query_context` and see the same indexed files
 
 ✅ **Automatic Routing** – Simple tasks go to one AI, important/complex tasks automatically go to multiple AIs for discussion
 
