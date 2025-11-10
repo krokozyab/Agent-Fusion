@@ -47,6 +47,16 @@ The **Context Engine** automatically indexes your files so AI agents can search 
 
 **How to use it**: Just add to your prompt: *"Use query_context to find [what you're looking for]"* and your AI agent will search your indexed files and give you relevant results. No copy-pasting needed!
 
+### How Search Works
+
+The Context Engine uses **three search types combined**:
+
+- **Semantic Search** – AI-powered understanding of meaning (finds "user authentication" when you search "login system")
+- **Full-Text Search** – Fast keyword matching (finds exact phrases and terms)
+- **Hybrid Search** – Combines all results ranked by relevance (you get the best matches from all methods)
+
+This means you get accurate results whether you search by meaning or by keywords. The best of both worlds.
+
 The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
 ### Context Engineering
@@ -125,6 +135,28 @@ The system smartly decides how to handle each task:
 - **Complex tasks** (design new feature) → Go to two AIs who discuss and decide together
 - **Critical decisions** (security, architecture) → All AIs vote, you see all viewpoints
 - **Can be parallelized** (test writing, code generation) → Multiple AIs work in parallel on pieces
+
+---
+
+## Deployment
+
+Agent Fusion is super simple to deploy. You only need **2 files**:
+
+1. **JAR file** – The full application (download from releases)
+2. **fusionagent.toml** – Your configuration (customize watch paths, file types, etc.)
+
+That's it! No complex setup, no dependencies to install.
+
+### Embedding Models
+
+Agent Fusion comes with a **lightweight embedding model built into the JAR** that works great for most projects. But if you want more powerful semantic search:
+
+- **Use the built-in model** – Fast, low memory (default)
+- **Or configure a more powerful model** – In `fusionagent.toml`, point to a larger embedding model for even better search accuracy
+
+Just one config change if you want to upgrade. Everything else stays the same.
+
+---
 
 ## License
 
