@@ -1,6 +1,5 @@
-# Agent Fusion
 
-![Agent Fusion Banner](pics/agent_banner.png)
+<img src="pics/agent_banner.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; display: block; margin: 0 auto;">
 
 Agent Fusion gives multiple AI coding assistants instant access to your files—code, documents, PDFs, and more—through intelligent indexing, and optionally coordinates their work through a task system.
 
