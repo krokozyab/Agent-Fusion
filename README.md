@@ -1,11 +1,11 @@
 # Agent Fusion
 
-Agent Fusion lets multiple AI coding assistants work together on your project while sharing a **shared knowledge base**. Instead of each AI starting from scratch, they all work from the same up-to-date understanding of your code.
+Agent Fusion gives multiple AI coding assistants instant access to your codebase through intelligent indexing, and optionally coordinates their work through a task system.
 
-It has two core parts:
+It has two independent components (each can be used alone or together):
 
-- **Shared Brain** – Automatically indexes your project files, remembers them as searchable knowledge, and keeps everything in sync. All AI assistants can instantly search and understand your entire codebase.
-- **Task Manager** – Coordinates work between multiple AIs, lets them vote on important decisions (consensus), and shows you everything happening in a web dashboard.
+- **Context Engine** – Automatically indexes and searches your project. Creates a searchable, intelligent knowledge base so any AI assistant can instantly find and understand your code without you pasting it.
+- **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
 🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
 
@@ -16,7 +16,8 @@ It has two core parts:
 | Start Here | What You'll Learn |
 |----------|---------|
 | **[Installation Guide](docs/INSTALL.md)** | Step-by-step setup (takes 5-10 minutes) |
-| **[How It Works](docs/CONTEXT_AND_AGENTS.md)** | Simple explanation of Shared Brain and how AI assistants use it |
+| **[Context Engine Guide](docs/README_CONTEXT_ADDON.md)** | How to index your project and search your code |
+| **[Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md)** | How to coordinate multiple AIs (optional) |
 | **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
 
 ## Technical Documentation
@@ -25,53 +26,70 @@ For developers and advanced users:
 
 | Reference | Details |
 |----------|---------|
-| [Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md) | How task routing, voting, and coordination works |
-| [Shared Brain Guide](docs/README_CONTEXT_ADDON.md) | How file indexing, search, and sync works |
+| [Context Engine Architecture](docs/README_CONTEXT_ADDON.md) | File indexing, embeddings, search, and sync |
+| [Task Manager Architecture](docs/README_TASK_ORCHESTRATOR.md) | Task routing, consensus, voting, and workflows |
+| [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md) | How to optimize indexing for your project |
 | [API Reference](docs/API_REFERENCE.md) | All available endpoints and tools |
 | [Development Guide](docs/DEVELOPMENT.md) | Building, testing, contributing |
 
 ---
 
-## The Shared Brain
+## Context Engine: Intelligent Code Indexing
 
-The **Shared Brain** is the heart of Agent Fusion. It automatically:
+The **Context Engine** automatically makes your code searchable and understandable:
 
-1. **Watches your project** – Automatically finds and tracks all your code files
-2. **Understands the code** – Creates searchable knowledge (using AI embeddings) so the meaning of code is captured, not just the text
-3. **Keeps everything in sync** – When you change files, the Shared Brain updates instantly
-4. **Answers questions** – All your AI assistants can ask "What is this function?" or "Find code similar to X" and get instant answers
+1. **Watches your project** – Automatically finds and tracks all your code files (respects `.gitignore`)
+2. **Understands the code** – Creates AI-powered search so meaning is captured, not just keywords
+3. **Keeps everything in sync** – Changes detected instantly, index always current
+4. **Answers questions** – Any AI can ask "What is this function?" or "Find code similar to X"
 
-The Shared Brain is configured in `fusionagent.toml` and stores everything in a local database file that never leaves your computer.
+The Context Engine is independent—use it alone for smart code search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally.
 
-**In practice**: Instead of pasting code into every AI conversation, your assistants can search the Shared Brain once—it's always there and always current.
+### Context Engineering
 
-## How AI Assistants Work Together
+**Context Engineering** is the practice of optimizing how your project is indexed for best results:
 
-Your AI assistants (Claude, Codex, etc.) work together using the **Task Manager**:
+- **Ignore patterns** – What files to skip (build artifacts, node_modules, etc.)
+- **Chunk strategy** – How code is split for understanding (function-level vs file-level)
+- **Embedding tuning** – What aspects of code are emphasized in search
+- **Refresh strategy** – How often to update the index
+
+Learn more in [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md).
+
+## Task Manager: Coordinate Multiple AIs
+
+The **Task Manager** is completely optional. Use it to coordinate work between multiple AIs:
 
 1. **One AI starts a task** – "Design a new authentication system"
-2. **The system routes it smartly** – Simple tasks go to one AI, complex/important tasks go to multiple AIs to discuss
-3. **AI assistants collaborate** – They can see each other's ideas, discuss pros/cons
-4. **The group decides** – For important decisions, they vote and the system shows you all viewpoints
-5. **Everything is tracked** – All proposals, votes, and final decisions are saved so you can see the full reasoning
+2. **The system routes it** – Simple tasks go to one AI, complex tasks go to multiple
+3. **AIs collaborate** – They can see each other's ideas, discuss pros/cons
+4. **The group decides** – For important decisions, they vote and you see all viewpoints
+5. **Everything is tracked** – All proposals and decisions saved with full reasoning
 
-You can see everything happening in real-time on the web dashboard. All AIs are working from the same Shared Brain, so they stay coordinated.
+The Task Manager works best when AIs have access to the Context Engine—they stay coordinated. But you can use Task Manager without Context Engine if you prefer traditional task management.
 
-## What's Inside
+**Use Task Manager when**:
+- You want multiple AIs discussing important decisions
+- You need voting/consensus on architectural changes
+- You want a complete audit trail of AI reasoning
 
-### Shared Brain
-The engine that keeps your code indexed and searchable:
-- Automatically finds all project files
-- Creates AI-powered search index (everything searchable by meaning, not just keywords)
-- Stays in sync as you edit files
-- Provides fast answers to "find code similar to X" or "what does this do?"
+## Architecture: Two Independent Systems
+
+### Context Engine
+Intelligent code indexing and search (works standalone):
+- Watches filesystem for changes, automatically re-indexes
+- Creates semantic search index (understands code meaning)
+- Stores everything locally in DuckDB (never sent to cloud)
+- Exposes REST API for querying: `query_context`, symbol search, full-text search
+- Can be used without Task Manager for just smart code search
 
 ### Task Manager
-The coordination system for multiple AIs:
-- Routes tasks to the right AI(s) based on complexity
-- Enables voting and consensus for important decisions
-- Shows all activity on a web dashboard
-- Saves complete history of decisions and reasoning
+Workflow coordination for multiple AIs (optional addon):
+- Routes tasks intelligently (solo vs consensus)
+- Enables collaborative decision-making with AI voting
+- Tracks all proposals, votes, and final decisions
+- Provides web dashboard with real-time updates
+- Can be used standalone for traditional task management
 
 ---
 
