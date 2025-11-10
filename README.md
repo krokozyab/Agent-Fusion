@@ -1,5 +1,7 @@
 # Agent Fusion
 
+![Agent Fusion Banner](pics/agent_banner.png)
+
 Agent Fusion gives multiple AI coding assistants instant access to your files—code, documents, PDFs, and more—through intelligent indexing, and optionally coordinates their work through a task system.
 
 It has two independent components (each can be used alone or together):
