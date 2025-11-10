@@ -11,6 +11,20 @@ It has two independent components (each can be used alone or together):
 
 ---
 
+## How It Works
+
+Agent Fusion fetches up-to-date code examples and documentation right into your LLM's context:
+
+1️⃣ **Write your prompt naturally** – Ask your AI assistant what you'd normally ask
+
+2️⃣ **Tell the LLM to use query_context** – Just add "use query_context to find X" in your prompt
+
+3️⃣ **Get working code answers** – Instant, accurate answers based on your actual codebase
+
+**No tab-switching. No hallucinated APIs that don't exist. No outdated code generation.**
+
+---
+
 ## Getting Started
 
 | Start Here | What You'll Learn |
