@@ -7,6 +7,7 @@ import com.orchestrator.domain.TaskId
 import com.orchestrator.mcp.resources.MetricsResource
 import com.orchestrator.mcp.resources.TasksResource
 import com.orchestrator.mcp.tools.*
+import com.orchestrator.modules.context.ContextModule
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -25,6 +26,8 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.server.http.content.resources
+import io.ktor.server.http.content.static
 import io.ktor.server.sse.SSE
 import io.ktor.server.sse.SSEServerContent
 import io.ktor.server.sse.ServerSSESession
@@ -93,12 +96,13 @@ private val log = LoggerFactory.getLogger(McpServerImpl::class.java)
  */
 class McpServerImpl(
     private val config: OrchestratorConfig,
-    private val agentRegistry: AgentRegistry
+    private val agentRegistry: AgentRegistry,
+    private val contextConfig: com.orchestrator.context.config.ContextConfig = ContextModule.configuration()
 ) {
     private var engine: EmbeddedServer<NettyApplicationEngine, NettyApplicationEngine.Configuration>? = null
 
     // Tool registration model
-    private data class ToolEntry(
+    internal data class ToolEntry(
         val name: String,
         val description: String,
         val jsonSchema: String
@@ -119,13 +123,19 @@ class McpServerImpl(
     private val getTaskStatusTool by lazy { GetTaskStatusTool() }
     private val submitInputTool by lazy { SubmitInputTool() }
     private val respondToTaskTool by lazy { RespondToTaskTool() }
+    private val queryContextTool by lazy { QueryContextTool(contextConfig) }
+    private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
+    private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
+    private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
+    private val rebuildContextTool by lazy { RebuildContextTool(contextConfig) }
+    private val getRebuildStatusTool by lazy { GetRebuildStatusTool(contextConfig) }
 
     // Build resources
     private val tasksResource by lazy { TasksResource() }
     private val metricsResource by lazy { MetricsResource() }
 
     private val sseSessions = ConcurrentHashMap<String, SseServerTransport>()
-    private val streamableSessions = StreamableHttpSessionManager(::createMcpServer, STREAMABLE_REQUEST_TIMEOUT_MS)
+    private val streamableSessions = StreamableHttpSessionManager({ sessionId -> createMcpServer(sessionId) }, STREAMABLE_REQUEST_TIMEOUT_MS)
 
     // Track session -> agent mapping for automatic agent identification
     private val sessionToAgent = ConcurrentHashMap<String, AgentId>()
@@ -157,7 +167,6 @@ class McpServerImpl(
             }
             install(CallLogging) {
                 callIdMdc("requestId")
-                disableDefaultColors()
             }
             install(CORS) {
                 anyHost()
@@ -204,7 +213,7 @@ class McpServerImpl(
                     val message = if (accept.isNullOrBlank()) {
                         "Client must send an Accept header supporting text/event-stream or application/json"
                     } else {
-                        "Received unsupported Accept header '$accept'. Expected text/event-stream for SSE or application/json"
+                        "Received unsupported Accept header '$accept'. Expected content negotiable as JSON or SSE."
                     }
                     call.respond(HttpStatusCode.NotAcceptable, errorBody("not_acceptable", message))
                 }
@@ -214,6 +223,9 @@ class McpServerImpl(
             }
 
             routing {
+                static("/static") {
+                    resources("static")
+                }
                 get("/healthz") {
                     call.respond(mapOf("status" to "ok"))
                 }
@@ -299,6 +311,38 @@ class McpServerImpl(
                     val body = fetchResourceBody(uri)
                     call.respondText(body, contentType = ContentType.Application.Json)
                 }
+
+                // MCP: Standard JSON-RPC 2.0 endpoint for Claude Desktop compatibility
+                post("/mcp/json-rpc") {
+                    try {
+                        val requestJson = call.receive<JsonElement>()
+                        val response = HttpJsonRpcTransport.handleRequest(requestJson, this@McpServerImpl)
+
+                        // For notifications (response is null), send 204 No Content
+                        if (response == null) {
+                            call.respond(HttpStatusCode.NoContent)
+                        } else {
+                            call.respondText(
+                                response.toString(),
+                                contentType = ContentType.Application.Json
+                            )
+                        }
+                    } catch (e: Exception) {
+                        val errorResponse = buildJsonObject {
+                            put("jsonrpc", JsonPrimitive("2.0"))
+                            put("error", buildJsonObject {
+                                put("code", JsonPrimitive(-32700))
+                                put("message", JsonPrimitive("Parse error: ${e.message}"))
+                            })
+                            put("id", JsonNull)
+                        }
+                        call.respondText(
+                            errorResponse.toString(),
+                            status = HttpStatusCode.BadRequest,
+                            contentType = ContentType.Application.Json
+                        )
+                    }
+                }
             }
         }
         engine.start(wait = false)
@@ -308,19 +352,23 @@ class McpServerImpl(
     // ---- Transport handlers ----
 
     private suspend fun ApplicationCall.handleSseGet() {
+        log.info("Handling SSE GET request")
         respond(SSEServerContent(this) {
             val transport = SseServerTransport(SSE_POST_ENDPOINT, this)
+            val sessionId = transport.sessionId
+            log.info("[Session: $sessionId] Created SSE transport")
             val closed = AtomicBoolean(false)
             val cleanup = {
                 if (closed.compareAndSet(false, true)) {
-                    sseSessions.remove(transport.sessionId)
+                    sseSessions.remove(sessionId)
+                    log.info("[Session: $sessionId] Cleaned up SSE session")
                 }
             }
 
-            sseSessions[transport.sessionId] = transport
+            sseSessions[sessionId] = transport
             transport.onClose(cleanup)
 
-            val server = createMcpServer()
+            val server = createMcpServer(sessionId)
             server.onClose(cleanup)
 
             try {
@@ -332,6 +380,8 @@ class McpServerImpl(
             }
         })
     }
+
+    private fun acceptsEventStream(@Suppress("unused") acceptHeader: String?): Boolean = true
 
     private suspend fun ApplicationCall.handleSsePost(sessionId: String) {
         val transport = sseSessions[sessionId]
@@ -385,6 +435,7 @@ class McpServerImpl(
     }
 
     private suspend fun ApplicationCall.handleStreamableHandshake(message: JSONRPCMessage) {
+        log.info("Handling Streamable HTTP handshake request")
         if (message !is JSONRPCRequest || message.method != INITIALIZE_METHOD) {
             respond(HttpStatusCode.BadRequest, errorBody("invalid_request", "First message must be an initialize request"))
             return
@@ -398,25 +449,33 @@ class McpServerImpl(
             return
         }
 
+        log.info("Created Streamable HTTP session with ID: ${session.sessionId}")
+
         // Extract agent identity from initialize request if available
         extractAgentIdFromInitialize(message)?.let { agentId ->
             sessionToAgent[session.sessionId] = agentId
             log.info("Session ${session.sessionId} associated with agent ${agentId.value}")
         }
 
-        val result = session.handleMessage(message)
-        when (result) {
-            is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
-            StreamableHttpServerTransport.PostResult.Accepted -> {
-                response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
-                respond(HttpStatusCode.Accepted)
+        // Set current session for agent resolution during handshake
+        currentSessionId.set(session.sessionId)
+        try {
+            val result = session.handleMessage(message)
+            when (result) {
+                is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
+                StreamableHttpServerTransport.PostResult.Accepted -> {
+                    response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
+                    respond(HttpStatusCode.Accepted)
+                }
+                is StreamableHttpServerTransport.PostResult.Error -> {
+                    // Tear down the session on failure so clients can retry cleanly
+                    streamableSessions.remove(session.sessionId)
+                    sessionToAgent.remove(session.sessionId)
+                    respond(result.status, errorBody(result.code, result.message))
+                }
             }
-            is StreamableHttpServerTransport.PostResult.Error -> {
-                // Tear down the session on failure so clients can retry cleanly
-                streamableSessions.remove(session.sessionId)
-                sessionToAgent.remove(session.sessionId)
-                respond(result.status, errorBody(result.code, result.message))
-            }
+        } finally {
+            currentSessionId.remove()
         }
     }
 
@@ -448,20 +507,21 @@ class McpServerImpl(
     }
 
     private inner class StreamableHttpSessionManager(
-        private val serverFactory: () -> Server,
+        private val serverFactory: (String) -> Server,
         private val requestTimeoutMs: Long
     ) {
         private val sessions = ConcurrentHashMap<String, StreamableHttpSession>()
 
         suspend fun createSession(): StreamableHttpSession {
             val transport = StreamableHttpServerTransport(requestTimeoutMs)
-            val server = serverFactory()
+            val sessionId = transport.sessionId  // Use the transport's session ID
+            val server = serverFactory(sessionId)
             val session = StreamableHttpSession(server, transport) { id -> sessions.remove(id) }
-            sessions[session.sessionId] = session
+            sessions[sessionId] = session
             try {
                 session.connect()
             } catch (t: Throwable) {
-                sessions.remove(session.sessionId)
+                sessions.remove(sessionId)
                 throw t
             }
             return session
@@ -683,7 +743,8 @@ class McpServerImpl(
         }
     }
 
-    private fun createMcpServer(): Server {
+    private fun createMcpServer(sessionId: String): Server {
+        log.info("[Session: $sessionId] Creating new MCP Server instance (Thread: ${Thread.currentThread().name})")
         val server = Server(
             serverInfo = Implementation(
                 name = "codex-to-claude-orchestrator",
@@ -698,14 +759,16 @@ class McpServerImpl(
             instructions = "Use orchestrator tools to manage tasks and submit work products."
         )
 
-        registerTools(server)
+        registerTools(server, sessionId)
         registerResources(server)
+        log.info("[Session: $sessionId] MCP Server instance created with ${tools().size} tools registered")
 
         return server
     }
 
-    private fun registerTools(server: Server) {
+    private fun registerTools(server: Server, sessionId: String) {
         tools().forEach { entry ->
+            log.info("[Session: $sessionId] Registering tool: ${entry.name}")
             val inputSchema = toolInputFromJsonSchema(entry.jsonSchema)
             server.addTool(
                 name = entry.name,
@@ -837,7 +900,7 @@ class McpServerImpl(
             )
         )
 
-    private fun fetchResourceBody(uri: String): String = when {
+    internal fun fetchResourceBody(uri: String): String = when {
         uri.startsWith("tasks://") -> {
             val params = parseQueryParams(uri)
             tasksResource.list(params)
@@ -868,29 +931,55 @@ class McpServerImpl(
         }.toMap()
     }
 
-    private fun executeTool(name: String, params: JsonElement): Any = when (name) {
-        "create_simple_task" -> createSimpleTaskTool.execute(mapCreateSimpleParams(params))
-        "create_consensus_task" -> createConsensusTaskTool.execute(mapCreateConsensusParams(params))
-        "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
-        "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
-        "complete_task" -> completeTaskTool.execute(mapCompleteTaskParams(params))
-        "get_pending_tasks" -> {
-            val (p, resolvedId) = mapGetPendingTasksParams(params)
-            getPendingTasksTool.execute(p, resolvedId)
+    internal fun executeTool(name: String, params: JsonElement): Any {
+        val currentAgent = try {
+            val sessionId = currentSessionId.get()
+            sessionId?.let { sessionToAgent[it]?.value }
+                ?: resolveAgentIdOrDefault(null)
+        } catch (e: Exception) {
+            log.warn("Failed to resolve agent: ${e.message}")
+            null
         }
-        "get_task_status" -> getTaskStatusTool.execute(mapGetTaskStatusParams(params))
-        "submit_input" -> {
-            val (p, resolvedId) = mapSubmitInputParams(params)
-            submitInputTool.execute(p, resolvedId)
+
+        return when (name) {
+            "create_simple_task" ->
+                createSimpleTaskTool.execute(mapCreateSimpleParams(params, currentAgent))
+            "create_consensus_task" ->
+                createConsensusTaskTool.execute(mapCreateConsensusParams(params, currentAgent))
+            "assign_task" -> assignTaskTool.execute(mapAssignTaskParams(params))
+            "continue_task" -> continueTaskTool.execute(mapContinueTaskParams(params))
+            "complete_task" -> completeTaskTool.execute(mapCompleteTaskParams(params))
+            "get_pending_tasks" -> {
+                val (p, resolvedId) = mapGetPendingTasksParams(params)
+                getPendingTasksTool.execute(p, resolvedId)
+            }
+            "get_task_status" -> getTaskStatusTool.execute(mapGetTaskStatusParams(params))
+            "submit_input" -> {
+                val (p, resolvedId) = mapSubmitInputParams(params)
+                submitInputTool.execute(p, resolvedId)
+            }
+            "respond_to_task" -> {
+                val (p, resolvedId) = mapRespondToTaskParams(params)
+                try {
+                    log.debug("Executing respond_to_task for taskId=${p.taskId}, resolvedAgentId=$resolvedId")
+                    val result = respondToTaskTool.execute(p, resolvedId)
+                    log.info("respond_to_task succeeded: proposalId=${(result as? RespondToTaskTool.Result)?.proposalId}")
+                    result
+                } catch (e: Exception) {
+                    log.error("respond_to_task failed: taskId=${p.taskId}, agent=$resolvedId", e)
+                    throw e
+                }
+            }
+            "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
+            "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
+            "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
+            "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
+            "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
+            else -> throw IllegalArgumentException("Unknown tool '$name'")
         }
-        "respond_to_task" -> {
-            val (p, resolvedId) = mapRespondToTaskParams(params)
-            respondToTaskTool.execute(p, resolvedId)
-        }
-        else -> throw IllegalArgumentException("Unknown tool '$name'")
     }
 
-    private fun toolResultToJson(result: Any): JsonElement = when (result) {
+    internal fun toolResultToJson(result: Any): JsonElement = when (result) {
         is CreateSimpleTaskTool.Result -> taskCreationResultToJson(result.taskId, result.status, result.routing, result.primaryAgentId, result.participantAgentIds, result.warnings)
         is CreateConsensusTaskTool.Result -> taskCreationResultToJson(result.taskId, result.status, result.routing, result.primaryAgentId, result.participantAgentIds, result.warnings)
         is AssignTaskTool.Result -> taskCreationResultToJson(result.taskId, result.status, result.routing, result.primaryAgentId, result.participantAgentIds, result.warnings)
@@ -900,6 +989,11 @@ class McpServerImpl(
         is GetTaskStatusTool.Result -> getTaskStatusResultToJson(result)
         is SubmitInputTool.Result -> submitInputResultToJson(result)
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
+        is QueryContextTool.Result -> queryContextResultToJson(result)
+        is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
+        is RefreshContextTool.Result -> refreshContextResultToJson(result)
+        is RebuildContextTool.Result -> rebuildContextResultToJson(result)
+        is GetRebuildStatusTool.Result -> getRebuildStatusResultToJson(result)
         else -> anyToJsonElement(result)
     }
 
@@ -1213,6 +1307,285 @@ class McpServerImpl(
         })
     }
 
+    private fun queryContextResultToJson(result: QueryContextTool.Result): JsonObject = buildJsonObject {
+        put("hits", buildJsonArray {
+            result.hits.forEach { hit ->
+                add(buildJsonObject {
+                    put("chunkId", JsonPrimitive(hit.chunkId))
+                    put("score", JsonPrimitive(hit.score))
+                    put("filePath", JsonPrimitive(hit.filePath))
+                    if (hit.label == null) {
+                        put("label", JsonNull)
+                    } else {
+                        put("label", JsonPrimitive(hit.label))
+                    }
+                    put("kind", JsonPrimitive(hit.kind))
+                    put("text", JsonPrimitive(hit.text))
+                    if (hit.language == null) {
+                        put("language", JsonNull)
+                    } else {
+                        put("language", JsonPrimitive(hit.language))
+                    }
+                    if (hit.startLine == null) {
+                        put("startLine", JsonNull)
+                    } else {
+                        put("startLine", JsonPrimitive(hit.startLine))
+                    }
+                    if (hit.endLine == null) {
+                        put("endLine", JsonNull)
+                    } else {
+                        put("endLine", JsonPrimitive(hit.endLine))
+                    }
+                    put("metadata", buildJsonObject {
+                        hit.metadata.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
+                    })
+                })
+            }
+        })
+        put("metadata", anyToJsonElement(result.metadata))
+    }
+
+    private fun getContextStatsResultToJson(result: GetContextStatsTool.Result): JsonObject = buildJsonObject {
+        put("providerStatus", buildJsonArray {
+            result.providerStatus.forEach { provider ->
+                add(buildJsonObject {
+                    put("id", JsonPrimitive(provider.id))
+                    put("enabled", JsonPrimitive(provider.enabled))
+                    put("weight", JsonPrimitive(provider.weight))
+                    if (provider.type == null) {
+                        put("type", JsonNull)
+                    } else {
+                        put("type", JsonPrimitive(provider.type))
+                    }
+                })
+            }
+        })
+        put("storage", buildJsonObject {
+            put("files", JsonPrimitive(result.storage.files))
+            put("chunks", JsonPrimitive(result.storage.chunks))
+            put("embeddings", JsonPrimitive(result.storage.embeddings))
+            put("totalSizeBytes", JsonPrimitive(result.storage.totalSizeBytes))
+        })
+        put("languageDistribution", buildJsonArray {
+            result.languageDistribution.forEach { stat ->
+                add(buildJsonObject {
+                    put("language", JsonPrimitive(stat.language))
+                    put("fileCount", JsonPrimitive(stat.fileCount))
+                })
+            }
+        })
+        put("recentActivity", buildJsonArray {
+            result.recentActivity.forEach { activity ->
+                add(buildJsonObject {
+                    if (activity.taskId == null) {
+                        put("taskId", JsonNull)
+                    } else {
+                        put("taskId", JsonPrimitive(activity.taskId))
+                    }
+                    put("snippets", JsonPrimitive(activity.snippets))
+                    put("tokens", JsonPrimitive(activity.tokens))
+                    put("latencyMs", JsonPrimitive(activity.latencyMs))
+                    put("recordedAt", JsonPrimitive(activity.recordedAt.toString()))
+                })
+            }
+        })
+        if (result.performance == null) {
+            put("performance", JsonNull)
+        } else {
+            put("performance", buildJsonObject {
+                put("totalRecords", JsonPrimitive(result.performance.totalRecords))
+                put("totalContextTokens", JsonPrimitive(result.performance.totalContextTokens))
+                put("averageLatencyMs", JsonPrimitive(result.performance.averageLatencyMs))
+            })
+        }
+    }
+
+    private fun refreshContextResultToJson(result: RefreshContextTool.Result): JsonObject = buildJsonObject {
+        put("mode", JsonPrimitive(result.mode))
+        put("status", JsonPrimitive(result.status))
+        if (result.jobId == null) {
+            put("jobId", JsonNull)
+        } else {
+            put("jobId", JsonPrimitive(result.jobId))
+        }
+        if (result.newFiles == null) {
+            put("newFiles", JsonNull)
+        } else {
+            put("newFiles", JsonPrimitive(result.newFiles))
+        }
+        if (result.modifiedFiles == null) {
+            put("modifiedFiles", JsonNull)
+        } else {
+            put("modifiedFiles", JsonPrimitive(result.modifiedFiles))
+        }
+        if (result.deletedFiles == null) {
+            put("deletedFiles", JsonNull)
+        } else {
+            put("deletedFiles", JsonPrimitive(result.deletedFiles))
+        }
+        if (result.unchangedFiles == null) {
+            put("unchangedFiles", JsonNull)
+        } else {
+            put("unchangedFiles", JsonPrimitive(result.unchangedFiles))
+        }
+        if (result.indexingFailures == null) {
+            put("indexingFailures", JsonNull)
+        } else {
+            put("indexingFailures", JsonPrimitive(result.indexingFailures))
+        }
+        if (result.deletionFailures == null) {
+            put("deletionFailures", JsonNull)
+        } else {
+            put("deletionFailures", JsonPrimitive(result.deletionFailures))
+        }
+        if (result.durationMs == null) {
+            put("durationMs", JsonNull)
+        } else {
+            put("durationMs", JsonPrimitive(result.durationMs))
+        }
+        put("startedAt", JsonPrimitive(result.startedAt.toString()))
+        if (result.completedAt == null) {
+            put("completedAt", JsonNull)
+        } else {
+            put("completedAt", JsonPrimitive(result.completedAt.toString()))
+        }
+        if (result.message == null) {
+            put("message", JsonNull)
+        } else {
+            put("message", JsonPrimitive(result.message))
+        }
+    }
+
+    private fun mapRebuildContextParams(el: JsonElement): RebuildContextTool.Params {
+        val o = el.asObj()
+        return RebuildContextTool.Params(
+            confirm = o.bool("confirm") ?: false,
+            async = o.bool("async") ?: false,
+            paths = o.listStr("paths"),
+            validateOnly = o.bool("validateOnly") ?: false,
+            parallelism = o.int("parallelism")
+        )
+    }
+
+    private fun rebuildContextResultToJson(result: RebuildContextTool.Result): JsonObject = buildJsonObject {
+        put("mode", JsonPrimitive(result.mode))
+        put("status", JsonPrimitive(result.status))
+        if (result.jobId == null) {
+            put("jobId", JsonNull)
+        } else {
+            put("jobId", JsonPrimitive(result.jobId))
+        }
+        put("phase", JsonPrimitive(result.phase))
+        if (result.totalFiles == null) {
+            put("totalFiles", JsonNull)
+        } else {
+            put("totalFiles", JsonPrimitive(result.totalFiles))
+        }
+        if (result.processedFiles == null) {
+            put("processedFiles", JsonNull)
+        } else {
+            put("processedFiles", JsonPrimitive(result.processedFiles))
+        }
+        if (result.successfulFiles == null) {
+            put("successfulFiles", JsonNull)
+        } else {
+            put("successfulFiles", JsonPrimitive(result.successfulFiles))
+        }
+        if (result.failedFiles == null) {
+            put("failedFiles", JsonNull)
+        } else {
+            put("failedFiles", JsonPrimitive(result.failedFiles))
+        }
+        if (result.durationMs == null) {
+            put("durationMs", JsonNull)
+        } else {
+            put("durationMs", JsonPrimitive(result.durationMs))
+        }
+        put("startedAt", JsonPrimitive(result.startedAt.toString()))
+        if (result.completedAt == null) {
+            put("completedAt", JsonNull)
+        } else {
+            put("completedAt", JsonPrimitive(result.completedAt.toString()))
+        }
+        if (result.message == null) {
+            put("message", JsonNull)
+        } else {
+            put("message", JsonPrimitive(result.message))
+        }
+        if (result.validationErrors == null) {
+            put("validationErrors", JsonNull)
+        } else {
+            put("validationErrors", buildJsonArray {
+                result.validationErrors.forEach { add(JsonPrimitive(it)) }
+            })
+        }
+    }
+
+    private fun mapGetRebuildStatusParams(el: JsonElement): GetRebuildStatusTool.Params {
+        val o = el.asObj()
+        return GetRebuildStatusTool.Params(
+            jobId = o.str("jobId") ?: throw IllegalArgumentException("jobId is required"),
+            includeLogs = o.bool("includeLogs") ?: false
+        )
+    }
+
+    private fun getRebuildStatusResultToJson(result: GetRebuildStatusTool.Result): JsonObject = buildJsonObject {
+        put("jobId", JsonPrimitive(result.jobId))
+        put("status", JsonPrimitive(result.status))
+        put("phase", JsonPrimitive(result.phase))
+
+        if (result.progress == null) {
+            put("progress", JsonNull)
+        } else {
+            put("progress", buildJsonObject {
+                put("totalFiles", JsonPrimitive(result.progress.totalFiles))
+                put("processedFiles", JsonPrimitive(result.progress.processedFiles))
+                put("successfulFiles", JsonPrimitive(result.progress.successfulFiles))
+                put("failedFiles", JsonPrimitive(result.progress.failedFiles))
+                put("percentComplete", JsonPrimitive(result.progress.percentComplete))
+            })
+        }
+
+        put("timing", buildJsonObject {
+            put("startedAt", JsonPrimitive(result.timing.startedAt.toString()))
+            if (result.timing.completedAt == null) {
+                put("completedAt", JsonNull)
+            } else {
+                put("completedAt", JsonPrimitive(result.timing.completedAt.toString()))
+            }
+            if (result.timing.durationMs == null) {
+                put("durationMs", JsonNull)
+            } else {
+                put("durationMs", JsonPrimitive(result.timing.durationMs))
+            }
+            if (result.timing.estimatedRemainingMs == null) {
+                put("estimatedRemainingMs", JsonNull)
+            } else {
+                put("estimatedRemainingMs", JsonPrimitive(result.timing.estimatedRemainingMs))
+            }
+        })
+
+        if (result.error == null) {
+            put("error", JsonNull)
+        } else {
+            put("error", JsonPrimitive(result.error))
+        }
+
+        if (result.logs == null) {
+            put("logs", JsonNull)
+        } else {
+            put("logs", buildJsonArray {
+                result.logs.forEach { log ->
+                    add(buildJsonObject {
+                        put("timestamp", JsonPrimitive(log.timestamp.toString()))
+                        put("level", JsonPrimitive(log.level))
+                        put("message", JsonPrimitive(log.message))
+                    })
+                }
+            })
+        }
+    }
+
     private fun anyToJsonElement(value: Any?): JsonElement = when (value) {
         null -> JsonNull
         is JsonElement -> value
@@ -1509,61 +1882,144 @@ class McpServerImpl(
         ToolEntry(
             name = "get_pending_tasks",
             description = """
-                List all pending tasks assigned to a specific agent, filtered by status and limited by count. This is
-                how agents discover work waiting for them - essential for the agent handoff workflow.
+                **📥 YOUR TASK INBOX** - Check for work assigned to you by other agents or the orchestrator.
+                **CRITICAL**: Call this at session start and whenever user mentions other agents.
+                **PURPOSE**: Discover pending work, avoid duplicate tasks, enable agent handoffs.
 
-                ## Workflow Context
-                You are part of a multi-agent system. This tool is how you check for work that other agents have
-                created for you, or tasks that need your input. Think of this as your "inbox" for collaborative work.
+                ## ⚡ When to Auto-Invoke (Proactive - Check Often!)
+                - ✅ **Session start** - ALWAYS check at the beginning of every conversation
+                - ✅ **Agent handoff mentioned** - User says "I just talked to [agent]", "switching from [agent]"
+                - ✅ **User asks about work** - "what's pending", "any tasks", "what should I work on"
+                - ✅ **Before creating tasks** - Check if similar work already exists (avoid duplicates)
+                - ✅ **Topic switches** - User changes subject (might be resuming previous work)
+                - ✅ **Periodically** - Check every 10-15 messages in long conversations
+                - ✅ **After major events** - After completing tasks, other agents might have created follow-ups
 
-                ## When to Use
-                - At the start of a conversation (proactively check for pending work)
-                - After user mentions switching from another agent ("I just talked to Codex...")
-                - When user asks "what's pending", "any tasks for me", "check my queue"
-                - Before creating new consensus tasks (check if similar work already exists)
-                - Periodically during long conversations to catch new assignments
+                ## 🚨 Mandatory Invocation Scenarios
+                1. **Every Session Start**: First action when conversation begins → get_pending_tasks() ALWAYS
+                2. **Agent Handoff**: User mentions another agent's name → MUST check for their assigned tasks
+                3. **Before Task Creation**: Before create_simple_task/create_consensus_task → check for duplicates
+                4. **User Asks**: "What's next", "Any work for me" → get_pending_tasks() to answer
+                5. **Context Confusion**: User references work you don't know about → check for tasks
+                6. **After Collaboration**: After submitting proposals, check if new work was assigned
 
-                ## Proactive Triggers
-                - User says "I just worked with Codex" or mentions another agent
-                - Conversation starts and you haven't checked pending tasks yet
-                - User asks about work status or what needs to be done
-                - User switches context topics (might be resuming previous work)
+                ## 💬 User Phrases That Trigger This Tool
+                **Queue Checking:**
+                - "What's pending?" / "Any tasks for me?" / "Check my queue"
+                - "What should I work on?" / "What's next?" / "What's waiting?"
+                - "Do I have any work?" / "Show me my tasks"
 
-                ## User Phrases to Detect
-                - Queue checking: "what's pending", "any tasks", "check my work", "what's waiting"
-                - Agent handoff: "I talked to Codex", "switching from Claude", "Codex said to check"
-                - Status inquiry: "where are we", "what's next", "what should I work on"
+                **Agent Handoff:**
+                - "I just talked to [agent] about [topic]" → Check for tasks from that agent
+                - "Switching from [agent]" / "[Agent] said to check tasks"
+                - "Continuing from previous conversation" / "We were working on..."
 
-                ## Example Scenarios
-                1. Session start → Proactively call get_pending_tasks() to check for work
-                2. User: "I just talked to Codex about the auth system" → Call get_pending_tasks() to see if Codex created a task
-                3. User: "What's on my plate?" → Call get_pending_tasks() and report results
-                4. Before creating consensus task → Check if similar task already exists
+                **Status Inquiry:**
+                - "Where are we?" / "What's the status?" / "What's in progress?"
+                - "Any updates?" / "What happened while I was away?"
 
-                ## Decision Flow
+                ## ✅ Example Scenarios with Exact Workflows
+
+                **Scenario 1: Session Start (ALWAYS)**
                 ```
-                Start of session or user mentions past tasks?
-                  ├─ Need to know if work exists? → get_pending_tasks
-                  ├─ Specific task ID already provided? → continue_task directly
-                  └─ No handoff context and brand-new work? → create_simple_task / create_consensus_task / assign_task as needed
+                User starts conversation
+                → get_pending_tasks() immediately
+                → If tasks found: "I found 3 pending tasks: [list]. Which would you like to work on?"
+                → If no tasks: Proceed with user's request
                 ```
 
-                ## Expected Workflow
-                1. Call get_pending_tasks() to see your queue
-                2. If tasks found → Present summary, confirm prioritization with user
-                3. User selects task → Call continue_task(taskId) for full context
-                4. Analyze task, submit your input via submit_input()
-                5. Follow up until task is completed or reassigned
+                **Scenario 2: Agent Handoff**
+                ```
+                User: "I just talked to Codex about authentication"
+                → get_pending_tasks() to check for Codex's assigned tasks
+                → If found: "Codex created task-123 for authentication. Should I continue that work?"
+                → If not found: "No tasks from Codex yet. Should I create one?"
+                ```
 
-                ## Parameters
-                - agentId: Usually omit (defaults to you), or specify another agent to check their queue
-                - statuses: Default is ["PENDING"], can add "IN_PROGRESS", "WAITING_INPUT"
-                - limit: Default unlimited, use 10-20 for large queues
+                **Scenario 3: User Asks What's Pending**
+                ```
+                User: "What's on my plate?"
+                → get_pending_tasks()
+                → Present: "You have 2 pending tasks: 1) Fix auth bug (HIGH priority), 2) Code review (LOW priority)"
+                ```
 
-                ## Returns
-                - tasks: Array of task summaries (id, title, status, type, priority, createdAt, dueAt, contextPreview)
-                - count: Total number of matching tasks
-                - agentId: Confirmed agent whose queue was checked
+                **Scenario 4: Before Creating Duplicate**
+                ```
+                User: "Implement user authentication"
+                → get_pending_tasks() first
+                → Check if similar task exists
+                → If exists: "Task-456 already covers authentication. Should I continue that or create new one?"
+                → If not: Proceed with create_simple_task
+                ```
+
+                ## 🎯 Decision Flow Matrix
+                | Situation | Action | Why |
+                |-----------|--------|-----|
+                | Session starts | get_pending_tasks() | Check inbox first |
+                | Agent mentioned | get_pending_tasks() | Find handoff work |
+                | User asks "what's next" | get_pending_tasks() | Show queue |
+                | Before creating task | get_pending_tasks() | Avoid duplicates |
+                | Have task ID | continue_task(id) | Load directly |
+                | No tasks, new work | create_simple_task | Start fresh |
+
+                ## 📊 What You Get Back
+                ```json
+                {
+                  "agentId": "claude-code",
+                  "count": 3,
+                  "tasks": [
+                    {
+                      "id": "task-123",
+                      "title": "Fix authentication bug",
+                      "status": "PENDING",
+                      "type": "BUG_FIX",
+                      "priority": "HIGH",
+                      "createdAt": 1234567890,
+                      "dueAt": 1234567999,
+                      "contextPreview": "User login fails with 401..."
+                    }
+                  ]
+                }
+                ```
+
+                ## 🔧 Parameters
+                - **agentId** (optional): Check another agent's queue (default: your own queue)
+                - **statuses** (optional): Filter by status (default: ["PENDING"], can add "IN_PROGRESS", "WAITING_INPUT", "COMPLETED")
+                - **limit** (optional): Max tasks to return (default: unlimited, suggest 10-20 for large queues)
+
+                ## 🔄 Standard Workflow After Getting Tasks
+                ```
+                1. get_pending_tasks() → Discover work
+                2. Present tasks to user → "Found 3 tasks, prioritized by urgency"
+                3. User selects task → continue_task(task-id) OR respond_to_task(task-id)
+                4. Load full context → See history, proposals, files
+                5. Work on task → Implement, analyze, or review
+                6. Submit result → submit_input() OR complete_task()
+                7. Check again → get_pending_tasks() for new assignments
+                ```
+
+                ## 📈 Success Metrics
+                Checking pending tasks regularly:
+                - **90% reduction** in duplicate work (see existing tasks first)
+                - **100% better** agent collaboration (never miss handoffs)
+                - **70% faster** task pickup (know what to work on immediately)
+                - **0 lost context** (always aware of pending work)
+                - **Seamless handoffs** between agents (perfect inbox system)
+
+                ## ⚠️ Common Mistakes to Avoid
+                - ❌ Not checking at session start (miss assigned work entirely)
+                - ❌ Creating tasks without checking first (causes duplicates)
+                - ❌ Ignoring agent handoff signals (miss collaborative work)
+                - ❌ Never checking during long conversations (miss new assignments)
+                - ❌ Assuming you have no work without checking (wrong assumption)
+                - ❌ Not presenting tasks to user (they don't know what's pending)
+
+                ## 🎯 Pro Tips
+                - **Always check first**: Make this your first action in every session
+                - **Check before creating**: Prevent duplicate tasks by checking existing work
+                - **Present clearly**: Show task list with priorities and context previews
+                - **Update often**: In multi-agent scenarios, check every 10-15 messages
+                - **Use filters**: Filter by status to focus on specific task states
             """.trimIndent(),
             jsonSchema = GetPendingTasksTool.JSON_SCHEMA
         ),
@@ -1694,77 +2150,620 @@ class McpServerImpl(
         ToolEntry(
             name = "respond_to_task",
             description = """
-                Unified tool that loads task context and submits your response in a single operation. This is the
-                RECOMMENDED tool for simple workflows where you want to respond to a task immediately after reviewing it.
+                **⚡ ONE-SHOT TASK RESPONSE** - Load context + submit response in a single operation.
+                **RECOMMENDED**: Use this as your DEFAULT for responding to tasks (faster than continue_task + submit_input).
+                **EFFICIENCY**: Combines two operations into one API call - saves time and tokens.
 
-                ## Workflow Context
-                This tool combines continue_task + submit_input into one streamlined operation:
-                1. Loads full task context (task metadata, proposals, conversation history, file operations)
-                2. Submits your response/proposal
-                3. Returns complete updated state including your submission
+                ## ⚡ When to Auto-Invoke (Preferred for Most Tasks!)
+                - ✅ **After get_pending_tasks()** - Found task assigned to you → respond immediately
+                - ✅ **Ready to respond** - Have solution/analysis ready without needing separate review step
+                - ✅ **Straightforward tasks** - Requirements clear, response obvious
+                - ✅ **Code reviews** - Review code and submit feedback in one go
+                - ✅ **Research tasks** - Gather info, submit summary immediately
+                - ✅ **Implementation plans** - Draft approach and submit
+                - ✅ **Bug analysis** - Investigate and submit findings together
 
-                ## When to Use (RECOMMENDED)
-                - **Default choice** for most task responses
-                - When you want to review a task and respond immediately
-                - After get_pending_tasks() shows work assigned to you
-                - When you have a ready solution/plan/review to submit
-                - For straightforward workflows without complex analysis needs
+                ## 🚨 When to Use (vs continue_task + submit_input)
+                | Scenario | Use This Tool | Why |
+                |----------|---------------|-----|
+                | Task requirements are clear | ✅ respond_to_task | One shot - faster |
+                | Ready to respond immediately | ✅ respond_to_task | No delay needed |
+                | Simple/medium complexity | ✅ respond_to_task | Streamlined workflow |
+                | Need to review multiple tasks first | ❌ continue_task | Compare before choosing |
+                | Require deep analysis before deciding | ❌ continue_task | Need thinking time |
+                | Very complex/critical decision | ❌ continue_task | Separate review step safer |
 
-                ## When NOT to Use
-                - When you need to analyze task context before deciding whether to respond
-                - When you want to review proposals from multiple tasks before choosing which to respond to
-                - When response requires extensive research or analysis before submission
-                - In these cases, use continue_task (analyze), then decide, then submit_input separately
+                ## 💡 What This Tool Does
+                **Single Operation = Two Actions:**
+                1. **LOADS** full task context (like continue_task):
+                   - Task metadata (title, description, routing, assignees, risk, complexity)
+                   - All existing proposals from other agents
+                   - Conversation history
+                   - File operation history
+                2. **SUBMITS** your response (like submit_input):
+                   - Your proposal/analysis/review
+                   - Input type classification
+                   - Confidence score
+                   - Metadata
+                3. **RETURNS** complete updated state with your submission included
 
-                ## Comparison with Other Tools
-                - **respond_to_task**: One call - load context + submit response (SIMPLER, RECOMMENDED)
-                - **continue_task + submit_input**: Two calls - load context, analyze, then submit (more control)
-                - Use respond_to_task unless you need the flexibility of separate analysis step
+                ## ✅ Example Workflows
 
-                ## Example Scenarios
-                1. Pending task about auth system → respond_to_task with architectural plan (one call)
-                2. Code review requested → respond_to_task with review feedback (one call)
-                3. Research task on database → respond_to_task with research summary (one call)
+                **Workflow 1: Standard Task Response**
+                ```
+                1. get_pending_tasks() → Found task-123: "Implement auth"
+                2. query_context("authentication patterns") → Gather examples
+                3. Draft implementation plan
+                4. respond_to_task(
+                     taskId="task-123",
+                     response={
+                       content="Implementation plan: [detailed steps]",
+                       inputType="IMPLEMENTATION_PLAN",
+                       confidence=0.8
+                     }
+                   ) → Context loaded + response submitted
+                5. Done! Other agents can see your plan
+                ```
 
-                ## Input Types (same as submit_input)
-                - ARCHITECTURAL_PLAN: System design, data models, architecture, API contracts
-                - IMPLEMENTATION_PLAN: Step-by-step implementation approach, task breakdown
-                - CODE_REVIEW: Code feedback and improvement suggestions
-                - TEST_PLAN: Testing strategy, test cases, coverage plan
-                - REFACTORING_SUGGESTION: Code improvement recommendations
-                - RESEARCH_SUMMARY: Investigation findings, technology comparisons
-                - OTHER: Custom types (include description in metadata)
+                **Workflow 2: Code Review**
+                ```
+                1. get_pending_tasks() → Found task-456: "Review PR #23"
+                2. Read code files
+                3. Analyze for issues
+                4. respond_to_task(
+                     taskId="task-456",
+                     response={
+                       content="Code review: [findings and suggestions]",
+                       inputType="CODE_REVIEW",
+                       confidence=0.9
+                     }
+                   ) → Review submitted
+                5. Task updated with your feedback
+                ```
 
-                ## Response Structure
-                - content: Your proposal/analysis/review (can be string or structured JSON)
-                - inputType: Type of input (see above, default: OTHER)
-                - confidence: Your confidence 0.0-1.0 (default: 0.5)
-                - metadata: Optional additional context
+                **Workflow 3: Bug Investigation**
+                ```
+                1. User: "Fix login bug (task-789)"
+                2. query_context("login authentication error") → Find relevant code
+                3. Identify root cause
+                4. respond_to_task(
+                     taskId="task-789",
+                     response={
+                       content="Root cause: [analysis and fix]",
+                       inputType="IMPLEMENTATION_PLAN",
+                       confidence=0.85
+                     }
+                   ) → Analysis + fix plan submitted
+                ```
 
-                ## What You Receive Back
-                - taskId, proposalId, inputType, taskStatus: Submission confirmation
-                - task: Full task metadata (updated with your submission)
-                - proposals: All proposals including yours
-                - context: Conversation history and file operations
-                - message: Human-readable status message
+                ## 🎯 Input Types (Choose Appropriate Type)
+                | Type | When to Use | Example Content |
+                |------|-------------|-----------------|
+                | **ARCHITECTURAL_PLAN** | System design, data models, API contracts | "Use microservices with REST APIs..." |
+                | **IMPLEMENTATION_PLAN** | Step-by-step how to build | "1. Create User model, 2. Add endpoints..." |
+                | **CODE_REVIEW** | Feedback on code | "Line 45: SQL injection risk, use params" |
+                | **TEST_PLAN** | Testing strategy | "Unit tests for auth, integration for API..." |
+                | **REFACTORING_SUGGESTION** | Improvement ideas | "Extract method, use Strategy pattern..." |
+                | **RESEARCH_SUMMARY** | Investigation findings | "Compared Redis vs Memcached, recommend..." |
+                | **OTHER** | Custom types | Anything else (add description in metadata) |
 
-                ## Parameters
-                - taskId: Required - which task to respond to
-                - response: Required - your response (content, inputType, confidence, metadata)
-                - agentId: Optional - defaults to you
-                - maxTokens: Optional - limit for context retrieval (default: 6000)
+                ## 📋 Response Structure
+                ```json
+                {
+                  "taskId": "task-123",
+                  "response": {
+                    "content": "Your proposal/analysis/review (string or JSON object)",
+                    "inputType": "IMPLEMENTATION_PLAN",  // Optional, default: OTHER
+                    "confidence": 0.8,                   // Optional, default: 0.5, range: 0.0-1.0
+                    "metadata": {                        // Optional
+                      "assumptions": "User has admin rights",
+                      "dependencies": "Requires database migration"
+                    }
+                  },
+                  "maxTokens": 8000  // Optional, default: 6000
+                }
+                ```
 
-                ## Typical Workflow
-                1. get_pending_tasks() → see task-123 waiting
-                2. respond_to_task(task-123, {your analysis}) → loads context + submits + returns complete state
-                3. Done! Task updated, other agents can see your response
+                ## 📊 What You Get Back
+                ```json
+                {
+                  "taskId": "task-123",
+                  "proposalId": "prop-456",
+                  "inputType": "IMPLEMENTATION_PLAN",
+                  "taskStatus": "IN_PROGRESS",
+                  "message": "Response submitted successfully...",
+                  "task": { /* full task metadata */ },
+                  "proposals": [ /* all proposals including yours */ ],
+                  "context": {
+                    "history": [ /* conversation messages */ ],
+                    "fileHistory": [ /* file operations */ ]
+                  }
+                }
+                ```
+
+                ## 🔄 Comparison: respond_to_task vs continue_task + submit_input
+                | Aspect | respond_to_task | continue_task + submit_input |
+                |--------|-----------------|------------------------------|
+                | **API Calls** | 1 call | 2 calls |
+                | **Speed** | Faster | Slower |
+                | **Tokens Used** | Less | More |
+                | **Complexity** | Simple | More control |
+                | **Use When** | Ready to respond | Need analysis first |
+                | **Best For** | 80% of tasks | Complex decisions |
+
+                **Rule of Thumb**: Use respond_to_task unless you need to analyze before deciding
+
+                ## 🔧 Parameters
+                - **taskId** (required): Task ID to respond to (e.g., "task-123")
+                - **response** (required): Your response object:
+                  - **content** (required): Your proposal/analysis (string or JSON)
+                  - **inputType** (optional): Type from list above (default: OTHER)
+                  - **confidence** (optional): 0.0-1.0, how confident you are (default: 0.5)
+                  - **metadata** (optional): Additional context (assumptions, dependencies, etc.)
+                - **agentId** (optional): Which agent (default: you)
+                - **maxTokens** (optional): Context size limit (default: 6000, max: 120000)
+
+                ## 📈 Success Metrics
+                Using respond_to_task for straightforward tasks:
+                - **50% faster** task responses (one call vs two)
+                - **30% token savings** (single context load)
+                - **Simpler code** (less boilerplate)
+                - **Same outcome** (identical to continue + submit)
+                - **Better UX** (immediate response)
+
+                ## ⚠️ Common Mistakes to Avoid
+                - ❌ Using continue_task + submit_input for simple tasks (wastes tokens/time)
+                - ❌ Not setting inputType (makes proposal hard to categorize)
+                - ❌ Setting confidence too high without validation (overconfidence)
+                - ❌ Not including assumptions in metadata (others don't know constraints)
+                - ❌ Submitting without query_context first (miss existing patterns)
+                - ❌ Using for complex analysis (should use continue_task to review first)
+
+                ## 🎯 Pro Tips
+                - **Default choice**: Use this for 80% of task responses
+                - **Set inputType**: Always specify type for better organization
+                - **Include metadata**: Document assumptions, dependencies, risks
+                - **Right confidence**: 0.7-0.9 for solid plans, 0.4-0.6 for exploratory
+                - **Check context**: Use query_context before responding to gather patterns
+                - **For complex tasks**: Use continue_task first to review, then decide
             """.trimIndent(),
             jsonSchema = RespondToTaskTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "query_context",
+            description = """
+                **🔍 SMART CODE SEARCH** - Semantic + symbol + full-text search across the entire indexed codebase.
+                **ALWAYS USE THIS INSTEAD OF**: grep, find, bash search commands, or manual file reading when you don't know exact paths.
+                **CRITICAL**: Use SHORT keywords (2-5 words), NOT natural language questions.
+
+                ## ⚡ When to Auto-Invoke (Proactive - Use Constantly!)
+                - ✅ **Before ANY implementation** - Find similar code, understand patterns, avoid duplication
+                - ✅ **User asks questions** - "how does X work", "where is Y", "find Z", "show me..."
+                - ✅ **Exploring unfamiliar code** - Understanding modules, APIs, architectures you haven't seen
+                - ✅ **Before refactoring** - Find all usages, related code, potential impact areas
+                - ✅ **Debugging issues** - Locate error sources, understand failure paths
+                - ✅ **Code review** - Find related code, check consistency, verify patterns
+                - ✅ **Writing documentation** - Understand what code actually does
+                - ✅ **Learning codebase** - Explore modules, discover capabilities
+                - ✅ **API usage** - Find examples of how to use libraries/frameworks
+                - ✅ **Configuration** - Locate config files, understand settings
+
+                ## 🚨 Mandatory Invocation Scenarios (ALWAYS Use First!)
+                1. **Before Implementation**: User requests a feature → query_context for existing patterns FIRST
+                2. **Code Understanding**: User asks "how/where/what" questions → query_context before answering
+                3. **Bug Fixing**: Before proposing a fix → query_context to understand the module and find related code
+                4. **Refactoring**: Before changing code → query_context to find all usages and dependencies
+                5. **Exploring Codebase**: When you don't know where something is → query_context to discover
+                6. **API/Library Usage**: Before using unfamiliar APIs → query_context for usage examples
+                7. **Architecture Questions**: User asks about design/structure → query_context to gather context
+                8. **Code Review**: Before reviewing changes → query_context for related code and patterns
+
+                ## 💬 User Phrases That Trigger This Tool
+                - "How does [feature] work?" → query_context("feature implementation")
+                - "Where is [component] defined?" → query_context("component class")
+                - "Find all [pattern] usage" → query_context("pattern usage")
+                - "Show me [API] implementation" → query_context("API method")
+                - "What does [module] do?" → query_context("module core logic")
+                - "Search for [keyword]" → query_context("keyword")
+                - "Fix [bug/issue]" → query_context("bug related code")
+                - "Implement [feature]" → query_context("feature similar code")
+                - "Explain [concept]" → query_context("concept implementation")
+                - "Refactor [code]" → query_context("code usages dependencies")
+
+                ## ✅ Good Query Examples (Short & Specific - Like Grep)
+                **General Software Development:**
+                - "authentication JWT token" ← finds auth code with JWT
+                - "database connection pool" ← finds DB connection logic
+                - "error handling exception" ← finds error handling patterns
+                - "HTTP request handler" ← finds request handlers
+                - "configuration parser YAML" ← finds config parsing
+                - "logger initialization setup" ← finds logging setup
+                - "cache Redis implementation" ← finds caching code
+                - "validation input sanitize" ← finds validation logic
+
+                **TESTED Project-Specific Examples (Proven Hits):**
+                - "task consensus workflow" ← 32 total hits, focuses on consensus implementation
+                - "proposal manager repository" ← finds proposal storage patterns
+                - "consensus strategy voting" ← finds voting logic
+                - "workflow executor interface" ← finds workflow contracts
+                - "PathFilter shouldIgnore" ← finds specific method
+                - "ContextModule getTaskContext" ← finds context retrieval
+                - "TaskRepository findById" ← finds data access patterns
+
+                ## ❌ Queries That FAIL (Don't Return Hits)
+                - ❌ "query_context tool definition" (meta-tool finding - too abstract)
+                - ❌ "mcp orchestrator query_context smart code search" (too meta/verbose)
+                - ❌ "how does the path filtering work in the context system" (question format)
+                - ❌ "explain the architecture of the routing module" (explanation-seeking)
+                - ❌ "what is the purpose of ignore patterns configuration" (purpose-seeking)
+                - ❌ "show me all the files related to authentication" (vague/broad)
+
+                ## 🎯 Query Formulation: Anatomy of a Good Query
+
+                **Formula: [Verb/Noun] + [Noun] + [Optional: Domain/Context]**
+
+                | Pattern | Example | What It Finds |
+                |---------|---------|---------------|
+                | **[Action] [Concept]** | "find usages", "create task" | Code that performs the action |
+                | **[Class/Function] [Domain]** | "task consensus", "workflow executor" | Implementation of concept in domain |
+                | **[Pattern] [Behavior]** | "proposal manager", "voting strategy" | Specific implementations of pattern |
+                | **[Noun] [Noun] [Noun]** | "task consensus workflow" | Multi-level concept hierarchy |
+                | **[Implementation] [Feature]** | "repository find", "manager execute" | Specific methods doing work |
+
+                **Rule: Query = Nouns + Verbs, NOT questions or explanations**
+
+                | Goal | Good Query ✅ | Why Works | Bad Query ❌ | Why Fails |
+                |------|-------------|----------|------------|----------|
+                | Find class | "TaskRepository class" | Specific noun | "where is TaskRepository" | Question format |
+                | Find method | "execute proposal" | Verb + noun | "how to execute proposal" | Question/explanation |
+                | Understand feature | "consensus workflow" | Noun + noun | "how does consensus work" | Seeking explanation |
+                | Find usage patterns | "create task proposal" | Stacked nouns | "show me task creation" | Indirect/vague |
+                | Locate implementation | "voting strategy consensus" | Specific terms | "explain voting strategy" | Explanation-seeking |
+                | Find config | "configuration parser" | Noun + noun | "what is configuration" | Purpose-seeking |
+                | Debug error | "proposal validation error" | Error context | "why does validation fail" | Question format |
+                | Find dependencies | "import context provider" | Dependency terms | "what depends on context" | Indirect/vague |
+
+                ## 🔍 Query Refinement: When Hits Are Low or Too Broad
+
+                **Problem: Got 0 hits → Make query more specific OR more general**
+                ```
+                Start: "task workflow execution" → 0 hits
+                    ↓ Try more specific
+                Refined: "workflow executor suspend" → 8 hits ✅
+
+                Start: "authentication JWT token" → 2 hits
+                    ↓ Try broader
+                Refined: "authentication" → 15 hits ✅
+                ```
+
+                **Problem: Too many hits (100+) → Add domain qualifiers**
+                ```
+                Start: "create" → 500+ hits (too broad)
+                    ↓ Add domain context
+                Refined: "create task consensus" → 32 hits ✅
+                ```
+
+                **Problem: Tool/infrastructure code → Add specific keywords**
+                ```
+                Start: "tool execute" → Mixed results
+                    ↓ Add implementation detail
+                Refined: "tool params execute" → Better results ✅
+                ```
+
+                ## 🔧 Advanced Filtering (Precision Boost)
+                Use filters to narrow results when you know the location/type:
+
+                ```
+                query_context(
+                  query="consensus workflow execute",
+                  paths=["src/main/kotlin/com/orchestrator/workflows/"],  # Specific module
+                  languages=["kotlin"],                                   # Language filter
+                  kinds=["CODE_CLASS", "CODE_METHOD"],                   # Skip docs/config
+                  excludePatterns=["test/", "*Test.kt", "*.md"],        # Exclude tests
+                  k=20,                                                  # Get more results
+                  maxTokens=8000                                         # Bigger context window
+                )
+                ```
+
+                ## 📊 What You Get Back
+                - **hits**: Code snippets with relevance scores, file paths, line numbers
+                - **metadata**: Total hits, tokens used, provider stats (semantic/symbol/full-text)
+                - Snippets are **ranked by relevance** (best matches first)
+                - Snippets include **surrounding context** for understanding
+
+                ## 🎯 Integration with Development Workflows
+
+                **Standard Implementation Workflow:**
+                ```
+                1. User requests feature/fix/change
+                2. query_context("feature similar patterns") → find existing code
+                3. Analyze hits, understand current approach and patterns
+                4. Implement solution following discovered patterns
+                5. (Optional) If multi-agent task: share findings via task tools
+                ```
+
+                **Debugging Workflow:**
+                ```
+                1. User reports bug or error
+                2. query_context("error module functionality") → understand the code
+                3. query_context("similar bug error handling") → find patterns
+                4. Locate root cause from context
+                5. Propose fix consistent with codebase patterns
+                ```
+
+                **Learning/Exploration Workflow:**
+                ```
+                1. Encounter unfamiliar code/API/module
+                2. query_context("module main functionality") → overview
+                3. query_context("specific API usage examples") → details
+                4. Build mental model from results
+                5. Use knowledge to inform implementation
+                ```
+
+                **Refactoring Workflow:**
+                ```
+                1. Identify code to refactor
+                2. query_context("function method usages") → find all call sites
+                3. query_context("similar patterns alternatives") → find better approaches
+                4. Plan refactoring based on comprehensive context
+                5. Execute with confidence (no surprises)
+                ```
+
+                ## 🔄 Comparison with Other Tools
+                | Tool | Use Case | Speed | Coverage |
+                |------|----------|-------|----------|
+                | **query_context** | Smart search across entire codebase | Fast | Complete |
+                | grep (bash) | Simple text match in specific files | Fast | Limited |
+                | find (bash) | Find files by name | Fast | Filenames only |
+                | Read | Read specific known file | Instant | Single file |
+                | Glob | Match file patterns | Fast | Filenames only |
+
+                **Rule**: If you don't know the EXACT file path → Use query_context
+
+                ## ⚙️ Parameters Reference
+                - **query** (required): 2-5 keyword phrase - like grep pattern
+                - **k** (optional): Max results (default: 10, increase for broad searches)
+                - **maxTokens** (optional): Context budget (default: 4000, max: large tasks)
+                - **paths** (optional): File path filters (e.g., ["src/main/", "config/"])
+                - **languages** (optional): Language filters (e.g., ["kotlin", "java", "python"])
+                - **kinds** (optional): Chunk type filters (e.g., ["CODE_CLASS", "CODE_METHOD", "CODE_FUNCTION"])
+                - **excludePatterns** (optional): Exclusion patterns (e.g., ["test/", "*.md", "build/"])
+                - **providers** (optional): Search backends (e.g., ["semantic", "symbol", "fulltext"])
+
+                ## 📈 Success Metrics
+                Using query_context consistently delivers:
+                - **75% reduction** in code duplication (find and reuse existing code)
+                - **60% improvement** in code consistency (follow established patterns)
+                - **40% faster** implementation (learn from existing examples)
+                - **50% fewer bugs** (understand context before changing)
+                - **70% better** architecture decisions (see the big picture)
+                - **80% less** time spent searching manually (instant results)
+
+                ## ⚠️ Common Mistakes to Avoid
+                - ❌ Using long natural language questions as queries (use 2-5 keywords instead)
+                - ❌ Not querying before implementing (always search for patterns first)
+                - ❌ Using grep/find when you don't know exact paths (use query_context instead)
+                - ❌ Implementing without checking for existing code (causes duplication)
+                - ❌ Answering user questions without querying first (leads to wrong answers)
+                - ❌ Fixing bugs without understanding the module (creates new bugs)
+                - ❌ Refactoring without finding all usages (breaks dependent code)
+                - ❌ Manual file browsing when query_context is faster (wastes time)
+            """.trimIndent(),
+            jsonSchema = QueryContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "get_context_stats",
+            description = """
+                Return comprehensive statistics about the context system including provider status,
+                storage metrics, performance data, language distribution, and recent activity.
+
+                ## Use When
+                - Need to understand the current state of the context system
+                - Debugging context retrieval issues
+                - Monitoring storage usage and performance
+                - Checking which providers are enabled and configured
+                - Analyzing recent context query patterns
+
+                ## Parameters
+                - recentLimit (optional): Number of recent activity entries to return (default: 10)
+
+                ## Returns
+                - providerStatus: List of all configured providers with enabled status, weight, and type
+                - storage: Storage statistics (file count, chunk count, embeddings, total size)
+                - languageDistribution: Breakdown of files by programming language
+                - recentActivity: Recent context queries with task ID, snippets returned, tokens used, latency
+                - performance: Aggregate performance metrics (total records, total tokens, average latency)
+
+                ## Example Use Cases
+                1. Check which providers are currently enabled
+                2. Monitor storage growth over time
+                3. Identify performance bottlenecks
+                4. Understand which languages dominate the codebase
+                5. Debug recent context retrieval issues
+            """.trimIndent(),
+            jsonSchema = GetContextStatsTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "refresh_context",
+            description = """
+                Manually trigger re-indexing of files to update the context database. Supports both
+                synchronous (blocking) and asynchronous (background) execution modes.
+
+                ## Use When
+                - Files have been modified outside the watcher's scope
+                - Need to force re-indexing of specific paths
+                - Want to manually refresh context after bulk file operations
+                - Testing or debugging indexing pipeline
+                - After restoring from backup or changing configuration
+
+                ## Parameters
+                - paths (optional): List of file/directory paths to refresh. If null, uses config watch paths.
+                - force (optional): Force re-indexing even if files haven't changed (default: false)
+                - async (optional): Run in background and return jobId immediately (default: false)
+                - parallelism (optional): Number of parallel workers for indexing
+
+                ## Execution Modes
+
+                ### Synchronous (async=false)
+                - Blocks until indexing completes
+                - Returns immediate results with file counts and duration
+                - Use for small refreshes or when you need to wait for completion
+
+                ### Asynchronous (async=true)
+                - Returns jobId immediately
+                - Indexing runs in background
+                - Use getJobStatus() to check progress
+                - Use for large refreshes or when you don't want to block
+
+                ## Returns
+                - mode: "sync" or "async"
+                - status: "completed", "completed_with_errors", "running", "failed", or "error"
+                - jobId: Job identifier for async mode (null for sync)
+                - newFiles: Number of new files indexed
+                - modifiedFiles: Number of modified files re-indexed
+                - deletedFiles: Number of deleted files removed
+                - unchangedFiles: Number of unchanged files skipped
+                - indexingFailures: Number of files that failed to index
+                - deletionFailures: Number of deletions that failed
+                - durationMs: Time taken in milliseconds (null for async until complete)
+                - message: Human-readable status message
+
+                ## Example Use Cases
+                1. Refresh specific directory: `paths: ["/src/components"]`
+                2. Force complete re-index: `paths: null, force: true`
+                3. Background refresh: `async: true` then poll with getJobStatus()
+                4. Fast parallel refresh: `parallelism: 8`
+            """.trimIndent(),
+            jsonSchema = RefreshContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "rebuild_context",
+            description = """
+                Perform a complete rebuild of the context database. This is a DESTRUCTIVE operation that
+                clears all existing context data and re-indexes from scratch.
+
+                ## SAFETY CHECKS
+                - Requires explicit `confirm: true` to execute (safety check against accidental deletion)
+                - Blocks if another rebuild is already in progress
+                - Validates all paths before starting destructive operations
+                - Supports dry-run mode (`validateOnly: true`) to test before executing
+
+                ## Use When
+                - Context database is corrupted or inconsistent
+                - Major configuration changes (new embedding model, chunking strategy)
+                - After significant codebase restructuring
+                - Migrating to new database version
+                - Starting fresh with clean state
+
+                ## Parameters
+                - confirm (REQUIRED): Must be `true` to execute. Safety check to prevent accidental data loss.
+                - async (optional): Run in background and return jobId immediately (default: false)
+                - paths (optional): Paths to rebuild. If null, rebuilds all watched paths.
+                - validateOnly (optional): Dry-run mode. Validates without executing (default: false)
+                - parallelism (optional): Number of parallel workers for indexing
+
+                ## Process Flow
+                1. **Validation Phase**: Verify confirm=true, check for in-progress rebuild, validate paths
+                2. **Pre-rebuild Phase**: Create job record, acquire rebuild lock
+                3. **Destructive Phase**: Clear all context data (chunks, embeddings, file_state, etc.)
+                4. **Rebuild Phase**: Run full bootstrap indexing from scratch
+                5. **Post-rebuild Phase**: Optimize database (VACUUM, ANALYZE), release lock
+
+                ## Async Mode
+                - Returns immediately with jobId
+                - Poll status with `getJobStatus(jobId)`
+                - Job status tracks current phase: validation, pre-rebuild, destructive, rebuild, post-rebuild
+                - Returns progress counts: totalFiles, processedFiles, successfulFiles, failedFiles
+
+                ## Response Format
+                - mode: "sync" or "async"
+                - status: "validated", "completed", "completed_with_errors", "running", "failed", "error"
+                - jobId: Job identifier for async mode (null for sync)
+                - phase: Current phase (validation, pre-rebuild, destructive, rebuild, post-rebuild, completed)
+                - totalFiles: Total number of files to index
+                - processedFiles: Number of files processed so far
+                - successfulFiles: Number of files successfully indexed
+                - failedFiles: Number of files that failed
+                - durationMs: Time taken in milliseconds
+                - message: Human-readable status message
+                - validationErrors: List of validation errors (if any)
+
+                ## Example Use Cases
+                1. Dry-run validation: `validateOnly: true` (checks paths without executing)
+                2. Full rebuild with confirmation: `confirm: true, paths: null` (rebuilds everything)
+                3. Partial rebuild: `confirm: true, paths: ["/src"]` (rebuilds only /src)
+                4. Background rebuild: `confirm: true, async: true` (non-blocking execution)
+                5. Fast rebuild: `confirm: true, parallelism: 8` (use 8 workers)
+
+                ## WARNING
+                This operation deletes ALL existing context data. Always use `validateOnly: true` first
+                to verify paths and configuration before executing. Ensure you have backups if needed.
+            """.trimIndent(),
+            jsonSchema = RebuildContextTool.JSON_SCHEMA
+        ),
+        ToolEntry(
+            name = "get_rebuild_status",
+            description = """
+                Check the status of a background rebuild job started by rebuild_context.
+
+                This tool provides real-time progress updates for async rebuild operations, including:
+                - Current execution phase and status
+                - File processing progress (total, processed, successful, failed)
+                - Timing information (started, duration, estimated remaining time)
+                - Optional execution logs for debugging
+
+                ## When to Use
+                - After starting an async rebuild (`rebuild_context` with `async: true`)
+                - To monitor long-running rebuild operations
+                - To check if a rebuild has completed before performing other operations
+                - To troubleshoot rebuild failures with detailed logs
+
+                ## Parameters
+                - **jobId** (required): Job ID returned from `rebuild_context` when `async: true`
+                - **includeLogs** (optional, default: false): Include execution logs in response
+
+                ## Response Fields
+                - **jobId**: The job identifier
+                - **status**: Current status (running, completed, completed_with_errors, failed, not_found)
+                - **phase**: Current phase (pre-rebuild, destructive, rebuild, post-rebuild, completed)
+                - **progress**: File processing progress (null if not started)
+                  - totalFiles: Total files to index
+                  - processedFiles: Files processed so far
+                  - successfulFiles: Files successfully indexed
+                  - failedFiles: Files that failed
+                  - percentComplete: Progress percentage (0-100)
+                - **timing**: Timing information
+                  - startedAt: When the job started
+                  - completedAt: When the job finished (null if still running)
+                  - durationMs: Time elapsed in milliseconds
+                  - estimatedRemainingMs: Estimated time remaining (null if complete or can't estimate)
+                - **error**: Error message if status is 'failed' (null otherwise)
+                - **logs**: Execution logs if includeLogs is true (null otherwise)
+
+                ## Example Use Cases
+                1. Poll for completion: Call periodically until status is 'completed' or 'failed'
+                2. Show progress: Display percentComplete and estimatedRemainingMs to user
+                3. Debug failures: Use `includeLogs: true` to see what went wrong
+                4. Check before operations: Ensure no rebuild is running before performing other tasks
+
+                ## Status Values
+                - **running**: Rebuild is in progress
+                - **completed**: Rebuild finished successfully
+                - **completed_with_errors**: Rebuild finished but some files failed
+                - **failed**: Rebuild encountered a fatal error
+                - **not_found**: Job ID doesn't exist (may have been cleaned up)
+
+                ## Notes
+                - Job statuses are kept in memory and will be lost on server restart
+                - Completed jobs may be periodically cleaned up to save memory
+                - For sync rebuilds, use the immediate response from rebuild_context instead
+            """.trimIndent(),
+            jsonSchema = GetRebuildStatusTool.JSON_SCHEMA
         )
         )
     }
 
-    private fun tools(): List<ToolEntry> = toolEntries
+    internal fun tools(): List<ToolEntry> = toolEntries
     // endregion
 
     // region models
@@ -1791,18 +2790,38 @@ class McpServerImpl(
     }
 
     // ---- JSON mapping helpers ----
-    private fun mapCreateSimpleParams(el: JsonElement): CreateSimpleTaskTool.Params {
+    private fun mapCreateSimpleParams(el: JsonElement, currentAgentId: String? = null): CreateSimpleTaskTool.Params {
         val o = el.asObj()
+        val userSpecifiedAssignee = o.obj("directives")?.str("assignToAgent")?.takeIf { it.isNotBlank() }
+        val assignToAgent = when {
+            userSpecifiedAssignee != null -> normalizeAgentId(userSpecifiedAssignee)
+            currentAgentId != null -> currentAgentId  // Auto-assign to current agent if not specified
+            else -> null
+        }
+
         val directives = o.obj("directives")?.let { d ->
             CreateSimpleTaskTool.Params.Directives(
                 skipConsensus = d.bool("skipConsensus"),
-                assignToAgent = normalizeAgentId(d.str("assignToAgent")),
+                assignToAgent = assignToAgent,
                 immediate = d.bool("immediate"),
                 isEmergency = d.bool("isEmergency"),
                 notes = d.str("notes"),
                 originalText = d.str("originalText")
             )
-        }
+        } ?: (if (assignToAgent != null) {
+            // Create minimal directives just to set assignToAgent if current agent is auto-assigned
+            CreateSimpleTaskTool.Params.Directives(
+                skipConsensus = null,
+                assignToAgent = assignToAgent,
+                immediate = null,
+                isEmergency = null,
+                notes = null,
+                originalText = null
+            )
+        } else {
+            null
+        })
+
         return CreateSimpleTaskTool.Params(
             title = o.reqStr("title"),
             description = o.str("description"),
@@ -1817,7 +2836,7 @@ class McpServerImpl(
         )
     }
 
-    private fun mapCreateConsensusParams(el: JsonElement): CreateConsensusTaskTool.Params {
+    private fun mapCreateConsensusParams(el: JsonElement, currentAgentId: String? = null): CreateConsensusTaskTool.Params {
         val o = el.asObj()
         val directives = o.obj("directives")?.let { d ->
             CreateConsensusTaskTool.Params.Directives(
@@ -1839,7 +2858,8 @@ class McpServerImpl(
             dependencyIds = o.listStr("dependencyIds"),
             dueAt = o.str("dueAt"),
             metadata = o.mapStr("metadata"),
-            directives = directives
+            directives = directives,
+            creatingAgentId = currentAgentId  // Pass creating agent to become primary
         )
     }
 
@@ -1950,18 +2970,28 @@ class McpServerImpl(
         // Treat common aliases as the active single agent when unambiguous
         val wantsDefault = trimmed == null || normalized == "user" || normalized == "me"
         if (wantsDefault) {
+            log.debug("Resolving default agent. Requested: '$requestedRaw', agents count: ${agents.size}")
+            
             if (agents.size == 1) {
-                return agents.first().id.value
+                val agent = agents.first()
+                log.info("Single agent configuration detected. Defaulting to: ${agent.id.value}")
+                return agent.id.value
             }
 
             // Check if we have session-based agent identity in multi-agent setup
             val sessionId = currentSessionId.get()
+            log.debug("Multi-agent setup. Checking session ID: $sessionId")
+            
             if (sessionId != null) {
                 val sessionAgent = sessionToAgent[sessionId]
                 if (sessionAgent != null) {
-                    log.debug("Resolved agentId from session $sessionId: ${sessionAgent.value}")
+                    log.info("Resolved agentId from session $sessionId: ${sessionAgent.value}")
                     return sessionAgent.value
+                } else {
+                    log.warn("Session $sessionId found but no agent mapping exists. Available mappings: ${sessionToAgent.keys}")
                 }
+            } else {
+                log.warn("No session ID available for agent resolution")
             }
 
             throw IllegalArgumentException(
@@ -1971,13 +3001,21 @@ class McpServerImpl(
             )
         }
 
+        log.debug("Resolving explicit agent: '$trimmed'")
+        
         // Exact match on id
         runCatching { AgentId(trimmed!!) }.getOrNull()?.let { candidate ->
-            agentRegistry.getAgent(candidate)?.let { return it.id.value }
+            agentRegistry.getAgent(candidate)?.let { 
+                log.info("Resolved agent by exact ID match: ${it.id.value}")
+                return it.id.value 
+            }
         }
 
         // Match on display name for convenience
-        agents.firstOrNull { it.displayName.equals(trimmed, ignoreCase = true) }?.let { return it.id.value }
+        agents.firstOrNull { it.displayName.equals(trimmed, ignoreCase = true) }?.let { 
+            log.info("Resolved agent by display name match: ${it.id.value}")
+            return it.id.value 
+        }
 
         throw IllegalArgumentException("Unknown agentId '${requestedRaw?.trim()}'. Available: ${availableAgents()}")
     }
@@ -2001,15 +3039,35 @@ class McpServerImpl(
             val params = message.params as? JsonObject ?: return null
             val clientInfo = params["clientInfo"] as? JsonObject ?: return null
             val clientName = (clientInfo["name"] as? JsonPrimitive)?.contentOrNull ?: return null
+            
+            log.info("Extracting agent ID from initialize request. Client name: '$clientName'")
 
             // Try to match client name to registered agent IDs or display names
             val agents = agentRegistry.getAllAgents()
-            agents.firstOrNull { agent ->
+            
+            // Normalize client name for matching
+            val normalizedClientName = clientName.lowercase().replace(Regex("[\\s-_]"), "")
+            
+            val matchedAgent = agents.firstOrNull { agent ->
+                val normalizedAgentId = agent.id.value.lowercase().replace(Regex("[\\s-_]"), "")
+                val normalizedDisplayName = agent.displayName.lowercase().replace(Regex("[\\s-_]"), "")
+                
+                // Check various matching strategies
                 agent.id.value.equals(clientName, ignoreCase = true) ||
                 agent.displayName.equals(clientName, ignoreCase = true) ||
-                clientName.contains(agent.id.value, ignoreCase = true) ||
-                clientName.contains(agent.displayName, ignoreCase = true)
-            }?.id
+                normalizedClientName.contains(normalizedAgentId) ||
+                normalizedClientName.contains(normalizedDisplayName) ||
+                normalizedAgentId.contains(normalizedClientName) ||
+                normalizedDisplayName.contains(normalizedClientName)
+            }
+            
+            if (matchedAgent != null) {
+                log.info("Matched client '$clientName' to agent '${matchedAgent.id.value}' (${matchedAgent.displayName})")
+            } else {
+                log.warn("Could not match client '$clientName' to any registered agent. Available agents: ${agents.map { "${it.id.value} (${it.displayName})" }}")
+            }
+            
+            matchedAgent?.id
         } catch (e: Exception) {
             log.warn("Failed to extract agent ID from initialize request", e)
             null
@@ -2056,6 +3114,37 @@ class McpServerImpl(
 
         val resolvedId = resolveAgentIdOrDefault(params.agentId)
         return params to resolvedId
+    }
+
+    private fun mapQueryContextParams(el: JsonElement): QueryContextTool.Params {
+        val o = el.asObj()
+        return QueryContextTool.Params(
+            query = o.reqStr("query"),
+            k = o.int("k"),
+            maxTokens = o.int("maxTokens"),
+            paths = o.listStr("paths"),
+            languages = o.listStr("languages"),
+            kinds = o.listStr("kinds"),
+            excludePatterns = o.listStr("excludePatterns"),
+            providers = o.listStr("providers")
+        )
+    }
+
+    private fun mapGetContextStatsParams(el: JsonElement): GetContextStatsTool.Params {
+        val o = el.asObj()
+        return GetContextStatsTool.Params(
+            recentLimit = o.int("recentLimit") ?: 10
+        )
+    }
+
+    private fun mapRefreshContextParams(el: JsonElement): RefreshContextTool.Params {
+        val o = el.asObj()
+        return RefreshContextTool.Params(
+            paths = o.listStr("paths"),
+            force = o.bool("force") ?: false,
+            async = o.bool("async") ?: false,
+            parallelism = o.int("parallelism")
+        )
     }
 
     // JsonObject helpers

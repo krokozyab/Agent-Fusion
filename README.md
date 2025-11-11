@@ -1,198 +1,146 @@
-# Agent Fusion
 
-A multi-agent orchestration system that enables Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist to collaborate bidirectionally through intelligent task routing and consensus-based decision making.
+<img src="pics/agent_banner.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 240px; display: block; margin: 0 auto;">
 
-## Architecture Overview
+Agent Fusion gives multiple AI coding assistants instant access to your files—code, documents, PDFs, and more—through intelligent indexing, and optionally coordinates their work through a task system.
 
-### Core Concept
+It has two independent components (each can be used alone or together):
 
-The system enables multiple AI agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) to collaborate on complex tasks through a central MCP (Model Context Protocol) server that maintains shared context and orchestrates their interactions.
+- **Context Engine** – Automatically indexes and searches any folders you configure (code, word documents, PDFs, etc.). Your AI agents can search everything instantly—just ask them to "use query_context" in your prompts. No more copy-pasting code. Deploy with just 2 files: JAR + `fusionagent.toml`. Includes lightweight embedding model; swap for a more powerful model if needed.
+- **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
-```
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│              │  │              │  │              │  │              │
-│ Claude Code  │  │  Codex CLI   │  │  Amazon Q    │  │   Gemini     │
-│  (Agent 1)   │  │  (Agent 2)   │  │  (Agent 3)   │  │  (Agent 4)   │
-│              │  │              │  │              │  │              │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                 │                 │                 │
-       │     MCP Client Connections (bidirectional)          │
-       │                 │                 │                 │
-       └─────────────────┼─────────────────┼─────────────────┘
-                         ▼                 ▼
-    ┌─────────────────────────────────────────────────────────────┐
-    │                                                             │
-    │                 MCP Orchestrator Server                     │
-    │                                                             │
-    │  ┌───────────────────────────────────────────────────────┐  │
-    │  │         Shared Context & Task Queue                   │  │
-    │  │  • Task routing & assignment                          │  │
-    │  │  • Proposals & consensus voting                       │  │
-    │  │  • Multi-agent conversation history                   │  │
-    │  └───────────────────────────────────────────────────────┘  │
-    │                                                             │
-    │  ┌───────────────────────────────────────────────────────┐  │
-    │  │          Persistent Storage (DuckDB)                  │  │
-    │  │  • Tasks, Proposals, Decisions                        │  │
-    │  │  • Agent metrics & performance                        │  │
-    │  │  • Context snapshots                                  │  │
-    │  └───────────────────────────────────────────────────────┘  │
-    │                                                             │
-    └─────────────────────────────────────────────────────────────┘
-```
+<img src="pics/home_page.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 300px; display: block; margin: 0 auto;">
 
-### How It Works
 
-1. **Agents Connect**: Multiple AI agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) connect to the MCP server as clients
-2. **Task Creation**: Any agent can create tasks (simple, consensus, or assigned)
-3. **Context Sharing**: The server maintains shared context visible to all agents
-4. **Collaboration**: Agents submit proposals, vote on solutions, and review each other's work
-5. **Routing**: Intelligent routing decides whether tasks need single-agent or multi-agent collaboration
+🎥 **[Watch the demo](https://youtu.be/kXkTh0fJ0Lc)** to see AI assistants collaborating in action.
 
-**Key Benefits:**
-- **Multi-Agent Support**: Works with Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist
-- **Bidirectional**: All agents can initiate tasks and respond to each other
-- **Context Preservation**: Full conversation history and task context maintained centrally
-- **Flexible Workflows**: Supports solo, consensus, sequential, and parallel execution modes
+---
 
-## Features
+## How It Works
 
-🎥 **[Watch Demo Video](https://youtu.be/kXkTh0fJ0Lc)** - See consensus collaboration in action
+Agent Fusion fetches up-to-date code examples and documentation right into your LLM's context:
 
-### What Makes This Unique
+1️⃣ **Write your prompt naturally** – Ask your AI assistant what you'd normally ask
 
-- **True Bidirectional Collaboration**: All agents can initiate tasks, respond to each other, and manage workflows - not just sequential handoffs
-- **Multi-Agent Support**: Works with Claude Code, Codex CLI, Amazon Q Developer, and Gemini Code Assist
-- **Consensus-Based Decision Making**: Multiple agents propose solutions and vote on the best approach for critical architectural and security decisions
-- **Intelligent Task Routing**: Automatically analyzes task complexity and risk to select optimal execution approach - supports solo execution for simple tasks and multi-agent consensus for critical decisions
-- **Persistent Task Queue**: Agents check pending work assigned to them, enabling asynchronous collaboration across sessions
-- **Flexible Workflow Control**: Supports solo execution, multi-agent consensus, direct assignments, and emergency bypass modes
-- **Event-Driven Architecture**: Async event bus enables decoupled, scalable component communication
+2️⃣ **Tell the LLM to use query_context** – Just add "use query_context to find X" in your prompt
 
-## Installation
+3️⃣ **Get working code answers** – Instant, accurate answers based on your actual codebase
 
-**No API keys required** - All agents (Claude Code, Codex CLI, Amazon Q Developer, Gemini Code Assist) run using your existing local installations and connect via MCP.
+**No tab-switching. No hallucinated APIs that don't exist. No outdated code generation.**
 
-See [Installation Guide](docs/INSTALL.md) for setup instructions for all supported agents.
+---
 
 ## Getting Started
 
-### Agent Configuration
+| Start Here | What You'll Learn |
+|----------|---------|
+| **[Installation Guide](docs/INSTALL.md)** | Step-by-step setup (takes 5-10 minutes) |
+| **[Context Engine Guide](docs/README_CONTEXT_ADDON.md)** | How to index and search any files (code, documents, PDFs) |
+| **[Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md)** | How to coordinate multiple AIs (optional) |
+| **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
 
-For optimal collaboration, it's **highly recommended** to provide the [Agent Orchestrator Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md) to your AI agents before starting work. This enables agents to:
+---
 
-- Understand how to create and manage tasks
-- Detect user routing directives from natural language
-- Follow proper handoff workflows between agents
-- Use MCP tools correctly for collaboration
+## Context Engine: Intelligent Search & Indexing
 
-**Recommended approach:**
+The **Context Engine** automatically indexes your files so AI agents can search them instantly:
 
-In your first message to the agent, say:
-```
-"Read and follow the instructions in docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md"
-```
+1. **Watches your folders** – Automatically indexes files you specify (code, documents, PDFs; respects `.gitignore`)
+2. **Understands meaning** – Smart search that finds what you're looking for, not just keyword matches
+3. **Keeps everything fresh** – Changes detected instantly, always up-to-date
+4. **Ready for your agents** – Ask Claude or Codex to "use query_context" in your prompts, and they'll search your indexed files instantly
 
-Or include the content as context at the start of your session.
+**How to use it**: Just add to your prompt: *"Use query_context to find [what you're looking for]"* and your AI agent will search your indexed files and give you relevant results. No copy-pasting needed!
 
-### Usage Examples
+### How Search Works
 
-For detailed workflow examples, see [Conversation Handoff Workflow](docs/CONVERSATION_HANDOFF_WORKFLOW.md).
+The Context Engine uses **three search types combined**:
 
-## MCP Server Endpoints
+- **Semantic Search** – AI-powered understanding of meaning (finds "user authentication" when you search "login system")
+- **Full-Text Search** – Fast keyword matching (finds exact phrases and terms)
+- **Hybrid Search** – Combines all results ranked by relevance (you get the best matches from all methods)
 
-### Health Check
-```
-GET /healthz
-```
+This means you get accurate results whether you search by meaning or by keywords. The best of both worlds.
 
-### Tools
-```
-GET /mcp/tools              # List available tools
-POST /mcp/tools/call        # Invoke a tool
-```
+The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
-**Available Tools:**
-- `create_simple_task` - Create a single-agent task
-- `create_consensus_task` - Create a multi-agent consensus task
-- `assign_task` - Assign task to specific agent
-- `continue_task` - Load task context for continuation
-- `respond_to_task` - Load task context and submit response in one operation (recommended)
-- `complete_task` - Mark task as completed
-- `get_pending_tasks` - Get pending tasks for an agent
-- `get_task_status` - Get task status
-- `submit_input` - Submit agent input/proposal
+### Context Engineering
 
-## Project Structure
+**Context Engineering** is the practice of optimizing how your files are indexed for best results:
 
-- `src/main/kotlin/com/orchestrator/`
-  - `Main.kt` - Application entry point
-  - `config/` - Configuration loading
-  - `core/` - Core components (AgentRegistry, EventBus)
-  - `domain/` - Domain models (Task, Agent, Proposal, Decision)
-  - `modules/` - Feature modules (routing, consensus, metrics, MCP)
-  - `storage/` - Database and repositories
-  - `utils/` - Utilities (Logger, IdGenerator)
-- `src/test/kotlin` - Tests
-- `config/` - Configuration files
-- `build.gradle.kts` - Gradle build script
+- **Watch paths** – Which folders to index (codebase, documents, research, etc.)
+- **File types** – Which extensions to include (.kt, .py, .pdf, .docx, etc.)
+- **Ignore patterns** – What files to skip (build artifacts, node_modules, etc.)
+- **Chunk strategy** – How files are split for understanding (function-level, section-level, paragraph-level)
+- **Embedding tuning** – What aspects of content are emphasized in search
+- **Refresh strategy** – How often to update the index
 
+Learn more in [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md).
 
+## Task Manager: Coordinate Multiple AIs
 
-## Architecture
+The **Task Manager** is completely optional. Use it to coordinate work between multiple AIs:
 
-📊 **[View Sequence Diagrams](docs/SEQUENCE_DIAGRAMS.md)** - Detailed workflow visualizations showing task flow from creation to completion
+1. **One AI starts a task** – "Design a new authentication system"
+2. **The system routes it** – Simple tasks go to one AI, complex tasks go to multiple
+3. **AIs collaborate** – They can see each other's ideas, discuss pros/cons
+4. **The group decides** – For important decisions, they vote and you see all viewpoints
+5. **Everything is tracked** – All proposals and decisions saved with full reasoning
 
-### Core Components
+The Task Manager works best when AIs have access to the Context Engine—they stay coordinated. But you can use Task Manager without Context Engine if you prefer traditional task management.
 
-- **Routing Module**: Classifies tasks and selects optimal routing strategy
-  - SOLO: Single agent execution
-  - CONSENSUS: Multiple agents collaborate
-  - SEQUENTIAL: Agents work in sequence
-  - PARALLEL: Agents work in parallel
+**Use Task Manager when**:
+- You want multiple AIs discussing important decisions
+- You need voting/consensus on architectural changes
+- You want a complete audit trail of AI reasoning
 
-- **Consensus Module**: Coordinates multi-agent collaboration
-  - Voting Strategy: Democratic voting
-  - Reasoning Quality: Best reasoning wins
-  - Token Optimization: Minimize token usage
+## Architecture: Two Independent Systems
 
-- **Metrics Module**: Comprehensive tracking
-  - Token usage per task/agent
-  - Performance monitoring
-  - Decision analytics
-  - Alert system
+### Context Engine
+Intelligent indexing and search for any files (works standalone):
+- **Setup**: Configure folders to watch and file types to index in `fusionagent.toml`
+- **Indexing**: Automatically finds and indexes your files, watches for changes
+- **Supports**: Code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and any file type you configure
+- **Search**: Smart search that understands meaning, not just keywords (semantic + symbol + full-text + git history)
+- **Local**: Everything stored locally in DuckDB, never sent to cloud
+- **Agent Access**: Tell your AI agents "use query_context to find X" and they'll search instantly
+- **Standalone**: Works independently without Task Manager—great for teams who just need smart file search
 
-- **MCP Server**: HTTP-based tool interface
-  - RESTful endpoints
-  - JSON request/response
-  - Error handling
+### Task Manager
+Workflow coordination for multiple AIs (optional addon):
+- Routes tasks intelligently (solo vs consensus)
+- Enables collaborative decision-making with AI voting
+- Tracks all proposals, votes, and final decisions
+- Provides web dashboard with real-time updates
+- Can be used standalone for traditional task management
 
-- **Event Bus**: Async communication
-  - Pub/sub pattern
-  - Event-driven architecture
-  - Decoupled components
+---
 
-- **Storage**: DuckDB persistence
-  - Tasks, proposals, decisions
-  - Metrics time series
-  - Context snapshots
+## Key Features
 
-### Routing Strategies
+✅ **Search Without Copy-Pasting** – Just tell your AI agent "use query_context" in your prompts. They'll search your files instantly—no more pasting code snippets
 
-The system supports four routing strategies that are automatically determined based on task characteristics:
+✅ **Multiple AI Assistants Share Everything** – Connect Claude, Codex, Gemini, Amazon Q—they all search the same indexed files and get the same results
 
-| Strategy | When Used | Agents | Use Case |
-|----------|-----------|--------|----------|
-| SOLO | Low complexity/risk | 1 | Simple tasks, documentation |
-| CONSENSUS | High risk, critical | 2+ | Architecture, security decisions |
-| SEQUENTIAL | High complexity | 2+ | Planning, multi-phase projects |
-| PARALLEL | Research/testing, divisible tasks | 2+ | Code generation, data analysis |
+✅ **Automatic Routing** – Simple tasks go to one AI, important/complex tasks automatically go to multiple AIs for discussion
 
-**Note**: Agents create tasks using `create_simple_task` (SOLO) or `create_consensus_task` (CONSENSUS). The routing module can automatically select SEQUENTIAL or PARALLEL strategies based on complexity, risk, task type, and natural language signals (e.g., "parallel", "concurrent").
+✅ **Real-Time Collaboration** – Watch AIs collaborate and vote on decisions in real-time on your web dashboard
 
-### Agent Directives
+✅ **Complete Transparency** – Every decision, proposal, and vote is saved with full reasoning—no black boxes
 
-Agents automatically detect routing signals from natural language. For complete directive documentation, see [Agent Orchestrator Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md#directive-reference).
+✅ **Private & Local** – Everything runs on your machine. Your code never leaves your computer
+
+✅ **Always Fresh** – Automatically detects file changes and updates the Context Engine index instantly
+
+## How It Routes Work
+
+The system smartly decides how to handle each task:
+
+- **Quick tasks** (fixing a typo, writing a docstring) → Go to one AI
+- **Complex tasks** (design new feature) → Go to two AIs who discuss and decide together
+- **Critical decisions** (security, architecture) → All AIs vote, you see all viewpoints
+- **Can be parallelized** (test writing, code generation) → Multiple AIs work in parallel on pieces
+
+---
 
 ## License
 

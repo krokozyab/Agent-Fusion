@@ -1,0 +1,718 @@
+# ==============================================================================
+# Configuration Tips for FusionAgent
+# ==============================================================================
+#
+# QUICK START:
+# 1. Set watch_pathses to folders you want to be indexed
+# 2. Adjust allowed_extensions to include your language extensions
+# 3. Review ignore_patterns to exclude large auto-generated directories
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [orchestrator.server] - MCP server configuration
+# ------------------------------------------------------------------------------
+# Configure the orchestrator MCP server that handles inter-agent communication.
+# Default: host = "127.0.0.1", port = 3000, transport = "HTTP"
+# Override with environment variables: SERVER_HOST, SERVER_PORT, SERVER_TRANSPORT
+# ------------------------------------------------------------------------------
+
+[orchestrator.server]
+host = "127.0.0.1"
+port = 3000
+transport = "HTTP"  # HTTP or GRPC
+
+# ==============================================================================
+# SUMMARY OF ALL SERVERS IN FUSIONAGENT
+# ==============================================================================
+# This configuration defines two independent servers:
+# 1. [orchestrator.server]  - MCP server (port 3000)  - Inter-agent communication
+# 2. [web]                  - Dashboard UI (port 8081) - Web dashboard interface
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [web] - Web dashboard server configuration
+# ------------------------------------------------------------------------------
+# Configure the embedded web dashboard server that provides a UI for the orchestrator.
+# This server hosts the web interface for monitoring agents and tasks.
+# Default: host = "0.0.0.0", port = 8081
+# Override with environment variables: WEB_HOST, WEB_PORT, WEB_CORS_ENABLED, etc.
+# ------------------------------------------------------------------------------
+
+[web]
+host = "0.0.0.0"
+port = 8081
+staticPath = "static"
+
+[web.cors]
+enabled = true
+allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
+
+# ------------------------------------------------------------------------------
+# [context] - Context system configuration
+# ------------------------------------------------------------------------------
+
+[context]
+# Enable or disable the entire context subsystem
+enabled = true
+
+# ------------------------------------------------------------------------------
+# [context.engine] - Context system engine configuration
+# Configuration for the file indexing and semantic search engine.
+# This is internal configuration and does not control any external server port.
+# The web dashboard is controlled by [web] section instead.
+# Default: timeout_ms = 10000, retry_attempts = 3
+# Override with environment variables: CONTEXT_ENGINE_TIMEOUT_MS, CONTEXT_ENGINE_RETRY_ATTEMPTS
+# ------------------------------------------------------------------------------
+
+[context.engine]
+timeout_ms = 10000
+retry_attempts = 3
+
+# ------------------------------------------------------------------------------
+# [context.storage] - Database and persistence settings
+# ------------------------------------------------------------------------------
+
+[context.storage]
+db_path = "./context.duckdb" # conext database file
+
+# ==============================================================================
+# [context.watcher] - File system watcher configuration
+# ==============================================================================
+# The watcher monitors file system changes and decides which files to index.
+# ignore_patterns filter OUT entire directory trees at the WATCHER PHASE,
+# preventing the watcher from monitoring unnecessary directories.
+#
+# ignore_patterns:
+#   - Applied when files are FIRST DISCOVERED by the watcher
+#   - Uses REGEX matching (flexible but complex)
+#   - Can include files from .gitignore, .contextignore, .dockerignore
+#   - Purpose: Prevent watcher overhead for large auto-generated directories
+#
+# Examples of what to put in ignore_patterns:
+#   - Large build directories: build/, dist/, target/, out/
+#   - Version control: .git/, .svn/, .hg/
+#   - Package managers: node_modules/, venv/, .venv/
+#   - IDE configuration: .idea/, .vscode/, .gradle/
+#   - Auto-generated build metadata: .kotlin/, .angular/, .nuxt/
+# ==============================================================================
+
+[context.watcher]
+enabled = true
+debounce_ms = 500
+# Monitor these top-level workspaces. Each entry can be absolute or relative.
+# Examples:
+#   watch_paths = ["."]                                       # Current directory
+#   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
+watch_paths = [
+    ".",
+    "/Users/sergeyrudenko/Downloads"
+]
+
+# IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
+# These are checked FIRST, preventing watcher from monitoring these directories
+# Uses same glob pattern syntax as .gitignore - no need to learn new syntax!
+# Simply copy patterns from .gitignore and they will work here too
+ignore_patterns = [
+    ".kotlin/",           # Kotlin build metadata - auto-generated
+    ".gradle/",           # Gradle build metadata
+    "build/",             # Build outputs
+    "dist/",              # Distribution/compiled outputs
+    "target/",            # Maven build outputs
+    ".git/",              # Version control - skip watching
+    "node_modules/",      # Node packages
+    ".venv/",             # Python virtual environments
+    "venv/",              # Python virtual environments
+]
+use_gitignore = true          # Also respects .gitignore automatically
+use_contextignore = true      # Also respects .contextignore (default: true) .contextignore file: Per-project custom patterns stored in your repo root
+
+# ==============================================================================
+# [context.indexing] - File indexing and filtering settings
+# ==============================================================================
+# IMPORTANT: Key difference from ignore_patterns:
+#
+# ignore_patterns (watcher phase):
+#   - Blocks entire directories EARLY at watcher discovery
+#   - Prevents watcher from monitoring (efficiency)
+#   - Uses regex matching
+#   - Example: ".kotlin/" blocks entire .kotlin/metadata directory
+#
+# skip_patterns (indexing phase):
+#   - Applied AFTER extension filtering to indexed files
+#   - Fine-grained control at file level
+#   - Uses glob patterns (more intuitive: *, **, file names)
+#   - Example: "*.min.js" blocks minified files that passed extension filter
+#
+# Processing order:
+#   1. ignore_patterns filters at watcher discovery (prevents monitoring)
+#   2. allowed_extensions filters by file type (.ts, .py, .md, etc.)
+#   3. skip_patterns filters specific files (*.test.ts, *.min.js, etc.)
+#   4. Binary detection (ignores .pdf, .jpg, .png, .exe, etc.)
+#   5. Size limits (skips files > maxFileSizeMb)
+#
+# WHY BOTH?
+#   - ignore_patterns: Watcher efficiency (don't monitor huge directories)
+#   - skip_patterns: Indexing precision (don't index build artifacts/tests)
+# ==============================================================================
+
+[context.indexing]
+allowed_extensions = [
+    ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
+    ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
+]
+
+# SKIP_PATTERNS: Exclude specific files AFTER extension filtering
+# These patterns use GLOB syntax (more intuitive than regex)
+# Applied during the INDEXING PHASE to files that passed extension filter
+#
+# Two types of patterns:
+#   Simple patterns (no "/" or "**"):
+#     - "*.min.js" matches only the filename
+#     - Useful for: minified files, test files, generated files
+#
+#   Absolute patterns (contain "/" or "**"):
+#     - "**/dist/**" matches anywhere in path
+#     - Useful for: directory-level filtering after watcher (double-check)
+#
+# Examples of what to put in skip_patterns:
+#   - "*.min.js"          # Minified JavaScript (already watched out, but double-check)
+#   - "*.min.css"         # Minified CSS
+#   - "*.test.ts"         # Test files (TypeScript)
+#   - "*.spec.js"         # Test files (Jest/Jasmine)
+#   - "**/coverage/**"     # Code coverage reports
+#   - "**/dist/**"        # Built/compiled output (redundant with ignore_patterns but safe)
+#   - "*test*"            # Any file with "test" in name
+#   - "*.generated.kt"    # Auto-generated code
+skip_patterns = [
+    # Test and spec files
+    "*.test.ts",          # TypeScript test files
+    "*.test.js",          # JavaScript test files
+    "*.spec.ts",          # TypeScript spec files
+    "*.spec.js",          # JavaScript spec files
+
+    # Minified assets
+    "*.min.js",           # Minified JavaScript
+    "*.min.css",          # Minified CSS
+
+    # Generated/compiled outputs
+    "*.generated.kt",     # Auto-generated Kotlin
+    "*.generated.java",   # Auto-generated Java
+
+    # Build artifacts (redundant with ignore_patterns, but safer as double-check)
+    "**/dist/**",         # Distribution/compiled outputs
+    "**/build/**",        # Build artifacts
+    "**/node_modules/**", # Node packages
+]
+
+# Maximum file size (MB) for indexing
+# Files larger than this are skipped entirely
+# Default: 5MB (skips most binary/compiled files automatically)
+# Increase for large documents (10-50MB for PDFs, documents)
+# Set very high (500+) if you want to index everything
+max_file_size_mb = 50
+
+# Warn when files exceed this size (during indexing)
+# Set to 0 to disable warnings
+# Default: 2MB
+warn_file_size_mb = 2
+
+# Exceptions: Specific files allowed despite exceeding max_file_size_mb
+# Examples: ["docs/large-api-reference.md", "README.md"]
+# Default: none
+size_exceptions = []
+
+# Follow symbolic links when indexing
+# Disable to prevent infinite loops in circular symlinks
+# Default: false
+follow_symlinks = false
+
+# Maximum depth to follow symlinks
+# Only used if follow_symlinks = true
+# Default: 3
+max_symlink_depth = 3
+
+# Binary file detection method
+# Options: "extension" (only check file extension), "mime" (use MIME type),
+#          "content" (scan file content), "all" (all three methods)
+# Default: "all" (most reliable)
+binary_detection = "all"
+
+# Binary detection threshold: percentage of non-ASCII chars to consider binary
+# Default: 30 (if >30% non-ASCII, treat as binary)
+# Increase to be more permissive (e.g., 50 for UTF-8 heavy files)
+binary_threshold = 30
+
+# ------------------------------------------------------------------------------
+# [context.embedding] - Vector embedding configuration
+# ------------------------------------------------------------------------------
+
+[context.embedding]
+# Embedding model to use for semantic search
+# Default: "sentence-transformers/all-MiniLM-L6-v2" (384-dim, lightweight, good quality)
+# Available models:
+#   - "sentence-transformers/all-MiniLM-L6-v2" (384-dim, 22MB, fast, good quality)
+#   - "sentence-transformers/all-mpnet-base-v2" (768-dim, 438MB, slower, better quality)
+#   - "sentence-transformers/paraphrase-MiniLM-L6-v2" (384-dim, lightweight, paraphrase-aware)
+#   - Custom ONNX models: use model_path to specify local file
+model = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Optional: Path to custom ONNX model file
+# If specified, overrides the default bundled model
+# Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
+# model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
+
+# Embedding dimension (must match your model's output)
+# Default: 384 (matches all-MiniLM-L6-v2)
+# Other common values: 768 (all-mpnet-base-v2), 512, 1024
+dimension = 384
+
+# Batch size for embedding generation
+# Higher values = faster (more GPU utilization) but more memory
+# Lower values = slower but less memory
+batch_size = 16
+
+# Normalize embeddings to unit length (recommended for cosine similarity)
+# Required for MMR reranking and semantic search
+# Default: true
+normalize = true
+
+# Cache embeddings in memory to avoid re-computing
+# Saves significant time if same query is used multiple times
+# Disable if memory is constrained
+# Default: true
+cache_enabled = true
+
+# Example: Using a larger, higher-quality model
+# [context.embedding]
+# model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
+# dimension = 768
+# batch_size = 64  # Reduce for larger model
+# normalize = true
+# cache_enabled = false  # Disable if memory-constrained
+
+# ------------------------------------------------------------------------------
+# [context.chunking] - Text chunking strategies per language
+# ------------------------------------------------------------------------------
+
+[context.chunking.markdown]
+max_tokens = 400
+split_by_headings = true
+preserve_code_blocks = true
+
+[context.chunking.python]
+max_tokens = 600
+split_by_function = true
+overlap_percent = 15
+preserve_docstrings = true
+
+[context.chunking.kotlin]
+max_tokens = 600
+split_by_class = true
+split_by_function = true
+preserve_kdoc = true
+
+[context.chunking.typescript]
+max_tokens = 600
+split_by_export = true
+preserve_jsdoc = true
+
+# ------------------------------------------------------------------------------
+# [context.query] - Query and retrieval settings
+# ------------------------------------------------------------------------------
+
+[context.query]
+# default_k: Number of results to return from query_context tool
+# - Lower values (5-7): Focused, high-quality results for targeted searches
+# - Higher values (12-15): More comprehensive coverage for broad searches
+# Default: 12 (balanced for most use cases)
+default_k = 6
+
+# mmr_lambda: Maximal Marginal Relevance tradeoff (0.0 = max diversity, 1.0 = max relevance)
+# - 0.0: Return diverse results (some low-relevance items for diversity)
+# - 0.5: Balanced diversity and relevance (default)
+# - 1.0: Return only highest relevance (less diversity)
+mmr_lambda = 0.5
+
+# min_score_threshold: Minimum relevance score for a snippet to be included
+# - 0.1-0.2: Very permissive (include marginal matches)
+# - 0.3: Default (good balance)
+# - 0.5+: Strict (only high-confidence matches)
+# Default: 0.3
+min_score_threshold = 0.3
+
+# rerank_enabled: Apply MMR re-ranking to improve result diversity
+# Should generally be true unless you only want relevance-based ranking
+rerank_enabled = true
+
+# ------------------------------------------------------------------------------
+# [context.budget] - Token budget management
+# ------------------------------------------------------------------------------
+
+[context.budget]
+default_max_tokens = 1500
+reserve_for_prompt = 500
+warn_threshold_percent = 80
+
+# ==============================================================================
+# [context.providers] - Context provider configurations
+# ==============================================================================
+# Each provider searches the codebase in a different way. The hybrid provider
+# combines them for comprehensive results. Adjust weights and enabled status
+# based on your search patterns and priorities.
+# ==============================================================================
+
+# Full-text search: Raw text keyword matching
+# Best for: Finding specific strings, exact matches, log messages
+# Weight: Usually low (0.05-0.2) since it's less semantic
+[context.providers.full_text]
+enabled = true
+weight = 0.1
+
+# Semantic search: Vector embeddings for conceptual matching
+# Best for: Finding similar code/documentation, paraphrase matching
+# Weight: Usually high (0.5-0.7) - most useful for code understanding
+[context.providers.semantic]
+enabled = true
+weight = 0.6
+
+# Symbol search: Finds classes, functions, methods, definitions
+# Best for: Locating specific symbols, method signatures, API definitions
+# index_ast: Parse Abstract Syntax Trees for better symbol extraction
+# Weight: Medium (0.2-0.4) depending on code navigation needs
+[context.providers.symbol]
+enabled = true
+weight = 0.3
+index_ast = true
+
+# Git history search: Finds files changed together in commits
+# Best for: Understanding related changes, finding modules that change together
+# max_commits: How far back in history to search (more = slower but more context)
+# Weight: Usually low (0.1-0.3) - supplementary context
+[context.providers.git_history]
+enabled = true
+weight = 0.2
+max_commits = 100
+
+# Hybrid: Combines multiple providers for comprehensive search
+# Weights here are relative for ranking within hybrid results
+# fusion_strategy: How to combine provider scores
+#   - "rrf" (reciprocal rank fusion): Fair ranking, good for diverse results
+#   - "weighted": Use provider weights directly
+#   - "cascade": Try each provider in order, stop when results found
+# Default combines: ["semantic", "symbol", "git_history"] (excludes full_text)
+[context.providers.hybrid]
+enabled = true
+weight = 0.5
+combines = ["semantic", "symbol", "git_history"]
+fusion_strategy = "rrf"
+
+# ==============================================================================
+# [context.metrics] - Metrics and monitoring
+# ==============================================================================
+# Track performance metrics for context retrieval and query optimization
+# ==============================================================================
+
+[context.metrics]
+# Enable/disable all metrics collection
+# Default: true
+enabled = true
+
+# Track latency of context retrieval operations
+# Measures time from query to results returned
+# Useful for identifying slow searches
+# Default: true
+track_latency = true
+
+# Track token usage of context snippets
+# Measure how many tokens are used by context
+# Helps optimize token budgets and context size
+# Default: true
+track_token_usage = true
+
+# Track embedding cache hit rate
+# Shows how often cached embeddings are reused
+# High hit rate = cache is effective and saving compute
+# Default: true
+track_cache_hits = true
+
+# Export collected metrics at this interval
+# Metrics are aggregated and logged/exported periodically
+# Default: 5 minutes
+export_interval_minutes = 5
+
+# ==============================================================================
+# [context.bootstrap] - Initial indexing configuration
+# ==============================================================================
+# Configure the initial bootstrap phase when the system starts
+# ==============================================================================
+
+[context.bootstrap]
+# Enable/disable bootstrap process
+# Set to false if you manage indexing externally or have pre-indexed data
+# Default: true
+enabled = true
+
+# Number of parallel workers for indexing
+# Higher = faster (use more CPU cores) but more memory
+# Typical: number of CPU cores minus 1
+# Default: 7
+parallel_workers = 7
+
+# Number of files to process in each batch before committing
+# Higher = faster but more memory, riskier (more loss on crash)
+# Lower = safer but slower
+# Typical range: 32-256
+# Default: 128
+batch_size = 128
+
+# File extensions to prioritize (process first)
+# Useful to get search results quickly for most important files
+# Examples: [".kt", ".py", ".ts", ".java", ".md", ".sql"]
+# Default: [".kt", ".py", ".ts", ".java", ".md"]
+priority_extensions = [".kt", ".py", ".ts", ".java", ".md"]
+
+# Maximum number of files to index in initial bootstrap
+# 0 = no limit (index everything)
+# >0 = useful for testing/dev (e.g., 100 for quick bootstrap)
+# Default: 0 (unlimited)
+max_initial_files = 0
+
+# Stop bootstrap on first error (true) or continue (false)
+# true = fail-fast (catch errors early but lose some files)
+# false = resilient (skip problematic files, get most content)
+# Default: false (resilient, recommended for production)
+fail_fast = false
+
+# Show progress updates during bootstrap
+# true = log progress every progress_interval_seconds
+# false = silent bootstrap
+# Default: true
+show_progress = true
+
+# How often to log progress updates (seconds)
+# Lower = more frequent updates (verbose)
+# Higher = less frequent updates (cleaner logs)
+# Default: 30 seconds
+progress_interval_seconds = 30
+
+# ------------------------------------------------------------------------------
+# [context.security] - Security and privacy settings
+# ------------------------------------------------------------------------------
+
+# Scrub secrets from indexed content before storing
+# Applies secret_patterns to remove sensitive values
+# Recommended: true for production, false for dev/testing
+# Default: true
+# not implemented yet todo
+[context.security]
+scrub_secrets = true
+
+# Regex patterns to match and remove from indexed content
+# Each pattern finds sensitive strings and removes them during indexing
+# Default patterns (basic): passwords, API keys, tokens
+# Add custom patterns for enhanced security: AWS keys, private keys, bearer tokens, etc.
+# TODO: Feature not implemented yet - secret_patterns disabled to avoid TOML parsing issues
+# When implementing, use simple patterns without complex backslash escaping
+# secret_patterns = [
+#     "password=",
+#     "api_key=",
+#     "token="
+# ]
+
+# Encrypt the context database at rest
+# Requires system support and impacts performance
+# Recommended: false for most cases (use OS-level encryption if needed)
+# Default: false
+# not implemented yet todo
+encrypt_db = false
+
+# ==============================================================================
+# QUICK REFERENCE: ignore_patterns vs skip_patterns (SIDE-BY-SIDE)
+# ==============================================================================
+#
+#                     IGNORE_PATTERNS        │        SKIP_PATTERNS
+#                     ─────────────────────────────────────────────
+# Config section:     [context.watcher]      │    [context.indexing]
+# Processing phase:   WATCHER PHASE          │    INDEXING PHASE
+# Matcher type:       Regex (glob-like)      │    Glob patterns
+# When applied:       File discovery         │    After extension filter
+# Purpose:            Prevent monitoring     │    Fine-grained filtering
+# Scope:              Directory trees        │    Individual files
+#
+# EXAMPLES:
+#   ".kotlin/"        → Blocks entire .kotlin/metadata directory
+#   "build/"          → Blocks entire build/ directory watching
+#   "*.test.ts"       → (skip_patterns) Blocks test files by name
+#   "*.min.js"        → (skip_patterns) Blocks minified JS
+#
+# WHEN TO USE:
+#   Use ignore_patterns for LARGE DIRECTORIES
+#     ✓ .kotlin/, .gradle/, build/, dist/, node_modules/, .git/
+#     ✓ Saves watcher resources, prevents monitoring overhead
+#
+#   Use skip_patterns for SPECIFIC FILES
+#     ✓ *.test.ts, *.spec.js, *.min.js, *.min.css
+#     ✓ Fine-grained control on what actually gets indexed
+#
+# PROCESSING ORDER in the system:
+#   1. ignore_patterns (watcher discovery)
+#   2. includePaths filter (if configured)
+#   3. allowed_extensions (extension filter)
+#   4. skip_patterns (glob filtering)
+#   5. Binary detection
+#   6. Size limits
+#
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [ignore] - File patterns to exclude from context indexing
+# ------------------------------------------------------------------------------
+# These patterns are used during bootstrap and watching to exclude files
+# from being indexed by the context system. This replaces .contextignore.
+# Note: This is a LEGACY section (mirrors context.watcher.ignore_patterns)
+# Prefer using [context.watcher].ignore_patterns above.
+# ------------------------------------------------------------------------------
+
+[ignore]
+# NOTE: This section mirrors [context.watcher].ignore_patterns
+# Use [context.watcher].ignore_patterns above instead (this is legacy)
+patterns = [
+    # Build artifacts
+    "build/",
+    "dist/",
+    "out/",
+    "target/",
+    "*.class",
+    "*.jar",
+    "*.war",
+
+    # Gradle
+    ".gradle/",
+    "gradle-app.setting",
+
+    # Kotlin build metadata - auto-generated and pollutes search
+    ".kotlin/",
+
+    # IDE
+    ".idea/",
+    ".vscode/",
+    "*.iml",
+    "*.swp",
+    "*.swo",
+    "*~",
+
+    # Node
+    "node_modules/",
+    "npm-debug.log",
+    "yarn-error.log",
+
+    # Python
+    "__pycache__/",
+    "*.pyc",
+    ".venv/",
+    "venv/",
+    "*.egg-info/",
+
+    # Version control
+    ".git/",
+    ".svn/",
+
+    # OS
+    ".DS_Store",
+    ".DS_Store?",
+    "._*",
+    ".Spotlight-V100",
+    ".Trashes",
+    "ehthumbs.db",
+    "Thumbs.db",
+
+    # Test artifacts
+    "/tmp/",
+    "/temp/",
+    "test-output/",
+    ".test-results/",
+
+    # Large files that shouldn't be indexed
+    "*.log",
+    "*.tmp",
+    "*.bak",
+
+    # Generated files
+    "*.generated.kt",
+    "*.generated.java",
+
+    # Generated test output
+    "test-output.txt"
+]
+
+
+
+# ------------------------------------------------------------------------------
+# [agents] - Agent definitions
+# ------------------------------------------------------------------------------
+# Configure the AI agents that will be used by the orchestrator.
+# Each agent needs a unique ID (the part after agents.) and configuration.
+#
+# Available agent types:
+# - CLAUDE_CODE: Anthropic Claude via Claude Code CLI
+# - CODEX_CLI: OpenAI Codex via Codex CLI
+# - Q_CLI: Amazon Q via Q CLI
+# - GEMINI: Google Gemini
+# - GPT: OpenAI GPT models (requires model parameter)
+# - MISTRAL: Mistral AI models (requires model parameter)
+# - LLAMA: Meta Llama models (requires model parameter)
+# ------------------------------------------------------------------------------
+
+[agents.claude-code]
+type = "CLAUDE_CODE"
+name = "Claude"
+# Optional parameters:
+# model = "claude-3-5-sonnet-20241022"
+# temperature = 0.7
+# maxTokens = 4096
+
+[agents.codex-cli]
+type = "CODEX_CLI"
+name = "Codex"
+# Optional parameters:
+# model = "gpt-4"
+# temperature = 0.7
+
+[agents.q-cli]
+type = "Q_CLI"
+name = "Q"
+# Optional parameters:
+# model = "q-developer"
+
+[agents.gemini]
+type = "GEMINI"
+name = "Gemini"
+# Optional parameters:
+# model = "gemini-1.5-pro"
+# apiKeyRef = "${GOOGLE_API_KEY}"
+
+# Example custom GPT agent
+# [agents.gpt-custom]
+# type = "GPT"
+# name = "Custom GPT"
+# model = "gpt-4-turbo"
+# apiKeyRef = "${OPENAI_API_KEY}"
+# organization = "${OPENAI_ORG}"
+# temperature = 0.7
+# maxTokens = 8192
+
+# Example Mistral agent
+# [agents.mistral]
+# type = "MISTRAL"
+# name = "Mistral Large"
+# model = "mistral-large-latest"
+# apiKeyRef = "${MISTRAL_API_KEY}"
+# temperature = 0.7
+
+# Example Llama agent
+# [agents.llama]
+# type = "LLAMA"
+# name = "Llama 3"
+# model = "llama-3-70b"
+# apiKeyRef = "${LLAMA_API_KEY}"

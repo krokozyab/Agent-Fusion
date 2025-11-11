@@ -33,6 +33,7 @@
     <logger name="com.orchestrator" level="DEBUG" />
     <logger name="io.ktor" level="INFO" />
     <logger name="org.duckdb" level="WARN" />
+    <logger name="io.modelcontextprotocol.kotlin.sdk" level="WARN" />
     
     <!-- Root logger -->
     <root level="INFO">
