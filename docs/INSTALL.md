@@ -210,17 +210,6 @@ claude_desktop_config.json
 
 Install Java 21+ from https://adoptium.net/
 
-### "Port 3000 already in use"
-
-Edit `application.conf` and change the port:
-```hocon
-orchestrator {
-  server {
-    port = 3000
-  }
-}
-```
-
 ### "Permission denied" (Mac/Linux)
 
 Make the script executable:
@@ -230,7 +219,7 @@ chmod +x start.sh
 
 ### Database Issues
 
-Delete the database and restart
+Delete the database file and restart
 
 ### Agent Not Recognized ("agentId is required")
 

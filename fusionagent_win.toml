@@ -555,11 +555,12 @@ scrub_secrets = true
 # Each pattern finds sensitive strings and removes them during indexing
 # Default patterns (basic): passwords, API keys, tokens
 # Add custom patterns for enhanced security: AWS keys, private keys, bearer tokens, etc.
+# Note: Use raw strings (triple quotes) or escape backslashes properly in TOML
 # not implemented yet todo
 secret_patterns = [
-    "password\\s*=\\s*['\"]?.*['\"]?",
-    "api[_-]?key\\s*=\\s*['\"]?.*['\"]?",
-    "token\\s*=\\s*['\"]?.*['\"]?"
+    '''password\s*=\s*['"]?.*['"]?''',
+    '''api[_-]?key\s*=\s*['"]?.*['"]?''',
+    '''token\s*=\s*['"]?.*['"]?'''
 ]
 
 # Encrypt the context database at rest
