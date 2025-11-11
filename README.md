@@ -47,18 +47,6 @@ This means you get accurate results whether you search by meaning or by keywords
 
 The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
-### Context Engineering
-
-**Context Engineering** is the practice of optimizing how your files are indexed for best results:
-
-- **Watch paths** – Which folders to index (codebase, documents, research, etc.)
-- **File types** – Which extensions to include (.kt, .py, .pdf, .docx, etc.)
-- **Ignore patterns** – What files to skip (build artifacts, node_modules, etc.)
-- **Chunk strategy** – How files are split for understanding (function-level, section-level, paragraph-level)
-- **Embedding tuning** – What aspects of content are emphasized in search
-- **Refresh strategy** – How often to update the index
-
-Learn more in [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md).
 
 ## Task Manager: Coordinate Multiple AIs
 
