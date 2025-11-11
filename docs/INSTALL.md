@@ -27,11 +27,10 @@ Extract the downloaded ZIP file to any location on your computer. You should see
 codex_to_claude/
   ├── orchestrator-0.1.0-all.jar (jar file)
   ├── fusionagent.toml (config Mac/Linux) 
-  ├── fusionagent_win.toml (config Windows important! you should rename it to fusionagent.toml)
+  ├── fusionagent_win.toml (config Windows)
   ├── start.sh      (startup script Mac/Linux)
   ├── start.bat     (startup script Windows)
-  ├── orchestrator-mcp-proxy.sh (proxy for Claude desktop Mac/Linux)
-  └── orchestrator-mcp-proxy.bat (proxy for Claude desktop Windows)
+  └── orchestrator-mcp-proxy.sh (proxy for Claude desktop Mac/Linux)
 ```
 
 ### 3. Configue options in fusionagent.toml
@@ -181,7 +180,7 @@ gemini mcp list
 
 You should see the orchestrator server listed with its available tools.
 
-## Configure Claude desktop
+## Configure Claude desktop (Mac/Linux only)
 Claude desktop is a standalone application that can be used to interact with the orchestrator.
 Claude desktop can work with orchestrator via proxy scripts that are provided with the distribution.
 They are orctestrator-mcp-proxy.sh for Mac/Linux and orchestrator-mcp-proxy.bat for Windows.

@@ -135,14 +135,12 @@ debounce_ms = 500
 #   Current directory:     ["."]
 #   Relative paths:        [".", "./src", "./docs"]
 #   Absolute with slash:   ["C:/Users/Username/Documents/projects/myapp"]
-#   Absolute with backslash: ["C:\\Users\\Username\\Documents\\projects\\myapp"]
 #   Multiple paths:        ["C:/projects/myapp", "C:/data"]
 #
 # RECOMMENDATION: Use forward slashes (/) - they work on all platforms
 #
 watch_paths = [
-    ".",
-    "./docs"
+    "C:/Users/user/docs"
 ]
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
