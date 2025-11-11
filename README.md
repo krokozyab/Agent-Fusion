@@ -35,17 +35,6 @@ Agent Fusion fetches up-to-date code examples and documentation right into your 
 
 ---
 
-## Context Engine: Intelligent Search & Indexing
-
-The **Context Engine** automatically indexes your files so AI agents can search them instantly:
-
-1. **Watches your folders** – Automatically indexes files you specify (code, documents, PDFs; respects `.gitignore`)
-2. **Understands meaning** – Smart search that finds what you're looking for, not just keyword matches
-3. **Keeps everything fresh** – Changes detected instantly, always up-to-date
-4. **Ready for your agents** – Ask Claude or Codex to "use query_context" in your prompts, and they'll search your indexed files instantly
-
-**How to use it**: Just add to your prompt: *"Use query_context to find [what you're looking for]"* and your AI agent will search your indexed files and give you relevant results. No copy-pasting needed!
-
 ### How Search Works
 
 The Context Engine uses **three search types combined**:
