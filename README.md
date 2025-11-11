@@ -29,14 +29,9 @@ Agent Fusion fetches up-to-date code examples and documentation right into your 
 
 ---
 
-## Getting Started
+## Quick Start
 
-| Start Here | What You'll Learn |
-|----------|---------|
-| **[Installation Guide](docs/INSTALL.md)** | Step-by-step setup (takes 5-10 minutes) |
-| **[Context Engine Guide](docs/README_CONTEXT_ADDON.md)** | How to index and search any files (code, documents, PDFs) |
-| **[Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md)** | How to coordinate multiple AIs (optional) |
-| **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
+**[Installation Guide](docs/INSTALL.md)** – Step-by-step setup (takes 5-10 minutes)
 
 ---
 
