@@ -115,32 +115,6 @@ Workflow coordination for multiple AIs (optional addon):
 
 ---
 
-## Key Features
-
-✅ **Search Without Copy-Pasting** – Just tell your AI agent "use query_context" in your prompts. They'll search your files instantly—no more pasting code snippets
-
-✅ **Multiple AI Assistants Share Everything** – Connect Claude, Codex, Gemini, Amazon Q—they all search the same indexed files and get the same results
-
-✅ **Automatic Routing** – Simple tasks go to one AI, important/complex tasks automatically go to multiple AIs for discussion
-
-✅ **Real-Time Collaboration** – Watch AIs collaborate and vote on decisions in real-time on your web dashboard
-
-✅ **Complete Transparency** – Every decision, proposal, and vote is saved with full reasoning—no black boxes
-
-✅ **Private & Local** – Everything runs on your machine. Your code never leaves your computer
-
-✅ **Always Fresh** – Automatically detects file changes and updates the Context Engine index instantly
-
-## How It Routes Work
-
-The system smartly decides how to handle each task:
-
-- **Quick tasks** (fixing a typo, writing a docstring) → Go to one AI
-- **Complex tasks** (design new feature) → Go to two AIs who discuss and decide together
-- **Critical decisions** (security, architecture) → All AIs vote, you see all viewpoints
-- **Can be parallelized** (test writing, code generation) → Multiple AIs work in parallel on pieces
-
----
 
 ## License
 
