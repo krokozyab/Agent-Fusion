@@ -1,4 +1,0 @@
-[agents.test-agent]
-type = "CODEX_CLI"
-name = "Test Agent"
-model = "gpt-4"
