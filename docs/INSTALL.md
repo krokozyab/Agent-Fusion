@@ -34,21 +34,20 @@ codex_to_claude/
   └── orchestrator-mcp-proxy.bat (proxy for Claude desktop Windows)
 ```
 
-### 3. Configure Agents (Optional)
+### 3. Configue options in fusionagent.toml
 
-Edit `agents.toml` to enable/disable agents:
+Edit `fusionagent.toml`:
 
 ```toml
-[agents.claude-code]
-type = "CLAUDE_CODE"
-name = "Claude"
-enabled = true
+[context.storage]
+db_path = "./context.duckdb" # path and conext database file
 
-[agents.codex-cli]
-type = "CODEX_CLI"
-name = "Codex"
-enabled = true
+watch_paths = [
+    "/Users/user/watch_dir_1",
+    "/Users/user/watch_dir_n"
+]
 ```
+Other options you can configure later
 
 ### 4. Start the Orchestrator
 
@@ -74,19 +73,6 @@ admin homepage in you browser:
 
 <img src="pics/home_page.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 300px; display: block; margin: 0 auto;">
 
-```
-http://localhost:3000/healthz
-```
-
-You should see: `{"status":"ok"}`
-
-## Usage
-
-Once running, you can:
-
-- **Create tasks** via HTTP API (see README.md for examples)
-- **Check health**: `http://localhost:3000/healthz`
-- **View tools**: `http://localhost:3000/mcp/tools`
 
 ## Configure Codex CLI
 
@@ -96,7 +82,7 @@ In your home directory, find the `.codex` folder and edit the `config.toml` file
 
 **Add at the top:**
 ```toml
-experimental_use_rmcp_client = true
+rmcp_client = true
 ```
 
 **Add at the bottom:**
@@ -195,9 +181,28 @@ gemini mcp list
 
 You should see the orchestrator server listed with its available tools.
 
-## Stopping
+## Configure Claude desktop
+Claude desktop is a standalone application that can be used to interact with the orchestrator.
+Claude desktop can work with orchestrator via proxy scripts that are provided with the distribution.
+They are orctestrator-mcp-proxy.sh for Mac/Linux and orchestrator-mcp-proxy.bat for Windows.
+In Claude desktop, go to **Settings** -> **MCP Servers** and add the following in 
+claude_desktop_config.json
+```
+{
+  "mcpServers": {
+	 "orchestrator": {
+        "command": "/path/orchestrator-mcp-proxy.sh",
+        "env": {
+          "MCP_ENDPOINT": "http://127.0.0.1:3000/mcp/json-rpc"
+        }
+      }
+    }
+}
+```
 
-Press `Ctrl+C` in the terminal window
+
+
+
 
 ## Troubleshooting
 
@@ -225,11 +230,7 @@ chmod +x start.sh
 
 ### Database Issues
 
-Delete the database and restart:
-```bash
-rm -rf data/
-./start.sh
-```
+Delete the database and restart
 
 ### Agent Not Recognized ("agentId is required")
 
@@ -294,17 +295,3 @@ Never complete a consensus task without:
 "Please provide a combined analysis of all proposals before completing the task. Review what Codex and Q-CLI suggested, compare their approaches, and explain which solution you recommend."
 
 **See also:** `docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md` for detailed workflow examples
-
-## Configuration Files
-
-### application.conf
-
-Server settings, database path, routing rules. Default values work for most users.
-
-### agents.toml
-
-Which AI agents are enabled. Edit this to add/remove agents.
-
-## Support
-
-For detailed usage and API documentation, see [README.md](../README.md)
