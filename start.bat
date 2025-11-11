@@ -20,13 +20,13 @@ set JAR_FILE=build\libs\orchestrator-0.1.0-all.jar
 REM Parse command line arguments
 :parse_args
 if "%1"=="" goto args_done
-if "%1"=="-c" (
+if "%1"=="-a" (
     set CONFIG_FILE=%2
     shift
     shift
     goto parse_args
 )
-if "%1"=="--config" (
+if "%1"=="--agents" (
     set CONFIG_FILE=%2
     shift
     shift
@@ -59,13 +59,13 @@ echo.
 echo Usage: start.bat [OPTIONS]
 echo.
 echo Options:
-echo   -c, --config FILE    Use custom config file (default: fusionagent.toml)
+echo   -a, --agents FILE    Path to config file (default: fusionagent.toml)
 echo   -j, --jar FILE       Use custom JAR file (default: build\libs\orchestrator-0.1.0-all.jar)
 echo   -h, --help           Show this help message
 echo.
 echo Examples:
 echo   start.bat
-echo   start.bat --config fusionagent_win.toml
+echo   start.bat --agents fusionagent_win.toml
 echo   start.bat --jar custom\path\orchestrator.jar
 pause
 exit /b 0
@@ -145,7 +145,7 @@ echo ======================================================================
 echo.
 
 REM Run the JAR file
-java -jar "%JAR_FILE%" --config "%CONFIG_FILE%"
+java -jar "%JAR_FILE%" --agents "%CONFIG_FILE%"
 
 if errorlevel 1 (
     echo.

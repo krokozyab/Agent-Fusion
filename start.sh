@@ -24,7 +24,7 @@ JAR_FILE="build/libs/orchestrator-0.1.0-all.jar"
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -c|--config)
+        -a|--agents)
             CONFIG_FILE="$2"
             shift 2
             ;;
@@ -38,13 +38,13 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: ./start.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  -c, --config FILE    Use custom config file (default: fusionagent.toml)"
+            echo "  -a, --agents FILE    Path to config file (default: fusionagent.toml)"
             echo "  -j, --jar FILE       Use custom JAR file (default: build/libs/orchestrator-0.1.0-all.jar)"
             echo "  -h, --help           Show this help message"
             echo ""
             echo "Examples:"
             echo "  ./start.sh"
-            echo "  ./start.sh --config fusionagent_win.toml"
+            echo "  ./start.sh --agents fusionagent_win.toml"
             echo "  ./start.sh --jar /path/to/custom.jar"
             exit 0
             ;;
@@ -129,4 +129,4 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Run the JAR file
-java -jar "$JAR_FILE" --config "$CONFIG_FILE"
+java -jar "$JAR_FILE" --agents "$CONFIG_FILE"
