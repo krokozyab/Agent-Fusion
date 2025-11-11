@@ -13,7 +13,7 @@
 # ==============================================================================
 
 param(
-    [string]$ConfigFile = "fusionagent.toml",
+    [string]$AgentsFile = "fusionagent.toml",
     [string]$JarFile = "build\libs\orchestrator-0.1.0-all.jar",
     [switch]$Help
 )
@@ -57,13 +57,13 @@ function Show-Help {
     Write-Host "Usage: .\start.ps1 [OPTIONS]"
     Write-Host ""
     Write-Host "Options:"
-    Write-Host "  -ConfigFile FILE   Use custom config file (default: fusionagent.toml)"
+    Write-Host "  -AgentsFile FILE   Path to config file (default: fusionagent.toml)"
     Write-Host "  -JarFile FILE      Use custom JAR file (default: build\libs\orchestrator-0.1.0-all.jar)"
     Write-Host "  -Help              Show this help message"
     Write-Host ""
     Write-Host "Examples:"
     Write-Host "  .\start.ps1"
-    Write-Host "  .\start.ps1 -ConfigFile fusionagent_win.toml"
+    Write-Host "  .\start.ps1 -AgentsFile fusionagent_win.toml"
     Write-Host "  .\start.ps1 -JarFile custom\path\orchestrator.jar"
     Write-Host ""
     Write-Host "Note: If you get execution policy errors, run:"
@@ -115,10 +115,10 @@ Write-Host ""
 
 # Check if config file exists
 Write-ColorOutput "Checking configuration file..." "Yellow"
-if (-not (Test-Path $ConfigFile)) {
+if (-not (Test-Path $AgentsFile)) {
     Write-Host " " -NoNewline
     Write-ColorOutput "✗ FAILED`n" "Red"
-    Write-Error-Custom "Configuration file not found: $ConfigFile"
+    Write-Error-Custom "Configuration file not found: $AgentsFile"
     Write-Host ""
     Write-Host "Available config files:"
     $configFiles = Get-ChildItem -Filter "fusionagent*.toml" -ErrorAction SilentlyContinue
@@ -133,7 +133,7 @@ if (-not (Test-Path $ConfigFile)) {
 }
 Write-Host " " -NoNewline
 Write-ColorOutput "✓ OK`n" "Green"
-Write-Bullet "Config: $ConfigFile"
+Write-Bullet "Config: $AgentsFile"
 Write-Host ""
 
 # Check if JAR file exists
@@ -160,7 +160,7 @@ Write-Host ""
 
 # Display startup information
 Write-ColorOutput "Starting Agent Fusion...`n" "Green"
-Write-ColorOutput "  Config file: $ConfigFile`n" "White"
+Write-ColorOutput "  Config file: $AgentsFile`n" "White"
 Write-ColorOutput "  JAR file: $JarFile`n`n" "White"
 
 Write-ColorOutput "╔════════════════════════════════════════════════════════════════╗`n" "Blue"
@@ -177,7 +177,7 @@ Write-ColorOutput "╚═══════════════════�
 Write-Host ""
 
 # Run the JAR file
-& java -jar "$JarFile" --config "$ConfigFile"
+& java -jar "$JarFile" --agents "$AgentsFile"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""

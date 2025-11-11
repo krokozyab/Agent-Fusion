@@ -36,7 +36,7 @@ chmod +x start.sh
 ./start.sh
 
 # Start with custom config
-./start.sh --config fusionagent_win.toml
+./start.sh --agents fusionagent_win.toml
 
 # Start with custom JAR location
 ./start.sh --jar /path/to/custom.jar
@@ -64,7 +64,7 @@ REM Start with default config
 start.bat
 
 REM Start with custom config
-start.bat -c fusionagent_win.toml
+start.bat -a fusionagent_win.toml
 
 REM Start with custom JAR
 start.bat -j custom\path\orchestrator.jar
@@ -92,7 +92,7 @@ Use the **`start.ps1`** script:
 .\start.ps1
 
 # Start with custom config
-.\start.ps1 -ConfigFile fusionagent_win.toml
+.\start.ps1 -AgentsFile fusionagent_win.toml
 
 # Start with custom JAR
 .\start.ps1 -JarFile custom\path\orchestrator.jar
@@ -181,10 +181,10 @@ start.bat
 
 ```bash
 # macOS/Linux with Windows-style config
-./start.sh --config fusionagent_win.toml
+./start.sh --agents fusionagent_win.toml
 
 # Windows with custom config
-start.bat -c my-custom-config.toml
+start.bat -a my-custom-config.toml
 ```
 
 ### Scenario 3: Development (Different JAR location)
@@ -236,8 +236,8 @@ To save logs to a file:
 # macOS/Linux
 ./start.sh 2>&1 | tee server.log
 
-# Windows (Batch) - No direct pipe, save manually
-# Can use PowerShell instead
+# Windows (Batch) - No direct pipe, can redirect to file
+# start.bat > server.log 2>&1
 
 # Windows PowerShell
 .\start.ps1 | Tee-Object -FilePath server.log
