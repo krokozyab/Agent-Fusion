@@ -29,7 +29,8 @@ class CreateConsensusTaskTool(
         val dependencyIds: List<String>? = null,
         val dueAt: String? = null,
         val metadata: Map<String, String>? = null,
-        val directives: Directives? = null
+        val directives: Directives? = null,
+        val creatingAgentId: String? = null  // Agent that created this task (becomes primary)
     ) {
         data class Directives(
             val forceConsensus: Boolean? = null,
@@ -146,10 +147,20 @@ class CreateConsensusTaskTool(
             metadata = enrichedMetadata
         )
 
-        // 4) Route task using RoutingModule (with directive)
+        // 4) Extract creating agent (who initiated this task)
+        val creatingAgent: AgentId? = p.creatingAgentId?.takeIf { it.isNotBlank() }?.let {
+            val agentId = AgentId(it)
+            // Validate agent exists in registry
+            require(agentRegistry.getAgent(agentId) != null) {
+                "Creating agent '${agentId.value}' not registered in agent registry"
+            }
+            agentId
+        }
+
+        // 5) Route task using RoutingModule (with directive)
         val decision = routingModule.routeTaskWithDirective(task, userDirective)
 
-        // 5) Assert that CONSENSUS strategy was applied
+        // 6) Assert that CONSENSUS strategy was applied
         require(decision.strategy == RoutingStrategy.CONSENSUS) {
             "Expected CONSENSUS routing but got ${decision.strategy}. This indicates a routing configuration issue."
         }
@@ -161,20 +172,30 @@ class CreateConsensusTaskTool(
             }
         }
 
-        // 6) Persist task, applying participants decided by routing
+        // 7) Apply creating agent as primary and ensure they're in participants
+        val finalPrimary = creatingAgent ?: decision.primaryAgentId
+        val finalParticipants = if (creatingAgent != null) {
+            // Ensure creating agent is in participants (add if missing, move to front if present)
+            val otherParticipants = decision.participantAgentIds.filter { it != creatingAgent }
+            listOf(creatingAgent) + otherParticipants
+        } else {
+            decision.participantAgentIds
+        }
+
+        // 8) Persist task, applying participants with creating agent as primary
         val withParticipants = task.copy(
             routing = decision.strategy,
-            assigneeIds = decision.participantAgentIds.toSet()
+            assigneeIds = finalParticipants.toSet()
         )
         taskRepository.insert(withParticipants)
 
-        // 7) Return result
+        // 9) Return result with creating agent as primary
         return Result(
             taskId = withParticipants.id.value,
             status = withParticipants.status.name,
             routing = withParticipants.routing.name,
-            primaryAgentId = decision.primaryAgentId?.value,
-            participantAgentIds = decision.participantAgentIds.map { it.value },
+            primaryAgentId = finalPrimary?.value,
+            participantAgentIds = finalParticipants.map { it.value },
             warnings = warnings
         )
     }
