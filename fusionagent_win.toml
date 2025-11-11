@@ -5,13 +5,34 @@
 # WINDOWS-SPECIFIC NOTES:
 # - Forward slashes (/) work on Windows, so you can use them instead of backslashes
 # - Relative paths (.) work the same on Windows as Unix
-# - Absolute paths: C:/Users/YourUsername/Documents (using forward slashes)
-# - Or use backslashes (escaped): C:\\Users\\YourUsername\\Documents
+#
+# PATH FORMATS (ALL WORK ON WINDOWS):
+#   FORWARD SLASHES (RECOMMENDED):
+#     C:/Users/YourUsername/Documents
+#     C:/Users/YourUsername/Projects/myproject
+#     C:/Data/files
+#     C:/Program Files (x86)/MyApp
+#
+#   BACKSLASHES (ESCAPED IN QUOTES):
+#     C:\\Users\\YourUsername\\Documents
+#     C:\\Users\\YourUsername\\Projects\\myproject
+#
+#   RELATIVE (MOST PORTABLE):
+#     .
+#     ./docs
+#     ./src
+#     ../projects/myproject
+#
+# EXAMPLES IN watch_paths:
+#   watch_paths = ["C:/Users/YourUsername/Documents/myproject"]      # Forward slash
+#   watch_paths = ["C:\\Users\\YourUsername\\Documents\\myproject"]  # Backslash
+#   watch_paths = ["."]                                               # Current dir
+#   watch_paths = [".", "./src", "./docs"]                           # Mixed relative
 #
 # QUICK START:
 # 1. Set watch_paths to folders you want to be indexed
-#    - Relative: ["."] or ["./src", "./docs"]
-#    - Absolute: ["C:/Users/YourUsername/Projects/myproject"]
+#    - Use forward slashes: ["C:/Users/YourUsername/Projects/myproject"]
+#    - Or relative paths: ["."] or ["./src", "./docs"]
 # 2. Adjust allowed_extensions to include your language extensions
 # 3. Review ignore_patterns to exclude large auto-generated directories
 #
@@ -109,11 +130,16 @@ db_path = "./context.duckdb" # context database file (relative path works on Win
 enabled = true
 debounce_ms = 500
 # Monitor these top-level workspaces. Each entry can be absolute or relative.
-# Windows Examples:
-#   watch_paths = ["."]                                           # Current directory
-#   watch_paths = [".", "./docs"]                                 # Relative paths (recommended)
-#   watch_paths = ["C:/Users/YourUsername/Documents/myproject"]   # Absolute path (Windows)
-#   watch_paths = ["C:\\Users\\YourUsername\\Documents\\myproject"]  # Backslashes (also work)
+#
+# WINDOWS PATH EXAMPLES:
+#   Current directory:     ["."]
+#   Relative paths:        [".", "./src", "./docs"]
+#   Absolute with slash:   ["C:/Users/Username/Documents/projects/myapp"]
+#   Absolute with backslash: ["C:\\Users\\Username\\Documents\\projects\\myapp"]
+#   Multiple paths:        ["C:/projects/myapp", "C:/data"]
+#
+# RECOMMENDATION: Use forward slashes (/) - they work on all platforms
+#
 watch_paths = [
     ".",
     "./docs"
@@ -270,9 +296,13 @@ model = "sentence-transformers/all-MiniLM-L6-v2"
 # Optional: Path to custom ONNX model file
 # If specified, overrides the default bundled model
 # Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
-# Windows examples:
-#   model_path = "C:/Models/all-MiniLM-L6-v2.onnx"
-#   model_path = "./models/custom-model.onnx"
+#
+# WINDOWS PATH EXAMPLES:
+#   Absolute path (forward slash): "C:/Models/all-MiniLM-L6-v2.onnx"
+#   Absolute path (backslash):     "C:\\Models\\all-MiniLM-L6-v2.onnx"
+#   Relative path:                 "./models/custom-model.onnx"
+#
+# Uncomment and set your model path:
 # model_path = "C:/Models/all-MiniLM-L6-v2.onnx"
 
 # Embedding dimension (must match your model's output)
