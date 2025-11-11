@@ -38,9 +38,6 @@ codex_to_claude/
 Edit `fusionagent.toml`:
 
 ```toml
-[context.storage]
-db_path = "./context.duckdb" # path and conext database file
-
 watch_paths = [
     "/Users/user/watch_dir_1",
     "/Users/user/watch_dir_n"
