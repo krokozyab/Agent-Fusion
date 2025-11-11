@@ -29,27 +29,11 @@ Agent Fusion fetches up-to-date code examples and documentation right into your 
 
 ---
 
-## Getting Started
+## Quick Start
 
-| Start Here | What You'll Learn |
-|----------|---------|
-| **[Installation Guide](docs/INSTALL.md)** | Step-by-step setup (takes 5-10 minutes) |
-| **[Context Engine Guide](docs/README_CONTEXT_ADDON.md)** | How to index and search any files (code, documents, PDFs) |
-| **[Task Manager Guide](docs/README_TASK_ORCHESTRATOR.md)** | How to coordinate multiple AIs (optional) |
-| **[AI Assistant Instructions](docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md)** | What to tell your AI assistants (Claude, Codex, etc.) when they connect |
+**[Installation Guide](docs/INSTALL.md)** – Step-by-step setup (takes 5-10 minutes)
 
 ---
-
-## Context Engine: Intelligent Search & Indexing
-
-The **Context Engine** automatically indexes your files so AI agents can search them instantly:
-
-1. **Watches your folders** – Automatically indexes files you specify (code, documents, PDFs; respects `.gitignore`)
-2. **Understands meaning** – Smart search that finds what you're looking for, not just keyword matches
-3. **Keeps everything fresh** – Changes detected instantly, always up-to-date
-4. **Ready for your agents** – Ask Claude or Codex to "use query_context" in your prompts, and they'll search your indexed files instantly
-
-**How to use it**: Just add to your prompt: *"Use query_context to find [what you're looking for]"* and your AI agent will search your indexed files and give you relevant results. No copy-pasting needed!
 
 ### How Search Works
 
@@ -63,18 +47,6 @@ This means you get accurate results whether you search by meaning or by keywords
 
 The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
-### Context Engineering
-
-**Context Engineering** is the practice of optimizing how your files are indexed for best results:
-
-- **Watch paths** – Which folders to index (codebase, documents, research, etc.)
-- **File types** – Which extensions to include (.kt, .py, .pdf, .docx, etc.)
-- **Ignore patterns** – What files to skip (build artifacts, node_modules, etc.)
-- **Chunk strategy** – How files are split for understanding (function-level, section-level, paragraph-level)
-- **Embedding tuning** – What aspects of content are emphasized in search
-- **Refresh strategy** – How often to update the index
-
-Learn more in [Context Engineering Guide](docs/CONTEXT_ENGINEERING.md).
 
 ## Task Manager: Coordinate Multiple AIs
 
@@ -115,32 +87,6 @@ Workflow coordination for multiple AIs (optional addon):
 
 ---
 
-## Key Features
-
-✅ **Search Without Copy-Pasting** – Just tell your AI agent "use query_context" in your prompts. They'll search your files instantly—no more pasting code snippets
-
-✅ **Multiple AI Assistants Share Everything** – Connect Claude, Codex, Gemini, Amazon Q—they all search the same indexed files and get the same results
-
-✅ **Automatic Routing** – Simple tasks go to one AI, important/complex tasks automatically go to multiple AIs for discussion
-
-✅ **Real-Time Collaboration** – Watch AIs collaborate and vote on decisions in real-time on your web dashboard
-
-✅ **Complete Transparency** – Every decision, proposal, and vote is saved with full reasoning—no black boxes
-
-✅ **Private & Local** – Everything runs on your machine. Your code never leaves your computer
-
-✅ **Always Fresh** – Automatically detects file changes and updates the Context Engine index instantly
-
-## How It Routes Work
-
-The system smartly decides how to handle each task:
-
-- **Quick tasks** (fixing a typo, writing a docstring) → Go to one AI
-- **Complex tasks** (design new feature) → Go to two AIs who discuss and decide together
-- **Critical decisions** (security, architecture) → All AIs vote, you see all viewpoints
-- **Can be parallelized** (test writing, code generation) → Multiple AIs work in parallel on pieces
-
----
 
 ## License
 
