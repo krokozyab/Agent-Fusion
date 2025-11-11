@@ -25,11 +25,13 @@ Extract the downloaded ZIP file to any location on your computer. You should see
 
 ```
 codex_to_claude/
-  ├── codex_to_claude-0.1.0-all.jar
-  ├── application.conf
-  ├── agents.toml
-  ├── start.sh      (Mac/Linux)
-  └── start.bat     (Windows)
+  ├── orchestrator-0.1.0-all.jar (jar file)
+  ├── fusionagent.toml (config Mac/Linux) 
+  ├── fusionagent_win.toml (config Windows important! you should rename it to fusionagent.toml)
+  ├── start.sh      (startup script Mac/Linux)
+  ├── start.bat     (startup script Windows)
+  ├── orchestrator-mcp-proxy.sh (proxy for Claude desktop Mac/Linux)
+  └── orchestrator-mcp-proxy.bat (proxy for Claude desktop Windows)
 ```
 
 ### 3. Configure Agents (Optional)
@@ -66,7 +68,12 @@ Or double-click `start.bat` in Explorer
 
 ### 5. Verify It's Running
 
-Open your browser and go to:
+You will see index process started in terminal
+ater it finishes index all files it automatically open
+admin homepage in you browser:
+
+<img src="pics/home_page.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 300px; display: block; margin: 0 auto;">
+
 ```
 http://localhost:3000/healthz
 ```
