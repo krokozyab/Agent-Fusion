@@ -1,0 +1,48 @@
+# Gradle
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+# IntelliJ caches
+**/.idea/**/workspace.xml
+**/.idea/**/tasks.xml
+**/.idea/**/dictionaries
+**/.idea/**/shelf
+**/.idea/**/libraries
+**/.idea/**/modules
+
+# Kotlin/Java
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Generated files
+/build/
+/bin/
+
+# Gradle local properties
+local.properties
+
+# Temporary files
+.tmp/
+*.swp
+*.swo
+logs/
+
+docs/IMPLEMENTATION_PLAN.md
+docs/CLAUDE.md
