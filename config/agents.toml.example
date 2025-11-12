@@ -1,0 +1,18 @@
+# Example agent configuration file
+# Copy this to agents.toml and adjust values
+
+[agents.claude-code]
+type = "CLAUDE_CODE"
+name = "Claude"
+
+[agents.codex-cli]
+type = "CODEX_CLI"
+name = "Codex"
+
+[agents.q-cli]
+type = "Q_CLI"
+name = "Q"
+
+[agents.gemini]
+type = "GEMINI"
+name = "Gemini"
