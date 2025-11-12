@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="kotlin-sdk-test-jvm-0.8.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-test/build/libs</output-path>
+    <root id="archive" name="kotlin-sdk-test-jvm-0.8.0-SNAPSHOT.jar">
+      <element id="module-output" name="kotlin-sdk.kotlin-sdk-test.jvmMain" />
+    </root>
+  </artifact>
+</component>

@@ -1,0 +1,800 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --">
+      <change afterPath="$PROJECT_DIR$/.idea/ClojureProjectResolveSettings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_jvm_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_wasm_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_jvm_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_wasm_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_jvm_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_jvm_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_wasm_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_jvm_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_wasm_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_wasm_js_0_7_2.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/aws.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/jsLibraryMappings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_11_11_2025,_22_10_[Changes]/shelved.patch" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_11_11_2025,_22_10_[Changes]1/shelved.patch" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Checkout_at_11_11_2025__22_10__Changes_.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/INSTALL.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/INSTALL.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/kotlin-sdk" beforeDir="false" afterPath="$PROJECT_DIR$/external/kotlin-sdk" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <task path="$PROJECT_DIR$">
+          <activation />
+        </task>
+        <projects_view />
+      </state>
+    </system>
+  </component>
+  <component name="Git.Merge.Settings">
+    <option name="BRANCH" value="main" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_COMMON_BRANCH" value="main" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;krokozyab&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/krokozyab/codex_to_claude.git&quot;,
+    &quot;accountId&quot;: &quot;4b07778f-1ca0-4221-b76e-a698df95790b&quot;
+  },
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
+    },
+    &quot;owner&quot;: &quot;krokozyab&quot;,
+    &quot;repository&quot;: &quot;codex_to_claude&quot;
+  }
+}</component>
+  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.7+6/Contents/Home" gradleVersion="8.14" />
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="MMKvcvWv" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="33eVk20quBB24YuEHzvv6AbhJO8" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.AgentRegistryTest.executor": "Run",
+    "Gradle.AgentSelectorTest.executor": "Run",
+    "Gradle.Build codex_to_claude.executor": "Run",
+    "Gradle.ConsensusModuleTest.executor": "Run",
+    "Gradle.ConsensusWorkflowTest.executor": "Run",
+    "Gradle.ContextModuleTest.executor": "Run",
+    "Gradle.DirectiveParserTest.executor": "Run",
+    "Gradle.GetTaskStatusToolTest.executor": "Run",
+    "Gradle.McpServerImplTest.executor": "Run",
+    "Gradle.ProposalRepositoryTest.executor": "Run",
+    "Gradle.RoutingModuleTest.executor": "Run",
+    "Gradle.StrategyPickerTest.executor": "Run",
+    "Gradle.TaskClassifierTest.executor": "Run",
+    "Gradle.TaskRepositoryTest.executor": "Run",
+    "Gradle.TokenEstimatorTest.executor": "Run",
+    "Gradle.VotingStrategyTest.executor": "Run",
+    "Gradle.WorkflowExecutorTest.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "dev",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "settings.editor.selected.configurable": "vcs.Git",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/pics" />
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/devdoc" />
+      <recent name="$PROJECT_DIR$/docs" />
+      <recent name="$PROJECT_DIR$/src/main/resources/static" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/devdoc" />
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/docs" />
+      <recent name="$PROJECT_DIR$/build" />
+      <recent name="$PROJECT_DIR$/build/libs" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Gradle.ConsensusWorkflowTest">
+    <configuration default="true" type="Babashka" factoryName="BabashkaLocalRepl" activateToolWindowBeforeRun="false">
+      <setting name="displayName" value="" />
+      <setting name="bbPath" value="" />
+      <setting name="parameters" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <setting name="workingDir" value="" />
+      <setting name="focusEditor" value="false" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="ClojureREPL" factoryName="Local" activateToolWindowBeforeRun="false">
+      <option name="configVersion" value="1" />
+      <option name="options" />
+      <option name="profiles" />
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="ClojureREPL" factoryName="Remote" activateToolWindowBeforeRun="false">
+      <setting name="displayName" value="" />
+      <setting name="host" value="" />
+      <setting name="port" value="0" />
+      <setting name="replType" value="SOCKET" />
+      <setting name="configType" value="SPECIFY" />
+      <setting name="replPortFileType" value="STANDARD" />
+      <setting name="customPortFile" value="" />
+      <setting name="fixLineNumbers" value="false" />
+      <setting name="useHeartbeat" value="true" />
+      <setting name="focusEditor" value="false" />
+      <setting name="urlFile" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="ConsensusWorkflowTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value=":test" />
+            <option value="--tests" />
+            <option value="&quot;com.orchestrator.workflows.ConsensusWorkflowTest&quot;" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>true</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="GetTaskStatusToolTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value=":test" />
+            <option value="--tests" />
+            <option value="&quot;com.orchestrator.mcp.tools.GetTaskStatusToolTest&quot;" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>true</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="McpServerImplTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value=":test" />
+            <option value="--tests" />
+            <option value="&quot;com.orchestrator.mcp.McpServerImplTest&quot;" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>true</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="TaskClassifierTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value=":test" />
+            <option value="--tests" />
+            <option value="&quot;com.orchestrator.modules.routing.TaskClassifierTest&quot;" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>true</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <configuration name="WorkflowExecutorTest" type="GradleRunConfiguration" factoryName="Gradle" temporary="true">
+      <ExternalSystemSettings>
+        <option name="executionName" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="externalSystemIdString" value="GRADLE" />
+        <option name="scriptParameters" value="" />
+        <option name="taskDescriptions">
+          <list />
+        </option>
+        <option name="taskNames">
+          <list>
+            <option value=":test" />
+            <option value="--tests" />
+            <option value="&quot;com.orchestrator.workflows.WorkflowExecutorTest&quot;" />
+          </list>
+        </option>
+        <option name="vmOptions" />
+      </ExternalSystemSettings>
+      <ExternalSystemDebugServerProcess>false</ExternalSystemDebugServerProcess>
+      <ExternalSystemReattachDebugProcess>true</ExternalSystemReattachDebugProcess>
+      <DebugAllEnabled>false</DebugAllEnabled>
+      <RunAsTest>true</RunAsTest>
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Gradle.WorkflowExecutorTest" />
+        <item itemvalue="Gradle.TaskClassifierTest" />
+        <item itemvalue="Gradle.McpServerImplTest" />
+        <item itemvalue="Gradle.GetTaskStatusToolTest" />
+        <item itemvalue="Gradle.ConsensusWorkflowTest" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-bf35d07a577b-intellij.indexing.shared.core-IU-252.26830.84" />
+        <option value="bundled-js-predefined-d6986cc7102b-3aa1da707db6-JavaScript-IU-252.26830.84" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="" />
+      <created>1759677669776</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1759677669776</updated>
+      <workItem from="1759677671363" duration="207905000" />
+      <workItem from="1760265855027" duration="289003000" />
+      <workItem from="1761340563379" duration="81212000" />
+      <workItem from="1761569397109" duration="334404000" />
+      <workItem from="1762516774585" duration="41269000" />
+      <workItem from="1762604906367" duration="71165000" />
+      <workItem from="1762884720505" duration="4899000" />
+    </task>
+    <task id="LOCAL-00109" summary="index page - The inline CSS is now being included in the page. The CSS rules with !important flags are now part of the HTML itself, which&#10;               means they cannot be overridden by external CSS files. This is exactly what was needed - the browser will now apply these super-compact&#10;               styles to the index page.&#10;             &#10;               The inline styles we added are:&#10;               - Removed all padding/margin from #index-status-container&#10;               - Reduced stat card padding to 0.25rem 0.5rem&#10;               - Reduced stat card value font size from 1.5rem to 1.25rem&#10;               - Reduced stat card label font size to 0.65rem&#10;               - Reduced gap between grid items to 0.5rem&#10;               - Reduced all heading margins and font sizes&#10;               - Reduced paragraph margins to 0.125rem&#10;             &#10;               Now the user should see a significantly more compact page when they visit http://localhost:8081/index. The visual changes should be&#10;               immediately apparent because these inline styles cannot be cached or overridden by Bootstrap-Litera CSS.&#10;             &#10;               Let me create a summary of what was done:&#10;             &#10;               The application is now running with the index page compactness fix applied. Here's what was done:&#10;             &#10;               Solution Implemented:&#10;               Instead of relying on external CSS files that could be cached or overridden by Bootstrap-Litera, I added an inline &lt;style&gt; block directly&#10;               in the HTML &lt;head&gt; of the index page that targets #index-status-container and all its children with aggressive !important rules.&#10;             &#10;               Changes Made:&#10;               1. Added import kotlinx.html.style to IndexStatusPage.kt&#10;               2. Added an inline &lt;style&gt; block in the &lt;head&gt; section with compactness rules for:&#10;                 - Stat cards: padding reduced from var(--spacing-md) to 0.25rem 0.5rem&#10;                 - Stat card values: font size reduced from 1.5rem to 1.25rem&#10;                 - Stat card labels: font size reduced to 0.65rem&#10;                 - All grid gaps: reduced to 0.5rem&#10;                 - All heading margins and font sizes: significantly reduced&#10;                 - All paragraph margins: reduced to 0.125rem&#10;             &#10;               Why This Works:&#10;               Inline styles in the HTML &lt;head&gt; have higher CSS specificity and are not subject to external file caching issues. The !important flags&#10;               ensure they override Bootstrap-Litera's default styles.">
+      <option name="closed" value="true" />
+      <created>1761743246632</created>
+      <option name="number" value="00109" />
+      <option name="presentableId" value="LOCAL-00109" />
+      <option name="project" value="LOCAL" />
+      <updated>1761743246632</updated>
+    </task>
+    <task id="LOCAL-00110" summary=" Removed the &quot;Optimize Database&quot; Button&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
+      <option name="closed" value="true" />
+      <created>1761775496313</created>
+      <option name="number" value="00110" />
+      <option name="presentableId" value="LOCAL-00110" />
+      <option name="project" value="LOCAL" />
+      <updated>1761775496313</updated>
+    </task>
+    <task id="LOCAL-00111" summary=" -- proposal field fixed --&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
+      <option name="closed" value="true" />
+      <created>1761779486258</created>
+      <option name="number" value="00111" />
+      <option name="presentableId" value="LOCAL-00111" />
+      <option name="project" value="LOCAL" />
+      <updated>1761779486258</updated>
+    </task>
+    <task id="LOCAL-00112" summary="-- before config join --&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
+      <option name="closed" value="true" />
+      <created>1761789984057</created>
+      <option name="number" value="00112" />
+      <option name="presentableId" value="LOCAL-00112" />
+      <option name="project" value="LOCAL" />
+      <updated>1761789984057</updated>
+    </task>
+    <task id="LOCAL-00113" summary="-- unified config --">
+      <option name="closed" value="true" />
+      <created>1761792689183</created>
+      <option name="number" value="00113" />
+      <option name="presentableId" value="LOCAL-00113" />
+      <option name="project" value="LOCAL" />
+      <updated>1761792689183</updated>
+    </task>
+    <task id="LOCAL-00114" summary="-- db fixes -">
+      <option name="closed" value="true" />
+      <created>1761800438980</created>
+      <option name="number" value="00114" />
+      <option name="presentableId" value="LOCAL-00114" />
+      <option name="project" value="LOCAL" />
+      <updated>1761800438980</updated>
+    </task>
+    <task id="LOCAL-00115" summary="-- cascade delete fixed --">
+      <option name="closed" value="true" />
+      <created>1761854750854</created>
+      <option name="number" value="00115" />
+      <option name="presentableId" value="LOCAL-00115" />
+      <option name="project" value="LOCAL" />
+      <updated>1761854750855</updated>
+    </task>
+    <task id="LOCAL-00116" summary="-- modal with fixed --">
+      <option name="closed" value="true" />
+      <created>1761860540337</created>
+      <option name="number" value="00116" />
+      <option name="presentableId" value="LOCAL-00116" />
+      <option name="project" value="LOCAL" />
+      <updated>1761860540337</updated>
+    </task>
+    <task id="LOCAL-00117" summary="-- config fix --">
+      <option name="closed" value="true" />
+      <created>1762005548878</created>
+      <option name="number" value="00117" />
+      <option name="presentableId" value="LOCAL-00117" />
+      <option name="project" value="LOCAL" />
+      <updated>1762005548878</updated>
+    </task>
+    <task id="LOCAL-00118" summary="-- removed redundant health section from index page --">
+      <option name="closed" value="true" />
+      <created>1762148931190</created>
+      <option name="number" value="00118" />
+      <option name="presentableId" value="LOCAL-00118" />
+      <option name="project" value="LOCAL" />
+      <updated>1762148931190</updated>
+    </task>
+    <task id="LOCAL-00119" summary="-- make pages more compact --&#10;- Folded all the “compact index” rules into src/main/resources/static/css/orchestrator.css:2366-2418, so there’s no per-request inline CSS&#10;    anymore.&#10;  - Appended a version query string to every orchestrator stylesheet reference (?v=20241103 in src/main/kotlin/com/orchestrator/web/pages/&#10;    {IndexStatusPage.kt, IndexPage.kt, FilesPage.kt, HomePage.kt, MetricsPage.kt, TasksPage.kt, TaskDetailPage.kt}), which forces browsers to&#10;    pull the fresh CSS the moment the server restarts.&#10;  - Re-ran the regression guard: ./gradlew test --tests com.orchestrator.web.routes.IndexRoutesTest (passes).">
+      <option name="closed" value="true" />
+      <created>1762149747247</created>
+      <option name="number" value="00119" />
+      <option name="presentableId" value="LOCAL-00119" />
+      <option name="project" value="LOCAL" />
+      <updated>1762149747247</updated>
+    </task>
+    <task id="LOCAL-00120" summary="-- menu index icon fixed --">
+      <option name="closed" value="true" />
+      <created>1762150247231</created>
+      <option name="number" value="00120" />
+      <option name="presentableId" value="LOCAL-00120" />
+      <option name="project" value="LOCAL" />
+      <updated>1762150247231</updated>
+    </task>
+    <task id="LOCAL-00121" summary="-- fix db errors--">
+      <option name="closed" value="true" />
+      <created>1762151152425</created>
+      <option name="number" value="00121" />
+      <option name="presentableId" value="LOCAL-00121" />
+      <option name="project" value="LOCAL" />
+      <updated>1762151152425</updated>
+    </task>
+    <task id="LOCAL-00122" summary="-- rebuild context fixed --&#10; - RebuildContextTool writes the same schema we actually run against. The recreated table now includes abs_path VARCHAR NOT NULL UNIQUE (src/&#10;    main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:605-616), so the file indexer can insert paths instead of crashing.&#10;  - While I was in cleanup mode, I also stopped issuing raw SELECT … FROM bootstrap_progress queries before the tracker had recreated the table.&#10;    BootstrapProgressTracker now exposes getEntries() and the ContextModule reuses a shared tracker instance (no redundant connections, no&#10;    missing-table warnings) – see BootstrapProgressTracker.kt:18-88,112-141 and ContextModule.kt:27,185-257.">
+      <option name="closed" value="true" />
+      <created>1762151956672</created>
+      <option name="number" value="00122" />
+      <option name="presentableId" value="LOCAL-00122" />
+      <option name="project" value="LOCAL" />
+      <updated>1762151956672</updated>
+    </task>
+    <task id="LOCAL-00123" summary="-- tasks hardcoded -">
+      <option name="closed" value="true" />
+      <created>1762157198753</created>
+      <option name="number" value="00123" />
+      <option name="presentableId" value="LOCAL-00123" />
+      <option name="project" value="LOCAL" />
+      <updated>1762157198753</updated>
+    </task>
+    <task id="LOCAL-00124" summary="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet.">
+      <option name="closed" value="true" />
+      <created>1762158541664</created>
+      <option name="number" value="00124" />
+      <option name="presentableId" value="LOCAL-00124" />
+      <option name="project" value="LOCAL" />
+      <updated>1762158541664</updated>
+    </task>
+    <task id="LOCAL-00125" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762169160090</created>
+      <option name="number" value="00125" />
+      <option name="presentableId" value="LOCAL-00125" />
+      <option name="project" value="LOCAL" />
+      <updated>1762169160090</updated>
+    </task>
+    <task id="LOCAL-00126" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762169400140</created>
+      <option name="number" value="00126" />
+      <option name="presentableId" value="LOCAL-00126" />
+      <option name="project" value="LOCAL" />
+      <updated>1762169400140</updated>
+    </task>
+    <task id="LOCAL-00127" summary="-- fix unresponsive --">
+      <option name="closed" value="true" />
+      <created>1762184979161</created>
+      <option name="number" value="00127" />
+      <option name="presentableId" value="LOCAL-00127" />
+      <option name="project" value="LOCAL" />
+      <updated>1762184979161</updated>
+    </task>
+    <task id="LOCAL-00128" summary="-- tasks table fix --&#10;Final Fix - HTMX Compatibility&#10;&#10;  Changes:&#10;&#10;  1. TasksPage.kt - Moved task-grid.js to load right BEFORE the inline ag-Grid initialization script (line 54)&#10;    - This ensures it's included in HTMX swaps when navigating to /tasks&#10;    - task-grid.js loads → window.TaskGrid is set up → inline script runs and finds the renderers&#10;  2. TaskRoutes.kt - Added Cache-Control header to prevent browser caching&#10;&#10;  How it works:&#10;&#10;  - Direct page load: task-grid.js loads in order before inline init script ✓&#10;  - HTMX navigation: The entire card-body (including task-grid.js and init script) is swapped in, runs in order ✓&#10;  - No manual refresh needed: Grid initializes correctly on first render">
+      <option name="closed" value="true" />
+      <created>1762213906787</created>
+      <option name="number" value="00128" />
+      <option name="presentableId" value="LOCAL-00128" />
+      <option name="project" value="LOCAL" />
+      <updated>1762213906787</updated>
+    </task>
+    <task id="LOCAL-00129" summary="-- modal esc fix --">
+      <option name="closed" value="true" />
+      <created>1762228737399</created>
+      <option name="number" value="00129" />
+      <option name="presentableId" value="LOCAL-00129" />
+      <option name="project" value="LOCAL" />
+      <updated>1762228737399</updated>
+    </task>
+    <task id="LOCAL-00130" summary="-- default agent --&#10;Problem: Tasks created with create_simple_task were defaulting to hardcoded agents (e.g., gemini) instead of the current requesting agent.&#10;&#10;  Solution: Modified the task creation flow to automatically assign tasks to the current agent context when no explicit assignment is&#10;  provided.&#10;&#10;  Changes Made&#10;&#10;  1. Modified mapCreateSimpleParams() in McpServerImpl.kt (lines 2354-2398):&#10;    - Added optional currentAgentId parameter&#10;    - Auto-assigns task to current agent if user didn't explicitly specify assignToAgent&#10;    - Preserves user-specified agent assignments (higher priority)&#10;    - Gracefully handles both cases: with and without directives&#10;  2. Modified executeTool() in McpServerImpl.kt (lines 896-914):&#10;    - Before calling createSimpleTaskTool.execute(), it now:&#10;        - Gets current agent from session context via sessionToAgent[sessionId]&#10;      - Falls back to resolveAgentIdOrDefault() if session mapping unavailable&#10;      - Passes current agent to mapCreateSimpleParams()&#10;    - Silently continues if agent resolution fails (doesn't break task creation)&#10;&#10;  How It Works&#10;&#10;  Priority order for agent assignment:&#10;  1. User explicitly specifies assignToAgent in directives → Use that agent&#10;  2. Current agent context available → Auto-assign to current agent&#10;  3. No context available → Fall back to capability-based selection (existing behavior)&#10;&#10;  Example Behavior&#10;&#10;  - Claude Code agent creates task → Auto-assigned to claude-code&#10;  - Codex agent creates task → Auto-assigned to codex-cli&#10;  - User explicitly specifies agent → Uses specified agent (override)&#10;  - Multi-agent setup without context → Uses capability-based selection (backward compatible)">
+      <option name="closed" value="true" />
+      <created>1762230508549</created>
+      <option name="number" value="00130" />
+      <option name="presentableId" value="LOCAL-00130" />
+      <option name="project" value="LOCAL" />
+      <updated>1762230508549</updated>
+    </task>
+    <task id="LOCAL-00131" summary="-- sse connection fix on task page --">
+      <option name="closed" value="true" />
+      <created>1762235292389</created>
+      <option name="number" value="00131" />
+      <option name="presentableId" value="LOCAL-00131" />
+      <option name="project" value="LOCAL" />
+      <updated>1762235292389</updated>
+    </task>
+    <task id="LOCAL-00132" summary="-- looks tweaks --">
+      <option name="closed" value="true" />
+      <created>1762240420176</created>
+      <option name="number" value="00132" />
+      <option name="presentableId" value="LOCAL-00132" />
+      <option name="project" value="LOCAL" />
+      <updated>1762240420176</updated>
+    </task>
+    <task id="LOCAL-00133" summary="-- modal close fixed --&#10;Root Causes &amp; Fixes Applied:&#10;&#10;  1. Modal Not Opening&#10;&#10;  - Root Cause: htmx.ajax() wasn't respecting the target and swap options, causing content to load to wrong location&#10;  - Fix: Changed from HTMX API to native fetch() API for direct control over where content is inserted&#10;&#10;  2. Modal Close Button Not Visible&#10;&#10;  - Root Cause: .modal__close CSS had no color definition&#10;  - Fix: Added color: #333 to modal.css (lines 56-74) with hover/active states&#10;&#10;  3. Modal Closing Not Working (ESC &amp; × Button)&#10;&#10;  - Root Cause: Event listeners wrapped in DOMContentLoaded - if modal.js loaded after that event fired, listeners never attached&#10;  - Fix: Moved all event listeners OUTSIDE DOMContentLoaded (modal.js lines 28-72)&#10;  - Also Fixed: Used closest() instead of direct target check for more robust event delegation&#10;&#10;  4. Modal Container Not Found at Runtime&#10;&#10;  - Root Cause: task-grid.js loads and runs BEFORE the modal-container element is parsed by browser (script inside card, container defined&#10;  after)&#10;  - Fix: Added ensureModalContainer() helper function (modal.js lines 1-15) that:&#10;    - Checks if element exists&#10;    - Creates it dynamically if not found&#10;    - All click handlers use this before inserting content&#10;&#10;  ---&#10;  Files Modified:&#10;&#10;  1. modal.js (src/main/resources/static/js/modal.js)&#10;    - Added ensureModalContainer() helper function&#10;    - Moved click and ESC key handlers outside DOMContentLoaded&#10;    - Improved event handler with closest() for robustness&#10;    - Enhanced logging for debugging&#10;  2. modal.css (src/main/resources/static/css/modal.css)&#10;    - Added color: #333 to .modal__close&#10;    - Added padding, line-height, and transition effects&#10;    - Added :hover state (darker color + scale)&#10;    - Added :active state (scale-down for press effect)&#10;  3. task-grid.js (src/main/resources/static/js/task-grid.js)&#10;    - Changed View button from htmx.ajax() to fetch() API&#10;    - Changed row double-click handler to use fetch()&#10;    - Changed action button handlers to use fetch()&#10;    - All handlers now call ensureModalContainer() before inserting content&#10;    - Added comprehensive logging for debugging&#10;&#10;  ---&#10;  How It Works Now:&#10;&#10;  1. User clicks &quot;View&quot; button on a task row&#10;  2. task-grid.js:&#10;    - Fetches modal content from /tasks/{id}/modal&#10;    - Calls ensureModalContainer() to guarantee container exists&#10;    - Inserts HTML into #modal-container&#10;    - Calls window.openModal('modal-container')&#10;  3. modal.js:&#10;    - Adds is-open class to make modal visible&#10;    - Sets document.body.overflow = 'hidden' to prevent scrolling&#10;  4. User can close via:&#10;    - × Button: Click handler calls window.closeModal()&#10;    - ESC Key: Document listener detects and calls closeModal() for all open modals&#10;    - Backdrop: Click handler detects .modal__backdrop and closes">
+      <option name="closed" value="true" />
+      <created>1762251910759</created>
+      <option name="number" value="00133" />
+      <option name="presentableId" value="LOCAL-00133" />
+      <option name="project" value="LOCAL" />
+      <updated>1762251910759</updated>
+    </task>
+    <task id="LOCAL-00134" summary="-- modal fixed --">
+      <option name="closed" value="true" />
+      <created>1762332672562</created>
+      <option name="number" value="00134" />
+      <option name="presentableId" value="LOCAL-00134" />
+      <option name="project" value="LOCAL" />
+      <updated>1762332672563</updated>
+    </task>
+    <task id="LOCAL-00135" summary="-- root agent fixed --">
+      <option name="closed" value="true" />
+      <created>1762420888907</created>
+      <option name="number" value="00135" />
+      <option name="presentableId" value="LOCAL-00135" />
+      <option name="project" value="LOCAL" />
+      <updated>1762420888907</updated>
+    </task>
+    <task id="LOCAL-00136" summary="-- timestamp fixed --&#10; Solution&#10;&#10;  Modified IndexStatusPage.kt:62-64 to use the system's local timezone instead of UTC:&#10;&#10;  Before:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot;)&#10;      .withZone(ZoneOffset.UTC)&#10;&#10;  After:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss z&quot;)&#10;      .withZone(ZoneId.systemDefault())&#10;&#10;  Changes Made&#10;&#10;  1. Added import java.time.ZoneId to the imports&#10;  2. Changed the date format pattern from &quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot; to &quot;yyyy-MM-dd HH:mm:ss z&quot; (the 'z' formats the timezone abbreviation)&#10;  3. Changed from ZoneOffset.UTC to ZoneId.systemDefault() to use the server's local timezone">
+      <option name="closed" value="true" />
+      <created>1762465521183</created>
+      <option name="number" value="00136" />
+      <option name="presentableId" value="LOCAL-00136" />
+      <option name="project" value="LOCAL" />
+      <updated>1762465521183</updated>
+    </task>
+    <task id="LOCAL-00137" summary="-- fawicon added --">
+      <option name="closed" value="true" />
+      <created>1762493985589</created>
+      <option name="number" value="00137" />
+      <option name="presentableId" value="LOCAL-00137" />
+      <option name="project" value="LOCAL" />
+      <updated>1762493985589</updated>
+    </task>
+    <task id="LOCAL-00138" summary="-- fawicon added --">
+      <option name="closed" value="true" />
+      <created>1762502974125</created>
+      <option name="number" value="00138" />
+      <option name="presentableId" value="LOCAL-00138" />
+      <option name="project" value="LOCAL" />
+      <updated>1762502974125</updated>
+    </task>
+    <task id="LOCAL-00139" summary="-- couners auto refresh --&#10;- Created the event bus before initializing the watcher (and removed the duplicate later in Main.kt) so we can inject it into initializeWatcher.&#10;  - WatcherDaemon’s onUpdate now uses a shared FilesystemSnapshotCalculator to publish IndexStatusUpdatedEvent whenever new/modified/deleted files are&#10;    processed, which unblocks the SSE pipeline.&#10;  - Added FilesystemSnapshotCalculator as a reusable helper; updated IndexOperationsService to reuse it instead of keeping its own duplicate scanner&#10;    logic.&#10;  - Reworked the calculator to use the actual SymlinkHandler/PathValidator signatures and added the missing imports (withContext, kotlin.math.max,&#10;    LinkedHashMap, etc.), clearing all the “unresolved reference” errors the build reported.">
+      <option name="closed" value="true" />
+      <created>1762505456748</created>
+      <option name="number" value="00139" />
+      <option name="presentableId" value="LOCAL-00139" />
+      <option name="project" value="LOCAL" />
+      <updated>1762505456748</updated>
+    </task>
+    <task id="LOCAL-00140" summary="-- search refactoring --">
+      <option name="closed" value="true" />
+      <created>1762604841948</created>
+      <option name="number" value="00140" />
+      <option name="presentableId" value="LOCAL-00140" />
+      <option name="project" value="LOCAL" />
+      <updated>1762604841948</updated>
+    </task>
+    <task id="LOCAL-00141" summary="-- md moved --">
+      <option name="closed" value="true" />
+      <created>1762605883813</created>
+      <option name="number" value="00141" />
+      <option name="presentableId" value="LOCAL-00141" />
+      <option name="project" value="LOCAL" />
+      <updated>1762605883813</updated>
+    </task>
+    <task id="LOCAL-00142" summary="-- doc added --">
+      <option name="closed" value="true" />
+      <created>1762614875726</created>
+      <option name="number" value="00142" />
+      <option name="presentableId" value="LOCAL-00142" />
+      <option name="project" value="LOCAL" />
+      <updated>1762614875726</updated>
+    </task>
+    <task id="LOCAL-00143" summary="-- doc added --">
+      <option name="closed" value="true" />
+      <created>1762614969342</created>
+      <option name="number" value="00143" />
+      <option name="presentableId" value="LOCAL-00143" />
+      <option name="project" value="LOCAL" />
+      <updated>1762614969342</updated>
+    </task>
+    <task id="LOCAL-00144" summary="-- doc added --">
+      <option name="closed" value="true" />
+      <created>1762615837686</created>
+      <option name="number" value="00144" />
+      <option name="presentableId" value="LOCAL-00144" />
+      <option name="project" value="LOCAL" />
+      <updated>1762615837686</updated>
+    </task>
+    <task id="LOCAL-00145" summary="-- doc added --">
+      <option name="closed" value="true" />
+      <created>1762615919057</created>
+      <option name="number" value="00145" />
+      <option name="presentableId" value="LOCAL-00145" />
+      <option name="project" value="LOCAL" />
+      <updated>1762615919057</updated>
+    </task>
+    <task id="LOCAL-00146" summary="-- doc added --">
+      <option name="closed" value="true" />
+      <created>1762615962436</created>
+      <option name="number" value="00146" />
+      <option name="presentableId" value="LOCAL-00146" />
+      <option name="project" value="LOCAL" />
+      <updated>1762615962436</updated>
+    </task>
+    <task id="LOCAL-00147" summary="-- doc added --">
+      <option name="closed" value="true" />
+      <created>1762630430290</created>
+      <option name="number" value="00147" />
+      <option name="presentableId" value="LOCAL-00147" />
+      <option name="project" value="LOCAL" />
+      <updated>1762630430291</updated>
+    </task>
+    <task id="LOCAL-00148" summary="-- memory leak fix --">
+      <option name="closed" value="true" />
+      <created>1762721628198</created>
+      <option name="number" value="00148" />
+      <option name="presentableId" value="LOCAL-00148" />
+      <option name="project" value="LOCAL" />
+      <updated>1762721628198</updated>
+    </task>
+    <task id="LOCAL-00149" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762797130034</created>
+      <option name="number" value="00149" />
+      <option name="presentableId" value="LOCAL-00149" />
+      <option name="project" value="LOCAL" />
+      <updated>1762797130034</updated>
+    </task>
+    <task id="LOCAL-00150" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762851498642</created>
+      <option name="number" value="00150" />
+      <option name="presentableId" value="LOCAL-00150" />
+      <option name="project" value="LOCAL" />
+      <updated>1762851498642</updated>
+    </task>
+    <task id="LOCAL-00151" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762859642281</created>
+      <option name="number" value="00151" />
+      <option name="presentableId" value="LOCAL-00151" />
+      <option name="project" value="LOCAL" />
+      <updated>1762859642281</updated>
+    </task>
+    <task id="LOCAL-00152" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762874860024</created>
+      <option name="number" value="00152" />
+      <option name="presentableId" value="LOCAL-00152" />
+      <option name="project" value="LOCAL" />
+      <updated>1762874860024</updated>
+    </task>
+    <task id="LOCAL-00153" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762878770249</created>
+      <option name="number" value="00153" />
+      <option name="presentableId" value="LOCAL-00153" />
+      <option name="project" value="LOCAL" />
+      <updated>1762878770249</updated>
+    </task>
+    <task id="LOCAL-00154" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762880638874</created>
+      <option name="number" value="00154" />
+      <option name="presentableId" value="LOCAL-00154" />
+      <option name="project" value="LOCAL" />
+      <updated>1762880638874</updated>
+    </task>
+    <task id="LOCAL-00155" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762886073085</created>
+      <option name="number" value="00155" />
+      <option name="presentableId" value="LOCAL-00155" />
+      <option name="project" value="LOCAL" />
+      <updated>1762886073085</updated>
+    </task>
+    <task id="LOCAL-00156" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762886154149</created>
+      <option name="number" value="00156" />
+      <option name="presentableId" value="LOCAL-00156" />
+      <option name="project" value="LOCAL" />
+      <updated>1762886154149</updated>
+    </task>
+    <task id="LOCAL-00157" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762886249115</created>
+      <option name="number" value="00157" />
+      <option name="presentableId" value="LOCAL-00157" />
+      <option name="project" value="LOCAL" />
+      <updated>1762886249115</updated>
+    </task>
+    <option name="localTasksCounter" value="158" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <option name="CHECK_NEW_TODO" value="false" />
+    <MESSAGE value="-- config fix --" />
+    <MESSAGE value="-- removed redundant health section from index page --" />
+    <MESSAGE value="-- make pages more compact --&#10;- Folded all the “compact index” rules into src/main/resources/static/css/orchestrator.css:2366-2418, so there’s no per-request inline CSS&#10;    anymore.&#10;  - Appended a version query string to every orchestrator stylesheet reference (?v=20241103 in src/main/kotlin/com/orchestrator/web/pages/&#10;    {IndexStatusPage.kt, IndexPage.kt, FilesPage.kt, HomePage.kt, MetricsPage.kt, TasksPage.kt, TaskDetailPage.kt}), which forces browsers to&#10;    pull the fresh CSS the moment the server restarts.&#10;  - Re-ran the regression guard: ./gradlew test --tests com.orchestrator.web.routes.IndexRoutesTest (passes)." />
+    <MESSAGE value="-- menu index icon fixed --" />
+    <MESSAGE value="-- fix db errors--" />
+    <MESSAGE value="-- rebuild context fixed --&#10; - RebuildContextTool writes the same schema we actually run against. The recreated table now includes abs_path VARCHAR NOT NULL UNIQUE (src/&#10;    main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:605-616), so the file indexer can insert paths instead of crashing.&#10;  - While I was in cleanup mode, I also stopped issuing raw SELECT … FROM bootstrap_progress queries before the tracker had recreated the table.&#10;    BootstrapProgressTracker now exposes getEntries() and the ContextModule reuses a shared tracker instance (no redundant connections, no&#10;    missing-table warnings) – see BootstrapProgressTracker.kt:18-88,112-141 and ContextModule.kt:27,185-257." />
+    <MESSAGE value="-- tasks hardcoded -" />
+    <MESSAGE value="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet." />
+    <MESSAGE value="-- fix unresponsive --" />
+    <MESSAGE value="-- tasks table fix --&#10;Final Fix - HTMX Compatibility&#10;&#10;  Changes:&#10;&#10;  1. TasksPage.kt - Moved task-grid.js to load right BEFORE the inline ag-Grid initialization script (line 54)&#10;    - This ensures it's included in HTMX swaps when navigating to /tasks&#10;    - task-grid.js loads → window.TaskGrid is set up → inline script runs and finds the renderers&#10;  2. TaskRoutes.kt - Added Cache-Control header to prevent browser caching&#10;&#10;  How it works:&#10;&#10;  - Direct page load: task-grid.js loads in order before inline init script ✓&#10;  - HTMX navigation: The entire card-body (including task-grid.js and init script) is swapped in, runs in order ✓&#10;  - No manual refresh needed: Grid initializes correctly on first render" />
+    <MESSAGE value="-- modal esc fix --" />
+    <MESSAGE value="-- default agent --&#10;Problem: Tasks created with create_simple_task were defaulting to hardcoded agents (e.g., gemini) instead of the current requesting agent.&#10;&#10;  Solution: Modified the task creation flow to automatically assign tasks to the current agent context when no explicit assignment is&#10;  provided.&#10;&#10;  Changes Made&#10;&#10;  1. Modified mapCreateSimpleParams() in McpServerImpl.kt (lines 2354-2398):&#10;    - Added optional currentAgentId parameter&#10;    - Auto-assigns task to current agent if user didn't explicitly specify assignToAgent&#10;    - Preserves user-specified agent assignments (higher priority)&#10;    - Gracefully handles both cases: with and without directives&#10;  2. Modified executeTool() in McpServerImpl.kt (lines 896-914):&#10;    - Before calling createSimpleTaskTool.execute(), it now:&#10;        - Gets current agent from session context via sessionToAgent[sessionId]&#10;      - Falls back to resolveAgentIdOrDefault() if session mapping unavailable&#10;      - Passes current agent to mapCreateSimpleParams()&#10;    - Silently continues if agent resolution fails (doesn't break task creation)&#10;&#10;  How It Works&#10;&#10;  Priority order for agent assignment:&#10;  1. User explicitly specifies assignToAgent in directives → Use that agent&#10;  2. Current agent context available → Auto-assign to current agent&#10;  3. No context available → Fall back to capability-based selection (existing behavior)&#10;&#10;  Example Behavior&#10;&#10;  - Claude Code agent creates task → Auto-assigned to claude-code&#10;  - Codex agent creates task → Auto-assigned to codex-cli&#10;  - User explicitly specifies agent → Uses specified agent (override)&#10;  - Multi-agent setup without context → Uses capability-based selection (backward compatible)" />
+    <MESSAGE value="-- sse connection fix on task page --" />
+    <MESSAGE value="-- looks tweaks --" />
+    <MESSAGE value="-- modal close fixed --&#10;Root Causes &amp; Fixes Applied:&#10;&#10;  1. Modal Not Opening&#10;&#10;  - Root Cause: htmx.ajax() wasn't respecting the target and swap options, causing content to load to wrong location&#10;  - Fix: Changed from HTMX API to native fetch() API for direct control over where content is inserted&#10;&#10;  2. Modal Close Button Not Visible&#10;&#10;  - Root Cause: .modal__close CSS had no color definition&#10;  - Fix: Added color: #333 to modal.css (lines 56-74) with hover/active states&#10;&#10;  3. Modal Closing Not Working (ESC &amp; × Button)&#10;&#10;  - Root Cause: Event listeners wrapped in DOMContentLoaded - if modal.js loaded after that event fired, listeners never attached&#10;  - Fix: Moved all event listeners OUTSIDE DOMContentLoaded (modal.js lines 28-72)&#10;  - Also Fixed: Used closest() instead of direct target check for more robust event delegation&#10;&#10;  4. Modal Container Not Found at Runtime&#10;&#10;  - Root Cause: task-grid.js loads and runs BEFORE the modal-container element is parsed by browser (script inside card, container defined&#10;  after)&#10;  - Fix: Added ensureModalContainer() helper function (modal.js lines 1-15) that:&#10;    - Checks if element exists&#10;    - Creates it dynamically if not found&#10;    - All click handlers use this before inserting content&#10;&#10;  ---&#10;  Files Modified:&#10;&#10;  1. modal.js (src/main/resources/static/js/modal.js)&#10;    - Added ensureModalContainer() helper function&#10;    - Moved click and ESC key handlers outside DOMContentLoaded&#10;    - Improved event handler with closest() for robustness&#10;    - Enhanced logging for debugging&#10;  2. modal.css (src/main/resources/static/css/modal.css)&#10;    - Added color: #333 to .modal__close&#10;    - Added padding, line-height, and transition effects&#10;    - Added :hover state (darker color + scale)&#10;    - Added :active state (scale-down for press effect)&#10;  3. task-grid.js (src/main/resources/static/js/task-grid.js)&#10;    - Changed View button from htmx.ajax() to fetch() API&#10;    - Changed row double-click handler to use fetch()&#10;    - Changed action button handlers to use fetch()&#10;    - All handlers now call ensureModalContainer() before inserting content&#10;    - Added comprehensive logging for debugging&#10;&#10;  ---&#10;  How It Works Now:&#10;&#10;  1. User clicks &quot;View&quot; button on a task row&#10;  2. task-grid.js:&#10;    - Fetches modal content from /tasks/{id}/modal&#10;    - Calls ensureModalContainer() to guarantee container exists&#10;    - Inserts HTML into #modal-container&#10;    - Calls window.openModal('modal-container')&#10;  3. modal.js:&#10;    - Adds is-open class to make modal visible&#10;    - Sets document.body.overflow = 'hidden' to prevent scrolling&#10;  4. User can close via:&#10;    - × Button: Click handler calls window.closeModal()&#10;    - ESC Key: Document listener detects and calls closeModal() for all open modals&#10;    - Backdrop: Click handler detects .modal__backdrop and closes" />
+    <MESSAGE value="-- modal fixed --" />
+    <MESSAGE value="-- root agent fixed --" />
+    <MESSAGE value="-- timestamp fixed --&#10; Solution&#10;&#10;  Modified IndexStatusPage.kt:62-64 to use the system's local timezone instead of UTC:&#10;&#10;  Before:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot;)&#10;      .withZone(ZoneOffset.UTC)&#10;&#10;  After:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss z&quot;)&#10;      .withZone(ZoneId.systemDefault())&#10;&#10;  Changes Made&#10;&#10;  1. Added import java.time.ZoneId to the imports&#10;  2. Changed the date format pattern from &quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot; to &quot;yyyy-MM-dd HH:mm:ss z&quot; (the 'z' formats the timezone abbreviation)&#10;  3. Changed from ZoneOffset.UTC to ZoneId.systemDefault() to use the server's local timezone" />
+    <MESSAGE value="-- fawicon added --" />
+    <MESSAGE value="-- couners auto refresh --&#10;- Created the event bus before initializing the watcher (and removed the duplicate later in Main.kt) so we can inject it into initializeWatcher.&#10;  - WatcherDaemon’s onUpdate now uses a shared FilesystemSnapshotCalculator to publish IndexStatusUpdatedEvent whenever new/modified/deleted files are&#10;    processed, which unblocks the SSE pipeline.&#10;  - Added FilesystemSnapshotCalculator as a reusable helper; updated IndexOperationsService to reuse it instead of keeping its own duplicate scanner&#10;    logic.&#10;  - Reworked the calculator to use the actual SymlinkHandler/PathValidator signatures and added the missing imports (withContext, kotlin.math.max,&#10;    LinkedHashMap, etc.), clearing all the “unresolved reference” errors the build reported." />
+    <MESSAGE value="-- search refactoring --" />
+    <MESSAGE value="-- md moved --" />
+    <MESSAGE value="-- doc added --" />
+    <MESSAGE value="-- memory leak fix --" />
+    <MESSAGE value="-- readme --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- readme --" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

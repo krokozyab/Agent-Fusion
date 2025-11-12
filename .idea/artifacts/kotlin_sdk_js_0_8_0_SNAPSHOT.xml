@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="kotlin-sdk-js-0.8.0-SNAPSHOT">
+    <output-path>$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk/build/libs</output-path>
+    <root id="archive" name="kotlin-sdk-js-0.8.0-SNAPSHOT.jar">
+      <element id="module-output" name="kotlin-sdk.kotlin-sdk.jsMain" />
+    </root>
+  </artifact>
+</component>
