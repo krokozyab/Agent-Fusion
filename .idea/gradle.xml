@@ -1,4 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="GradleMigrationSettings" migrationVersion="1" />
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/external/kotlin-sdk" name="kotlin-sdk">
+                <projects>
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk" />
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk" />
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-client" />
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-core" />
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-server" />
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-test" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/external/kotlin-sdk/buildSrc" name="buildSrc">
+                <projects>
+                  <project path="$PROJECT_DIR$/external/kotlin-sdk/buildSrc" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="gradleHome" value="" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk/buildSrc" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-client" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-core" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-server" />
+            <option value="$PROJECT_DIR$/external/kotlin-sdk/kotlin-sdk-test" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
 </project>
