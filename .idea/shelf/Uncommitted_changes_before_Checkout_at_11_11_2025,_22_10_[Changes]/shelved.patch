@@ -1,0 +1,17 @@
+Index: .idea/kotlinc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"KotlinJpsPluginSettings\">\n    <option name=\"version\" value=\"2.2.20\" />\n  </component>\n</project>
+===================================================================
+diff --git a/.idea/kotlinc.xml b/.idea/kotlinc.xml
+--- a/.idea/kotlinc.xml	(revision 951767c51dd4d4057628c456dffe2d3452088297)
++++ b/.idea/kotlinc.xml	(date 1762880851659)
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+   <component name="KotlinJpsPluginSettings">
+-    <option name="version" value="2.2.20" />
++    <option name="version" value="2.2.10" />
+   </component>
+ </project>
+\ No newline at end of file
