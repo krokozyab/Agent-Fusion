@@ -67,7 +67,7 @@ You will see index process started in terminal
 ater it finishes index all files it automatically open
 admin homepage in you browser:
 
-<img src="pics/home_page.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 300px; display: block; margin: 0 auto;">
+<img src="../pics/home_page.png" alt="Agent Fusion Home Page" width="100%" style="max-width: 900px; max-height: 300px; display: block; margin: 0 auto;">
 
 
 ## Configure Codex CLI
