@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --">
-      <change beforePath="$PROJECT_DIR$/external/kotlin-sdk" beforeDir="false" afterPath="$PROJECT_DIR$/external/kotlin-sdk" afterDir="false" />
-    </list>
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -23,7 +21,17 @@
         <task path="$PROJECT_DIR$">
           <activation />
         </task>
-        <projects_view />
+        <projects_view>
+          <tree_state>
+            <expand>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="codex_to_claude" type="f1a62948:ProjectNode" />
+              </path>
+            </expand>
+            <select />
+          </tree_state>
+        </projects_view>
       </state>
     </system>
   </component>
@@ -311,15 +319,7 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="5267000" />
-    </task>
-    <task id="LOCAL-00110" summary=" Removed the &quot;Optimize Database&quot; Button&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
-      <option name="closed" value="true" />
-      <created>1761775496313</created>
-      <option name="number" value="00110" />
-      <option name="presentableId" value="LOCAL-00110" />
-      <option name="project" value="LOCAL" />
-      <updated>1761775496313</updated>
+      <workItem from="1762884720505" duration="5430000" />
     </task>
     <task id="LOCAL-00111" summary=" -- proposal field fixed --&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
       <option name="closed" value="true" />
@@ -705,7 +705,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762930553025</updated>
     </task>
-    <option name="localTasksCounter" value="159" />
+    <task id="LOCAL-00159" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762931045203</created>
+      <option name="number" value="00159" />
+      <option name="presentableId" value="LOCAL-00159" />
+      <option name="project" value="LOCAL" />
+      <updated>1762931045203</updated>
+    </task>
+    <option name="localTasksCounter" value="160" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
