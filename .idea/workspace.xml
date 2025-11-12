@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --">
+      <change afterPath="$PROJECT_DIR$/LICENSE.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -49,22 +53,22 @@
     &quot;assignee&quot;: &quot;krokozyab&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings">{
-  &quot;selectedUrlAndAccountId&quot;: {
-    &quot;url&quot;: &quot;https://github.com/krokozyab/codex_to_claude.git&quot;,
-    &quot;accountId&quot;: &quot;4b07778f-1ca0-4221-b76e-a698df95790b&quot;
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "git@github.com:krokozyab/codex_to_claude.git",
+    "accountId": "4b07778f-1ca0-4221-b76e-a698df95790b"
   },
-  &quot;recentNewPullRequestHead&quot;: {
-    &quot;server&quot;: {
-      &quot;useHttp&quot;: false,
-      &quot;host&quot;: &quot;github.com&quot;,
-      &quot;port&quot;: null,
-      &quot;suffix&quot;: null
+  "recentNewPullRequestHead": {
+    "server": {
+      "useHttp": false,
+      "host": "github.com",
+      "port": null,
+      "suffix": null
     },
-    &quot;owner&quot;: &quot;krokozyab&quot;,
-    &quot;repository&quot;: &quot;codex_to_claude&quot;
+    "owner": "krokozyab",
+    "repository": "codex_to_claude"
   }
-}</component>
+}]]></component>
   <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.7+6/Contents/Home" gradleVersion="8.14" />
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
@@ -319,15 +323,7 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="5430000" />
-    </task>
-    <task id="LOCAL-00111" summary=" -- proposal field fixed --&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
-      <option name="closed" value="true" />
-      <created>1761779486258</created>
-      <option name="number" value="00111" />
-      <option name="presentableId" value="LOCAL-00111" />
-      <option name="project" value="LOCAL" />
-      <updated>1761779486258</updated>
+      <workItem from="1762884720505" duration="6258000" />
     </task>
     <task id="LOCAL-00112" summary="-- before config join --&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
       <option name="closed" value="true" />
@@ -713,7 +709,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762931045203</updated>
     </task>
-    <option name="localTasksCounter" value="160" />
+    <task id="LOCAL-00160" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762931089636</created>
+      <option name="number" value="00160" />
+      <option name="presentableId" value="LOCAL-00160" />
+      <option name="project" value="LOCAL" />
+      <updated>1762931089636</updated>
+    </task>
+    <option name="localTasksCounter" value="161" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
