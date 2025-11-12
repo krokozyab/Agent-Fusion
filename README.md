@@ -92,7 +92,7 @@ The Task Manager works best when AIs have access to the Context Engine—they st
 Intelligent indexing and search for any files (works standalone):
 - **Setup**: Configure folders to watch and file types to index in `fusionagent.toml`
 - **Indexing**: Automatically finds and indexes your files, watches for changes
-- **Supports**: Code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and any file type you configure
+- **Supports**: Code (.kt, .py, .ts, .java), documents (.pdf, .docx, .md), and any file type you configure – [See chunking strategies](docs/CHUNKING_STRATEGIES.md)
 - **Search**: Smart search that understands meaning, not just keywords (semantic + symbol + full-text + git history)
 - **Local**: Everything stored locally in DuckDB, never sent to cloud
 - **Agent Access**: Tell your AI agents "use query_context to find X" and they'll search instantly
