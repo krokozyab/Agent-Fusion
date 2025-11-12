@@ -1,6 +1,13 @@
 
 <img src="pics/agent_banner.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 240px; display: block; margin: 0 auto;">
 
+
+[![License](https://img.shields.io/badge/License-Mit-blue.svg?style=for-the-badge&logo=mit)](LICENSE.md)
+[![GitHub Downloads](https://img.shields.io/github/downloads/krokozyab/Agent-Fusion/total?style=for-the-badge&logo=github)](https://github.com/krokozyab/Agent-Fusion/releases)
+[![Ko-Fi](https://img.shields.io/static/v1?style=for-the-badge&message=Support%20the%20Project&color=success&logo=ko-fi&label=$$)](https://ko-fi.com/sergeyrudenko)
+
+
+
 Agent Fusion gives multiple AI coding assistants instant access to your files—code, documents, PDFs, and more—through intelligent indexing, and optionally coordinates their work through a task system.
 
 It has two independent components (each can be used alone or together):
