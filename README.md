@@ -22,6 +22,20 @@ It has two independent components (each can be used alone or together):
 
 ---
 
+## Why Semantic Search Matters
+
+Most AI coding agents rely on grep and text matching. Ask them "find authentication logic" and they grep for "authentication" — missing every file that actually implements auth but calls it "login", "credentials", "token validation", or "access control".
+
+**Semantic search understands concepts**, not just keywords:
+
+- Ask for "database connection pooling" → finds connection managers, pool handlers, DB initialization
+- Ask for "error handling patterns" → discovers try-catch blocks, error loggers, exception handlers
+- Ask for "authentication flow" → locates login controllers, JWT validators, session managers
+
+Even when the exact words aren't in the code.
+
+---
+
 ## How It Works
 
 Agent Fusion fetches up-to-date code examples and documentation right into your LLM's context:
@@ -50,7 +64,7 @@ The Context Engine uses **three search types combined**:
 - **Full-Text Search** – Fast keyword matching (finds exact phrases and terms)
 - **Hybrid Search** – Combines all results ranked by relevance (you get the best matches from all methods)
 
-This means you get accurate results whether you search by meaning or by keywords. The best of both worlds.
+Results are ranked by relevance across all methods, ensuring you find what you're actually looking for — not just keyword matches.
 
 The Context Engine is independent—use it alone for smart search, or combine it with the Task Manager. Configured in `fusionagent.toml`, stores everything locally. Configure watch paths and file types to index in the config file.
 
