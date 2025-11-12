@@ -5,9 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --">
-      <change afterPath="$PROJECT_DIR$/LICENSE.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -323,15 +321,7 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="6258000" />
-    </task>
-    <task id="LOCAL-00112" summary="-- before config join --&#10;&#10;  I've completely removed the useless &quot;Optimize Database&quot; button from your application because you were right - DuckDB doesn't support &#10;  VACUUM and doesn't need it. The feature was doing nothing useful.&#10;&#10;  Changes Made:&#10;&#10;  1. IndexRoutes.kt (src/main/kotlin/com/orchestrator/web/routes/)&#10;    - Removed the optimize action from the defaultAdminActions() list&#10;    - Removed the post(&quot;/index/optimize&quot;) endpoint&#10;  2. IndexOperationsService.kt (src/main/kotlin/com/orchestrator/web/services/)&#10;    - Removed fun optimize() from the interface&#10;    - Removed the override fun optimize() implementation&#10;    - Removed the optimizeActive AtomicBoolean field (no longer needed)&#10;  3. IndexRoutesTest.kt (src/test/kotlin/com/orchestrator/web/routes/)&#10;    - Removed optimizeCalls counter from the test stub&#10;    - Removed the override fun optimize() stub method&#10;&#10;  What Remains:&#10;&#10;  ✓ Refresh Index button - Still available (for incremental updates)✓ Rebuild Index button - Still available (for full re-index)">
-      <option name="closed" value="true" />
-      <created>1761789984057</created>
-      <option name="number" value="00112" />
-      <option name="presentableId" value="LOCAL-00112" />
-      <option name="project" value="LOCAL" />
-      <updated>1761789984057</updated>
+      <workItem from="1762884720505" duration="8166000" />
     </task>
     <task id="LOCAL-00113" summary="-- unified config --">
       <option name="closed" value="true" />
@@ -717,7 +707,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762931089636</updated>
     </task>
-    <option name="localTasksCounter" value="161" />
+    <task id="LOCAL-00161" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762949295445</created>
+      <option name="number" value="00161" />
+      <option name="presentableId" value="LOCAL-00161" />
+      <option name="project" value="LOCAL" />
+      <updated>1762949295445</updated>
+    </task>
+    <option name="localTasksCounter" value="162" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
