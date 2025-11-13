@@ -12,6 +12,7 @@ import com.orchestrator.context.providers.ContextProvider
 import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.search.MmrReranker
 import com.orchestrator.context.search.NeighborExpander
+import com.orchestrator.context.search.ScoreBooster
 import com.orchestrator.context.search.VectorSearchEngine
 import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
@@ -54,6 +55,7 @@ class QueryContextTool(
         QueryOptimizer(config.query, reranker)
     }
     private val neighborExpander: NeighborExpander by lazy { NeighborExpander() }
+    private val scoreBooster: ScoreBooster by lazy { ScoreBooster(config.query.boosts) }
     
     // LRU cache for embeddings of non-semantic results
     private val embeddingCache = object : LinkedHashMap<String, FloatArray>(
@@ -149,11 +151,14 @@ class QueryContextTool(
         // Sort by score and deduplicate
         val uniqueSnippets = deduplicateSnippets(allSnippets)
 
+        // Apply path/language boosts
+        val boostedSnippets = applyScoreBoosts(uniqueSnippets)
+        
         // Filter by minimum score threshold from config
-        val filteredSnippets = uniqueSnippets.filter { it.score >= config.query.minScoreThreshold }
-        if (filteredSnippets.size < uniqueSnippets.size) {
+        val filteredSnippets = boostedSnippets.filter { it.score >= config.query.minScoreThreshold }
+        if (filteredSnippets.size < boostedSnippets.size) {
             log.debug("Filtered {} snippets below min_score_threshold of {}",
-                uniqueSnippets.size - filteredSnippets.size,
+                boostedSnippets.size - filteredSnippets.size,
                 config.query.minScoreThreshold)
         }
 
@@ -423,6 +428,20 @@ class QueryContextTool(
             return neighborExpander.expand(snippets, config.query.neighborWindow)
         } catch (e: Exception) {
             log.warn("Neighbor expansion failed, returning original results: {}", e.message)
+            return snippets
+        }
+    }
+    
+    private fun applyScoreBoosts(snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (snippets.isEmpty()) return emptyList()
+        if (config.query.boosts.pathPrefixes.isEmpty() && config.query.boosts.languages.isEmpty()) {
+            return snippets
+        }
+        
+        try {
+            return scoreBooster.applyBoosts(snippets)
+        } catch (e: Exception) {
+            log.warn("Score boosting failed, returning original results: {}", e.message)
             return snippets
         }
     }

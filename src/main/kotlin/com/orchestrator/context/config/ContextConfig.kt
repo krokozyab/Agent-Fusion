@@ -156,11 +156,38 @@ data class BoostConfig(
     val pathPrefixes: Map<String, Double> = mapOf(
         "src/main" to 1.05,
         "src/test" to 0.95,
-        "vendor" to 0.90
+        "vendor" to 0.90,
+        "node_modules" to 0.80,
+        "build" to 0.85,
+        "dist" to 0.85
     ),
     val languages: Map<String, Double> = mapOf(
         "kotlin" to 1.02,
-        "markdown" to 1.00
+        "java" to 1.02,
+        "python" to 1.02,
+        "typescript" to 1.01,
+        "javascript" to 1.01,
+        "rust" to 1.02,
+        "go" to 1.02,
+        "c" to 1.00,
+        "cpp" to 1.00,
+        "csharp" to 1.00,
+        "ruby" to 1.00,
+        "php" to 1.00,
+        "swift" to 1.00,
+        "scala" to 1.00,
+        "markdown" to 0.98,
+        "json" to 0.95,
+        "yaml" to 0.95,
+        "xml" to 0.95,
+        "toml" to 0.95,
+        "sql" to 0.98,
+        "shell" to 0.97,
+        "dockerfile" to 0.97,
+        "html" to 0.93,
+        "css" to 0.93,
+        "text" to 0.90,
+        "document" to 0.92
     )
 )
 

@@ -382,10 +382,35 @@ idf_enabled = true
 "node_modules" = 0.85  # Further penalize dependencies
 
 [context.query.boosts.languages]
+# Programming languages (higher boost = more relevant in search results)
 kotlin = 1.02          # Slight boost for Kotlin
-markdown = 1.00        # Neutral for documentation
-java = 1.00            # Neutral for Java
-json = 0.95            # Slight penalty for config files
+java = 1.02            # Slight boost for Java
+python = 1.02          # Slight boost for Python
+typescript = 1.01      # Slight boost for TypeScript
+javascript = 1.01      # Slight boost for JavaScript
+rust = 1.02            # Slight boost for Rust
+go = 1.02              # Slight boost for Go
+c = 1.00               # Neutral for C
+cpp = 1.00             # Neutral for C++
+csharp = 1.00          # Neutral for C#
+ruby = 1.00            # Neutral for Ruby
+php = 1.00             # Neutral for PHP
+swift = 1.00           # Neutral for Swift
+scala = 1.00           # Neutral for Scala
+
+# Documentation and config (lower boost = less relevant)
+markdown = 0.98        # Slight penalty for documentation
+sql = 0.98             # Slight penalty for SQL
+shell = 0.97           # Slight penalty for shell scripts
+dockerfile = 0.97      # Slight penalty for Dockerfiles
+json = 0.95            # Penalty for config files
+yaml = 0.95            # Penalty for config files
+xml = 0.95             # Penalty for config files
+toml = 0.95            # Penalty for config files
+html = 0.93            # Penalty for HTML
+css = 0.93             # Penalty for CSS
+text = 0.90            # Penalty for plain text
+document = 0.92        # Penalty for documents (PDF, DOCX)
 
 # ------------------------------------------------------------------------------
 # [context.budget] - Token budget management
