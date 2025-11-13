@@ -4,12 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- Task 1: Add QueryConfig for Phase 1 Features --">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/external/kotlin-sdk" beforeDir="false" afterPath="$PROJECT_DIR$/external/kotlin-sdk" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -325,15 +322,7 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="20303000" />
-    </task>
-    <task id="LOCAL-00116" summary="-- modal with fixed --">
-      <option name="closed" value="true" />
-      <created>1761860540337</created>
-      <option name="number" value="00116" />
-      <option name="presentableId" value="LOCAL-00116" />
-      <option name="project" value="LOCAL" />
-      <updated>1761860540337</updated>
+      <workItem from="1762884720505" duration="21946000" />
     </task>
     <task id="LOCAL-00117" summary="-- config fix --">
       <option name="closed" value="true" />
@@ -719,7 +708,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762981547078</updated>
     </task>
-    <option name="localTasksCounter" value="165" />
+    <task id="LOCAL-00165" summary="-- Task 1: Add QueryConfig for Phase 1 Features --">
+      <option name="closed" value="true" />
+      <created>1763046648127</created>
+      <option name="number" value="00165" />
+      <option name="presentableId" value="LOCAL-00165" />
+      <option name="project" value="LOCAL" />
+      <updated>1763046648127</updated>
+    </task>
+    <option name="localTasksCounter" value="166" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -739,7 +736,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- config fix --" />
     <MESSAGE value="-- removed redundant health section from index page --" />
     <MESSAGE value="-- make pages more compact --&#10;- Folded all the “compact index” rules into src/main/resources/static/css/orchestrator.css:2366-2418, so there’s no per-request inline CSS&#10;    anymore.&#10;  - Appended a version query string to every orchestrator stylesheet reference (?v=20241103 in src/main/kotlin/com/orchestrator/web/pages/&#10;    {IndexStatusPage.kt, IndexPage.kt, FilesPage.kt, HomePage.kt, MetricsPage.kt, TasksPage.kt, TaskDetailPage.kt}), which forces browsers to&#10;    pull the fresh CSS the moment the server restarts.&#10;  - Re-ran the regression guard: ./gradlew test --tests com.orchestrator.web.routes.IndexRoutesTest (passes)." />
     <MESSAGE value="-- menu index icon fixed --" />
@@ -764,7 +760,8 @@
     <MESSAGE value="-- doc added --" />
     <MESSAGE value="-- memory leak fix --" />
     <MESSAGE value="-- readme --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- readme --" />
+    <MESSAGE value="-- Task 1: Add QueryConfig for Phase 1 Features --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- Task 1: Add QueryConfig for Phase 1 Features --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
