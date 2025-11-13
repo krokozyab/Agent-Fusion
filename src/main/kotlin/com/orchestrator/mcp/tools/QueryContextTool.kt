@@ -11,6 +11,7 @@ import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.ContextProvider
 import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.search.MmrReranker
+import com.orchestrator.context.search.NeighborExpander
 import com.orchestrator.context.search.VectorSearchEngine
 import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
@@ -52,6 +53,7 @@ class QueryContextTool(
     private val queryOptimizer: QueryOptimizer by lazy { 
         QueryOptimizer(config.query, reranker)
     }
+    private val neighborExpander: NeighborExpander by lazy { NeighborExpander() }
     
     // LRU cache for embeddings of non-semantic results
     private val embeddingCache = object : LinkedHashMap<String, FloatArray>(
@@ -162,8 +164,15 @@ class QueryContextTool(
             filteredSnippets
         }
         
+        // Apply neighbor expansion if enabled
+        val expandedSnippets = if (config.query.neighborWindow > 0 && optimizedSnippets.isNotEmpty()) {
+            applyNeighborExpansion(optimizedSnippets)
+        } else {
+            optimizedSnippets
+        }
+        
         // Apply token budget and limit to k results
-        val finalSnippets = applyBudgetAndLimit(optimizedSnippets, budget, k)
+        val finalSnippets = applyBudgetAndLimit(expandedSnippets, budget, k)
 
         // Convert to DTO format
         val hits = finalSnippets.map { snippet ->
@@ -405,6 +414,17 @@ class QueryContextTool(
         return cleaned.split(",")
             .map { it.trim().toFloat() }
             .toFloatArray()
+    }
+    
+    private fun applyNeighborExpansion(snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (snippets.isEmpty()) return emptyList()
+        
+        try {
+            return neighborExpander.expand(snippets, config.query.neighborWindow)
+        } catch (e: Exception) {
+            log.warn("Neighbor expansion failed, returning original results: {}", e.message)
+            return snippets
+        }
     }
     
     private fun estimateTokens(snippet: ContextSnippet): Int =
