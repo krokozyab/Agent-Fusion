@@ -144,7 +144,24 @@ data class QueryConfig(
     val defaultK: Int = 12,
     val mmrLambda: Double = 0.5,
     val minScoreThreshold: Double = 0.3,
-    val rerankEnabled: Boolean = true
+    val rerankEnabled: Boolean = true,
+    val useOptimizerInTool: Boolean = true,
+    val neighborWindow: Int = 1,
+    val embeddingCacheSize: Int = 1000,
+    val boosts: BoostConfig = BoostConfig(),
+    val idfEnabled: Boolean = true
+)
+
+data class BoostConfig(
+    val pathPrefixes: Map<String, Double> = mapOf(
+        "src/main" to 1.05,
+        "src/test" to 0.95,
+        "vendor" to 0.90
+    ),
+    val languages: Map<String, Double> = mapOf(
+        "kotlin" to 1.02,
+        "markdown" to 1.00
+    )
 )
 
 data class BudgetConfig(

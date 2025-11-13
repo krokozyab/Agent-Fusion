@@ -345,6 +345,48 @@ min_score_threshold = 0.3
 # Should generally be true unless you only want relevance-based ranking
 rerank_enabled = true
 
+# ==============================================================================
+# Phase 1 Search Quality Improvements
+# ==============================================================================
+
+# use_optimizer_in_tool: Apply QueryOptimizer (MMR) in QueryContextTool
+# When enabled, all provider results are re-ranked for diversity
+# Set to false to rollback Phase 1 MMR integration
+# Default: true
+use_optimizer_in_tool = true
+
+# neighbor_window: Include adjacent chunks for context coherence
+# 0 = disabled, 1 = include ±1 chunk, 2 = include ±2 chunks
+# Higher values provide more context but use more tokens
+# Default: 1
+neighbor_window = 1
+
+# embedding_cache_size: LRU cache size for on-the-fly embeddings
+# Used when non-semantic results need vectors for MMR
+# Higher = more memory, fewer re-computations
+# Default: 1000
+embedding_cache_size = 1000
+
+# idf_enabled: Enable inverse document frequency weighting in full-text search
+# Boosts rare terms, penalizes common terms (approximates BM25)
+# Set to false to use simple term frequency scoring
+# Default: true
+idf_enabled = true
+
+# Path and language boosts: Adjust scores based on file location and type
+# Multipliers applied after base scoring (1.0 = no change)
+[context.query.boosts.path_prefixes]
+"src/main" = 1.05      # Boost main source code
+"src/test" = 0.95      # Slightly penalize test code
+"vendor" = 0.90        # Penalize vendor/third-party code
+"node_modules" = 0.85  # Further penalize dependencies
+
+[context.query.boosts.languages]
+kotlin = 1.02          # Slight boost for Kotlin
+markdown = 1.00        # Neutral for documentation
+java = 1.00            # Neutral for Java
+json = 0.95            # Slight penalty for config files
+
 # ------------------------------------------------------------------------------
 # [context.budget] - Token budget management
 # ------------------------------------------------------------------------------
