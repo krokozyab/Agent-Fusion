@@ -4,11 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- Task 3: Implement Neighbor Expansion --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- Task 4: Implement Path/Language Boosts --">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -324,15 +322,7 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="25052000" />
-    </task>
-    <task id="LOCAL-00119" summary="-- make pages more compact --&#10;- Folded all the “compact index” rules into src/main/resources/static/css/orchestrator.css:2366-2418, so there’s no per-request inline CSS&#10;    anymore.&#10;  - Appended a version query string to every orchestrator stylesheet reference (?v=20241103 in src/main/kotlin/com/orchestrator/web/pages/&#10;    {IndexStatusPage.kt, IndexPage.kt, FilesPage.kt, HomePage.kt, MetricsPage.kt, TasksPage.kt, TaskDetailPage.kt}), which forces browsers to&#10;    pull the fresh CSS the moment the server restarts.&#10;  - Re-ran the regression guard: ./gradlew test --tests com.orchestrator.web.routes.IndexRoutesTest (passes).">
-      <option name="closed" value="true" />
-      <created>1762149747247</created>
-      <option name="number" value="00119" />
-      <option name="presentableId" value="LOCAL-00119" />
-      <option name="project" value="LOCAL" />
-      <updated>1762149747247</updated>
+      <workItem from="1762884720505" duration="26193000" />
     </task>
     <task id="LOCAL-00120" summary="-- menu index icon fixed --">
       <option name="closed" value="true" />
@@ -718,7 +708,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763051916029</updated>
     </task>
-    <option name="localTasksCounter" value="168" />
+    <task id="LOCAL-00168" summary="-- Task 4: Implement Path/Language Boosts --">
+      <option name="closed" value="true" />
+      <created>1763052571088</created>
+      <option name="number" value="00168" />
+      <option name="presentableId" value="LOCAL-00168" />
+      <option name="project" value="LOCAL" />
+      <updated>1763052571088</updated>
+    </task>
+    <option name="localTasksCounter" value="169" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -738,7 +736,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- menu index icon fixed --" />
     <MESSAGE value="-- fix db errors--" />
     <MESSAGE value="-- rebuild context fixed --&#10; - RebuildContextTool writes the same schema we actually run against. The recreated table now includes abs_path VARCHAR NOT NULL UNIQUE (src/&#10;    main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:605-616), so the file indexer can insert paths instead of crashing.&#10;  - While I was in cleanup mode, I also stopped issuing raw SELECT … FROM bootstrap_progress queries before the tracker had recreated the table.&#10;    BootstrapProgressTracker now exposes getEntries() and the ContextModule reuses a shared tracker instance (no redundant connections, no&#10;    missing-table warnings) – see BootstrapProgressTracker.kt:18-88,112-141 and ContextModule.kt:27,185-257." />
     <MESSAGE value="-- tasks hardcoded -" />
@@ -763,7 +760,8 @@
     <MESSAGE value="-- Task 1: Add QueryConfig for Phase 1 Features --" />
     <MESSAGE value="-- Task 2: Implement MMR Integration in QueryContextTool --" />
     <MESSAGE value="-- Task 3: Implement Neighbor Expansion --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- Task 3: Implement Neighbor Expansion --" />
+    <MESSAGE value="-- Task 4: Implement Path/Language Boosts --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- Task 4: Implement Path/Language Boosts --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
