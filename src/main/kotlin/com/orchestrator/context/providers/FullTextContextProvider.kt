@@ -10,7 +10,8 @@ import kotlin.math.max
 
 class FullTextContextProvider(
     private val stopwords: Set<String> = DEFAULT_STOPWORDS,
-    private val maxResults: Int = 50
+    private val maxResults: Int = 50,
+    private val idfEnabled: Boolean = true
 ) : ContextProvider {
 
     override val id: String = "full_text"
@@ -51,9 +52,10 @@ class FullTextContextProvider(
                         val language = rs.getString("language")
 
                         val contentScore = scoreKeywords(content.lowercase(Locale.US), keywords)
+                        // Apply IDF boost if enabled
+                        val idfScore = if (idfEnabled) applyIdfBoost(contentScore, keywords) else contentScore
                         // Prefer content matches over path-only matches
-                        // If content is just whitespace/minimal, penalize the score
-                        val score = if (content.length < 50) contentScore * 0.3 else contentScore
+                        val score = if (content.length < 50) idfScore * 0.3 else idfScore
 
                         val tokens = max(1, tokenEstimate)
                         if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) {
@@ -233,6 +235,22 @@ class FullTextContextProvider(
         // Partial matches: score based on occurrence count (less aggressive)
         // Avoid penalizing longer documents
         return (totalOccurrences.toDouble() / (keywords.size * 2)).coerceIn(0.0, 0.5)
+    }
+
+    private fun applyIdfBoost(baseScore: Double, keywords: List<String>): Double {
+        if (keywords.isEmpty()) return baseScore
+        
+        // Minimal IDF: boost rare terms, penalize common terms
+        // Estimate rarity by term length (longer = rarer)
+        val avgLength = keywords.map { it.length }.average()
+        val idfMultiplier = when {
+            avgLength >= 8 -> 1.15  // Long terms (rare) - boost
+            avgLength >= 6 -> 1.05  // Medium terms - slight boost
+            avgLength >= 4 -> 1.0   // Common terms - neutral
+            else -> 0.95            // Short terms (common) - slight penalty
+        }
+        
+        return (baseScore * idfMultiplier).coerceIn(0.0, 1.0)
     }
 
     companion object {
