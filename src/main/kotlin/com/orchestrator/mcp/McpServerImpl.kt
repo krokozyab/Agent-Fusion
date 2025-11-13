@@ -34,19 +34,21 @@ import io.ktor.server.sse.ServerSSESession
 import io.ktor.util.pipeline.PipelineContext
 import io.ktor.utils.io.ByteReadChannel
 import io.modelcontextprotocol.kotlin.sdk.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.Implementation
-import io.modelcontextprotocol.kotlin.sdk.JSONRPCMessage
-import io.modelcontextprotocol.kotlin.sdk.JSONRPCNotification
-import io.modelcontextprotocol.kotlin.sdk.JSONRPCRequest
-import io.modelcontextprotocol.kotlin.sdk.JSONRPCResponse
+import io.modelcontextprotocol.kotlin.sdk.types.Implementation
+import io.modelcontextprotocol.kotlin.sdk.types.JSONRPCMessage
+import io.modelcontextprotocol.kotlin.sdk.types.JSONRPCNotification
+import io.modelcontextprotocol.kotlin.sdk.types.JSONRPCRequest
+import io.modelcontextprotocol.kotlin.sdk.types.JSONRPCResponse
 import io.modelcontextprotocol.kotlin.sdk.Method
-import io.modelcontextprotocol.kotlin.sdk.ReadResourceRequest
-import io.modelcontextprotocol.kotlin.sdk.ReadResourceResult
-import io.modelcontextprotocol.kotlin.sdk.RequestId
+import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceRequest
+import io.modelcontextprotocol.kotlin.sdk.types.ReadResourceResult
+import io.modelcontextprotocol.kotlin.sdk.types.RequestId
 import io.modelcontextprotocol.kotlin.sdk.ServerCapabilities
-import io.modelcontextprotocol.kotlin.sdk.TextContent
-import io.modelcontextprotocol.kotlin.sdk.TextResourceContents
-import io.modelcontextprotocol.kotlin.sdk.Tool
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import io.modelcontextprotocol.kotlin.sdk.types.TextResourceContents
+import io.modelcontextprotocol.kotlin.sdk.types.Tool
+import io.modelcontextprotocol.kotlin.sdk.types.ContentBlock
+import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 import io.modelcontextprotocol.kotlin.sdk.server.ServerSession
@@ -604,7 +606,7 @@ class McpServerImpl(
 
         val sessionId: String = UUID.randomUUID().toString()
 
-        private val pendingResponses = ConcurrentHashMap<RequestId, CompletableDeferred<JSONRPCResponse>>()
+        private val pendingResponses: ConcurrentHashMap<RequestId, CompletableDeferred<JSONRPCResponse>> = ConcurrentHashMap()
         private val sendMutex = Mutex()
         private val pendingEvents = mutableListOf<JSONRPCMessage>()
         private var sseSession: ServerSSESession? = null
@@ -618,7 +620,7 @@ class McpServerImpl(
             }
         }
 
-        override suspend fun send(message: JSONRPCMessage) {
+        override suspend fun send(message: JSONRPCMessage): Unit {
             if (message is JSONRPCResponse) {
                 val deferred = pendingResponses.remove(message.id)
                 if (deferred != null) {
@@ -694,7 +696,7 @@ class McpServerImpl(
 
         private suspend fun handleRequest(request: JSONRPCRequest): PostResult {
             val deferred = CompletableDeferred<JSONRPCResponse>()
-            pendingResponses[request.id] = deferred
+            pendingResponses[request.id as RequestId] = deferred
 
             try {
                 _onMessage(request)
@@ -710,10 +712,10 @@ class McpServerImpl(
                     deferred.await()
                 }
             } catch (e: TimeoutCancellationException) {
-                pendingResponses.remove(request.id)
+                pendingResponses.remove(request.id as RequestId)
                 return PostResult.Error(HttpStatusCode.GatewayTimeout, "timeout", "Timed out waiting for response")
             } catch (t: Throwable) {
-                pendingResponses.remove(request.id)
+                pendingResponses.remove(request.id as RequestId)
                 return PostResult.Error(HttpStatusCode.InternalServerError, "internal_error", t.message ?: "Unhandled error")
             }
 
@@ -776,7 +778,7 @@ class McpServerImpl(
                 inputSchema = inputSchema
             ) { request ->
                 runCatching {
-                    val result = executeTool(entry.name, request.arguments)
+                    val result = executeTool(entry.name, request.arguments ?: JsonNull)
                     val payload = toolResultToJson(result)
                     val structured = when (payload) {
                         is JsonObject -> payload
@@ -784,14 +786,14 @@ class McpServerImpl(
                     }
                     val serialized = json.encodeToString(JsonElement.serializer(), structured)
                     CallToolResult(
-                        content = listOf(TextContent(serialized)),
+                        content = listOf(TextContent(serialized) as ContentBlock),
                         structuredContent = structured,
                         isError = false
                     )
                 }.getOrElse { throwable ->
                     val message = throwable.message ?: "Unhandled error"
                     CallToolResult(
-                        content = listOf(TextContent("Error: $message")),
+                        content = listOf(TextContent("Error: $message") as ContentBlock),
                         structuredContent = buildJsonObject { put("error", JsonPrimitive(message)) },
                         isError = true
                     )
@@ -824,14 +826,16 @@ class McpServerImpl(
         }
     }
 
-    private fun toolInputFromJsonSchema(schema: String): Tool.Input {
-        val parsed = runCatching { json.parseToJsonElement(schema).asObj() }.getOrElse { return Tool.Input() }
+    private fun toolInputFromJsonSchema(schema: String): ToolSchema {
+        val parsed = runCatching { json.parseToJsonElement(schema).asObj() }.getOrElse { 
+            return ToolSchema(properties = JsonObject(emptyMap()), required = null)
+        }
         val properties = parsed["properties"]?.jsonObject ?: JsonObject(emptyMap())
         val required = parsed["required"]?.jsonArray
             ?.mapNotNull { element -> element.jsonPrimitive.contentOrNull }
             ?.ifEmpty { null }
 
-        return Tool.Input(properties = properties, required = required)
+        return ToolSchema(properties = properties, required = required)
     }
 
     fun stop(gracePeriodMillis: Long = 1000, timeoutMillis: Long = 2000) {
@@ -840,7 +844,7 @@ class McpServerImpl(
     }
 
     private fun installOrchestratorResourceHandler(server: Server, session: ServerSession) {
-        session.setRequestHandler<ReadResourceRequest>(Method.Defined.ResourcesRead) { request, _ ->
+        session.setRequestHandler(Method.Defined.ResourcesRead) { request: ReadResourceRequest, _ ->
             resolveResourceRead(server, request)
         }
     }

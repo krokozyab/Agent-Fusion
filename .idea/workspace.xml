@@ -5,7 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- readme --">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/external/kotlin-sdk" beforeDir="false" afterPath="$PROJECT_DIR$/external/kotlin-sdk" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -41,7 +45,7 @@
     <option name="BRANCH" value="main" />
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_COMMON_BRANCH" value="main" />
+    <option name="RECENT_COMMON_BRANCH" value="dev" />
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="HARD" />
   </component>
@@ -107,7 +111,7 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "#20 on dev",
+    "git-widget-placeholder": "imp",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude",
@@ -321,15 +325,7 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="11168000" />
-    </task>
-    <task id="LOCAL-00115" summary="-- cascade delete fixed --">
-      <option name="closed" value="true" />
-      <created>1761854750854</created>
-      <option name="number" value="00115" />
-      <option name="presentableId" value="LOCAL-00115" />
-      <option name="project" value="LOCAL" />
-      <updated>1761854750855</updated>
+      <workItem from="1762884720505" duration="20303000" />
     </task>
     <task id="LOCAL-00116" summary="-- modal with fixed --">
       <option name="closed" value="true" />
@@ -715,7 +711,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762964806648</updated>
     </task>
-    <option name="localTasksCounter" value="164" />
+    <task id="LOCAL-00164" summary="-- readme --">
+      <option name="closed" value="true" />
+      <created>1762981547078</created>
+      <option name="number" value="00164" />
+      <option name="presentableId" value="LOCAL-00164" />
+      <option name="project" value="LOCAL" />
+      <updated>1762981547078</updated>
+    </task>
+    <option name="localTasksCounter" value="165" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
