@@ -1,12 +1,20 @@
 package com.orchestrator.mcp.tools
 
 import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import com.orchestrator.context.domain.ContextScope
 import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.TokenBudget
+import com.orchestrator.context.embedding.Embedder
+import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.ContextProvider
 import com.orchestrator.context.providers.ContextProviderRegistry
+import com.orchestrator.context.search.MmrReranker
+import com.orchestrator.context.search.NeighborExpander
+import com.orchestrator.context.search.ScoreBooster
+import com.orchestrator.context.search.VectorSearchEngine
+import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
 import kotlinx.coroutines.runBlocking
 import kotlin.math.max
@@ -31,6 +39,33 @@ class QueryContextTool(
     private val config: ContextConfig = ContextConfig()
 ) {
     private val log = Logger.logger(this::class.qualifiedName!!)
+    
+    // Lazy initialization of optimizer and embedder
+    private val embedder: Embedder by lazy { 
+        LocalEmbedder(
+            modelPath = config.embedding.modelPath?.let { java.nio.file.Path.of(it) },
+            modelName = config.embedding.model,
+            dimension = config.embedding.dimension,
+            normalize = config.embedding.normalize,
+            maxBatchSize = config.embedding.batchSize
+        )
+    }
+    private val reranker: MmrReranker by lazy { MmrReranker() }
+    private val queryOptimizer: QueryOptimizer by lazy { 
+        QueryOptimizer(config.query, reranker)
+    }
+    private val neighborExpander: NeighborExpander by lazy { NeighborExpander() }
+    private val scoreBooster: ScoreBooster by lazy { ScoreBooster(config.query.boosts) }
+    
+    // LRU cache for embeddings of non-semantic results
+    private val embeddingCache = object : LinkedHashMap<String, FloatArray>(
+        config.query.embeddingCacheSize,
+        0.75f,
+        true
+    ) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, FloatArray>?): Boolean =
+            size > config.query.embeddingCacheSize
+    }
 
     data class Params(
         val query: String,
@@ -116,16 +151,33 @@ class QueryContextTool(
         // Sort by score and deduplicate
         val uniqueSnippets = deduplicateSnippets(allSnippets)
 
+        // Apply path/language boosts
+        val boostedSnippets = applyScoreBoosts(uniqueSnippets)
+        
         // Filter by minimum score threshold from config
-        val filteredSnippets = uniqueSnippets.filter { it.score >= config.query.minScoreThreshold }
-        if (filteredSnippets.size < uniqueSnippets.size) {
+        val filteredSnippets = boostedSnippets.filter { it.score >= config.query.minScoreThreshold }
+        if (filteredSnippets.size < boostedSnippets.size) {
             log.debug("Filtered {} snippets below min_score_threshold of {}",
-                uniqueSnippets.size - filteredSnippets.size,
+                boostedSnippets.size - filteredSnippets.size,
                 config.query.minScoreThreshold)
         }
 
+        // Apply MMR optimization if enabled
+        val optimizedSnippets = if (config.query.useOptimizerInTool && filteredSnippets.isNotEmpty()) {
+            applyMmrOptimization(params.query, filteredSnippets, budget)
+        } else {
+            filteredSnippets
+        }
+        
+        // Apply neighbor expansion if enabled
+        val expandedSnippets = if (config.query.neighborWindow > 0 && optimizedSnippets.isNotEmpty()) {
+            applyNeighborExpansion(optimizedSnippets)
+        } else {
+            optimizedSnippets
+        }
+        
         // Apply token budget and limit to k results
-        val finalSnippets = applyBudgetAndLimit(filteredSnippets, budget, k)
+        val finalSnippets = applyBudgetAndLimit(expandedSnippets, budget, k)
 
         // Convert to DTO format
         val hits = finalSnippets.map { snippet ->
@@ -276,6 +328,124 @@ class QueryContextTool(
             .distinct()
             .joinToString(",")
 
+    private fun applyMmrOptimization(
+        query: String,
+        snippets: List<ContextSnippet>,
+        budget: TokenBudget
+    ): List<ContextSnippet> {
+        if (snippets.isEmpty()) return emptyList()
+        
+        try {
+            // Convert ContextSnippets to SearchResults
+            val searchResults = snippets.map { snippet ->
+                val vector = getOrEmbedVector(snippet)
+                VectorSearchEngine.ScoredChunk(
+                    chunk = Chunk(
+                        id = snippet.chunkId,
+                        fileId = snippet.metadata["file_id"]?.toLongOrNull() ?: 0L,
+                        ordinal = snippet.metadata["ordinal"]?.toIntOrNull() ?: 0,
+                        kind = snippet.kind,
+                        startLine = snippet.offsets?.first,
+                        endLine = snippet.offsets?.last,
+                        tokenEstimate = estimateTokens(snippet),
+                        content = snippet.text,
+                        summary = snippet.label,
+                        createdAt = java.time.Instant.now()
+                    ),
+                    score = snippet.score.toFloat(),
+                    embeddingId = snippet.metadata["embedding_id"]?.toLongOrNull() ?: 0L,
+                    path = snippet.filePath,
+                    language = snippet.language,
+                    vector = vector
+                )
+            }
+            
+            // Apply MMR reranking
+            val optimized = queryOptimizer.optimize(query, searchResults, budget)
+            
+            // Convert back to ContextSnippets, preserving original metadata
+            return optimized.map { result ->
+                val original = snippets.find { it.chunkId == result.chunk.id }
+                original?.copy(score = result.score.toDouble()) ?: ContextSnippet(
+                    chunkId = result.chunk.id,
+                    score = result.score.toDouble(),
+                    filePath = result.path,
+                    label = result.chunk.summary,
+                    kind = result.chunk.kind,
+                    text = result.chunk.content,
+                    language = result.language,
+                    offsets = result.chunk.lineSpan,
+                    metadata = emptyMap()
+                )
+            }
+        } catch (e: Exception) {
+            log.warn("MMR optimization failed, returning original results: {}", e.message)
+            return snippets
+        }
+    }
+    
+    private fun getOrEmbedVector(snippet: ContextSnippet): FloatArray {
+        // Try to get vector from metadata (for semantic results)
+        snippet.metadata["embedding_vector"]?.let { vectorStr ->
+            try {
+                return parseVectorString(vectorStr)
+            } catch (e: Exception) {
+                log.debug("Failed to parse embedding vector from metadata: {}", e.message)
+            }
+        }
+        
+        // Check cache
+        val cacheKey = "${snippet.chunkId}:${snippet.text.hashCode()}"
+        synchronized(embeddingCache) {
+            embeddingCache[cacheKey]?.let { return it }
+        }
+        
+        // Embed the text
+        val vector = runBlocking {
+            embedder.embed(snippet.text)
+        }
+        
+        // Cache it
+        synchronized(embeddingCache) {
+            embeddingCache[cacheKey] = vector
+        }
+        
+        return vector
+    }
+    
+    private fun parseVectorString(vectorStr: String): FloatArray {
+        // Handle JSON array format: "[0.1, 0.2, 0.3]"
+        val cleaned = vectorStr.trim().removeSurrounding("[", "]")
+        return cleaned.split(",")
+            .map { it.trim().toFloat() }
+            .toFloatArray()
+    }
+    
+    private fun applyNeighborExpansion(snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (snippets.isEmpty()) return emptyList()
+        
+        try {
+            return neighborExpander.expand(snippets, config.query.neighborWindow)
+        } catch (e: Exception) {
+            log.warn("Neighbor expansion failed, returning original results: {}", e.message)
+            return snippets
+        }
+    }
+    
+    private fun applyScoreBoosts(snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (snippets.isEmpty()) return emptyList()
+        if (config.query.boosts.pathPrefixes.isEmpty() && config.query.boosts.languages.isEmpty()) {
+            return snippets
+        }
+        
+        try {
+            return scoreBooster.applyBoosts(snippets)
+        } catch (e: Exception) {
+            log.warn("Score boosting failed, returning original results: {}", e.message)
+            return snippets
+        }
+    }
+    
     private fun estimateTokens(snippet: ContextSnippet): Int =
         max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
 

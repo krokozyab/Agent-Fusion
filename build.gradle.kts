@@ -35,7 +35,7 @@ dependencies {
     implementation("io.ktor:ktor-server-html-builder:$ktorVersion")
 
     // Database (DuckDB + connection pooling)
-    implementation("org.duckdb:duckdb_jdbc:1.4.0.0")
+    implementation("org.duckdb:duckdb_jdbc:1.4.2.0")
     implementation("com.zaxxer:HikariCP:5.1.0")
     
     // Logging
