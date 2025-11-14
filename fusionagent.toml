@@ -105,8 +105,7 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    ".",
-    "/Users/sergeyrudenko/Downloads"
+    "."
 ]
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
@@ -260,12 +259,12 @@ model = "sentence-transformers/all-MiniLM-L6-v2"
 # Optional: Path to custom ONNX model file
 # If specified, overrides the default bundled model
 # Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
-# model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
+ model_path = "/Users/sergeyrudenko/Downloads/model.onnx"
 
 # Embedding dimension (must match your model's output)
 # Default: 384 (matches all-MiniLM-L6-v2)
 # Other common values: 768 (all-mpnet-base-v2), 512, 1024
-dimension = 384
+#dimension = 384
 
 # Batch size for embedding generation
 # Higher values = faster (more GPU utilization) but more memory
@@ -286,7 +285,8 @@ cache_enabled = true
 # Example: Using a larger, higher-quality model
 # [context.embedding]
 # model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
-# dimension = 768
+#model = /Users/sergeyrudenko/Downloads/model.onnx
+dimension = 768
 # batch_size = 64  # Reduce for larger model
 # normalize = true
 # cache_enabled = false  # Disable if memory-constrained
@@ -344,6 +344,73 @@ min_score_threshold = 0.3
 # rerank_enabled: Apply MMR re-ranking to improve result diversity
 # Should generally be true unless you only want relevance-based ranking
 rerank_enabled = true
+
+# ==============================================================================
+# Phase 1 Search Quality Improvements
+# ==============================================================================
+
+# use_optimizer_in_tool: Apply QueryOptimizer (MMR) in QueryContextTool
+# When enabled, all provider results are re-ranked for diversity
+# Set to false to rollback Phase 1 MMR integration
+# Default: true
+use_optimizer_in_tool = true
+
+# neighbor_window: Include adjacent chunks for context coherence
+# 0 = disabled, 1 = include ±1 chunk, 2 = include ±2 chunks
+# Higher values provide more context but use more tokens
+# Default: 1
+neighbor_window = 1
+
+# embedding_cache_size: LRU cache size for on-the-fly embeddings
+# Used when non-semantic results need vectors for MMR
+# Higher = more memory, fewer re-computations
+# Default: 1000
+embedding_cache_size = 1000
+
+# idf_enabled: Enable inverse document frequency weighting in full-text search
+# Boosts rare terms, penalizes common terms (approximates BM25)
+# Set to false to use simple term frequency scoring
+# Default: true
+idf_enabled = true
+
+# Path and language boosts: Adjust scores based on file location and type
+# Multipliers applied after base scoring (1.0 = no change)
+[context.query.boosts.path_prefixes]
+"src/main" = 1.05      # Boost main source code
+"src/test" = 0.95      # Slightly penalize test code
+"vendor" = 0.90        # Penalize vendor/third-party code
+"node_modules" = 0.85  # Further penalize dependencies
+
+[context.query.boosts.languages]
+# Programming languages (higher boost = more relevant in search results)
+kotlin = 1.02          # Slight boost for Kotlin
+java = 1.02            # Slight boost for Java
+python = 1.02          # Slight boost for Python
+typescript = 1.01      # Slight boost for TypeScript
+javascript = 1.01      # Slight boost for JavaScript
+rust = 1.02            # Slight boost for Rust
+go = 1.02              # Slight boost for Go
+c = 1.00               # Neutral for C
+cpp = 1.00             # Neutral for C++
+csharp = 1.00          # Neutral for C#
+ruby = 1.00            # Neutral for Ruby
+php = 1.00             # Neutral for PHP
+swift = 1.00           # Neutral for Swift
+scala = 1.00           # Neutral for Scala
+
+# Documentation and config (lower boost = less relevant)
+markdown = 0.98        # Slight penalty for documentation
+sql = 0.98             # Slight penalty for SQL
+shell = 0.97           # Slight penalty for shell scripts
+dockerfile = 0.97      # Slight penalty for Dockerfiles
+json = 0.95            # Penalty for config files
+yaml = 0.95            # Penalty for config files
+xml = 0.95             # Penalty for config files
+toml = 0.95            # Penalty for config files
+html = 0.93            # Penalty for HTML
+css = 0.93             # Penalty for CSS
+text = 0.90            # Penalty for plain text
+document = 0.92        # Penalty for documents (PDF, DOCX)
 
 # ------------------------------------------------------------------------------
 # [context.budget] - Token budget management
