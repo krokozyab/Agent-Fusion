@@ -105,8 +105,7 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    ".",
-    "/Users/sergeyrudenko/Downloads"
+    "."
 ]
 
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
@@ -260,12 +259,12 @@ model = "sentence-transformers/all-MiniLM-L6-v2"
 # Optional: Path to custom ONNX model file
 # If specified, overrides the default bundled model
 # Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
-# model_path = "/Users/sergeyrudenko/projects/codex_to_claude/model.onnx"
+ model_path = "/Users/sergeyrudenko/Downloads/model.onnx"
 
 # Embedding dimension (must match your model's output)
 # Default: 384 (matches all-MiniLM-L6-v2)
 # Other common values: 768 (all-mpnet-base-v2), 512, 1024
-dimension = 384
+#dimension = 384
 
 # Batch size for embedding generation
 # Higher values = faster (more GPU utilization) but more memory
@@ -286,7 +285,8 @@ cache_enabled = true
 # Example: Using a larger, higher-quality model
 # [context.embedding]
 # model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
-# dimension = 768
+#model = /Users/sergeyrudenko/Downloads/model.onnx
+dimension = 768
 # batch_size = 64  # Reduce for larger model
 # normalize = true
 # cache_enabled = false  # Disable if memory-constrained

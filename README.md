@@ -9,7 +9,7 @@ Agent Fusion gives multiple AI coding assistants instant access to your files—
 
 It has two independent components (each can be used alone or together):
 
-- **Context Engine** – Automatically indexes and searches any folders you configure (code, word documents, PDFs, etc.). Your AI agents can search everything instantly—just ask them to "use query_context" in your prompts. No more copy-pasting code. Deploy with just 2 files: JAR + `fusionagent.toml`. Includes lightweight embedding model; swap for a more powerful model if needed.
+- **Context Engine** – Automatically indexes and searches any folders you configure (code, word documents, PDFs, etc.). Your AI agents can search everything instantly—just ask them to "use query_context" in your prompts. No more copy-pasting code. Deploy with just 2 files: JAR + `fusionagent.toml`. Includes lightweight embedding model; swap for a more powerful model if needed (see [`docs/other_model.md`](docs/other_model.md)).
 - **Task Manager** – Optionally coordinates work between multiple AIs. Routes tasks, enables voting on decisions, and tracks everything in a web dashboard.
 
 <img src="pics/home_page.png" alt="Agent Fusion Banner" width="100%" style="max-width: 900px; max-height: 300px; display: block; margin: 0 auto;">

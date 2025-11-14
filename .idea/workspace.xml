@@ -4,9 +4,29 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- Task 4: Implement Path/Language Boosts --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- Task 5: Implement Minimal IDF for Full-Text --">
+      <change afterPath="$PROJECT_DIR$/docs/other_model.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_jvm_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_wasm_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_client_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_jvm_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_wasm_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_core_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_jvm_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_jvm_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_wasm_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_server_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_jvm_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_jvm_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_wasm_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_test_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_wasm_js_0_8_0_SNAPSHOT.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/artifacts/kotlin_sdk_wasm_js_0_8_0_SNAPSHOT.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,22 +72,22 @@
     &quot;assignee&quot;: &quot;krokozyab&quot;
   }
 }</component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "git@github.com:krokozyab/codex_to_claude.git",
-    "accountId": "4b07778f-1ca0-4221-b76e-a698df95790b"
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:krokozyab/codex_to_claude.git&quot;,
+    &quot;accountId&quot;: &quot;4b07778f-1ca0-4221-b76e-a698df95790b&quot;
   },
-  "recentNewPullRequestHead": {
-    "server": {
-      "useHttp": false,
-      "host": "github.com",
-      "port": null,
-      "suffix": null
+  &quot;recentNewPullRequestHead&quot;: {
+    &quot;server&quot;: {
+      &quot;useHttp&quot;: false,
+      &quot;host&quot;: &quot;github.com&quot;,
+      &quot;port&quot;: null,
+      &quot;suffix&quot;: null
     },
-    "owner": "krokozyab",
-    "repository": "codex_to_claude"
+    &quot;owner&quot;: &quot;krokozyab&quot;,
+    &quot;repository&quot;: &quot;codex_to_claude&quot;
   }
-}]]></component>
+}</component>
   <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.7+6/Contents/Home" gradleVersion="8.14" />
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
@@ -84,45 +104,45 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.AgentRegistryTest.executor": "Run",
-    "Gradle.AgentSelectorTest.executor": "Run",
-    "Gradle.Build codex_to_claude.executor": "Run",
-    "Gradle.ConsensusModuleTest.executor": "Run",
-    "Gradle.ConsensusWorkflowTest.executor": "Run",
-    "Gradle.ContextModuleTest.executor": "Run",
-    "Gradle.DirectiveParserTest.executor": "Run",
-    "Gradle.GetTaskStatusToolTest.executor": "Run",
-    "Gradle.McpServerImplTest.executor": "Run",
-    "Gradle.ProposalRepositoryTest.executor": "Run",
-    "Gradle.RoutingModuleTest.executor": "Run",
-    "Gradle.StrategyPickerTest.executor": "Run",
-    "Gradle.TaskClassifierTest.executor": "Run",
-    "Gradle.TaskRepositoryTest.executor": "Run",
-    "Gradle.TokenEstimatorTest.executor": "Run",
-    "Gradle.VotingStrategyTest.executor": "Run",
-    "Gradle.WorkflowExecutorTest.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "imp",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "settings.editor.selected.configurable": "vcs.Git",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.AgentRegistryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.AgentSelectorTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Build codex_to_claude.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ConsensusModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ConsensusWorkflowTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ContextModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.DirectiveParserTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.GetTaskStatusToolTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.McpServerImplTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ProposalRepositoryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RoutingModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.StrategyPickerTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TaskClassifierTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TaskRepositoryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TokenEstimatorTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.VotingStrategyTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.WorkflowExecutorTest.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;imp&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/sergeyrudenko/projects/codex_to_claude&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/pics" />
@@ -322,23 +342,8 @@
       <workItem from="1761569397109" duration="334404000" />
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
-      <workItem from="1762884720505" duration="26193000" />
-    </task>
-    <task id="LOCAL-00120" summary="-- menu index icon fixed --">
-      <option name="closed" value="true" />
-      <created>1762150247231</created>
-      <option name="number" value="00120" />
-      <option name="presentableId" value="LOCAL-00120" />
-      <option name="project" value="LOCAL" />
-      <updated>1762150247231</updated>
-    </task>
-    <task id="LOCAL-00121" summary="-- fix db errors--">
-      <option name="closed" value="true" />
-      <created>1762151152425</created>
-      <option name="number" value="00121" />
-      <option name="presentableId" value="LOCAL-00121" />
-      <option name="project" value="LOCAL" />
-      <updated>1762151152425</updated>
+      <workItem from="1762884720505" duration="38650000" />
+      <workItem from="1763113405967" duration="2215000" />
     </task>
     <task id="LOCAL-00122" summary="-- rebuild context fixed --&#10; - RebuildContextTool writes the same schema we actually run against. The recreated table now includes abs_path VARCHAR NOT NULL UNIQUE (src/&#10;    main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:605-616), so the file indexer can insert paths instead of crashing.&#10;  - While I was in cleanup mode, I also stopped issuing raw SELECT … FROM bootstrap_progress queries before the tracker had recreated the table.&#10;    BootstrapProgressTracker now exposes getEntries() and the ContextModule reuses a shared tracker instance (no redundant connections, no&#10;    missing-table warnings) – see BootstrapProgressTracker.kt:18-88,112-141 and ContextModule.kt:27,185-257.">
       <option name="closed" value="true" />
@@ -716,7 +721,23 @@
       <option name="project" value="LOCAL" />
       <updated>1763052571088</updated>
     </task>
-    <option name="localTasksCounter" value="169" />
+    <task id="LOCAL-00169" summary="-- Task 5: Implement Minimal IDF for Full-Text --">
+      <option name="closed" value="true" />
+      <created>1763053785508</created>
+      <option name="number" value="00169" />
+      <option name="presentableId" value="LOCAL-00169" />
+      <option name="project" value="LOCAL" />
+      <updated>1763053785508</updated>
+    </task>
+    <task id="LOCAL-00170" summary="-- Task 5: Implement Minimal IDF for Full-Text --">
+      <option name="closed" value="true" />
+      <created>1763053799114</created>
+      <option name="number" value="00170" />
+      <option name="presentableId" value="LOCAL-00170" />
+      <option name="project" value="LOCAL" />
+      <updated>1763053799115</updated>
+    </task>
+    <option name="localTasksCounter" value="171" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -736,7 +757,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- fix db errors--" />
     <MESSAGE value="-- rebuild context fixed --&#10; - RebuildContextTool writes the same schema we actually run against. The recreated table now includes abs_path VARCHAR NOT NULL UNIQUE (src/&#10;    main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:605-616), so the file indexer can insert paths instead of crashing.&#10;  - While I was in cleanup mode, I also stopped issuing raw SELECT … FROM bootstrap_progress queries before the tracker had recreated the table.&#10;    BootstrapProgressTracker now exposes getEntries() and the ContextModule reuses a shared tracker instance (no redundant connections, no&#10;    missing-table warnings) – see BootstrapProgressTracker.kt:18-88,112-141 and ContextModule.kt:27,185-257." />
     <MESSAGE value="-- tasks hardcoded -" />
     <MESSAGE value="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet." />
@@ -761,7 +781,8 @@
     <MESSAGE value="-- Task 2: Implement MMR Integration in QueryContextTool --" />
     <MESSAGE value="-- Task 3: Implement Neighbor Expansion --" />
     <MESSAGE value="-- Task 4: Implement Path/Language Boosts --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- Task 4: Implement Path/Language Boosts --" />
+    <MESSAGE value="-- Task 5: Implement Minimal IDF for Full-Text --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- Task 5: Implement Minimal IDF for Full-Text --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
