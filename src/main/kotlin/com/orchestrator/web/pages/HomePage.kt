@@ -115,6 +115,12 @@ object HomePage {
                     icon = "📂"
                 ),
                 Navigation.Link(
+                    label = "Context Explorer",
+                    href = "/explorer",
+                    ariaLabel = "Search code with semantic understanding",
+                    icon = "🔍"
+                ),
+                Navigation.Link(
                     label = "Metrics",
                     href = "/metrics",
                     ariaLabel = "View metrics and analytics",
