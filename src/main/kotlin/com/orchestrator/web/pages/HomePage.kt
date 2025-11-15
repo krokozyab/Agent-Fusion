@@ -87,7 +87,7 @@ object HomePage {
         val navConfig = Navigation.Config(
             title = "Orchestrator",
             titleHref = "/",
-            enableHtmxBoost = true,
+            enableHtmxBoost = false,
             links = listOf(
                 Navigation.Link(
                     label = "Home",

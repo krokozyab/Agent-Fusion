@@ -159,6 +159,8 @@ object Navigation {
                     attributes["hx-select"] = "#main-content"
                     attributes["hx-swap"] = "outerHTML"
                     attributes["hx-push-url"] = "true"
+                } else if (link.disableBoost) {
+                    attributes["hx-boost"] = "false"
                 }
                 if (link.active) {
                     attributes["aria-current"] = "page"

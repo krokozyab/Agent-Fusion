@@ -5,7 +5,21 @@
 (function() {
 'use strict';
 
+console.log('[Explorer] script loaded');
+
 var STORAGE_KEY = 'explorer-filters';
+
+/**
+ * Delegate clicks for result Open buttons
+ */
+document.addEventListener('click', function(event) {
+    const button = event.target.closest('[data-open-file]');
+    if (!button) return;
+    event.preventDefault();
+    const filePath = button.dataset.openFile;
+    const lineNumber = parseInt(button.dataset.lineNumber || '1', 10);
+    openFile(filePath, lineNumber);
+});
 
 /**
  * Toggle filter panel visibility
@@ -162,14 +176,25 @@ window.resetFilters = function() {
  * Open file in modal viewer
  */
 window.openFile = function(filePath, lineNumber) {
+    console.log('[Explorer] openFile clicked', { filePath, lineNumber });
     fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('[Explorer] file content loaded', { length: data?.content?.length });
+            if (!data || typeof data.content !== 'string') {
+                throw new Error('Missing file content');
+            }
             showFileModal(filePath, lineNumber, data.content);
         })
         .catch(error => {
             console.error('Failed to load file:', error);
             alert('Failed to load file: ' + error.message);
+            closeModal();
         });
 }
 
@@ -177,8 +202,12 @@ window.openFile = function(filePath, lineNumber) {
  * Show file content in modal
  */
 function showFileModal(filePath, lineNumber, content) {
+    console.log('[Explorer] showFileModal render', { filePath, lineNumber, length: content?.length });
     const modal = document.getElementById('modal-container');
-    if (!modal) return;
+    if (!modal) {
+        console.warn('[Explorer] modal container not found');
+        return;
+    }
     
     const lines = content.split('\n');
     const startLine = Math.max(0, lineNumber - 10);
@@ -192,32 +221,28 @@ function showFileModal(filePath, lineNumber, content) {
         .join('');
     
     modal.innerHTML = `
-        <div class="modal fade show" style="display: block;" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">${filePath}:${lineNumber}</h5>
-                        <button type="button" class="btn-close" onclick="closeModal()"></button>
-                    </div>
-                    <div class="modal-body">
-                        <pre class="code-viewer">${snippet}</pre>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
-                    </div>
-                </div>
+        <div class="modal__backdrop" data-modal-close="modal-container"></div>
+        <div class="modal__content">
+            <div class="modal__header d-flex justify-content-between align-items-center">
+                <h5 class="modal__title mb-0">${filePath}:${lineNumber}</h5>
+                <button type="button" class="btn-close" aria-label="Close" data-modal-close="modal-container"></button>
+            </div>
+            <div class="modal__body">
+                <pre class="code-viewer" style="max-height:70vh;min-height:200px;overflow:auto;">${snippet}</pre>
+            </div>
+            <div class="modal__footer d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-modal-close="modal-container">Close</button>
             </div>
         </div>
-        <div class="modal-backdrop fade show"></div>
     `;
-}
-
-/**
- * Close modal
- */
-window.closeModal = function() {
-    const modal = document.getElementById('modal-container');
-    if (modal) modal.innerHTML = '';
+    console.log('[Explorer] modal HTML injected, adding is-open');
+    modal.classList.add('is-open');
+    if (typeof window.openModal === 'function') {
+        console.log('[Explorer] calling openModal');
+        window.openModal('modal-container');
+    } else {
+        console.warn('[Explorer] window.openModal missing; relying on is-open');
+    }
 }
 
 /**
@@ -333,5 +358,9 @@ function setupQueryLoadingHandlers() {
  * Initialize filters on page load
  */
 // No auto-initialization - functions are called manually or via onclick
+
+// Initialize loading handlers on load
+setQueryLoading(false);
+setupQueryLoadingHandlers();
 
 })(); // End IIFE
