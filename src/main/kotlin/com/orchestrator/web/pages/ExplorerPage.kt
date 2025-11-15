@@ -20,13 +20,13 @@ object ExplorerPage {
         val navConfig = Navigation.Config(
             title = "Orchestrator",
             titleHref = "/",
-            enableHtmxBoost = true,
+            enableHtmxBoost = false,
             links = listOf(
                 Navigation.Link("Home", "/", icon = "🏠"),
                 Navigation.Link("Tasks", "/tasks", icon = "📋"),
                 Navigation.Link("Index Status", "/index", icon = "📊"),
                 Navigation.Link("Files", "/files", icon = "📂"),
-Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍"),
+                Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍", disableBoost = true),
                 Navigation.Link("Metrics", "/metrics", icon = "📈")
             )
         )
@@ -40,6 +40,7 @@ Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍"),
             link(rel = "stylesheet", href = "/static/css/bootstrap-litera.min.css")
             link(rel = "stylesheet", href = "/static/css/orchestrator.css?v=20250115")
             link(rel = "stylesheet", href = "/static/css/explorer.css?v=3")
+            link(rel = "stylesheet", href = "/static/css/modal.css")
             script(src = "/static/js/htmx.min.js") {}
 
         }
@@ -51,7 +52,10 @@ Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍"),
                 attributes["id"] = "main-content"
                 attributes["role"] = "main"
 
-                div { id = "modal-container" }
+                div { 
+                    id = "modal-container" 
+                    classes = setOf("modal")
+                }
 
                 pageHeader()
                 searchSection()
@@ -72,7 +76,8 @@ Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍"),
                 small { +"Orchestrator Dashboard © 2025" }
             }
 
-            script(src = "/static/js/explorer.js?v=1763243676") {}
+            script(src = "/static/js/modal.js?v=1763254400") {}
+            script(src = "/static/js/explorer.js?v=1763253800") {}
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
             script {
