@@ -185,9 +185,9 @@ object HomePage {
                 }
 
                 // JavaScript
+                script(src = "/static/js/explorer.js?v=1763243676") {}
                 script(src = "/static/js/theme-toggle.js") {}
                 script(src = "/static/js/navigation.js") {}
-                script(src = "/static/js/modal.js") {}
                 script(src = "/static/js/modal.js") {}
 
                 // Auto-refresh script (HTMX)

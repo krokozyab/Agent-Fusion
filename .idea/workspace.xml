@@ -4,20 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultsContainer.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ExplorerPage.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/routes/ExplorerRoutes.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/static/css/explorer.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/components/ResultCardTest.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/components/ResultsContainerTest.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/routes/ExplorerRoutesTest.kt" afterDir="false" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- spinner --">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/Navigation.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/Navigation.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ExplorerPage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ExplorerPage.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/HomePage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/HomePage.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Routing.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Routing.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Static.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Static.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -335,15 +328,7 @@
       <workItem from="1762604906367" duration="71165000" />
       <workItem from="1762884720505" duration="38650000" />
       <workItem from="1763113405967" duration="21452000" />
-      <workItem from="1763205921932" duration="15557000" />
-    </task>
-    <task id="LOCAL-00126" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762169400140</created>
-      <option name="number" value="00126" />
-      <option name="presentableId" value="LOCAL-00126" />
-      <option name="project" value="LOCAL" />
-      <updated>1762169400140</updated>
+      <workItem from="1763205921932" duration="20627000" />
     </task>
     <task id="LOCAL-00127" summary="-- fix unresponsive --">
       <option name="closed" value="true" />
@@ -729,7 +714,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763206015494</updated>
     </task>
-    <option name="localTasksCounter" value="175" />
+    <task id="LOCAL-00175" summary="-- spinner --">
+      <option name="closed" value="true" />
+      <created>1763237026706</created>
+      <option name="number" value="00175" />
+      <option name="presentableId" value="LOCAL-00175" />
+      <option name="project" value="LOCAL" />
+      <updated>1763237026706</updated>
+    </task>
+    <option name="localTasksCounter" value="176" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -749,7 +742,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet." />
     <MESSAGE value="-- fix unresponsive --" />
     <MESSAGE value="-- tasks table fix --&#10;Final Fix - HTMX Compatibility&#10;&#10;  Changes:&#10;&#10;  1. TasksPage.kt - Moved task-grid.js to load right BEFORE the inline ag-Grid initialization script (line 54)&#10;    - This ensures it's included in HTMX swaps when navigating to /tasks&#10;    - task-grid.js loads → window.TaskGrid is set up → inline script runs and finds the renderers&#10;  2. TaskRoutes.kt - Added Cache-Control header to prevent browser caching&#10;&#10;  How it works:&#10;&#10;  - Direct page load: task-grid.js loads in order before inline init script ✓&#10;  - HTMX navigation: The entire card-body (including task-grid.js and init script) is swapped in, runs in order ✓&#10;  - No manual refresh needed: Grid initializes correctly on first render" />
     <MESSAGE value="-- modal esc fix --" />
@@ -774,7 +766,8 @@
     <MESSAGE value="-- Task 5: Implement Minimal IDF for Full-Text --" />
     <MESSAGE value="-- new model --" />
     <MESSAGE value="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --" />
+    <MESSAGE value="-- spinner --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- spinner --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
