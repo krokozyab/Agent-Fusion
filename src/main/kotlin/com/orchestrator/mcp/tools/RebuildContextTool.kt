@@ -567,29 +567,27 @@ class RebuildContextTool(
 
         // Use withConnection instead of transaction to allow multiple independent operations
         ContextDatabase.withConnection { conn ->
-            conn.createStatement().use { st ->
-                // Drop and recreate tables to avoid foreign key issues
-                // This is the cleanest approach for a full rebuild
-                st.execute("DROP TABLE IF EXISTS usage_metrics CASCADE")
-                st.execute("DROP TABLE IF EXISTS embeddings CASCADE")
-                st.execute("DROP TABLE IF EXISTS symbols CASCADE")
-                st.execute("DROP TABLE IF EXISTS links CASCADE")
-                st.execute("DROP TABLE IF EXISTS chunks CASCADE")
-                st.execute("DROP TABLE IF EXISTS file_state CASCADE")
-                st.execute("DROP TABLE IF EXISTS project_config CASCADE")
+            val originalAutoCommit = conn.autoCommit
+            conn.autoCommit = false
+            try {
+                conn.createStatement().use { st ->
+                    st.execute("DROP TABLE IF EXISTS usage_metrics CASCADE")
+                    st.execute("DROP TABLE IF EXISTS embeddings CASCADE")
+                    st.execute("DROP TABLE IF EXISTS symbols CASCADE")
+                    st.execute("DROP TABLE IF EXISTS links CASCADE")
+                    st.execute("DROP TABLE IF EXISTS chunks CASCADE")
+                    st.execute("DROP TABLE IF EXISTS file_state CASCADE")
+                    st.execute("DROP TABLE IF EXISTS project_config CASCADE")
+                    st.execute("DROP SEQUENCE IF EXISTS file_state_seq")
+                    st.execute("DROP SEQUENCE IF EXISTS chunks_seq")
+                    st.execute("DROP SEQUENCE IF EXISTS embeddings_seq")
+                    st.execute("DROP SEQUENCE IF EXISTS links_seq")
+                    st.execute("DROP SEQUENCE IF EXISTS symbols_seq")
+                    st.execute("DROP SEQUENCE IF EXISTS usage_metrics_seq")
+                    st.execute("DROP SEQUENCE IF EXISTS project_config_seq")
+                }
 
-                // Drop sequences
-                st.execute("DROP SEQUENCE IF EXISTS file_state_seq")
-                st.execute("DROP SEQUENCE IF EXISTS chunks_seq")
-                st.execute("DROP SEQUENCE IF EXISTS embeddings_seq")
-                st.execute("DROP SEQUENCE IF EXISTS links_seq")
-                st.execute("DROP SEQUENCE IF EXISTS symbols_seq")
-                st.execute("DROP SEQUENCE IF EXISTS usage_metrics_seq")
-                st.execute("DROP SEQUENCE IF EXISTS project_config_seq")
-            }
-
-            // Recreate schema
-            val statements = listOf(
+                val statements = listOf(
                 "CREATE SEQUENCE file_state_seq START 1",
                 "CREATE SEQUENCE chunks_seq START 1",
                 "CREATE SEQUENCE embeddings_seq START 1",
@@ -678,21 +676,12 @@ class RebuildContextTool(
                     created_at            TIMESTAMP NOT NULL
                 )
                 """.trimIndent()
-            )
+                )
 
-            // Recreate schema with proper transaction control and error handling
-            val originalAutoCommit = conn.autoCommit
-            conn.autoCommit = false
-            try {
                 conn.createStatement().use { st ->
                     statements.forEach { sql ->
-                        try {
-                            st.execute(sql)
-                            log.debug("Executed schema statement: {}", sql.take(50))
-                        } catch (e: Exception) {
-                            log.error("Failed to execute schema statement: {}", sql.take(100), e)
-                            throw e
-                        }
+                        st.execute(sql)
+                        log.debug("Executed schema statement: {}", sql.take(50))
                     }
                 }
                 conn.commit()

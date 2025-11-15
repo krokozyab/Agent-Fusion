@@ -82,6 +82,8 @@ class WatcherDaemon(
     private var fileWatcher: FileWatcher? = null
     private var watcherJob: Job? = null
     private var flushJob: Job? = null
+    private var deletionSweepJob: Job? = null
+    private val deletionSweepIntervalMs = watcherConfig.deletionSweepIntervalMs
 
     private val pendingMutex = Mutex()
     private val pendingPaths = LinkedHashSet<Path>()
@@ -171,6 +173,15 @@ class WatcherDaemon(
                 // Expected on shutdown.
             } finally {
                 flushPendingImmediate()
+            }
+        }
+
+        if (deletionSweepIntervalMs > 0) {
+            deletionSweepJob = scope.launch(dispatcher) {
+                while (running.get()) {
+                    delay(deletionSweepIntervalMs)
+                    runDeletionSweep()
+                }
             }
         }
     }
@@ -292,6 +303,25 @@ class WatcherDaemon(
         }
     }
 
+    private suspend fun runDeletionSweep() {
+        if (!running.get()) return
+        if (deletionSweepIntervalMs <= 0) return
+        runCatching {
+            incrementalIndexer.updateAsync(emptyList(), detectImplicitDeletions = true)
+        }.onSuccess { result ->
+            if (result.deletedCount > 0) {
+                log.info("Implicit deletion sweep removed {} missing file(s)", result.deletedCount)
+            } else {
+                log.debug("Implicit deletion sweep found no missing files")
+            }
+            onUpdate?.invoke(result)
+        }.onFailure { throwable ->
+            if (throwable is CancellationException) throw throwable
+            log.warn("Implicit deletion sweep failed: {}", throwable.message, throwable)
+            onError?.invoke(throwable)
+        }
+    }
+
     /**
      * Stop the daemon and flush any pending paths synchronously.
      */
@@ -318,6 +348,8 @@ class WatcherDaemon(
 
         runCatching { fileWatcher?.close() }
         fileWatcher = null
+        deletionSweepJob?.cancel()
+        deletionSweepJob = null
     }
 
     suspend fun <T> pauseWhile(block: suspend () -> T): T {

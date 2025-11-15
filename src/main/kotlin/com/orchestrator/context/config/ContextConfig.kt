@@ -60,7 +60,8 @@ data class WatcherConfig(
         "target"
     ),
     val useGitignore: Boolean = true,
-    val useContextignore: Boolean = true
+    val useContextignore: Boolean = true,
+    val deletionSweepIntervalMs: Long = 60_000
 )
 
 enum class BinaryDetectionMode { EXTENSION, MIME, CONTENT, ALL }

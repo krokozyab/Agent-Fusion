@@ -121,6 +121,9 @@ class ProjectConfigValidator {
 
         // Validation 1: watch_paths exist
         config.watcher.watchPaths.forEach { pathString ->
+            if (pathString.equals("auto", ignoreCase = true)) {
+                return@forEach
+            }
             val path = Path.of(pathString)
             if (!Files.exists(path)) {
                 errors.add("Watch path does not exist: $pathString")
@@ -133,6 +136,9 @@ class ProjectConfigValidator {
         val dangerousVarPaths = listOf("/var/log", "/var/lib", "/var/spool", "/var/run")
 
         config.watcher.watchPaths.forEach { pathString ->
+            if (pathString.equals("auto", ignoreCase = true)) {
+                return@forEach
+            }
             val normalized = Path.of(pathString).normalize().toString()
 
             // Check exact matches and dangerous subdirectories
@@ -169,8 +175,11 @@ class ProjectConfigValidator {
 
         // Validation 5: Security boundaries - ensure watch_paths don't escape project root
         if (config.watcher.watchPaths.isNotEmpty()) {
-            config.watcher.watchPaths.forEach { pathString ->
-                val path = Path.of(pathString).normalize()
+        config.watcher.watchPaths.forEach { pathString ->
+            if (pathString.equals("auto", ignoreCase = true)) {
+                return@forEach
+            }
+            val path = Path.of(pathString).normalize()
                 // Check for path traversal attempts
                 if (path.toString().contains("..")) {
                     errors.add("Path traversal detected in watch path: $pathString")

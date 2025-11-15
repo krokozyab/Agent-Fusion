@@ -108,6 +108,9 @@ watch_paths = [
     "."
 ]
 
+# Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.
+deletion_sweep_interval_ms = 60000
+
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
 # These are checked FIRST, preventing watcher from monitoring these directories
 # Uses same glob pattern syntax as .gitignore - no need to learn new syntax!
