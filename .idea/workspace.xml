@@ -5,9 +5,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultsContainer.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ExplorerPage.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/routes/ExplorerRoutes.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/static/css/explorer.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/components/ResultCardTest.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/components/ResultsContainerTest.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/routes/ExplorerRoutesTest.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/logback.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/logback.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/Navigation.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/Navigation.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/HomePage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/HomePage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Routing.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Routing.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -325,14 +335,7 @@
       <workItem from="1762604906367" duration="71165000" />
       <workItem from="1762884720505" duration="38650000" />
       <workItem from="1763113405967" duration="21452000" />
-    </task>
-    <task id="LOCAL-00125" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762169160090</created>
-      <option name="number" value="00125" />
-      <option name="presentableId" value="LOCAL-00125" />
-      <option name="project" value="LOCAL" />
-      <updated>1762169160090</updated>
+      <workItem from="1763205921932" duration="15557000" />
     </task>
     <task id="LOCAL-00126" summary="-- readme --">
       <option name="closed" value="true" />
@@ -718,7 +721,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763186320634</updated>
     </task>
-    <option name="localTasksCounter" value="174" />
+    <task id="LOCAL-00174" summary="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
+      <option name="closed" value="true" />
+      <created>1763206015494</created>
+      <option name="number" value="00174" />
+      <option name="presentableId" value="LOCAL-00174" />
+      <option name="project" value="LOCAL" />
+      <updated>1763206015494</updated>
+    </task>
+    <option name="localTasksCounter" value="175" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

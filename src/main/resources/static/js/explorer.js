@@ -1,0 +1,345 @@
+/**
+ * Context Explorer JavaScript utilities
+ */
+
+const STORAGE_KEY = 'explorer-filters';
+
+/**
+ * Toggle filter panel visibility
+ */
+function toggleFilters() {
+    const panel = document.getElementById('filter-panel');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+/**
+ * Copy code snippet to clipboard
+ */
+function copyToClipboard(button) {
+    const content = button.getAttribute('data-content');
+    if (content) {
+        navigator.clipboard.writeText(content).then(() => {
+            const originalText = button.textContent;
+            button.textContent = '✓ Copied';
+            setTimeout(() => {
+                button.textContent = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+}
+
+/**
+ * Update tokens display with K suffix
+ */
+function updateTokensDisplay(value) {
+    const display = document.getElementById('max-tokens-value');
+    if (display) {
+        const num = parseInt(value);
+        display.textContent = num >= 1000 ? (num / 1000) + 'K' : num;
+    }
+}
+
+/**
+ * Get current filter values from form
+ */
+function getFilterValues() {
+    return {
+        paths: document.getElementById('filter-paths')?.value || '',
+        excludePatterns: document.getElementById('filter-exclude')?.value || '',
+        languages: Array.from(document.querySelectorAll('input[name="languages"]:checked')).map(el => el.value),
+        kinds: Array.from(document.querySelectorAll('input[name="kinds"]:checked')).map(el => el.value),
+        maxResults: document.getElementById('filter-max-results')?.value || '20',
+        maxTokens: document.getElementById('filter-max-tokens')?.value || '6000'
+    };
+}
+
+/**
+ * Set filter values in form
+ */
+function setFilterValues(filters) {
+    if (!filters) return;
+    
+    if (filters.paths) document.getElementById('filter-paths').value = filters.paths;
+    if (filters.excludePatterns) document.getElementById('filter-exclude').value = filters.excludePatterns;
+    
+    // Languages
+    document.querySelectorAll('input[name="languages"]').forEach(el => {
+        el.checked = filters.languages?.includes(el.value) || false;
+    });
+    
+    // Kinds
+    document.querySelectorAll('input[name="kinds"]').forEach(el => {
+        el.checked = filters.kinds?.includes(el.value) || false;
+    });
+    
+    // Sliders
+    if (filters.maxResults) {
+        const slider = document.getElementById('filter-max-results');
+        slider.value = filters.maxResults;
+        document.getElementById('max-results-value').textContent = filters.maxResults;
+    }
+    
+    if (filters.maxTokens) {
+        const slider = document.getElementById('filter-max-tokens');
+        slider.value = filters.maxTokens;
+        updateTokensDisplay(filters.maxTokens);
+    }
+}
+
+/**
+ * Save filters to localStorage
+ */
+function saveFilters() {
+    const filters = getFilterValues();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+    
+    // Show feedback
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Saved';
+    btn.classList.add('btn-success');
+    btn.classList.remove('btn-outline-primary');
+    
+    setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-outline-primary');
+    }, 2000);
+}
+
+/**
+ * Load filters from localStorage
+ */
+function loadFilters() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            const filters = JSON.parse(saved);
+            setFilterValues(filters);
+        } catch (e) {
+            console.error('Failed to load filters:', e);
+        }
+    }
+}
+
+/**
+ * Reset filters to defaults
+ */
+function resetFilters() {
+    // Clear text areas
+    document.getElementById('filter-paths').value = '';
+    document.getElementById('filter-exclude').value = '';
+    
+    // Reset languages (Kotlin and Java checked by default)
+    document.querySelectorAll('input[name="languages"]').forEach(el => {
+        el.checked = ['kotlin', 'java'].includes(el.value);
+    });
+    
+    // Reset kinds (code kinds checked by default)
+    document.querySelectorAll('input[name="kinds"]').forEach(el => {
+        el.checked = el.value.startsWith('CODE_');
+    });
+    
+    // Reset sliders
+    document.getElementById('filter-max-results').value = '20';
+    document.getElementById('max-results-value').textContent = '20';
+    
+    document.getElementById('filter-max-tokens').value = '6000';
+    updateTokensDisplay('6000');
+    
+    // Clear localStorage
+    localStorage.removeItem(STORAGE_KEY);
+}
+
+/**
+ * Open file in modal viewer
+ */
+function openFile(filePath, lineNumber) {
+    fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`)
+        .then(response => response.json())
+        .then(data => {
+            showFileModal(filePath, lineNumber, data.content);
+        })
+        .catch(error => {
+            console.error('Failed to load file:', error);
+            alert('Failed to load file: ' + error.message);
+        });
+}
+
+/**
+ * Show file content in modal
+ */
+function showFileModal(filePath, lineNumber, content) {
+    const modal = document.getElementById('modal-container');
+    if (!modal) return;
+    
+    const lines = content.split('\n');
+    const startLine = Math.max(0, lineNumber - 10);
+    const endLine = Math.min(lines.length, lineNumber + 10);
+    const snippet = lines.slice(startLine, endLine)
+        .map((line, idx) => {
+            const num = startLine + idx + 1;
+            const highlight = num === lineNumber ? ' bg-warning' : '';
+            return `<div class="code-line${highlight}"><span class="line-num">${num}</span>${escapeHtml(line)}</div>`;
+        })
+        .join('');
+    
+    modal.innerHTML = `
+        <div class="modal fade show" style="display: block;" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${filePath}:${lineNumber}</h5>
+                        <button type="button" class="btn-close" onclick="closeModal()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <pre class="code-viewer">${snippet}</pre>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    `;
+}
+
+/**
+ * Close modal
+ */
+function closeModal() {
+    const modal = document.getElementById('modal-container');
+    if (modal) modal.innerHTML = '';
+}
+
+/**
+ * Escape HTML for safe display
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+/**
+ * Submit search form
+ */
+function submitSearch(event) {
+    if (event) event.preventDefault();
+    
+    const form = document.getElementById('query-form');
+    const query = document.getElementById('query-input')?.value?.trim();
+    
+    if (!query || query.length < 2) {
+        alert('Please enter at least 2 characters');
+        return false;
+    }
+
+    setQueryLoading(true);
+    if (form && typeof form.requestSubmit === 'function') {
+        form.requestSubmit();
+    } else {
+        htmx.trigger(form, 'submit');
+    }
+    return false;
+}
+
+/**
+ * Clear search and results
+ */
+function clearSearch() {
+    document.getElementById('query-input').value = '';
+    document.getElementById('results-container').innerHTML = '';
+}
+
+/**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + K: Focus search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            document.getElementById('query-input')?.focus();
+        }
+        
+        // Ctrl/Cmd + Enter: Submit search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            const activeElement = document.activeElement;
+            if (activeElement && activeElement.id === 'query-input') {
+                e.preventDefault();
+                submitSearch();
+            }
+        }
+        
+        // Escape: Close modal or clear focus
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('modal-container');
+            if (modal && modal.innerHTML) {
+                closeModal();
+            }
+        }
+    });
+}
+
+function setQueryLoading(isLoading) {
+    const btn = document.getElementById('run-query-btn');
+    const label = document.getElementById('run-query-label');
+    const spinner = document.getElementById('run-query-spinner');
+    const overlay = document.getElementById('query-overlay');
+    if (!btn || !label || !spinner) return;
+
+    if (isLoading) {
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        label.textContent = 'Running...';
+        if (overlay) overlay.classList.remove('d-none');
+    } else {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+        label.textContent = '▶ Run Query';
+        if (overlay) overlay.classList.add('d-none');
+    }
+}
+
+function setupQueryLoadingHandlers() {
+    const form = document.getElementById('query-form');
+    if (!form) return;
+    if (form.dataset.loadingHandlersBound === 'true') return;
+    form.dataset.loadingHandlersBound = 'true';
+
+    document.body.addEventListener('htmx:beforeRequest', function(evt) {
+        if ((evt.detail && evt.detail.elt === form) || evt.target === form) {
+            setQueryLoading(true);
+        }
+    });
+
+    const resetHandler = function(evt) {
+        if ((evt.detail && evt.detail.elt === form) || evt.target === form) {
+            setQueryLoading(false);
+        }
+    };
+
+    document.body.addEventListener('htmx:afterRequest', resetHandler);
+    document.body.addEventListener('htmx:responseError', resetHandler);
+}
+
+/**
+ * Initialize filters on page load
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    loadFilters();
+    setupKeyboardShortcuts();
+    setupQueryLoadingHandlers();
+});
+
+// Re-bind after HTMX swaps in case the form is re-rendered
+document.body.addEventListener('htmx:load', function() {
+    // If a new form is rendered, bind handlers once
+    setupQueryLoadingHandlers();
+});
