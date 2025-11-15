@@ -113,6 +113,8 @@ db_path = "./context.duckdb"
 enabled = true
 debounce_ms = 500
 watch_paths = ["auto"]  # "auto" detects project root, or specify paths
+# Periodic implicit deletion sweep interval in milliseconds (0 disables automatic sweeps)
+deletion_sweep_interval_ms = 60000
 ignore_patterns = [
     ".git",
     "node_modules",

@@ -17,6 +17,8 @@ import com.orchestrator.context.search.VectorSearchEngine
 import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
 import kotlinx.coroutines.runBlocking
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.math.max
 
 /**
@@ -179,8 +181,13 @@ class QueryContextTool(
         // Apply token budget and limit to k results
         val finalSnippets = applyBudgetAndLimit(expandedSnippets, budget, k)
 
+        val (existingSnippets, purgedCount) = dropMissingFiles(finalSnippets)
+        if (purgedCount > 0) {
+            log.warn("Dropped {} query_context snippets because files no longer exist on disk", purgedCount)
+        }
+
         // Convert to DTO format
-        val hits = finalSnippets.map { snippet ->
+        val hits = existingSnippets.map { snippet ->
             SnippetHit(
                 chunkId = snippet.chunkId,
                 score = snippet.score,
@@ -195,7 +202,7 @@ class QueryContextTool(
             )
         }
 
-        val tokensUsed = finalSnippets.sumOf { estimateTokens(it) }
+        val tokensUsed = existingSnippets.sumOf { estimateTokens(it) }
         val metadata = mapOf<String, Any>(
             "totalHits" to allSnippets.size,
             "returnedHits" to hits.size,
@@ -226,6 +233,21 @@ class QueryContextTool(
             kinds = kinds,
             excludePatterns = excludePatterns
         )
+    }
+
+    private fun dropMissingFiles(snippets: List<ContextSnippet>): Pair<List<ContextSnippet>, Int> {
+        if (snippets.isEmpty()) return snippets to 0
+        val existing = ArrayList<ContextSnippet>(snippets.size)
+        var purged = 0
+        for (snippet in snippets) {
+            val exists = runCatching { Files.exists(Path.of(snippet.filePath)) }.getOrElse { false }
+            if (exists) {
+                existing.add(snippet)
+            } else {
+                purged++
+            }
+        }
+        return existing to purged
     }
 
     private fun parseKinds(kinds: List<String>?): Set<ChunkKind> {

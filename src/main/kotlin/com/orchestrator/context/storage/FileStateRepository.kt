@@ -46,13 +46,8 @@ object FileStateRepository {
         }
     }
 
-    fun findByPath(absPath: String): FileState? = ContextDatabase.withConnection { conn ->
-        conn.prepareStatement("SELECT * FROM file_state WHERE abs_path = ?").use { ps ->
-            ps.setString(1, absPath)
-            ps.executeQuery().use { rs ->
-                if (rs.next()) rs.toFileState() else null
-            }
-        }
+    fun findByPath(path: String): FileState? = ContextDatabase.withConnection { conn ->
+        getByColumn(conn, "abs_path", path) ?: getByColumn(conn, "rel_path", path)
     }
 
     fun findAll(limit: Int = Int.MAX_VALUE): List<FileState> = ContextDatabase.withConnection { conn ->
@@ -164,6 +159,15 @@ object FileStateRepository {
             ps.executeQuery().use { rs ->
                 rs.next()
                 return rs.getLong(1)
+            }
+        }
+    }
+
+    private fun getByColumn(conn: Connection, column: String, value: String): FileState? {
+        conn.prepareStatement("SELECT * FROM file_state WHERE $column = ? LIMIT 1").use { ps ->
+            ps.setString(1, value)
+            ps.executeQuery().use { rs ->
+                return if (rs.next()) rs.toFileState() else null
             }
         }
     }

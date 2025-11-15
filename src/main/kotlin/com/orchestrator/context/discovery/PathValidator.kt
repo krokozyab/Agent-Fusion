@@ -97,8 +97,9 @@ class PathValidator(
     fun isInIgnorePatterns(path: Path): Boolean = pathFilter.shouldIgnore(path)
 
     fun isAllowedExtension(path: Path): Boolean {
-        if (!Files.exists(path)) return true
-        if (!Files.isRegularFile(path)) return true
+        if (Files.exists(path) && Files.isDirectory(path)) {
+            return true
+        }
         return extensionFilter.shouldInclude(path)
     }
 
