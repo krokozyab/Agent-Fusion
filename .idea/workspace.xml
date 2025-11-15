@@ -4,22 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- new model --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fusionagent.toml.example" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml.example" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/bootstrap/ProjectConfigValidator.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/bootstrap/ProjectConfigValidator.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/PathValidator.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/PathValidator.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/FileStateRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/FileStateRepository.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/WatcherDaemon.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/WatcherDaemon.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/static/js/htmx.min.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/static/js/htmx.min.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/ContextRepositoryTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/ContextRepositoryTest.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/watcher/WatcherDaemonTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/watcher/WatcherDaemonTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/logback.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/logback.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,45 +85,45 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.AgentRegistryTest.executor": "Run",
-    "Gradle.AgentSelectorTest.executor": "Run",
-    "Gradle.Build codex_to_claude.executor": "Run",
-    "Gradle.ConsensusModuleTest.executor": "Run",
-    "Gradle.ConsensusWorkflowTest.executor": "Run",
-    "Gradle.ContextModuleTest.executor": "Run",
-    "Gradle.DirectiveParserTest.executor": "Run",
-    "Gradle.GetTaskStatusToolTest.executor": "Run",
-    "Gradle.McpServerImplTest.executor": "Run",
-    "Gradle.ProposalRepositoryTest.executor": "Run",
-    "Gradle.RoutingModuleTest.executor": "Run",
-    "Gradle.StrategyPickerTest.executor": "Run",
-    "Gradle.TaskClassifierTest.executor": "Run",
-    "Gradle.TaskRepositoryTest.executor": "Run",
-    "Gradle.TokenEstimatorTest.executor": "Run",
-    "Gradle.VotingStrategyTest.executor": "Run",
-    "Gradle.WorkflowExecutorTest.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "imp",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "settings.editor.selected.configurable": "vcs.Git",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.AgentRegistryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.AgentSelectorTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Build codex_to_claude.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ConsensusModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ConsensusWorkflowTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ContextModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.DirectiveParserTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.GetTaskStatusToolTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.McpServerImplTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ProposalRepositoryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RoutingModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.StrategyPickerTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TaskClassifierTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TaskRepositoryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TokenEstimatorTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.VotingStrategyTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.WorkflowExecutorTest.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;imp&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/sergeyrudenko/projects/codex_to_claude&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$" />
@@ -336,15 +324,7 @@
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
       <workItem from="1762884720505" duration="38650000" />
-      <workItem from="1763113405967" duration="15003000" />
-    </task>
-    <task id="LOCAL-00124" summary="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet.">
-      <option name="closed" value="true" />
-      <created>1762158541664</created>
-      <option name="number" value="00124" />
-      <option name="presentableId" value="LOCAL-00124" />
-      <option name="project" value="LOCAL" />
-      <updated>1762158541664</updated>
+      <workItem from="1763113405967" duration="21452000" />
     </task>
     <task id="LOCAL-00125" summary="-- readme --">
       <option name="closed" value="true" />
@@ -730,7 +710,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763136270310</updated>
     </task>
-    <option name="localTasksCounter" value="173" />
+    <task id="LOCAL-00173" summary="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
+      <option name="closed" value="true" />
+      <created>1763186320633</created>
+      <option name="number" value="00173" />
+      <option name="presentableId" value="LOCAL-00173" />
+      <option name="project" value="LOCAL" />
+      <updated>1763186320634</updated>
+    </task>
+    <option name="localTasksCounter" value="174" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -750,7 +738,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- tasks hardcoded -" />
     <MESSAGE value="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet." />
     <MESSAGE value="-- fix unresponsive --" />
     <MESSAGE value="-- tasks table fix --&#10;Final Fix - HTMX Compatibility&#10;&#10;  Changes:&#10;&#10;  1. TasksPage.kt - Moved task-grid.js to load right BEFORE the inline ag-Grid initialization script (line 54)&#10;    - This ensures it's included in HTMX swaps when navigating to /tasks&#10;    - task-grid.js loads → window.TaskGrid is set up → inline script runs and finds the renderers&#10;  2. TaskRoutes.kt - Added Cache-Control header to prevent browser caching&#10;&#10;  How it works:&#10;&#10;  - Direct page load: task-grid.js loads in order before inline init script ✓&#10;  - HTMX navigation: The entire card-body (including task-grid.js and init script) is swapped in, runs in order ✓&#10;  - No manual refresh needed: Grid initializes correctly on first render" />
@@ -775,7 +762,8 @@
     <MESSAGE value="-- Task 4: Implement Path/Language Boosts --" />
     <MESSAGE value="-- Task 5: Implement Minimal IDF for Full-Text --" />
     <MESSAGE value="-- new model --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- new model --" />
+    <MESSAGE value="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
