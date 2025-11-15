@@ -2,12 +2,15 @@
  * Context Explorer JavaScript utilities
  */
 
-const STORAGE_KEY = 'explorer-filters';
+(function() {
+'use strict';
+
+var STORAGE_KEY = 'explorer-filters';
 
 /**
  * Toggle filter panel visibility
  */
-function toggleFilters() {
+window.toggleFilters = function() {
     const panel = document.getElementById('filter-panel');
     if (panel) {
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
@@ -17,7 +20,7 @@ function toggleFilters() {
 /**
  * Copy code snippet to clipboard
  */
-function copyToClipboard(button) {
+window.copyToClipboard = function(button) {
     const content = button.getAttribute('data-content');
     if (content) {
         navigator.clipboard.writeText(content).then(() => {
@@ -35,7 +38,7 @@ function copyToClipboard(button) {
 /**
  * Update tokens display with K suffix
  */
-function updateTokensDisplay(value) {
+window.updateTokensDisplay = function(value) {
     const display = document.getElementById('max-tokens-value');
     if (display) {
         const num = parseInt(value);
@@ -93,7 +96,7 @@ function setFilterValues(filters) {
 /**
  * Save filters to localStorage
  */
-function saveFilters() {
+window.saveFilters = function() {
     const filters = getFilterValues();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
     
@@ -129,7 +132,7 @@ function loadFilters() {
 /**
  * Reset filters to defaults
  */
-function resetFilters() {
+window.resetFilters = function() {
     // Clear text areas
     document.getElementById('filter-paths').value = '';
     document.getElementById('filter-exclude').value = '';
@@ -158,7 +161,7 @@ function resetFilters() {
 /**
  * Open file in modal viewer
  */
-function openFile(filePath, lineNumber) {
+window.openFile = function(filePath, lineNumber) {
     fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`)
         .then(response => response.json())
         .then(data => {
@@ -212,7 +215,7 @@ function showFileModal(filePath, lineNumber, content) {
 /**
  * Close modal
  */
-function closeModal() {
+window.closeModal = function() {
     const modal = document.getElementById('modal-container');
     if (modal) modal.innerHTML = '';
 }
@@ -229,7 +232,7 @@ function escapeHtml(text) {
 /**
  * Submit search form
  */
-function submitSearch(event) {
+window.submitSearch = function(event) {
     if (event) event.preventDefault();
     
     const form = document.getElementById('query-form');
@@ -252,7 +255,7 @@ function submitSearch(event) {
 /**
  * Clear search and results
  */
-function clearSearch() {
+window.clearSearch = function() {
     document.getElementById('query-input').value = '';
     document.getElementById('results-container').innerHTML = '';
 }
@@ -291,19 +294,16 @@ function setQueryLoading(isLoading) {
     const btn = document.getElementById('run-query-btn');
     const label = document.getElementById('run-query-label');
     const spinner = document.getElementById('run-query-spinner');
-    const overlay = document.getElementById('query-overlay');
     if (!btn || !label || !spinner) return;
 
     if (isLoading) {
         btn.disabled = true;
         spinner.classList.remove('d-none');
         label.textContent = 'Running...';
-        if (overlay) overlay.classList.remove('d-none');
     } else {
         btn.disabled = false;
         spinner.classList.add('d-none');
         label.textContent = '▶ Run Query';
-        if (overlay) overlay.classList.add('d-none');
     }
 }
 
@@ -332,14 +332,6 @@ function setupQueryLoadingHandlers() {
 /**
  * Initialize filters on page load
  */
-document.addEventListener('DOMContentLoaded', function() {
-    loadFilters();
-    setupKeyboardShortcuts();
-    setupQueryLoadingHandlers();
-});
+// No auto-initialization - functions are called manually or via onclick
 
-// Re-bind after HTMX swaps in case the form is re-rendered
-document.body.addEventListener('htmx:load', function() {
-    // If a new form is rendered, bind handlers once
-    setupQueryLoadingHandlers();
-});
+})(); // End IIFE

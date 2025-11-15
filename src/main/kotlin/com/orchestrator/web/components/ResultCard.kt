@@ -44,7 +44,7 @@ object ResultCard {
                         
                         <div class="btn-group btn-group-sm" role="group">
                             <button type="button" class="btn btn-outline-primary" 
-                                    onclick="openFile('${config.filePath}', ${config.startLine})">
+                                    onclick="openFile('${config.filePath.replace("'", "\\'")}',${config.startLine})">
                                 📂 Open
                             </button>
                             <button type="button" class="btn btn-outline-secondary" 

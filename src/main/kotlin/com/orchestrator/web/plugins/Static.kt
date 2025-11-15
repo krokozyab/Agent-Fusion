@@ -49,6 +49,11 @@ internal fun Application.configureStaticContent() {
                 contentType = ContentType.Application.JavaScript
             )
             serveVersionedAsset(
+                slug = "js/explorer.js",
+                resourcePath = "static/js/explorer.js",
+                contentType = ContentType.Application.JavaScript
+            )
+            serveVersionedAsset(
                 slug = "js/mermaid.min.js",
                 resourcePath = "static/js/mermaid.min.js",
                 contentType = ContentType.Application.JavaScript
@@ -73,6 +78,11 @@ internal fun Application.configureStaticContent() {
             serveVersionedAsset(
                 slug = "css/styles.css",
                 resourcePath = "static/css/styles.css",
+                contentType = ContentType.Text.CSS
+            )
+            serveVersionedAsset(
+                slug = "css/explorer.css",
+                resourcePath = "static/css/explorer.css",
                 contentType = ContentType.Text.CSS
             )
 

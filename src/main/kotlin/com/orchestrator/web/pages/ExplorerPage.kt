@@ -26,7 +26,7 @@ object ExplorerPage {
                 Navigation.Link("Tasks", "/tasks", icon = "📋"),
                 Navigation.Link("Index Status", "/index", icon = "📊"),
                 Navigation.Link("Files", "/files", icon = "📂"),
-                Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍", disableBoost = true),
+Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍"),
                 Navigation.Link("Metrics", "/metrics", icon = "📈")
             )
         )
@@ -41,7 +41,6 @@ object ExplorerPage {
             link(rel = "stylesheet", href = "/static/css/orchestrator.css?v=20250115")
             link(rel = "stylesheet", href = "/static/css/explorer.css?v=3")
             script(src = "/static/js/htmx.min.js") {}
-            script(src = "/static/js/explorer.js") {}
 
         }
 
@@ -73,6 +72,7 @@ object ExplorerPage {
                 small { +"Orchestrator Dashboard © 2025" }
             }
 
+            script(src = "/static/js/explorer.js?v=1763243676") {}
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
             script {
@@ -243,6 +243,7 @@ object ExplorerPage {
                     attributes["hx-target"] = "#results-container"
                     attributes["hx-swap"] = "innerHTML"
                     attributes["hx-disabled-elt"] = "#run-query-btn"
+                    attributes["onsubmit"] = "return submitSearch(event)"
 
                     div(classes = "mb-3") {
                         input(type = InputType.text, classes = "form-control form-control-lg") {
@@ -256,9 +257,17 @@ object ExplorerPage {
                     }
 
                     div(classes = "d-flex gap-2 align-items-center") {
-                        button(type = ButtonType.submit, classes = "btn btn-primary") {
+                        button(type = ButtonType.submit, classes = "btn btn-primary d-inline-flex align-items-center gap-2") {
                             id = "run-query-btn"
-                            +"▶ Run Query"
+                            span {
+                                id = "run-query-label"
+                                +"▶ Run Query"
+                            }
+                            span(classes = "spinner-border spinner-border-sm ms-1 d-none") {
+                                id = "run-query-spinner"
+                                attributes["role"] = "status"
+                                attributes["aria-hidden"] = "true"
+                            }
                         }
                         button(type = ButtonType.button, classes = "btn btn-outline-secondary") {
                             attributes["onclick"] = "document.getElementById('query-form').reset()"
