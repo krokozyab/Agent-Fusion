@@ -98,6 +98,21 @@ object PageLayout {
                     icon = "📊"
                 ),
                 Navigation.Link(
+                    label = "Context Explorer",
+                    href = "/explorer",
+                    active = currentPath.startsWith("/explorer"),
+                    ariaLabel = "Search code with semantic understanding",
+                    icon = "🔍",
+                    disableBoost = true
+                ),
+                Navigation.Link(
+                    label = "Config",
+                    href = "/config",
+                    active = currentPath.startsWith("/config"),
+                    ariaLabel = "View configuration parameters",
+                    icon = "⚙️"
+                ),
+                Navigation.Link(
                     label = "Metrics",
                     href = "/metrics",
                     active = currentPath.startsWith("/metrics"),

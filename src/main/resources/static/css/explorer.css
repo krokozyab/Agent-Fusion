@@ -1,0 +1,127 @@
+/**
+ * Context Explorer specific styles
+ */
+
+/* Code viewer modal */
+.code-viewer {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.code-line {
+    display: flex;
+    padding: 2px 0;
+}
+
+.code-line.bg-warning {
+    background-color: #fff3cd;
+}
+
+.line-num {
+    display: inline-block;
+    width: 50px;
+    text-align: right;
+    padding-right: 10px;
+    color: #6c757d;
+    user-select: none;
+    border-right: 1px solid #dee2e6;
+    margin-right: 10px;
+}
+
+/* Result card enhancements */
+.result-card {
+    transition: box-shadow 0.2s;
+}
+
+.result-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.result-card__path {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.result-card__snippet {
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 13px;
+}
+
+.result-card__score {
+    font-size: 12px;
+    min-width: 45px;
+}
+
+/* Empty state styling */
+.empty-icon {
+    font-size: 3rem;
+    opacity: 0.7;
+}
+
+/* Error and warning states */
+.alert {
+    border-radius: 8px;
+}
+
+.alert-danger {
+    background-color: #fff5f5;
+    border-color: #feb2b2;
+    color: #c53030;
+}
+
+.alert-warning {
+    background-color: #fffbeb;
+    border-color: #fbd38d;
+    color: #975a16;
+}
+
+/* Query tips details */
+details summary {
+    font-weight: 600;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+details summary:hover {
+    background-color: #f8f9fa;
+}
+
+details[open] summary {
+    margin-bottom: 1rem;
+}
+
+/* Loading state */
+.loading-spinner {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* HTMX loading indicators */
+.htmx-indicator {
+    display: none !important;
+}
+
+#query-form.htmx-request .htmx-indicator {
+    display: inline-block !important;
+}
+
+

@@ -192,13 +192,14 @@ class ContextRepositoryTest {
 
         service.syncFileArtifacts(fileState, chunks)
 
-        val scope = ContextScope(paths = listOf("src/Example.kt"))
+        val scope = ContextScope(paths = listOf(fileState.absolutePath))
         val snippets = service.buildSnippets(scope, TokenBudget(maxTokens = 30, reserveForPrompt = 10))
 
         // budget allows 20 tokens for snippets, so only the first chunk should be included
         assertEquals(1, snippets.size)
         val snippet = snippets.single()
         assertEquals("paragraph 0", snippet.text)
-        assertEquals("src/Example.kt", snippet.filePath)
+        assertEquals(fileState.absolutePath, snippet.filePath)
+        assertEquals(fileState.relativePath, snippet.metadata["relativePath"])
     }
 }

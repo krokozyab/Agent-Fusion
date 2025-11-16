@@ -40,6 +40,7 @@ object ContextRepository {
     data class ChunkWithFile(
         val chunk: Chunk,
         val filePath: String,
+        val relativePath: String?,
         val language: String?
     )
 
@@ -192,8 +193,10 @@ object ContextRepository {
             }
         }
 
-    fun fetchFileArtifactsByPath(absolutePath: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
-        val file = getFileStateByPath(conn, absolutePath) ?: return@withConnection null
+    fun fetchFileArtifactsByPath(path: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
+        val file = getFileStateByPath(conn, path)
+            ?: getFileStateByRelPath(conn, path)
+            ?: return@withConnection null
         val chunks = getChunksByFileId(conn, file.id)
         val chunkIds = chunks.map { it.chunk.id }
         val embeddings = getEmbeddingsByChunkIds(conn, chunkIds)
@@ -222,6 +225,7 @@ object ContextRepository {
                        c.content,
                        c.summary,
                        c.created_at,
+                       f.rel_path,
                        f.abs_path,
                        f.language
                 FROM chunks c
@@ -230,7 +234,8 @@ object ContextRepository {
                 """.trimIndent()
             )
             if (scope.paths.isNotEmpty()) {
-                append(" AND f.abs_path IN (" + scope.paths.joinToString(",") { "?" } + ")")
+                val placeholders = scope.paths.joinToString(",") { "?" }
+                append(" AND (f.abs_path IN ($placeholders) OR f.rel_path IN ($placeholders))")
             }
             if (scope.languages.isNotEmpty()) {
                 append(" AND f.language IN (" + scope.languages.joinToString(",") { "?" } + ")")
@@ -248,6 +253,7 @@ object ContextRepository {
         conn.prepareStatement(sql).use { ps ->
             var idx = 1
             scope.paths.forEach { ps.setString(idx++, it) }
+            scope.paths.forEach { ps.setString(idx++, it) }
             scope.languages.forEach { ps.setString(idx++, it) }
             scope.kinds.forEach { ps.setString(idx++, it.name) }
             scope.excludePatterns.forEach { ps.setString(idx++, globToLike(it)) }
@@ -258,6 +264,7 @@ object ContextRepository {
                         ChunkWithFile(
                             chunk = rs.toChunk(),
                             filePath = rs.getString("abs_path"),
+                            relativePath = rs.getString("rel_path"),
                             language = rs.getString("language")
                         )
                     )
@@ -288,10 +295,11 @@ object ContextRepository {
                     text = chunk.content,
                     language = chunkWithFile.language,
                     offsets = chunk.lineSpan,
-                    metadata = mapOf(
-                        "fileId" to chunk.fileId.toString(),
-                        "tokens" to estimatedTokens.toString()
-                    )
+                    metadata = buildMap {
+                        put("fileId", chunk.fileId.toString())
+                        put("tokens", estimatedTokens.toString())
+                        chunkWithFile.relativePath?.let { put("relativePath", it) }
+                    }
                 )
             )
         }
@@ -578,6 +586,16 @@ object ContextRepository {
         }
     }
 
+    private fun getFileStateByRelPath(conn: Connection, relativePath: String): FileState? {
+        val sql = "SELECT * FROM file_state WHERE rel_path = ? LIMIT 1"
+        conn.prepareStatement(sql).use { ps ->
+            ps.setString(1, relativePath)
+            ps.executeQuery().use { rs ->
+                return if (rs.next()) rs.toFileState() else null
+            }
+        }
+    }
+
     private fun getFileStateByAbsPath(conn: Connection, absolutePath: String): FileState? {
         val sql = "SELECT * FROM file_state WHERE abs_path = ?"
         conn.prepareStatement(sql).use { ps ->
@@ -600,7 +618,7 @@ object ContextRepository {
 
     private fun getChunksByFileId(conn: Connection, fileId: Long): List<ChunkWithFile> {
         val sql = """
-            SELECT c.*, f.abs_path, f.language
+            SELECT c.*, f.rel_path, f.abs_path, f.language
             FROM chunks c
             JOIN file_state f ON f.file_id = c.file_id
             WHERE c.file_id = ?
@@ -615,6 +633,7 @@ object ContextRepository {
                         ChunkWithFile(
                             chunk = rs.toChunk(),
                             filePath = rs.getString("abs_path"),
+                            relativePath = rs.getString("rel_path"),
                             language = rs.getString("language")
                         )
                     )

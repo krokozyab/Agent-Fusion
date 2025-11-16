@@ -56,6 +56,7 @@ object ContextDatabase {
             }
             val conn = openConnection(config.dbPath)
             applyPragmas(conn)
+            configureDefaultSchema(conn)
             ensureSchema(conn)
             connection = conn
             if (initialized.compareAndSet(false, true)) {
@@ -324,6 +325,47 @@ object ContextDatabase {
         val parent = dbPath.parent ?: return
         if (!Files.exists(parent)) {
             Files.createDirectories(parent)
+        }
+    }
+
+    private fun configureDefaultSchema(conn: Connection) {
+        val detected = detectLegacySchema(conn)
+        log.debug("Context DB: schema auto-detect result={}", detected ?: "none")
+        if (detected == null) {
+            return
+        }
+        if (detected.equals("main", ignoreCase = true)) {
+            return
+        }
+        val safeSchema = detected.replace("'", "''")
+        runCatching {
+            conn.createStatement().use { stmt ->
+                stmt.execute("SET schema '$safeSchema'")
+            }
+            log.info("Context DB: detected existing schema '{}', routing all queries through it", detected)
+        }.onFailure {
+            log.warn("Context DB: failed to switch to schema '{}': {}", detected, it.message)
+        }
+    }
+
+    private fun detectLegacySchema(conn: Connection): String? {
+        val sql = """
+            SELECT table_schema
+            FROM information_schema.tables
+            WHERE lower(table_name) = 'file_state'
+            ORDER BY CASE WHEN lower(table_schema) = 'context' THEN 0 ELSE 1 END,
+                     table_schema
+            LIMIT 1
+        """.trimIndent()
+        return try {
+            conn.prepareStatement(sql).use { ps ->
+                ps.executeQuery().use { rs ->
+                    if (rs.next()) rs.getString("table_schema") else null
+                }
+            }
+        } catch (e: SQLException) {
+            log.debug("Context DB: failed to detect schema preference: {}", e.message)
+            null
         }
     }
 

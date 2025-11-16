@@ -31,7 +31,8 @@ object Navigation {
         val href: String,
         val active: Boolean = false,
         val ariaLabel: String? = null,
-        val icon: String? = null
+        val icon: String? = null,
+        val disableBoost: Boolean = false
     )
 
     /**
@@ -152,12 +153,14 @@ object Navigation {
             }
 
             a(href = link.href, classes = linkClasses) {
-                if (htmxBoost) {
+                if (htmxBoost && !link.disableBoost) {
                     attributes["hx-boost"] = "true"
                     attributes["hx-target"] = "#main-content"
                     attributes["hx-select"] = "#main-content"
                     attributes["hx-swap"] = "outerHTML"
                     attributes["hx-push-url"] = "true"
+                } else if (link.disableBoost) {
+                    attributes["hx-boost"] = "false"
                 }
                 if (link.active) {
                     attributes["aria-current"] = "page"

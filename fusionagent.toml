@@ -108,6 +108,9 @@ watch_paths = [
     "."
 ]
 
+# Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.
+deletion_sweep_interval_ms = 60000
+
 # IGNORE_PATTERNS: Exclude entire directories at watcher discovery phase
 # These are checked FIRST, preventing watcher from monitoring these directories
 # Uses same glob pattern syntax as .gitignore - no need to learn new syntax!
@@ -383,7 +386,7 @@ idf_enabled = true
 
 [context.query.boosts.languages]
 # Programming languages (higher boost = more relevant in search results)
-kotlin = 1.02          # Slight boost for Kotlin
+kotlin = 3          # Slight boost for Kotlin
 java = 1.02            # Slight boost for Java
 python = 1.02          # Slight boost for Python
 typescript = 1.01      # Slight boost for TypeScript
@@ -409,8 +412,8 @@ xml = 0.95             # Penalty for config files
 toml = 0.95            # Penalty for config files
 html = 0.93            # Penalty for HTML
 css = 0.93             # Penalty for CSS
-text = 0.90            # Penalty for plain text
-document = 0.92        # Penalty for documents (PDF, DOCX)
+text = 0.5            # Penalty for plain text
+document = 0.2        # Penalty for documents (PDF, DOCX)
 
 # ------------------------------------------------------------------------------
 # [context.budget] - Token budget management

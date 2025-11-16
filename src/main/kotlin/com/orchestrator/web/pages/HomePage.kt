@@ -87,7 +87,7 @@ object HomePage {
         val navConfig = Navigation.Config(
             title = "Orchestrator",
             titleHref = "/",
-            enableHtmxBoost = true,
+            enableHtmxBoost = false,
             links = listOf(
                 Navigation.Link(
                     label = "Home",
@@ -113,6 +113,18 @@ object HomePage {
                     href = "/files",
                     ariaLabel = "Browse indexed files",
                     icon = "📂"
+                ),
+                Navigation.Link(
+                    label = "Context Explorer",
+                    href = "/explorer",
+                    ariaLabel = "Search code with semantic understanding",
+                    icon = "🔍"
+                ),
+                Navigation.Link(
+                    label = "Config",
+                    href = "/config",
+                    ariaLabel = "View configuration parameters",
+                    icon = "⚙️"
                 ),
                 Navigation.Link(
                     label = "Metrics",
@@ -179,9 +191,9 @@ object HomePage {
                 }
 
                 // JavaScript
+                script(src = "/static/js/explorer.js?v=1763243676") {}
                 script(src = "/static/js/theme-toggle.js") {}
                 script(src = "/static/js/navigation.js") {}
-                script(src = "/static/js/modal.js") {}
                 script(src = "/static/js/modal.js") {}
 
                 // Auto-refresh script (HTMX)
