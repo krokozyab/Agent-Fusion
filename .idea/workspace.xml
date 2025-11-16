@@ -4,7 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- modal --" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- explorer searh order --">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/static/css/modal.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/static/css/modal.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -321,15 +325,7 @@
       <workItem from="1762604906367" duration="71165000" />
       <workItem from="1762884720505" duration="38650000" />
       <workItem from="1763113405967" duration="21452000" />
-      <workItem from="1763205921932" duration="25324000" />
-    </task>
-    <task id="LOCAL-00129" summary="-- modal esc fix --">
-      <option name="closed" value="true" />
-      <created>1762228737399</created>
-      <option name="number" value="00129" />
-      <option name="presentableId" value="LOCAL-00129" />
-      <option name="project" value="LOCAL" />
-      <updated>1762228737399</updated>
+      <workItem from="1763205921932" duration="26076000" />
     </task>
     <task id="LOCAL-00130" summary="-- default agent --&#10;Problem: Tasks created with create_simple_task were defaulting to hardcoded agents (e.g., gemini) instead of the current requesting agent.&#10;&#10;  Solution: Modified the task creation flow to automatically assign tasks to the current agent context when no explicit assignment is&#10;  provided.&#10;&#10;  Changes Made&#10;&#10;  1. Modified mapCreateSimpleParams() in McpServerImpl.kt (lines 2354-2398):&#10;    - Added optional currentAgentId parameter&#10;    - Auto-assigns task to current agent if user didn't explicitly specify assignToAgent&#10;    - Preserves user-specified agent assignments (higher priority)&#10;    - Gracefully handles both cases: with and without directives&#10;  2. Modified executeTool() in McpServerImpl.kt (lines 896-914):&#10;    - Before calling createSimpleTaskTool.execute(), it now:&#10;        - Gets current agent from session context via sessionToAgent[sessionId]&#10;      - Falls back to resolveAgentIdOrDefault() if session mapping unavailable&#10;      - Passes current agent to mapCreateSimpleParams()&#10;    - Silently continues if agent resolution fails (doesn't break task creation)&#10;&#10;  How It Works&#10;&#10;  Priority order for agent assignment:&#10;  1. User explicitly specifies assignToAgent in directives → Use that agent&#10;  2. Current agent context available → Auto-assign to current agent&#10;  3. No context available → Fall back to capability-based selection (existing behavior)&#10;&#10;  Example Behavior&#10;&#10;  - Claude Code agent creates task → Auto-assigned to claude-code&#10;  - Codex agent creates task → Auto-assigned to codex-cli&#10;  - User explicitly specifies agent → Uses specified agent (override)&#10;  - Multi-agent setup without context → Uses capability-based selection (backward compatible)">
       <option name="closed" value="true" />
@@ -715,7 +711,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763248238991</updated>
     </task>
-    <option name="localTasksCounter" value="178" />
+    <task id="LOCAL-00178" summary="-- explorer searh order --">
+      <option name="closed" value="true" />
+      <created>1763271503203</created>
+      <option name="number" value="00178" />
+      <option name="presentableId" value="LOCAL-00178" />
+      <option name="project" value="LOCAL" />
+      <updated>1763271503203</updated>
+    </task>
+    <option name="localTasksCounter" value="179" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -735,7 +739,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- modal esc fix --" />
     <MESSAGE value="-- default agent --&#10;Problem: Tasks created with create_simple_task were defaulting to hardcoded agents (e.g., gemini) instead of the current requesting agent.&#10;&#10;  Solution: Modified the task creation flow to automatically assign tasks to the current agent context when no explicit assignment is&#10;  provided.&#10;&#10;  Changes Made&#10;&#10;  1. Modified mapCreateSimpleParams() in McpServerImpl.kt (lines 2354-2398):&#10;    - Added optional currentAgentId parameter&#10;    - Auto-assigns task to current agent if user didn't explicitly specify assignToAgent&#10;    - Preserves user-specified agent assignments (higher priority)&#10;    - Gracefully handles both cases: with and without directives&#10;  2. Modified executeTool() in McpServerImpl.kt (lines 896-914):&#10;    - Before calling createSimpleTaskTool.execute(), it now:&#10;        - Gets current agent from session context via sessionToAgent[sessionId]&#10;      - Falls back to resolveAgentIdOrDefault() if session mapping unavailable&#10;      - Passes current agent to mapCreateSimpleParams()&#10;    - Silently continues if agent resolution fails (doesn't break task creation)&#10;&#10;  How It Works&#10;&#10;  Priority order for agent assignment:&#10;  1. User explicitly specifies assignToAgent in directives → Use that agent&#10;  2. Current agent context available → Auto-assign to current agent&#10;  3. No context available → Fall back to capability-based selection (existing behavior)&#10;&#10;  Example Behavior&#10;&#10;  - Claude Code agent creates task → Auto-assigned to claude-code&#10;  - Codex agent creates task → Auto-assigned to codex-cli&#10;  - User explicitly specifies agent → Uses specified agent (override)&#10;  - Multi-agent setup without context → Uses capability-based selection (backward compatible)" />
     <MESSAGE value="-- sse connection fix on task page --" />
     <MESSAGE value="-- looks tweaks --" />
@@ -760,7 +763,8 @@
     <MESSAGE value="-- spinner --" />
     <MESSAGE value="-- spinner again --" />
     <MESSAGE value="-- modal --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- modal --" />
+    <MESSAGE value="-- explorer searh order --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- explorer searh order --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

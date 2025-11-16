@@ -228,7 +228,7 @@ function showFileModal(filePath, lineNumber, content) {
                 <button type="button" class="btn-close" aria-label="Close" data-modal-close="modal-container"></button>
             </div>
             <div class="modal__body">
-                <pre class="code-viewer" style="max-height:70vh;min-height:200px;overflow:auto;">${snippet}</pre>
+                <pre class="code-viewer">${snippet}</pre>
             </div>
             <div class="modal__footer d-flex justify-content-end gap-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-modal-close="modal-container">Close</button>
