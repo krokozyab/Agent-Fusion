@@ -77,6 +77,8 @@
 .modal__body {
     padding: 1rem;
     overflow-y: auto;
+    max-height: 70vh;
+    flex: 1 1 auto;
 }
 
 .modal__footer {
@@ -84,4 +86,10 @@
     border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
+}
+
+/* Code viewer utility */
+.code-viewer {
+    white-space: pre;
+    overflow: auto;
 }
