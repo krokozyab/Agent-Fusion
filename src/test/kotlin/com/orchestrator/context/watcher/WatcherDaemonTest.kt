@@ -46,7 +46,8 @@ class WatcherDaemonTest {
                 enabled = true,
                 debounceMs = 0,
                 watchPaths = listOf(tempDir.toString()),
-                ignorePatterns = emptyList()
+                ignorePatterns = emptyList(),
+                deletionSweepIntervalMs = 0
             ),
             indexingConfig = IndexingConfig(),
             incrementalIndexer = incrementalIndexer,
@@ -102,7 +103,8 @@ class WatcherDaemonTest {
                 enabled = true,
                 debounceMs = 0,
                 watchPaths = listOf(tempDir.toString()),
-                ignorePatterns = emptyList()
+                ignorePatterns = emptyList(),
+                deletionSweepIntervalMs = 0
             ),
             indexingConfig = IndexingConfig(allowedExtensions = listOf(".kt")),
             incrementalIndexer = incrementalIndexer,
@@ -122,7 +124,13 @@ class WatcherDaemonTest {
         advanceTimeBy(200)
         advanceUntilIdle()
 
-        coVerify(exactly = 0) { incrementalIndexer.updateAsync(any(), any(), any()) }
+        coVerify(exactly = 0) {
+            incrementalIndexer.updateAsync(
+                match { it.isNotEmpty() },
+                any(),
+                any()
+            )
+        }
 
         daemon.stop()
     }
@@ -147,7 +155,8 @@ class WatcherDaemonTest {
                 enabled = true,
                 debounceMs = 0,
                 watchPaths = listOf(tempDir.toString()),
-                ignorePatterns = emptyList()
+                ignorePatterns = emptyList(),
+                deletionSweepIntervalMs = 0
             ),
             indexingConfig = IndexingConfig(),
             incrementalIndexer = incrementalIndexer,

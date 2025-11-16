@@ -25,15 +25,16 @@
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1;
 }
 
 .modal__content {
     position: relative;
+    z-index: 2;
     background-color: #fff;
     border-radius: 8px;
     width: 95%;
     max-width: 1200px;
-    min-width: 1200px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -76,6 +77,8 @@
 .modal__body {
     padding: 1rem;
     overflow-y: auto;
+    max-height: 70vh;
+    flex: 1 1 auto;
 }
 
 .modal__footer {
@@ -83,4 +86,10 @@
     border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
+}
+
+/* Code viewer utility */
+.code-viewer {
+    white-space: pre;
+    overflow: auto;
 }

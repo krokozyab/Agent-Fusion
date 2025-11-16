@@ -31,6 +31,33 @@ if (typeof window.openModal === 'undefined') {
 document.addEventListener('click', (event) => {
     console.log('Click event:', { target: event.target.tagName, dataset: event.target.dataset, classList: event.target.className });
 
+    // Handle file open buttons (fallback path so Open works even if explorer script handlers are skipped)
+    const openBtn = event.target.closest('[data-open-file]');
+    if (openBtn) {
+        event.preventDefault();
+        const filePath = openBtn.dataset.openFile;
+        const lineNumber = parseInt(openBtn.dataset.lineNumber || '1', 10);
+        if (typeof window.openFile === 'function') {
+            window.openFile(filePath, lineNumber);
+        } else {
+            console.warn('window.openFile is not defined; cannot open file modal');
+        }
+        return;
+    }
+
+    // Handle related buttons (fallback path)
+    const relatedBtn = event.target.closest('[data-related-chunk]');
+    if (relatedBtn) {
+        event.preventDefault();
+        const chunkId = relatedBtn.dataset.relatedChunk;
+        if (typeof window.loadRelated === 'function') {
+            window.loadRelated(chunkId);
+        } else {
+            console.warn('window.loadRelated is not defined; cannot load related panel');
+        }
+        return;
+    }
+
     if (event.target.dataset.modalOpen) {
         console.log('Opening modal:', event.target.dataset.modalOpen);
         window.openModal(event.target.dataset.modalOpen);

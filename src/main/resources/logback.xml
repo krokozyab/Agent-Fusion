@@ -34,6 +34,9 @@
     <logger name="io.ktor" level="INFO" />
     <logger name="org.duckdb" level="WARN" />
     <logger name="io.modelcontextprotocol.kotlin.sdk" level="WARN" />
+    <logger name="io.modelcontextprotocol.kotlin.sdk.server.FeatureRegistry" level="WARN" />
+    <logger name="FeatureRegistry[Tool]" level="WARN" />
+    <logger name="FeatureRegistry[Resource]" level="WARN" />
     
     <!-- Root logger -->
     <root level="INFO">

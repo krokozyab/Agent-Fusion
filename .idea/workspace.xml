@@ -4,8 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- new model --">
-      <change beforePath="$PROJECT_DIR$/docs/other_model.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/other_model.md" afterDir="false" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- explorer modal scroll --">
+      <change afterPath="$PROJECT_DIR$/pics/context_explorer.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -107,10 +109,10 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "#22 on imp",
+    "git-widget-placeholder": "imp",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude",
+    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/pics",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -322,71 +324,8 @@
       <workItem from="1762516774585" duration="41269000" />
       <workItem from="1762604906367" duration="71165000" />
       <workItem from="1762884720505" duration="38650000" />
-      <workItem from="1763113405967" duration="2416000" />
-    </task>
-    <task id="LOCAL-00123" summary="-- tasks hardcoded -">
-      <option name="closed" value="true" />
-      <created>1762157198753</created>
-      <option name="number" value="00123" />
-      <option name="presentableId" value="LOCAL-00123" />
-      <option name="project" value="LOCAL" />
-      <updated>1762157198753</updated>
-    </task>
-    <task id="LOCAL-00124" summary="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet.">
-      <option name="closed" value="true" />
-      <created>1762158541664</created>
-      <option name="number" value="00124" />
-      <option name="presentableId" value="LOCAL-00124" />
-      <option name="project" value="LOCAL" />
-      <updated>1762158541664</updated>
-    </task>
-    <task id="LOCAL-00125" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762169160090</created>
-      <option name="number" value="00125" />
-      <option name="presentableId" value="LOCAL-00125" />
-      <option name="project" value="LOCAL" />
-      <updated>1762169160090</updated>
-    </task>
-    <task id="LOCAL-00126" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762169400140</created>
-      <option name="number" value="00126" />
-      <option name="presentableId" value="LOCAL-00126" />
-      <option name="project" value="LOCAL" />
-      <updated>1762169400140</updated>
-    </task>
-    <task id="LOCAL-00127" summary="-- fix unresponsive --">
-      <option name="closed" value="true" />
-      <created>1762184979161</created>
-      <option name="number" value="00127" />
-      <option name="presentableId" value="LOCAL-00127" />
-      <option name="project" value="LOCAL" />
-      <updated>1762184979161</updated>
-    </task>
-    <task id="LOCAL-00128" summary="-- tasks table fix --&#10;Final Fix - HTMX Compatibility&#10;&#10;  Changes:&#10;&#10;  1. TasksPage.kt - Moved task-grid.js to load right BEFORE the inline ag-Grid initialization script (line 54)&#10;    - This ensures it's included in HTMX swaps when navigating to /tasks&#10;    - task-grid.js loads → window.TaskGrid is set up → inline script runs and finds the renderers&#10;  2. TaskRoutes.kt - Added Cache-Control header to prevent browser caching&#10;&#10;  How it works:&#10;&#10;  - Direct page load: task-grid.js loads in order before inline init script ✓&#10;  - HTMX navigation: The entire card-body (including task-grid.js and init script) is swapped in, runs in order ✓&#10;  - No manual refresh needed: Grid initializes correctly on first render">
-      <option name="closed" value="true" />
-      <created>1762213906787</created>
-      <option name="number" value="00128" />
-      <option name="presentableId" value="LOCAL-00128" />
-      <option name="project" value="LOCAL" />
-      <updated>1762213906787</updated>
-    </task>
-    <task id="LOCAL-00129" summary="-- modal esc fix --">
-      <option name="closed" value="true" />
-      <created>1762228737399</created>
-      <option name="number" value="00129" />
-      <option name="presentableId" value="LOCAL-00129" />
-      <option name="project" value="LOCAL" />
-      <updated>1762228737399</updated>
-    </task>
-    <task id="LOCAL-00130" summary="-- default agent --&#10;Problem: Tasks created with create_simple_task were defaulting to hardcoded agents (e.g., gemini) instead of the current requesting agent.&#10;&#10;  Solution: Modified the task creation flow to automatically assign tasks to the current agent context when no explicit assignment is&#10;  provided.&#10;&#10;  Changes Made&#10;&#10;  1. Modified mapCreateSimpleParams() in McpServerImpl.kt (lines 2354-2398):&#10;    - Added optional currentAgentId parameter&#10;    - Auto-assigns task to current agent if user didn't explicitly specify assignToAgent&#10;    - Preserves user-specified agent assignments (higher priority)&#10;    - Gracefully handles both cases: with and without directives&#10;  2. Modified executeTool() in McpServerImpl.kt (lines 896-914):&#10;    - Before calling createSimpleTaskTool.execute(), it now:&#10;        - Gets current agent from session context via sessionToAgent[sessionId]&#10;      - Falls back to resolveAgentIdOrDefault() if session mapping unavailable&#10;      - Passes current agent to mapCreateSimpleParams()&#10;    - Silently continues if agent resolution fails (doesn't break task creation)&#10;&#10;  How It Works&#10;&#10;  Priority order for agent assignment:&#10;  1. User explicitly specifies assignToAgent in directives → Use that agent&#10;  2. Current agent context available → Auto-assign to current agent&#10;  3. No context available → Fall back to capability-based selection (existing behavior)&#10;&#10;  Example Behavior&#10;&#10;  - Claude Code agent creates task → Auto-assigned to claude-code&#10;  - Codex agent creates task → Auto-assigned to codex-cli&#10;  - User explicitly specifies agent → Uses specified agent (override)&#10;  - Multi-agent setup without context → Uses capability-based selection (backward compatible)">
-      <option name="closed" value="true" />
-      <created>1762230508549</created>
-      <option name="number" value="00130" />
-      <option name="presentableId" value="LOCAL-00130" />
-      <option name="project" value="LOCAL" />
-      <updated>1762230508549</updated>
+      <workItem from="1763113405967" duration="21452000" />
+      <workItem from="1763205921932" duration="32890000" />
     </task>
     <task id="LOCAL-00131" summary="-- sse connection fix on task page --">
       <option name="closed" value="true" />
@@ -716,7 +655,71 @@
       <option name="project" value="LOCAL" />
       <updated>1763136115920</updated>
     </task>
-    <option name="localTasksCounter" value="172" />
+    <task id="LOCAL-00172" summary="-- new model --">
+      <option name="closed" value="true" />
+      <created>1763136270310</created>
+      <option name="number" value="00172" />
+      <option name="presentableId" value="LOCAL-00172" />
+      <option name="project" value="LOCAL" />
+      <updated>1763136270310</updated>
+    </task>
+    <task id="LOCAL-00173" summary="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
+      <option name="closed" value="true" />
+      <created>1763186320633</created>
+      <option name="number" value="00173" />
+      <option name="presentableId" value="LOCAL-00173" />
+      <option name="project" value="LOCAL" />
+      <updated>1763186320634</updated>
+    </task>
+    <task id="LOCAL-00174" summary="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --">
+      <option name="closed" value="true" />
+      <created>1763206015494</created>
+      <option name="number" value="00174" />
+      <option name="presentableId" value="LOCAL-00174" />
+      <option name="project" value="LOCAL" />
+      <updated>1763206015494</updated>
+    </task>
+    <task id="LOCAL-00175" summary="-- spinner --">
+      <option name="closed" value="true" />
+      <created>1763237026706</created>
+      <option name="number" value="00175" />
+      <option name="presentableId" value="LOCAL-00175" />
+      <option name="project" value="LOCAL" />
+      <updated>1763237026706</updated>
+    </task>
+    <task id="LOCAL-00176" summary="-- spinner again --">
+      <option name="closed" value="true" />
+      <created>1763244456751</created>
+      <option name="number" value="00176" />
+      <option name="presentableId" value="LOCAL-00176" />
+      <option name="project" value="LOCAL" />
+      <updated>1763244456751</updated>
+    </task>
+    <task id="LOCAL-00177" summary="-- modal --">
+      <option name="closed" value="true" />
+      <created>1763248238991</created>
+      <option name="number" value="00177" />
+      <option name="presentableId" value="LOCAL-00177" />
+      <option name="project" value="LOCAL" />
+      <updated>1763248238991</updated>
+    </task>
+    <task id="LOCAL-00178" summary="-- explorer searh order --">
+      <option name="closed" value="true" />
+      <created>1763271503203</created>
+      <option name="number" value="00178" />
+      <option name="presentableId" value="LOCAL-00178" />
+      <option name="project" value="LOCAL" />
+      <updated>1763271503203</updated>
+    </task>
+    <task id="LOCAL-00179" summary="-- explorer modal scroll --">
+      <option name="closed" value="true" />
+      <created>1763272106824</created>
+      <option name="number" value="00179" />
+      <option name="presentableId" value="LOCAL-00179" />
+      <option name="project" value="LOCAL" />
+      <updated>1763272106824</updated>
+    </task>
+    <option name="localTasksCounter" value="180" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -736,12 +739,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- tasks hardcoded -" />
-    <MESSAGE value="-- header menu overlap fixed -&#10; - orchestrator.css now makes the top bar opaque (background-color: var(--gray-100), backdrop-filter: none) and gives every main-content a&#10;    fixed top buffer equal to the header height, so scrolled content stays below the menu.&#10;  - All pages now load /static/css/orchestrator.css?v=20241104, forcing browsers to fetch the updated stylesheet." />
-    <MESSAGE value="-- fix unresponsive --" />
-    <MESSAGE value="-- tasks table fix --&#10;Final Fix - HTMX Compatibility&#10;&#10;  Changes:&#10;&#10;  1. TasksPage.kt - Moved task-grid.js to load right BEFORE the inline ag-Grid initialization script (line 54)&#10;    - This ensures it's included in HTMX swaps when navigating to /tasks&#10;    - task-grid.js loads → window.TaskGrid is set up → inline script runs and finds the renderers&#10;  2. TaskRoutes.kt - Added Cache-Control header to prevent browser caching&#10;&#10;  How it works:&#10;&#10;  - Direct page load: task-grid.js loads in order before inline init script ✓&#10;  - HTMX navigation: The entire card-body (including task-grid.js and init script) is swapped in, runs in order ✓&#10;  - No manual refresh needed: Grid initializes correctly on first render" />
-    <MESSAGE value="-- modal esc fix --" />
-    <MESSAGE value="-- default agent --&#10;Problem: Tasks created with create_simple_task were defaulting to hardcoded agents (e.g., gemini) instead of the current requesting agent.&#10;&#10;  Solution: Modified the task creation flow to automatically assign tasks to the current agent context when no explicit assignment is&#10;  provided.&#10;&#10;  Changes Made&#10;&#10;  1. Modified mapCreateSimpleParams() in McpServerImpl.kt (lines 2354-2398):&#10;    - Added optional currentAgentId parameter&#10;    - Auto-assigns task to current agent if user didn't explicitly specify assignToAgent&#10;    - Preserves user-specified agent assignments (higher priority)&#10;    - Gracefully handles both cases: with and without directives&#10;  2. Modified executeTool() in McpServerImpl.kt (lines 896-914):&#10;    - Before calling createSimpleTaskTool.execute(), it now:&#10;        - Gets current agent from session context via sessionToAgent[sessionId]&#10;      - Falls back to resolveAgentIdOrDefault() if session mapping unavailable&#10;      - Passes current agent to mapCreateSimpleParams()&#10;    - Silently continues if agent resolution fails (doesn't break task creation)&#10;&#10;  How It Works&#10;&#10;  Priority order for agent assignment:&#10;  1. User explicitly specifies assignToAgent in directives → Use that agent&#10;  2. Current agent context available → Auto-assign to current agent&#10;  3. No context available → Fall back to capability-based selection (existing behavior)&#10;&#10;  Example Behavior&#10;&#10;  - Claude Code agent creates task → Auto-assigned to claude-code&#10;  - Codex agent creates task → Auto-assigned to codex-cli&#10;  - User explicitly specifies agent → Uses specified agent (override)&#10;  - Multi-agent setup without context → Uses capability-based selection (backward compatible)" />
     <MESSAGE value="-- sse connection fix on task page --" />
     <MESSAGE value="-- looks tweaks --" />
     <MESSAGE value="-- modal close fixed --&#10;Root Causes &amp; Fixes Applied:&#10;&#10;  1. Modal Not Opening&#10;&#10;  - Root Cause: htmx.ajax() wasn't respecting the target and swap options, causing content to load to wrong location&#10;  - Fix: Changed from HTMX API to native fetch() API for direct control over where content is inserted&#10;&#10;  2. Modal Close Button Not Visible&#10;&#10;  - Root Cause: .modal__close CSS had no color definition&#10;  - Fix: Added color: #333 to modal.css (lines 56-74) with hover/active states&#10;&#10;  3. Modal Closing Not Working (ESC &amp; × Button)&#10;&#10;  - Root Cause: Event listeners wrapped in DOMContentLoaded - if modal.js loaded after that event fired, listeners never attached&#10;  - Fix: Moved all event listeners OUTSIDE DOMContentLoaded (modal.js lines 28-72)&#10;  - Also Fixed: Used closest() instead of direct target check for more robust event delegation&#10;&#10;  4. Modal Container Not Found at Runtime&#10;&#10;  - Root Cause: task-grid.js loads and runs BEFORE the modal-container element is parsed by browser (script inside card, container defined&#10;  after)&#10;  - Fix: Added ensureModalContainer() helper function (modal.js lines 1-15) that:&#10;    - Checks if element exists&#10;    - Creates it dynamically if not found&#10;    - All click handlers use this before inserting content&#10;&#10;  ---&#10;  Files Modified:&#10;&#10;  1. modal.js (src/main/resources/static/js/modal.js)&#10;    - Added ensureModalContainer() helper function&#10;    - Moved click and ESC key handlers outside DOMContentLoaded&#10;    - Improved event handler with closest() for robustness&#10;    - Enhanced logging for debugging&#10;  2. modal.css (src/main/resources/static/css/modal.css)&#10;    - Added color: #333 to .modal__close&#10;    - Added padding, line-height, and transition effects&#10;    - Added :hover state (darker color + scale)&#10;    - Added :active state (scale-down for press effect)&#10;  3. task-grid.js (src/main/resources/static/js/task-grid.js)&#10;    - Changed View button from htmx.ajax() to fetch() API&#10;    - Changed row double-click handler to use fetch()&#10;    - Changed action button handlers to use fetch()&#10;    - All handlers now call ensureModalContainer() before inserting content&#10;    - Added comprehensive logging for debugging&#10;&#10;  ---&#10;  How It Works Now:&#10;&#10;  1. User clicks &quot;View&quot; button on a task row&#10;  2. task-grid.js:&#10;    - Fetches modal content from /tasks/{id}/modal&#10;    - Calls ensureModalContainer() to guarantee container exists&#10;    - Inserts HTML into #modal-container&#10;    - Calls window.openModal('modal-container')&#10;  3. modal.js:&#10;    - Adds is-open class to make modal visible&#10;    - Sets document.body.overflow = 'hidden' to prevent scrolling&#10;  4. User can close via:&#10;    - × Button: Click handler calls window.closeModal()&#10;    - ESC Key: Document listener detects and calls closeModal() for all open modals&#10;    - Backdrop: Click handler detects .modal__backdrop and closes" />
@@ -761,7 +758,13 @@
     <MESSAGE value="-- Task 4: Implement Path/Language Boosts --" />
     <MESSAGE value="-- Task 5: Implement Minimal IDF for Full-Text --" />
     <MESSAGE value="-- new model --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- new model --" />
+    <MESSAGE value="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --" />
+    <MESSAGE value="-- spinner --" />
+    <MESSAGE value="-- spinner again --" />
+    <MESSAGE value="-- modal --" />
+    <MESSAGE value="-- explorer searh order --" />
+    <MESSAGE value="-- explorer modal scroll --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- explorer modal scroll --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
