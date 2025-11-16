@@ -27,6 +27,7 @@ object ExplorerPage {
                 Navigation.Link("Index Status", "/index", icon = "📊"),
                 Navigation.Link("Files", "/files", icon = "📂"),
                 Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍", disableBoost = true),
+                Navigation.Link("Config", "/config", icon = "⚙️"),
                 Navigation.Link("Metrics", "/metrics", icon = "📈")
             )
         )
@@ -76,8 +77,8 @@ object ExplorerPage {
                 small { +"Orchestrator Dashboard © 2025" }
             }
 
-            script(src = "/static/js/modal.js?v=1763254400") {}
-            script(src = "/static/js/explorer.js?v=1763253800") {}
+            script(src = "/static/js/modal.js?v=1763256400") {}
+            script(src = "/static/js/explorer.js?v=1763257200") {}
             script(src = "/static/js/theme-toggle.js") {}
             script(src = "/static/js/navigation.js") {}
             script {
@@ -141,7 +142,7 @@ object ExplorerPage {
                                     id = "lang-$lang"
                                     name = "languages"
                                     value = lang
-                                    checked = lang in listOf("kotlin", "java")
+                                    checked = true
                                 }
                                 label(classes = "form-check-label") {
                                     attributes["for"] = "lang-$lang"
@@ -156,18 +157,18 @@ object ExplorerPage {
                     label(classes = "form-label") { +"Chunk Kinds" }
                     div(classes = "d-flex flex-wrap gap-2") {
                         listOf(
-                            "CODE_CLASS" to true,
-                            "CODE_FUNCTION" to true,
-                            "CODE_METHOD" to true,
-                            "MARKDOWN_SECTION" to false,
-                            "PARAGRAPH" to false
-                        ).forEach { (kind, checked) ->
+                            "CODE_CLASS",
+                            "CODE_FUNCTION",
+                            "CODE_METHOD",
+                            "MARKDOWN_SECTION",
+                            "PARAGRAPH"
+                        ).forEach { kind ->
                             div(classes = "form-check form-check-inline") {
                                 input(type = InputType.checkBox, classes = "form-check-input") {
                                     id = "kind-$kind"
                                     name = "kinds"
                                     value = kind
-                                    this.checked = checked
+                                    checked = true
                                 }
                                 label(classes = "form-check-label") {
                                     attributes["for"] = "kind-$kind"

@@ -54,11 +54,7 @@ object ResultCard {
                                     data-content="${escapeHtml(config.snippet).replace("\"", "&quot;")}">
                                 📋 Copy
                             </button>
-                            <button type="button" class="btn btn-outline-info" 
-                                    hx-get="/api/context/related?chunkId=${config.chunkId}" 
-                                    hx-target="#graph-panel">
-                                🔗 Related
-                            </button>
+
                         </div>
                     </div>
                 </div>
