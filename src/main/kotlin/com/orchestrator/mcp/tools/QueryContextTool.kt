@@ -177,9 +177,16 @@ class QueryContextTool(
         } else {
             optimizedSnippets
         }
+
+        // Ensure highest-score-first ordering after neighbor expansion/mixes
+        val rankedSnippets = expandedSnippets.sortedWith(
+            compareByDescending<ContextSnippet> { it.score }
+                .thenBy { it.filePath }
+                .thenBy { it.chunkId }
+        )
         
         // Apply token budget and limit to k results
-        val finalSnippets = applyBudgetAndLimit(expandedSnippets, budget, k)
+        val finalSnippets = applyBudgetAndLimit(rankedSnippets, budget, k)
 
         val (existingSnippets, purgedCount) = dropMissingFiles(finalSnippets)
         if (purgedCount > 0) {
