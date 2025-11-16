@@ -38,8 +38,11 @@ object TaskDetailPage {
             links = listOf(
                 Navigation.Link(label = "Home", href = "/", icon = "🏠"),
                 Navigation.Link(label = "Tasks", href = "/tasks", active = true, icon = "📋"),
-                Navigation.Link(label = "Index Status", href = "/index", icon = "📁"),
-                Navigation.Link(label = "Metrics", href = "/metrics", icon = "📊")
+                Navigation.Link(label = "Index Status", href = "/index", icon = "📊"),
+                Navigation.Link(label = "Files", href = "/files", icon = "📂"),
+                Navigation.Link(label = "Context Explorer", href = "/explorer", icon = "🔍", disableBoost = true),
+                Navigation.Link(label = "Config", href = "/config", icon = "⚙️"),
+                Navigation.Link(label = "Metrics", href = "/metrics", icon = "📈")
             )
         )
 

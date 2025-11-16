@@ -17,6 +17,7 @@ dependencies {
 
     // Kotlin
     implementation(kotlin("stdlib"))
+    implementation(kotlin("reflect"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
     // Ktor Server (aligned with embedded MCP SDK)

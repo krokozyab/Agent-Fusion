@@ -152,6 +152,7 @@ fun Route.explorerRoutes() {
         call.respondText(html, ContentType.Text.Html)
     }
     
+
     /**
      * GET /api/files/content - Get file content for modal viewer
      */

@@ -8,17 +8,70 @@
 console.log('[Explorer] script loaded');
 
 var STORAGE_KEY = 'explorer-filters';
+const graphPanel = () => document.getElementById('graph-panel');
+
+/**
+ * Close graph/related panel
+ */
+window.closeGraphPanel = function() {
+    const panel = graphPanel();
+    if (panel) {
+        panel.innerHTML = '';
+        panel.style.display = 'none';
+    }
+}
 
 /**
  * Delegate clicks for result Open buttons
  */
 document.addEventListener('click', function(event) {
     const button = event.target.closest('[data-open-file]');
-    if (!button) return;
-    event.preventDefault();
-    const filePath = button.dataset.openFile;
-    const lineNumber = parseInt(button.dataset.lineNumber || '1', 10);
-    openFile(filePath, lineNumber);
+    if (button) {
+        event.preventDefault();
+        const filePath = button.dataset.openFile;
+        const lineNumber = parseInt(button.dataset.lineNumber || '1', 10);
+        openFile(filePath, lineNumber);
+        return;
+    }
+
+    const relatedBtn = event.target.closest('[data-related-chunk]');
+    if (relatedBtn) {
+        event.preventDefault();
+        const chunkId = relatedBtn.dataset.relatedChunk;
+        window.loadRelated(chunkId);
+        return;
+    }
+});
+
+/**
+ * Load related chunks into the graph panel
+ */
+window.loadRelated = function(chunkId) {
+    if (!chunkId) return;
+    console.log('[Explorer] loadRelated', { chunkId });
+    fetch(`/api/context/related?chunkId=${encodeURIComponent(chunkId)}`)
+        .then(r => r.text())
+        .then(html => {
+            const panel = graphPanel();
+            if (panel) {
+                panel.innerHTML = html;
+                panel.style.display = 'block';
+                console.log('[Explorer] related loaded into panel');
+            }
+        })
+        .catch(err => {
+            console.error('Failed to load related chunks', err);
+            alert('Failed to load related chunks.');
+        });
+};
+
+// Show graph panel after HTMX loads related content
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    const target = evt.detail?.target;
+    if (!target || target.id !== 'graph-panel') return;
+    if (target.innerHTML && target.innerHTML.trim()) {
+        target.style.display = 'block';
+    }
 });
 
 /**
@@ -151,14 +204,14 @@ window.resetFilters = function() {
     document.getElementById('filter-paths').value = '';
     document.getElementById('filter-exclude').value = '';
     
-    // Reset languages (Kotlin and Java checked by default)
+    // Reset languages (all checked by default)
     document.querySelectorAll('input[name="languages"]').forEach(el => {
-        el.checked = ['kotlin', 'java'].includes(el.value);
+        el.checked = true;
     });
     
-    // Reset kinds (code kinds checked by default)
+    // Reset kinds (all checked by default)
     document.querySelectorAll('input[name="kinds"]').forEach(el => {
-        el.checked = el.value.startsWith('CODE_');
+        el.checked = true;
     });
     
     // Reset sliders
@@ -362,5 +415,7 @@ function setupQueryLoadingHandlers() {
 // Initialize loading handlers on load
 setQueryLoading(false);
 setupQueryLoadingHandlers();
+
+
 
 })(); // End IIFE

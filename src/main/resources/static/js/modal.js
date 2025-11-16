@@ -45,6 +45,19 @@ document.addEventListener('click', (event) => {
         return;
     }
 
+    // Handle related buttons (fallback path)
+    const relatedBtn = event.target.closest('[data-related-chunk]');
+    if (relatedBtn) {
+        event.preventDefault();
+        const chunkId = relatedBtn.dataset.relatedChunk;
+        if (typeof window.loadRelated === 'function') {
+            window.loadRelated(chunkId);
+        } else {
+            console.warn('window.loadRelated is not defined; cannot load related panel');
+        }
+        return;
+    }
+
     if (event.target.dataset.modalOpen) {
         console.log('Opening modal:', event.target.dataset.modalOpen);
         window.openModal(event.target.dataset.modalOpen);
