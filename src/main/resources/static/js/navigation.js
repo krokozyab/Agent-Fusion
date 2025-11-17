@@ -173,6 +173,31 @@
   }
 
   /**
+   * Show indicator for normal (non-HTMX) navigation
+   */
+  function handleNavClick(evt) {
+    const anchor = evt.target.closest ? evt.target.closest('a') : null;
+    if (!anchor) return;
+    const href = anchor.getAttribute('href');
+    if (!href || href.startsWith('#') || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+    const isExternal = anchor.host && anchor.host !== window.location.host;
+    if (isExternal) return;
+
+    evt.preventDefault();
+    document.body.classList.add('nav-loading', 'is-navigating');
+    document.querySelectorAll('.htmx-indicator').forEach(el => el.classList.add('htmx-request'));
+    // let paint occur, then navigate
+    window.setTimeout(() => {
+      window.location.href = href;
+    }, 30);
+  }
+
+  function clearNavIndicator() {
+    document.body.classList.remove('nav-loading', 'is-navigating');
+    document.querySelectorAll('.htmx-indicator').forEach(el => el.classList.remove('htmx-request'));
+  }
+
+  /**
    * Initialize on DOM ready
    */
   if (document.readyState === 'loading') {
@@ -180,11 +205,15 @@
       initNavigation();
       updateActiveNavigation();
       attachHtmxNavigationHandlers();
+      document.body.addEventListener('click', handleNavClick, true);
+      window.addEventListener('pageshow', clearNavIndicator);
     });
   } else {
     initNavigation();
     updateActiveNavigation();
     attachHtmxNavigationHandlers();
+    document.body.addEventListener('click', handleNavClick, true);
+    window.addEventListener('pageshow', clearNavIndicator);
   }
 
   // Expose toggle function globally for inline onclick handlers
