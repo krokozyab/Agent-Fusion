@@ -413,7 +413,7 @@ toml = 0.95            # Penalty for config files
 html = 0.93            # Penalty for HTML
 css = 0.93             # Penalty for CSS
 text = 0.5            # Penalty for plain text
-document = 0.2        # Penalty for documents (PDF, DOCX)
+document = 0.1        # Penalty for documents (PDF, DOCX)
 
 # ------------------------------------------------------------------------------
 # [context.budget] - Token budget management

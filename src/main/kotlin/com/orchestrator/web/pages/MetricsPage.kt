@@ -86,7 +86,7 @@ object MetricsPage {
 
                 // JavaScript
                 script(src = "/static/js/theme-toggle.js") {}
-                script(src = "/static/js/navigation.js") {}
+                script(src = "/static/js/navigation.js?v=20250116q") {}
                 script(src = "/static/js/sse-status.js") {}
             }
         }
