@@ -87,7 +87,7 @@ class SemanticContextProviderTest {
 
         coEvery { embedder.embed(query) } returns queryVector
         every { embedder.getModel() } returns "test-model"
-        every { searchEngine.search(any(), any(), any()) } returns searchResults
+        every { searchEngine.search(any(), any(), any(), any(), any()) } returns searchResults
         every { reranker.rerank(any(), any(), any()) } returns searchResults
 
         // Mock database operations for fetchFileMetadata
