@@ -192,7 +192,7 @@ data class BoostConfig(
         "php" to 1.00,
         "swift" to 1.00,
         "scala" to 1.00,
-        "markdown" to 0.98,
+        "markdown" to 1.00,
         "json" to 0.95,
         "yaml" to 0.95,
         "xml" to 0.95,

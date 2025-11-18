@@ -60,12 +60,12 @@ class FileIndexerTest {
     fun `indexFile stores file state`() {
         val file = projectRoot.resolve("test.kt")
         Files.writeString(file, "fun main() {}")
-        
+
         indexer.indexFile(file)
-        
-        val fileState = FileStateRepository.findByPath("test.kt")
+
+        val fileState = FileStateRepository.findByPath(file.toAbsolutePath().toString())
         assertNotNull(fileState)
-        assertEquals("test.kt", fileState.relativePath)
+        assertEquals(file.toAbsolutePath().toString(), fileState.relativePath)
         assertEquals("kotlin", fileState.language)
         assertFalse(fileState.isDeleted)
     }
@@ -74,12 +74,12 @@ class FileIndexerTest {
     fun `indexFile stores chunks`() {
         val file = projectRoot.resolve("test.kt")
         Files.writeString(file, "fun main() { println(\"test\") }")
-        
+
         indexer.indexFile(file)
-        
-        val fileState = FileStateRepository.findByPath("test.kt")
+
+        val fileState = FileStateRepository.findByPath(file.toAbsolutePath().toString())
         assertNotNull(fileState)
-        
+
         val chunks = ChunkRepository.findByFileId(fileState.id)
         assertTrue(chunks.isNotEmpty())
         assertTrue(chunks.all { it.fileId == fileState.id })
@@ -90,15 +90,15 @@ class FileIndexerTest {
     fun `indexFile stores embeddings`() {
         val file = projectRoot.resolve("test.kt")
         Files.writeString(file, "fun main() {}")
-        
+
         indexer.indexFile(file)
-        
-        val fileState = FileStateRepository.findByPath("test.kt")
+
+        val fileState = FileStateRepository.findByPath(file.toAbsolutePath().toString())
         assertNotNull(fileState)
-        
+
         val chunks = ChunkRepository.findByFileId(fileState.id)
         assertTrue(chunks.isNotEmpty())
-        
+
         val embeddings = EmbeddingRepository.findByChunkIds(
             chunks.map { it.id },
             "test-model"
@@ -142,22 +142,22 @@ class FileIndexerTest {
     fun `indexFile updates existing file`() {
         val file = projectRoot.resolve("test.kt")
         Files.writeString(file, "fun main() {}")
-        
+
         val result1 = indexer.indexFile(file)
-        val fileState1 = FileStateRepository.findByPath("test.kt")
+        val fileState1 = FileStateRepository.findByPath(file.toAbsolutePath().toString())
         assertNotNull(fileState1)
         val chunks1 = ChunkRepository.findByFileId(fileState1.id)
-        
+
         Files.writeString(file, "fun main() { println(\"updated\") }")
         Thread.sleep(10)
-        
+
         val result2 = indexer.indexFile(file)
-        val fileState2 = FileStateRepository.findByPath("test.kt")
+        val fileState2 = FileStateRepository.findByPath(file.toAbsolutePath().toString())
         assertNotNull(fileState2)
-        
+
         assertEquals(fileState1.id, fileState2.id)
         assertTrue(fileState2.modifiedTimeNs >= fileState1.modifiedTimeNs)
-        
+
         val chunks2 = ChunkRepository.findByFileId(fileState2.id)
         assertTrue(chunks2.isNotEmpty())
     }

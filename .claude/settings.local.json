@@ -42,7 +42,11 @@
       "Bash(else echo \"Test file not yet created\")",
       "Bash(fi)",
       "Bash(while read file)",
-      "Bash(do echo \"Processing: $file\" sed -i '' 's/INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)/INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)/g' \"$file\" sed -i '' 's/VALUES (1, ''''src\\/Main.kt'''', ''''hash'''', 10, 1, ''''kotlin'''', ''''source'''', ''''fp'''', CURRENT_TIMESTAMP, FALSE)/VALUES (1, ''''src\\/Main.kt'''', ''''/project\\/src\\/Main.kt'''', ''''hash'''', 10, 1, ''''kotlin'''', ''''source'''', ''''fp'''', CURRENT_TIMESTAMP, FALSE)/g' \"$file\" done echo \"Done!\")"
+      "Bash(do echo \"Processing: $file\" sed -i '' 's/INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)/INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)/g' \"$file\" sed -i '' 's/VALUES (1, ''''src\\/Main.kt'''', ''''hash'''', 10, 1, ''''kotlin'''', ''''source'''', ''''fp'''', CURRENT_TIMESTAMP, FALSE)/VALUES (1, ''''src\\/Main.kt'''', ''''/project\\/src\\/Main.kt'''', ''''hash'''', 10, 1, ''''kotlin'''', ''''source'''', ''''fp'''', CURRENT_TIMESTAMP, FALSE)/g' \"$file\" done echo \"Done!\")",
+      "Bash(./gradlew clean compileTestKotlin:*)",
+      "Bash(timeout 180 ./gradlew test:*)",
+      "Bash(if [ -f /tmp/test_results_full.txt ])",
+      "Bash(then wc -l /tmp/test_results_full.txt)"
     ],
     "deny": [],
     "ask": []

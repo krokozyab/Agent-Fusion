@@ -92,7 +92,7 @@ class FileStateRepositoryTest {
         assertNull(FileStateRepository.findById(first.id))
         assertEquals(1, FileStateRepository.count())
 
-        FileStateRepository.deleteByPath(second.relativePath)
+        FileStateRepository.deleteByPath(second.absolutePath)
         assertNull(FileStateRepository.findByPath(second.relativePath))
         assertEquals(0, FileStateRepository.count())
     }
