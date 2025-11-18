@@ -104,6 +104,7 @@ class SemanticContextProviderTest {
         every { mockPreparedStatement.executeQuery() } returns mockResultSet
         every { mockResultSet.next() } returns true
         every { mockResultSet.getString("rel_path") } returns "src/main.kt"
+        every { mockResultSet.getString("abs_path") } returns "/project/src/main.kt"
         every { mockResultSet.getString("language") } returns "kotlin"
 
         // When
@@ -113,7 +114,7 @@ class SemanticContextProviderTest {
         assertEquals(1, snippets.size)
         assertEquals(chunk.id, snippets[0].chunkId)
         assertEquals(0.9, snippets[0].score, 0.001)
-        assertEquals("src/main.kt", snippets[0].filePath)
+        assertEquals("/project/src/main.kt", snippets[0].filePath)
         assertEquals("kotlin", snippets[0].language)
         assertEquals(chunk.summary, snippets[0].label)
     }
