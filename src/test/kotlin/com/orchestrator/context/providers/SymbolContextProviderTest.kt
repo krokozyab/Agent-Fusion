@@ -253,11 +253,11 @@ class SymbolContextProviderTest {
         every { mockConnection.prepareStatement(any()) } returns mockPreparedStatement
         every { mockPreparedStatement.executeQuery() } returns mockResultSet
 
-        // Mock single result - using counter instead of removing from list
-        var callCount = 0
+        // Mock single result - return true once, then false
+        var nextCallCount = 0
         every { mockResultSet.next() } answers {
-            val result = callCount % 2 == 0
-            callCount++
+            val result = nextCallCount == 0
+            nextCallCount++
             result
         }
         every { mockResultSet.getLong("symbol_id") } returns 1L
@@ -290,22 +290,24 @@ class SymbolContextProviderTest {
         every { mockConnection.prepareStatement(any()) } returns mockPreparedStatement
         every { mockPreparedStatement.executeQuery() } returns mockResultSet
 
-        // Mock two results: first a function, then a class
-        val results = mutableListOf(true, true, false)
-        var callCount = 0
-        every { mockResultSet.next() } answers { results.removeFirstOrNull() ?: false }
-        every { mockResultSet.getLong("symbol_id") } answers { if (callCount++ % 2 == 0) 1L else 2L }
+        // Mock two rows: first a class, then a function
+        var currentRow = -1
+        every { mockResultSet.next() } answers {
+            currentRow++
+            currentRow < 2
+        }
+        every { mockResultSet.getLong("symbol_id") } answers { (currentRow + 1).toLong() }
         every { mockResultSet.getLong("file_id") } returns 1L
         every { mockResultSet.getLong("chunk_id") } returns 1L
         every { mockResultSet.wasNull() } returns false
         every { mockResultSet.getString("symbol_type") } answers {
-            if (callCount % 2 == 0) "FUNCTION" else "CLASS"
+            if (currentRow == 0) "CLASS" else "FUNCTION"
         }
         every { mockResultSet.getString("name") } returns "UserService"
         every { mockResultSet.getString("qualified_name") } returns "com.example.UserService"
         every { mockResultSet.getInt("start_line") } returns 10
         every { mockResultSet.getInt("end_line") } returns 50
-        every { mockResultSet.getString("signature") } returns "function/class UserService"
+        every { mockResultSet.getString("signature") } returns "class/function UserService"
         every { mockResultSet.getString("language") } returns "kotlin"
         every { mockResultSet.getString("rel_path") } returns "src/UserService.kt"
         every { mockResultSet.getString("abs_path") } returns "/project/src/UserService.kt"
@@ -314,6 +316,7 @@ class SymbolContextProviderTest {
 
         every { ContextDatabase.withConnection(any<(Connection) -> Any>()) } answers {
             val block = firstArg<(Connection) -> Any>()
+            currentRow = -1  // Reset row counter for new query
             block.invoke(mockConnection)
         }
     }
@@ -327,10 +330,12 @@ class SymbolContextProviderTest {
         every { mockPreparedStatement.executeQuery() } returns mockResultSet
 
         // Mock 5 results with different token counts
-        val results = MutableList(6) { it < 5 }
-        var id = 1L
-        every { mockResultSet.next() } answers { results.removeFirstOrNull() ?: false }
-        every { mockResultSet.getLong("symbol_id") } answers { id++ }
+        var currentRow = -1
+        every { mockResultSet.next() } answers {
+            currentRow++
+            currentRow < 5
+        }
+        every { mockResultSet.getLong("symbol_id") } answers { (currentRow + 1).toLong() }
         every { mockResultSet.getLong("file_id") } returns 1L
         every { mockResultSet.getLong("chunk_id") } returns 1L
         every { mockResultSet.wasNull() } returns false
@@ -348,6 +353,7 @@ class SymbolContextProviderTest {
 
         every { ContextDatabase.withConnection(any<(Connection) -> Any>()) } answers {
             val block = firstArg<(Connection) -> Any>()
+            currentRow = -1  // Reset row counter for new query
             block.invoke(mockConnection)
         }
     }
