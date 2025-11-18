@@ -46,7 +46,8 @@
       "Bash(./gradlew clean compileTestKotlin:*)",
       "Bash(timeout 180 ./gradlew test:*)",
       "Bash(if [ -f /tmp/test_results_full.txt ])",
-      "Bash(then wc -l /tmp/test_results_full.txt)"
+      "Bash(then wc -l /tmp/test_results_full.txt)",
+      "Bash(./gradlew clean)"
     ],
     "deny": [],
     "ask": []

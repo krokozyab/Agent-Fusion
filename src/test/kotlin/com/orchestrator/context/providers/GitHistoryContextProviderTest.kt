@@ -137,16 +137,17 @@ class GitHistoryContextProviderTest {
         // Add to database
         ContextDatabase.transaction { conn ->
             conn.prepareStatement(
-                "INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ).use { ps ->
                 ps.setLong(1, 2)
                 ps.setString(2, "OtherFile.kt")
-                ps.setString(3, "hash456")
-                ps.setLong(4, 50)
-                ps.setLong(5, System.currentTimeMillis() * 1000000)
-                ps.setString(6, "kotlin")
-                ps.setString(7, "CODE")
-                ps.setBoolean(8, false)
+                ps.setString(3, tempDir.resolve("OtherFile.kt").toString())
+                ps.setString(4, "hash456")
+                ps.setLong(5, 50)
+                ps.setLong(6, System.currentTimeMillis() * 1000000)
+                ps.setString(7, "kotlin")
+                ps.setString(8, "CODE")
+                ps.setBoolean(9, false)
                 ps.executeUpdate()
             }
 
@@ -173,7 +174,7 @@ class GitHistoryContextProviderTest {
         }
 
         assertTrue(result.isNotEmpty(), "Should find history for scope paths")
-        assertTrue(result.any { it.filePath == "OtherFile.kt" }, "Should include OtherFile.kt")
+        assertTrue(result.any { it.filePath == otherFile.toString() }, "Should include OtherFile.kt")
     }
 
     @Test
@@ -215,16 +216,17 @@ class GitHistoryContextProviderTest {
         // Add related file to database
         ContextDatabase.transaction { conn ->
             conn.prepareStatement(
-                "INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ).use { ps ->
                 ps.setLong(1, 3)
                 ps.setString(2, "RelatedFile.kt")
-                ps.setString(3, "hash789")
-                ps.setLong(4, 50)
-                ps.setLong(5, System.currentTimeMillis() * 1000000)
-                ps.setString(6, "kotlin")
-                ps.setString(7, "CODE")
-                ps.setBoolean(8, false)
+                ps.setString(3, tempDir.resolve("RelatedFile.kt").toString())
+                ps.setString(4, "hash789")
+                ps.setLong(5, 50)
+                ps.setLong(6, System.currentTimeMillis() * 1000000)
+                ps.setString(7, "kotlin")
+                ps.setString(8, "CODE")
+                ps.setBoolean(9, false)
                 ps.executeUpdate()
             }
 
@@ -360,7 +362,7 @@ class GitHistoryContextProviderTest {
         // Verify ContextSnippet structure
         assertTrue(snippet.chunkId > 0, "Should have valid chunk ID")
         assertTrue(snippet.score in 0.0..1.0, "Score should be between 0 and 1")
-        assertEquals("TestFile.kt", snippet.filePath, "Should have correct file path")
+        assertEquals(testFile.toString(), snippet.filePath, "Should have correct file path")
         assertNotNull(snippet.label, "Should have label")
         assertNotNull(snippet.text, "Should have text content")
         assertEquals("kotlin", snippet.language, "Should have language")
