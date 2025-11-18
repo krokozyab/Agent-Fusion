@@ -53,7 +53,7 @@ class VectorSearchEngineTest {
         val results = engine.search(query, k = 2)
 
         assertEquals(2, results.size)
-        assertEquals("src/Main.kt", results[0].path)
+        assertEquals(tempDir.resolve("src/Main.kt").normalize().toString(), results[0].path)
         assertTrue(results[0].score >= results[1].score)
     }
 
@@ -73,7 +73,7 @@ class VectorSearchEngineTest {
         val results = engine.search(floatArrayOf(1f, 0f), k = 5, filters = filters)
 
         assertEquals(1, results.size)
-        assertEquals("src/service.py", results.single().path)
+        assertEquals(tempDir.resolve("src/service.py").normalize().toString(), results.single().path)
         assertEquals(ChunkKind.CODE_FUNCTION, results.single().chunk.kind)
     }
 
@@ -86,12 +86,12 @@ class VectorSearchEngineTest {
         // Dimension mismatch embedding should be ignored
         insertEmbedding(other, floatArrayOf(1f, 0f).let { VectorOps.normalize(it) }, dimensionsOverride = 2)
 
-        val filters = VectorSearchEngine.Filters(paths = setOf("lib/Target.kt"))
+        val filters = VectorSearchEngine.Filters(paths = setOf(tempDir.resolve("lib/Target.kt").normalize().toString()))
 
         val results = engine.search(floatArrayOf(0f, 1f, 0f), k = 3, filters = filters)
 
         assertEquals(1, results.size)
-        assertEquals("lib/Target.kt", results.single().path)
+        assertEquals(tempDir.resolve("lib/Target.kt").normalize().toString(), results.single().path)
     }
 
     private fun insertChunk(

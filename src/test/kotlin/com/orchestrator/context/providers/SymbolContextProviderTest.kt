@@ -272,6 +272,7 @@ class SymbolContextProviderTest {
         every { mockResultSet.getString("signature") } returns "class UserService"
         every { mockResultSet.getString("language") } returns "kotlin"
         every { mockResultSet.getString("rel_path") } returns "src/UserService.kt"
+        every { mockResultSet.getString("abs_path") } returns "/project/src/UserService.kt"
         every { mockResultSet.getString("content") } returns "class UserService { }"
         every { mockResultSet.getInt("token_count") } returns 50
 
@@ -307,6 +308,7 @@ class SymbolContextProviderTest {
         every { mockResultSet.getString("signature") } returns "function/class UserService"
         every { mockResultSet.getString("language") } returns "kotlin"
         every { mockResultSet.getString("rel_path") } returns "src/UserService.kt"
+        every { mockResultSet.getString("abs_path") } returns "/project/src/UserService.kt"
         every { mockResultSet.getString("content") } returns "code content"
         every { mockResultSet.getInt("token_count") } returns 50
 
@@ -340,6 +342,7 @@ class SymbolContextProviderTest {
         every { mockResultSet.getString("signature") } returns "class Symbol"
         every { mockResultSet.getString("language") } returns "kotlin"
         every { mockResultSet.getString("rel_path") } returns "src/Symbol.kt"
+        every { mockResultSet.getString("abs_path") } returns "/project/src/Symbol.kt"
         every { mockResultSet.getString("content") } returns "x".repeat(200) // 50 tokens each
         every { mockResultSet.getInt("token_count") } returns 50
 

@@ -213,7 +213,7 @@ class IncrementalIndexerTest {
                 }
             }
         }
-        val directDeleteResult = runCatching { ContextRepository.deleteFileArtifacts("src/Deleted.kt") }
+        val directDeleteResult = runCatching { ContextRepository.deleteFileArtifacts(projectRoot.resolve("src/Deleted.kt").toString()) }
         println("directDeleteResult=$directDeleteResult")
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->

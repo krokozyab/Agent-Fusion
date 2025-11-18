@@ -286,6 +286,7 @@ class FullTextContextProviderTest {
         every { mockResultSet.getString("content") } returns "class UserService { fun authenticate(user: User) { } }"
         every { mockResultSet.getString("summary") } returns "User authentication service"
         every { mockResultSet.getString("rel_path") } returns "src/UserService.kt"
+        every { mockResultSet.getString("abs_path") } returns "/project/src/UserService.kt"
         every { mockResultSet.getString("language") } returns "kotlin"
 
         every { ContextDatabase.withConnection(any<(Connection) -> Any>()) } answers {
@@ -349,6 +350,9 @@ class FullTextContextProviderTest {
         }
         every { mockResultSet.getString("rel_path") } answers {
             "src/File${(resultIndex - 1).coerceAtLeast(0) + 1}.kt"
+        }
+        every { mockResultSet.getString("abs_path") } answers {
+            "/project/src/File${(resultIndex - 1).coerceAtLeast(0) + 1}.kt"
         }
         every { mockResultSet.getString("language") } returns "kotlin"
 
