@@ -267,11 +267,11 @@ class FullTextContextProviderTest {
         every { mockConnection.prepareStatement(any()) } returns mockPreparedStatement
         every { mockPreparedStatement.executeQuery() } returns mockResultSet
 
-        // Mock single result
-        var callCount = 0
+        // Mock single result - return true once, then false
+        var nextCallCount = 0
         every { mockResultSet.next() } answers {
-            val result = callCount % 2 == 0
-            callCount++
+            val result = nextCallCount == 0
+            nextCallCount++
             result
         }
 
@@ -291,6 +291,7 @@ class FullTextContextProviderTest {
 
         every { ContextDatabase.withConnection(any<(Connection) -> Any>()) } answers {
             val block = firstArg<(Connection) -> Any>()
+            nextCallCount = 0  // Reset for new query
             block.invoke(mockConnection)
         }
     }
@@ -325,13 +326,14 @@ class FullTextContextProviderTest {
             )
         )
 
-        var resultIndex = 0
+        var currentRow = -1
         every { mockResultSet.next() } answers {
-            resultIndex < results.size
+            currentRow++
+            currentRow < results.size
         }
 
-        every { mockResultSet.getLong("chunk_id") } answers { resultIndex.toLong() + 1 }
-        every { mockResultSet.getLong("file_id") } answers { resultIndex.toLong() + 1 }
+        every { mockResultSet.getLong("chunk_id") } answers { (currentRow + 1).toLong() }
+        every { mockResultSet.getLong("file_id") } answers { (currentRow + 1).toLong() }
         every { mockResultSet.getInt("ordinal") } returns 0
         every { mockResultSet.getString("kind") } returns "CODE_CLASS"
         every { mockResultSet.getInt("start_line") } returns 10
@@ -339,25 +341,26 @@ class FullTextContextProviderTest {
         every { mockResultSet.getInt("token_count") } returns 100
         every { mockResultSet.wasNull() } returns false
         every { mockResultSet.getString("content") } answers {
-            if (resultIndex < results.size) {
-                val result = results[resultIndex].first
-                resultIndex++
-                result
+            if (currentRow >= 0 && currentRow < results.size) {
+                results[currentRow].first
             } else ""
         }
         every { mockResultSet.getString("summary") } answers {
-            results.getOrNull((resultIndex - 1).coerceAtLeast(0))?.second ?: ""
+            if (currentRow >= 0 && currentRow < results.size) {
+                results[currentRow].second
+            } else ""
         }
         every { mockResultSet.getString("rel_path") } answers {
-            "src/File${(resultIndex - 1).coerceAtLeast(0) + 1}.kt"
+            "src/File${currentRow + 1}.kt"
         }
         every { mockResultSet.getString("abs_path") } answers {
-            "/project/src/File${(resultIndex - 1).coerceAtLeast(0) + 1}.kt"
+            "/project/src/File${currentRow + 1}.kt"
         }
         every { mockResultSet.getString("language") } returns "kotlin"
 
         every { ContextDatabase.withConnection(any<(Connection) -> Any>()) } answers {
             val block = firstArg<(Connection) -> Any>()
+            currentRow = -1  // Reset row counter for new query
             block.invoke(mockConnection)
         }
     }
