@@ -111,7 +111,7 @@ class RebuildContextToolTest {
         // First, add some test data
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
-                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, size_bytes, mtime_ns) VALUES (1, 'test.kt', 100, 1000000)")
+                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, abs_path, size_bytes, mtime_ns) VALUES (1, 'test.kt', '/tmp/test.kt', 100, 1000000)")
             }
         }
 
@@ -157,7 +157,7 @@ class RebuildContextToolTest {
         // First, add some test data
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
-                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, size_bytes, mtime_ns) VALUES (1, 'old.kt', 100, 1000000)")
+                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, abs_path, size_bytes, mtime_ns) VALUES (1, 'old.kt', '/tmp/old.kt', 100, 1000000)")
             }
         }
 
@@ -341,7 +341,7 @@ class RebuildContextToolTest {
         // Add test data to all tables
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
-                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, size_bytes, mtime_ns) VALUES (1, 'test.kt', 100, 1000000)")
+                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, abs_path, size_bytes, mtime_ns) VALUES (1, 'test.kt', '/tmp/test.kt', 100, 1000000)")
                 st.executeUpdate("INSERT INTO chunks (chunk_id, file_id, ordinal, kind, start_line, end_line, content, created_at) VALUES (1, 1, 0, 'function', 1, 10, 'test', CURRENT_TIMESTAMP)")
                 st.executeUpdate("INSERT INTO embeddings (embedding_id, chunk_id, model, dimensions, vector, created_at) VALUES (1, 1, 'test', 16, '[]', CURRENT_TIMESTAMP)")
                 st.executeUpdate("INSERT INTO symbols (symbol_id, file_id, symbol_type, name, created_at) VALUES (1, 1, 'function', 'test', CURRENT_TIMESTAMP)")

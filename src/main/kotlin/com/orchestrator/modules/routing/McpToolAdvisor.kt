@@ -18,6 +18,12 @@ class McpToolAdvisor {
      * @return A RoutingStrategy if a hard-coded rule applies, otherwise null.
      */
     fun advise(task: Task, directive: UserDirective): RoutingStrategy? {
+        // Rule: User explicitly requests consensus (forceConsensus has highest priority)
+        if (directive.forceConsensus && directive.forceConsensusConfidence > 0.8) {
+            println("[McpToolAdvisor] Rule Applied: User forced consensus. -> CONSENSUS")
+            return RoutingStrategy.CONSENSUS
+        }
+
         // Rule: "I want a specific agent to do this." -> assign_task -> SOLO
         // This is handled by the strongAssignment check in StrategyPicker, but we can make it more explicit.
         if (directive.assignToAgent != null && directive.assignmentConfidence > 0.8) {
@@ -26,20 +32,16 @@ class McpToolAdvisor {
         }
 
         // Rule: "This is complex, high-risk, or needs multiple opinions." -> create_consensus_task -> CONSENSUS
+        // NOTE: ARCHITECTURE and TESTING tasks use StrategyPicker to decide SEQUENTIAL/PARALLEL, so skip this rule for them
         val classification = TaskClassifier.classify(task.description ?: task.title)
-        if (classification.risk >= 7 || classification.complexity >= 7) {
+        if ((classification.risk >= 7 || classification.complexity >= 7) &&
+            task.type !in listOf(com.orchestrator.domain.TaskType.ARCHITECTURE, com.orchestrator.domain.TaskType.TESTING)) {
             // Exception: User explicitly prevents consensus for a high-risk task (e.g., emergency)
             if (directive.preventConsensus && directive.preventConsensusConfidence > 0.8) {
                  println("[McpToolAdvisor] Rule Applied: High-risk task but user forced solo. -> SOLO")
                  return RoutingStrategy.SOLO
             }
             println("[McpToolAdvisor] Rule Applied: Task is high-risk or complex. -> CONSENSUS")
-            return RoutingStrategy.CONSENSUS
-        }
-        
-        // Rule: User explicitly requests consensus
-        if (directive.forceConsensus && directive.forceConsensusConfidence > 0.8) {
-            println("[McpToolAdvisor] Rule Applied: User forced consensus. -> CONSENSUS")
             return RoutingStrategy.CONSENSUS
         }
 

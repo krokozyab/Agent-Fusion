@@ -34,7 +34,7 @@ object ResultsContainer {
                 <div class="card-body text-center py-5">
                     <div class="empty-icon mb-3">🔍</div>
                     <h5 class="text-muted">No results found</h5>
-                    <p class="text-muted mb-4">Try the following to get better results:</p>
+                    <p class="text-muted mb-4">Try adjusting your search query by following these tips:</p>
                     <ul class="list-unstyled text-start d-inline-block text-muted">
                         <li class="mb-2"><strong>Shorter queries:</strong> Use 2-5 keywords instead of full sentences</li>
                         <li class="mb-2"><strong>Specific terms:</strong> "JWT validation" is better than "authentication stuff"</li>

@@ -86,7 +86,7 @@ class IncrementalIndexerTest {
             unchangedFiles = emptyList(),
             scannedAt = Instant.parse("2025-01-01T00:00:00Z")
         )
-        every { changeDetector.detectChanges(any()) } returns changeSet
+        every { changeDetector.detectChanges(any(), any()) } returns changeSet
 
         val batchResult = BatchResult(
             successes = listOf(
@@ -246,7 +246,7 @@ class IncrementalIndexerTest {
             unchangedFiles = emptyList(),
             scannedAt = Instant.parse("2025-01-01T00:00:00Z")
         )
-        every { changeDetector.detectChanges(any()) } returns changeSet
+        every { changeDetector.detectChanges(any(), any()) } returns changeSet
         coEvery { batchIndexer.indexFilesAsync(any(), any(), any()) } returns BatchResult(
             successes = emptyList(),
             failures = emptyList(),

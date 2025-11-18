@@ -248,6 +248,7 @@ object ExplorerPage {
                     attributes["hx-post"] = "/api/context/query"
                     attributes["hx-target"] = "#results-container"
                     attributes["hx-swap"] = "innerHTML"
+                    attributes["hx-indicator"] = "#run-query-spinner"
                     attributes["hx-disabled-elt"] = "#run-query-btn"
                     attributes["onsubmit"] = "return submitSearch(event)"
 
@@ -269,7 +270,7 @@ object ExplorerPage {
                                 id = "run-query-label"
                                 +"▶ Run Query"
                             }
-                            span(classes = "spinner-border spinner-border-sm ms-1 d-none") {
+                            span(classes = "spinner-border spinner-border-sm ms-1 d-none htmx-indicator") {
                                 id = "run-query-spinner"
                                 attributes["role"] = "status"
                                 attributes["aria-hidden"] = "true"

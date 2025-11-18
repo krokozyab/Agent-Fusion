@@ -86,7 +86,7 @@ class FullTextContextProvider(
             }
         }
 
-        return snippets
+        return snippets.sortedByDescending { it.score }
     }
 
     private fun extractKeywords(query: String): List<String> {

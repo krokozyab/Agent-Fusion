@@ -162,7 +162,8 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    "."
+    "/Users/sergeyrudenko/projects/codex_to_claude/docs",
+    "/Users/sergeyrudenko/projects/codex_to_claude/src/main/kotlin/com/orchestrator/agents"
 ]
 
 # Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.

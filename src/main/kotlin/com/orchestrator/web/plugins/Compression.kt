@@ -11,6 +11,7 @@ import io.ktor.server.plugins.compression.matchContentType
 internal fun Application.configureCompression() {
     install(Compression) {
         gzip {
+            priority = 1.0
             matchContentType(ContentType.Text.Html)
             matchContentType(ContentType.Text.Plain)
             matchContentType(ContentType.Application.Json)
