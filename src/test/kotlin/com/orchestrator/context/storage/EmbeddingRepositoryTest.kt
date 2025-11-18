@@ -24,7 +24,7 @@ class EmbeddingRepositoryTest {
         // ensure chunk exists for FK
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
-                st.execute("INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted) VALUES (1, 'src/Main.kt', 'hash', 10, 1, 'kotlin', 'source', 'fp', CURRENT_TIMESTAMP, FALSE)")
+                st.execute("INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted) VALUES (1, 'src/Main.kt', '/project/src/Main.kt', 'hash', 10, 1, 'kotlin', 'source', 'fp', CURRENT_TIMESTAMP, FALSE)")
                 st.execute("INSERT INTO chunks (chunk_id, file_id, ordinal, kind, start_line, end_line, token_count, content, summary, created_at) VALUES (1, 1, 0, 'CODE_FUNCTION', 1, 10, 10, 'code', 'main', CURRENT_TIMESTAMP)")
             }
         }
