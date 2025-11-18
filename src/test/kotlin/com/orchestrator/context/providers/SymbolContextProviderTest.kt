@@ -110,7 +110,7 @@ class SymbolContextProviderTest {
 
         assertTrue(result.isNotEmpty())
         val snippet = result[0]
-        assertEquals("src/UserService.kt", snippet.filePath)
+        assertEquals("/project/src/UserService.kt", snippet.filePath)
         assertEquals("class UserService", snippet.label) // Signature takes precedence
         assertEquals(ChunkKind.CODE_CLASS, snippet.kind)
         assertEquals("kotlin", snippet.language)
@@ -175,7 +175,7 @@ class SymbolContextProviderTest {
 
         // Verify SQL includes scope filters
         verify { mockConnection.prepareStatement(match { sql ->
-            sql.contains("f.rel_path LIKE ?") && sql.contains("s.language IN")
+            sql.contains("f.abs_path LIKE ?") && sql.contains("s.language IN")
         }) }
     }
 

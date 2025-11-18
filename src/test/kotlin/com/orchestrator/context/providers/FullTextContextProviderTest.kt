@@ -94,7 +94,7 @@ class FullTextContextProviderTest {
 
         assertTrue(result.isNotEmpty())
         val snippet = result[0]
-        assertEquals("src/UserService.kt", snippet.filePath)
+        assertEquals("/project/src/UserService.kt", snippet.filePath)
         assertEquals(ChunkKind.CODE_CLASS, snippet.kind)
         assertEquals("kotlin", snippet.language)
         assertTrue(snippet.score > 0.0)
@@ -155,7 +155,7 @@ class FullTextContextProviderTest {
 
         // Verify SQL includes path filter
         verify { mockConnection.prepareStatement(match { sql ->
-            sql.contains("f.rel_path LIKE ?")
+            sql.contains("f.abs_path LIKE ?")
         }) }
     }
 
