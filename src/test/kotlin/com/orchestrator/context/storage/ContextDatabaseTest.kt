@@ -19,8 +19,8 @@ class ContextDatabaseTest {
             conn.createStatement().use { st ->
                 st.execute(
                     """
-                    INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)
-                    VALUES (1, 'src/Main.kt', 'hash', 10, 1, 'kotlin', 'source', 'fp', CURRENT_TIMESTAMP, FALSE)
+                    INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)
+                    VALUES (1, 'src/Main.kt', '/project/src/Main.kt', 'hash', 10, 1, 'kotlin', 'source', 'fp', CURRENT_TIMESTAMP, FALSE)
                     """.trimIndent()
                 )
                 st.execute(
@@ -55,8 +55,8 @@ class ContextDatabaseTest {
         ContextDatabase.transaction { conn ->
             conn.prepareStatement(
                 """
-                INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)
-                VALUES (10, 'src/File.kt', 'hash10', 100, 1, 'kotlin', 'source', 'fp', CURRENT_TIMESTAMP, FALSE)
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted)
+                VALUES (10, 'src/File.kt', '/project/src/File.kt', 'hash10', 100, 1, 'kotlin', 'source', 'fp', CURRENT_TIMESTAMP, FALSE)
                 """.trimIndent()
             ).use { it.executeUpdate() }
         }
