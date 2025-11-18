@@ -50,6 +50,11 @@ class PathValidator(
 
         val absolute = path.toAbsolutePath().normalize()
 
+        // Check if path is under watch roots
+        if (!isUnderWatchPaths(absolute, normalizedWatchRoots)) {
+            return invalid(Reason.OUTSIDE_WATCH_PATH, "Path is outside watch roots: $absolute")
+        }
+
         // Check ignore patterns for ALL paths (files and directories)
         if (isInIgnorePatterns(absolute)) {
             return invalid(Reason.IGNORED_BY_PATTERN, "Path matches ignore pattern: $absolute")
@@ -65,6 +70,14 @@ class PathValidator(
             return ValidationResult.Valid
         }
 
+        // Check if path is a symlink and validate it
+        if (Files.isSymbolicLink(absolute)) {
+            val symlinkValidation = evaluateSymlink(absolute)
+            if (symlinkValidation != null) {
+                return symlinkValidation
+            }
+        }
+
         if (!isAllowedExtension(absolute)) {
             return invalid(Reason.EXTENSION_NOT_ALLOWED, "File extension is not allowed: $absolute")
         }
@@ -72,6 +85,22 @@ class PathValidator(
         // Check skip patterns AFTER extension matching
         if (isSkippedByPattern(absolute)) {
             return invalid(Reason.SKIPPED_BY_PATTERN, "File matches skip pattern: $absolute")
+        }
+
+        // Check if file is binary
+        if (isBinary(absolute)) {
+            return invalid(Reason.BINARY_FILE, "File is binary: $absolute")
+        }
+
+        // Check file size limit
+        val sizeCheckResult = checkSizeLimit(absolute)
+        if (!sizeCheckResult.valid) {
+            return sizeCheckResult
+        }
+
+        // Check include paths if needed
+        if (!isInIncludePaths(absolute)) {
+            return invalid(Reason.NOT_IN_INCLUDE_PATHS, "Path is not in include paths: $absolute")
         }
 
         return ValidationResult.Valid
