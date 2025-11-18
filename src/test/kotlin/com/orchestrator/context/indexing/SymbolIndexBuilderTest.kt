@@ -61,8 +61,8 @@ class SymbolIndexBuilderTest {
         // Create file_state record first
         ContextDatabase.transaction { conn ->
             conn.prepareStatement("""
-                INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, is_deleted)
-                VALUES (1, 'Test.kt', 'hash', 100, 1, FALSE)
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted)
+                VALUES (1, 'Test.kt', '/test/Test.kt', 'hash', 100, 1, FALSE)
             """.trimIndent()).use { it.executeUpdate() }
         }
 
@@ -112,8 +112,8 @@ class SymbolIndexBuilderTest {
         // Create file_state record first
         ContextDatabase.transaction { conn ->
             conn.prepareStatement("""
-                INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, is_deleted)
-                VALUES (2, 'test.py', 'hash', 100, 1, FALSE)
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted)
+                VALUES (2, 'test.py', '/test/test.py', 'hash', 100, 1, FALSE)
             """.trimIndent()).use { it.executeUpdate() }
         }
 
@@ -167,8 +167,8 @@ class SymbolIndexBuilderTest {
         // Create file_state record first
         ContextDatabase.transaction { conn ->
             conn.prepareStatement("""
-                INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, is_deleted)
-                VALUES (3, 'test.ts', 'hash', 100, 1, FALSE)
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted)
+                VALUES (3, 'test.ts', '/test/test.ts', 'hash', 100, 1, FALSE)
             """.trimIndent()).use { it.executeUpdate() }
         }
 
@@ -208,8 +208,8 @@ class SymbolIndexBuilderTest {
         // Insert a file_state record first
         ContextDatabase.transaction { conn ->
             conn.prepareStatement("""
-                INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, is_deleted)
-                VALUES (100, 'Simple.kt', 'hash', 100, 1, FALSE)
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted)
+                VALUES (100, 'Simple.kt', '/test/Simple.kt', 'hash', 100, 1, FALSE)
             """.trimIndent()).use { it.executeUpdate() }
         }
 

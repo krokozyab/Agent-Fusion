@@ -273,6 +273,49 @@ object IndexStatusPage {
         }
     }
 
+    private fun FlowContent.neo4jMetricsSection(status: IndexStatusDTO) {
+        div(classes = "card mt-lg") {
+            h3(classes = "mt-0") { +"Neo4j Structure Index" }
+            
+            div(classes = "flex items-center gap-sm mb-md") {
+                span(classes = "text-muted") { +"Status:" }
+                with(StatusBadge) {
+                    badge(
+                        StatusBadge.Config(
+                            label = if (status.neo4jConnected) "Connected" else "Disconnected",
+                            tone = if (status.neo4jConnected) StatusBadge.Tone.SUCCESS else StatusBadge.Tone.DANGER,
+                            ariaLabel = "Neo4j connection status"
+                        )
+                    )
+                }
+            }
+
+            div(classes = "grid grid-cols-1 grid-cols-md-2 grid-cols-lg-4 gap-md") {
+                summaryCard(
+                    testId = "neo4j-classes",
+                    label = "Classes",
+                    value = formatNumber(status.totalClasses)
+                )
+                summaryCard(
+                    testId = "neo4j-methods",
+                    label = "Methods",
+                    value = formatNumber(status.totalMethods)
+                )
+                summaryCard(
+                    testId = "neo4j-sections",
+                    label = "Document Sections",
+                    value = formatNumber(status.totalSections)
+                )
+                summaryCard(
+                    testId = "neo4j-orphans",
+                    label = "Orphaned Chunks",
+                    value = formatNumber(status.orphanedChunks),
+                    tone = if (status.orphanedChunks > 0) StatTone.WARNING else StatTone.NEUTRAL
+                )
+            }
+        }
+    }
+
     private fun FlowContent.adminActions(actions: List<AdminAction>) {
         div(classes = "card") {
             h3(classes = "mt-0") { +"Admin Actions" }
@@ -484,6 +527,10 @@ object IndexStatusPage {
                     +"Δ ${formatSigned(delta)} files need reconciliation."
                 }
             }
+
+        if (config.status.neo4jEnabled) {
+            neo4jMetricsSection(config.status)
+        }
 
         // Two-column layout for Index Operations and Admin Actions
         div(classes = "grid grid-cols-2 gap-lg mt-xl") {

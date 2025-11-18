@@ -8,7 +8,13 @@ data class IndexStatusDTO(
     val lastRefresh: String?,
     val health: String,
     val files: List<FileStateDTO>,
-    val filesystem: FilesystemStatusDTO?
+    val filesystem: FilesystemStatusDTO?,
+    val neo4jEnabled: Boolean = false,
+    val neo4jConnected: Boolean = false,
+    val totalClasses: Int = 0,
+    val totalMethods: Int = 0,
+    val totalSections: Int = 0,
+    val orphanedChunks: Int = 0
 )
 
 data class FilesystemStatusDTO(

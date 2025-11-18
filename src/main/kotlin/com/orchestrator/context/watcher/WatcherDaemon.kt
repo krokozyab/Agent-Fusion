@@ -10,6 +10,8 @@ import com.orchestrator.context.discovery.PathValidator
 import com.orchestrator.context.discovery.SymlinkHandler
 import com.orchestrator.context.indexing.IncrementalIndexer
 import com.orchestrator.context.indexing.UpdateResult
+import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.neo4j.UnifiedSynchronousIndexer
 import com.orchestrator.utils.Logger
 import java.io.Closeable
 import java.nio.file.Path
@@ -37,12 +39,12 @@ class WatcherDaemon(
     private val watcherConfig: WatcherConfig,
     indexingConfig: IndexingConfig,
     private val incrementalIndexer: IncrementalIndexer,
+    private val contextConfig: ContextConfig,
+    private val unifiedIndexer: UnifiedSynchronousIndexer? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val batchWindowMillis: Long = DEFAULT_BATCH_WINDOW_MS,
     private val onUpdate: ((UpdateResult) -> Unit)? = null,
-    private val onError: ((Throwable) -> Unit)? = null,
-    private val fileWatcherFactory: (CoroutineScope, List<Path>, WatcherConfig, CoroutineDispatcher) -> FileWatcher =
-        { watchScope, roots, config, watchDispatcher -> FileWatcher(watchScope, roots, config, watchDispatcher) }
+    private val onError: ((Throwable) -> Unit)? = null
 ) : Closeable {
 
     private val log = Logger.logger("com.orchestrator.context.watcher.WatcherDaemon")
@@ -80,6 +82,7 @@ class WatcherDaemon(
     )
 
     private var fileWatcher: FileWatcher? = null
+    private var unifiedFileWatcher: UnifiedFileWatcher? = null
     private var watcherJob: Job? = null
     private var flushJob: Job? = null
     private var deletionSweepJob: Job? = null
@@ -146,7 +149,7 @@ class WatcherDaemon(
         }
 
         val watcher = runCatching {
-            fileWatcherFactory(scope, watchRoots, watcherConfig, dispatcher)
+            FileWatcher(scope, watchRoots, watcherConfig, dispatcher)
         }.getOrElse { throwable ->
             running.set(false)
             log.error("Failed to initialize file watcher: {}", throwable.message, throwable)
@@ -155,26 +158,16 @@ class WatcherDaemon(
         }
 
         fileWatcher = watcher
-        watcher.start()
-
-        watcherJob = scope.launch(dispatcher) {
-            try {
-                watcher.events.collect { event ->
-                    try {
-                        handleEvent(event)
-                    } catch (cancel: CancellationException) {
-                        throw cancel
-                    } catch (throwable: Throwable) {
-                        log.error("Failed handling watch event for {}: {}", event.path, throwable.message, throwable)
-                        onError?.invoke(throwable)
-                    }
-                }
-            } catch (cancelled: CancellationException) {
-                // Expected on shutdown.
-            } finally {
-                flushPendingImmediate()
-            }
-        }
+        
+        val unified = UnifiedFileWatcher.create(
+            scope = scope,
+            fileWatcher = watcher,
+            incrementalIndexer = incrementalIndexer,
+            unifiedIndexer = unifiedIndexer,
+            config = contextConfig
+        )
+        unifiedFileWatcher = unified
+        unified.start()
 
         if (deletionSweepIntervalMs > 0) {
             deletionSweepJob = scope.launch(dispatcher) {
@@ -346,7 +339,8 @@ class WatcherDaemon(
             }
         }
 
-        runCatching { fileWatcher?.close() }
+        runCatching { unifiedFileWatcher?.close() }
+        unifiedFileWatcher = null
         fileWatcher = null
         deletionSweepJob?.cancel()
         deletionSweepJob = null

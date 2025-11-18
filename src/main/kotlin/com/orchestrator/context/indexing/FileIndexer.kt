@@ -11,6 +11,11 @@ import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.Embedding
 import com.orchestrator.context.domain.FileState
 import com.orchestrator.context.embedding.Embedder
+import com.orchestrator.context.neo4j.ChunkToStructureAdapter
+import com.orchestrator.context.neo4j.CodeStructureIndexer
+import com.orchestrator.context.neo4j.DocumentStructureAdapter
+import com.orchestrator.context.neo4j.DocumentStructureIndexer
+import com.orchestrator.context.neo4j.Neo4jDriverInterface
 import com.orchestrator.utils.Logger
 import java.io.IOException
 import java.nio.charset.Charset
@@ -42,9 +47,10 @@ class FileIndexer(
     private val tokenEstimator: TokenEstimator = TokenEstimator,
     private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
     private val readCharset: Charset = StandardCharsets.UTF_8,
-    private val embeddingBatchSize: Int = 32,  // Reduced from 64 to match LocalEmbedder.maxBatchSize and reduce memory pressure
+    private val embeddingBatchSize: Int = 32,
     private val maxFileSizeMb: Int = 5,
-    private val warnFileSizeMb: Int = 2
+    private val warnFileSizeMb: Int = 2,
+    private val neo4jDriver: Neo4jDriverInterface? = null
 ) {
 
     init {
@@ -169,7 +175,16 @@ class FileIndexer(
                     symbolIndexBuilder.indexFile(absolutePath, persistedArtifacts.file.id, languageHint)
                 } catch (e: Exception) {
                     log.warn("Failed to index symbols for {}: {}", relativePath, e.message)
-                    // Don't fail the entire indexing operation if symbol extraction fails
+                }
+            }
+
+            // Index to Neo4j if enabled
+            neo4jDriver?.let { driver ->
+                try {
+                    coroutineContext.ensureActive()
+                    indexToNeo4j(absolutePath, rawChunks, content, extension, languageHint, driver)
+                } catch (e: Exception) {
+                    log.warn("Failed to index to Neo4j for {}: {}", relativePath, e.message)
                 }
             }
 
@@ -335,6 +350,34 @@ class FileIndexer(
         val normalized = absolutePath.toAbsolutePath().normalize()
         return allRoots.find { root ->
             normalized == root || normalized.startsWith(root)
+        }
+    }
+
+    private suspend fun indexToNeo4j(
+        path: Path,
+        chunks: List<Chunk>,
+        content: String,
+        extension: String,
+        language: String?,
+        driver: Neo4jDriverInterface
+    ) {
+        when {
+            language != null -> {
+                // Code file - extract structure from chunks
+                val codeStructure = ChunkToStructureAdapter.fromChunks(path, chunks, language)
+                if (codeStructure != null) {
+                    val indexer = CodeStructureIndexer(driver)
+                    indexer.indexCodeStructure(codeStructure)
+                }
+            }
+            extension in listOf("pdf", "docx", "doc", "md", "txt") -> {
+                // Document file - extract structure
+                val docStructure = DocumentStructureAdapter.extractStructure(path, content, extension)
+                if (docStructure != null) {
+                    val indexer = DocumentStructureIndexer(driver)
+                    indexer.indexDocumentStructure(docStructure)
+                }
+            }
         }
     }
 

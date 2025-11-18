@@ -39,6 +39,14 @@ dependencies {
     implementation("org.duckdb:duckdb_jdbc:1.4.2.0")
     implementation("com.zaxxer:HikariCP:5.1.0")
     
+    // Neo4j driver for graph database
+    implementation("org.neo4j.driver:neo4j-java-driver:5.15.0")
+    
+    // Neo4j embedded (in-process graph database)
+    implementation("org.neo4j:neo4j:5.15.0")
+    implementation("org.neo4j:neo4j-kernel:5.15.0")
+    implementation("org.neo4j:neo4j-bolt:5.15.0")
+    
     // Logging
     implementation("ch.qos.logback:logback-classic:1.4.11")
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
@@ -104,4 +112,5 @@ tasks.shadowJar {
     archiveBaseName.set("orchestrator")
     archiveClassifier.set("all")
     mergeServiceFiles()
+    isZip64 = true  // Enable zip64 for JAR files > 4GB or with > 65535 entries
 }

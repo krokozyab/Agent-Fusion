@@ -49,16 +49,17 @@ class GitHistoryContextProviderTest {
         ContextDatabase.transaction { conn ->
             // Insert file
             conn.prepareStatement(
-                "INSERT INTO file_state (file_id, rel_path, content_hash, size_bytes, mtime_ns, language, kind, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, is_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             ).use { ps ->
                 ps.setLong(1, 1)
                 ps.setString(2, "TestFile.kt")
-                ps.setString(3, "hash123")
-                ps.setLong(4, 100)
-                ps.setLong(5, System.currentTimeMillis() * 1000000)
-                ps.setString(6, "kotlin")
-                ps.setString(7, "CODE")
-                ps.setBoolean(8, false)
+                ps.setString(3, tempDir.resolve("TestFile.kt").toString())
+                ps.setString(4, "hash123")
+                ps.setLong(5, 100)
+                ps.setLong(6, System.currentTimeMillis() * 1000000)
+                ps.setString(7, "kotlin")
+                ps.setString(8, "CODE")
+                ps.setBoolean(9, false)
                 ps.executeUpdate()
             }
 

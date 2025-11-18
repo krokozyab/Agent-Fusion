@@ -10,6 +10,7 @@ data class ContextConfig(
     val fallbackEnabled: Boolean = true,
     val engine: EngineConfig = EngineConfig(),
     val storage: StorageConfig = StorageConfig(),
+    val neo4j: Neo4jConfig = Neo4jConfig(),
     val watcher: WatcherConfig = WatcherConfig(),
     val indexing: IndexingConfig = IndexingConfig(),
     val embedding: EmbeddingConfig = EmbeddingConfig(),
@@ -20,7 +21,9 @@ data class ContextConfig(
     val metrics: MetricsConfig = MetricsConfig(),
     val bootstrap: BootstrapConfig = BootstrapConfig(),
     val security: SecurityConfig = SecurityConfig(),
-    val ignore: IgnoreConfig = IgnoreConfig()
+    val ignore: IgnoreConfig = IgnoreConfig(),
+    val structuralWeight: Double = 0.0,
+    val useStructuredOutput: Boolean = false
 ) {
     /** Returns only the providers that are enabled. */
     val enabledProviders: Map<String, ProviderConfig>
@@ -38,6 +41,18 @@ data class EngineConfig(
 
 data class StorageConfig(
     val dbPath: String = "./context.duckdb"
+)
+
+data class Neo4jConfig(
+    val enabled: Boolean = false,
+    val mode: String = "embedded",  // "embedded" or "server"
+    val dataDir: String = "./data/neo4j",  // For embedded mode
+    val uri: String = "bolt://localhost:7687",  // For server mode
+    val username: String = "neo4j",
+    val password: String = "password",
+    val database: String = "neo4j",
+    val maxConnectionPoolSize: Int = 50,
+    val connectionTimeoutMs: Long = 30000
 )
 
 data class WatcherConfig(

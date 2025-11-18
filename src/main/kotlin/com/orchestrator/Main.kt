@@ -15,6 +15,7 @@ import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.FileIndexer
 import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.SemanticContextProvider
+import com.orchestrator.context.neo4j.Neo4jFactory
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
@@ -67,12 +68,24 @@ class Main {
             log.info("Initializing event bus...")
             val eventBus = EventBus.global
 
+            // Initialize Neo4j once if enabled (with graceful fallback if it fails)
+            var neo4jDriver: com.orchestrator.context.neo4j.Neo4jDriverInterface? = null
+            if (config.context.neo4j.enabled) {
+                runCatching {
+                    log.info("Initializing Neo4j...")
+                    neo4jDriver = Neo4jFactory.createDriver(config.context.neo4j)
+                    log.info("Neo4j initialized successfully")
+                }.onFailure { throwable ->
+                    log.warn("Failed to initialize Neo4j (continuing without it): {}", throwable.message)
+                }
+            }
+
             val filesystemSnapshotCalculator = FilesystemSnapshotCalculator(config.context)
 
             // Initialize and start file watcher
             if (config.context.watcher.enabled) {
                 log.info("Initializing file watcher...")
-                val watcher = initializeWatcher(config, eventBus, filesystemSnapshotCalculator)
+                val watcher = initializeWatcher(config, eventBus, filesystemSnapshotCalculator, neo4jDriver)
                 watcherDaemon = watcher
                 WatcherRegistry.register(watcher)
 
@@ -87,7 +100,7 @@ class Main {
                     val resolvedWatchRoots = resolveWatchRoots(projectRoot, config.context.watcher.watchPaths)
                     runCatching {
                         runBlocking {
-                            performStartupReconciliation(config, watcher, projectRoot, resolvedWatchRoots)
+                            performStartupReconciliation(config, watcher, projectRoot, resolvedWatchRoots, neo4jDriver)
                         }
                     }.onFailure { error ->
                         log.warn("Startup reconciliation failed: ${error.message}", error)
@@ -285,7 +298,8 @@ class Main {
         config: ConfigLoader.ApplicationConfig,
         watcher: WatcherDaemon,
         projectRoot: Path,
-        resolvedWatchRoots: List<Path>
+        resolvedWatchRoots: List<Path>,
+        neo4jDriver: com.orchestrator.context.neo4j.Neo4jDriverInterface? = null
     ) {
         // Create pathValidator for DirectoryScanner
         val pathValidator = createPathValidator(config, projectRoot, resolvedWatchRoots)
@@ -300,13 +314,15 @@ class Main {
         )
         // Inject embedder into SemanticContextProvider for ServiceLoader-discovered instances
         SemanticContextProvider.globalEmbedder = embedder
+
         val fileIndexer = FileIndexer(
             embedder = embedder,
             projectRoot = projectRoot,
             watchRoots = resolvedWatchRoots,
             embeddingBatchSize = config.context.embedding.batchSize,
             maxFileSizeMb = config.context.indexing.maxFileSizeMb,
-            warnFileSizeMb = config.context.indexing.warnFileSizeMb
+            warnFileSizeMb = config.context.indexing.warnFileSizeMb,
+            neo4jDriver = neo4jDriver
         )
         val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
         val batchIndexer = BatchIndexer(fileIndexer)
@@ -372,7 +388,8 @@ class Main {
     private fun initializeWatcher(
         config: ConfigLoader.ApplicationConfig,
         eventBus: EventBus,
-        snapshotCalculator: FilesystemSnapshotCalculator
+        snapshotCalculator: FilesystemSnapshotCalculator,
+        neo4jDriver: com.orchestrator.context.neo4j.Neo4jDriverInterface? = null
     ): WatcherDaemon {
         return try {
             val projectRoot = Paths.get("").toAbsolutePath()
@@ -389,13 +406,15 @@ class Main {
             )
             // Inject embedder into SemanticContextProvider for ServiceLoader-discovered instances
             SemanticContextProvider.globalEmbedder = embedder
+
             val fileIndexer = FileIndexer(
                 embedder = embedder,
                 projectRoot = projectRoot,
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.context.embedding.batchSize,
                 maxFileSizeMb = config.context.indexing.maxFileSizeMb,
-                warnFileSizeMb = config.context.indexing.warnFileSizeMb
+                warnFileSizeMb = config.context.indexing.warnFileSizeMb,
+                neo4jDriver = neo4jDriver
             )
             val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
             val batchIndexer = BatchIndexer(fileIndexer)
@@ -407,6 +426,8 @@ class Main {
                 watcherConfig = config.context.watcher,
                 indexingConfig = config.context.indexing,
                 incrementalIndexer = incrementalIndexer,
+                contextConfig = config.context,
+                unifiedIndexer = null,
                 onUpdate = onUpdate@{ result ->
                     log.info(
                         "File watcher indexed: new=${result.newCount}, modified=${result.modifiedCount}, " +

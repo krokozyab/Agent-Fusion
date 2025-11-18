@@ -53,7 +53,8 @@ object ContextConfigLoader {
                 mode = parseMode(contextTable.getString("mode"), defaults.mode),
                 fallbackEnabled = contextTable.getBoolean("fallback_enabled") ?: defaults.fallbackEnabled,
                 engine = parseEngine(contextTable.getTable("engine"), env),
-                storage = parseStorage(contextTable.getTable("storage"), env),
+                storage = parseStorage(contextTable.getTable("storage"), env, baseDir),
+                neo4j = parseNeo4j(contextTable.getTable("neo4j"), env, baseDir),
                 watcher = parseWatcher(contextTable.getTable("watcher"), env),
                 indexing = parseIndexing(contextTable.getTable("indexing"), env),
                 embedding = parseEmbedding(contextTable.getTable("embedding"), env),
@@ -91,11 +92,39 @@ object ContextConfigLoader {
         )
     }
 
-    private fun parseStorage(table: Toml?, env: Map<String, String>): StorageConfig {
+    private fun parseStorage(table: Toml?, env: Map<String, String>, baseDir: Path): StorageConfig {
         val defaults = StorageConfig()
         if (table == null) return defaults
+        val dbPath = table.getString("db_path")?.expandEnv(env) ?: defaults.dbPath
+        val absolutePath = if (Paths.get(dbPath).isAbsolute) {
+            dbPath
+        } else {
+            baseDir.resolve(dbPath).normalize().toString()
+        }
         return StorageConfig(
-            dbPath = table.getString("db_path")?.expandEnv(env) ?: defaults.dbPath
+            dbPath = absolutePath
+        )
+    }
+
+    private fun parseNeo4j(table: Toml?, env: Map<String, String>, baseDir: Path): Neo4jConfig {
+        val defaults = Neo4jConfig()
+        if (table == null) return defaults
+        val dataDir = table.getString("data_dir")?.expandEnv(env) ?: defaults.dataDir
+        val absoluteDataDir = if (Paths.get(dataDir).isAbsolute) {
+            dataDir
+        } else {
+            baseDir.resolve(dataDir).normalize().toString()
+        }
+        return Neo4jConfig(
+            enabled = table.getBoolean("enabled") ?: defaults.enabled,
+            mode = table.getString("mode")?.expandEnv(env) ?: defaults.mode,
+            dataDir = absoluteDataDir,
+            uri = table.getString("uri")?.expandEnv(env) ?: defaults.uri,
+            username = table.getString("username")?.expandEnv(env) ?: defaults.username,
+            password = table.getString("password")?.expandEnv(env) ?: defaults.password,
+            database = table.getString("database")?.expandEnv(env) ?: defaults.database,
+            maxConnectionPoolSize = table.getLong("max_connection_pool_size")?.toInt() ?: defaults.maxConnectionPoolSize,
+            connectionTimeoutMs = table.getLong("connection_timeout_ms") ?: defaults.connectionTimeoutMs
         )
     }
 

@@ -39,6 +39,7 @@ class WatcherDaemonTest {
         val incrementalIndexer = mockk<IncrementalIndexer>()
         coEvery { incrementalIndexer.updateAsync(any(), any(), any()) } returns updateResult
 
+        val contextConfig = mockk<com.orchestrator.context.config.ContextConfig>(relaxed = true)
         val daemon = WatcherDaemon(
             scope = this,
             projectRoot = tempDir,
@@ -51,9 +52,9 @@ class WatcherDaemonTest {
             ),
             indexingConfig = IndexingConfig(),
             incrementalIndexer = incrementalIndexer,
+            contextConfig = contextConfig,
             dispatcher = dispatcher,
-            batchWindowMillis = 100,
-            fileWatcherFactory = { _, _, _, _ -> fileWatcher }
+            batchWindowMillis = 100
         )
 
         daemon.start()
@@ -96,6 +97,7 @@ class WatcherDaemonTest {
         val incrementalIndexer = mockk<IncrementalIndexer>()
         coEvery { incrementalIndexer.updateAsync(any(), any(), any()) } returns updateResult
 
+        val contextConfig = mockk<com.orchestrator.context.config.ContextConfig>(relaxed = true)
         val daemon = WatcherDaemon(
             scope = this,
             projectRoot = tempDir,
@@ -108,9 +110,9 @@ class WatcherDaemonTest {
             ),
             indexingConfig = IndexingConfig(allowedExtensions = listOf(".kt")),
             incrementalIndexer = incrementalIndexer,
+            contextConfig = contextConfig,
             dispatcher = dispatcher,
-            batchWindowMillis = 100,
-            fileWatcherFactory = { _, _, _, _ -> fileWatcher }
+            batchWindowMillis = 100
         )
 
         daemon.start()
@@ -148,6 +150,7 @@ class WatcherDaemonTest {
         val incrementalIndexer = mockk<IncrementalIndexer>()
         coEvery { incrementalIndexer.updateAsync(any(), any(), any()) } returns updateResult
 
+        val contextConfig = mockk<com.orchestrator.context.config.ContextConfig>(relaxed = true)
         val daemon = WatcherDaemon(
             scope = this,
             projectRoot = tempDir,
@@ -160,9 +163,9 @@ class WatcherDaemonTest {
             ),
             indexingConfig = IndexingConfig(),
             incrementalIndexer = incrementalIndexer,
+            contextConfig = contextConfig,
             dispatcher = dispatcher,
-            batchWindowMillis = 1_000,
-            fileWatcherFactory = { _, _, _, _ -> fileWatcher }
+            batchWindowMillis = 1_000
         )
 
         daemon.start()

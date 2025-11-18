@@ -77,7 +77,8 @@ class QueryContextTool(
         val languages: List<String>? = null,
         val kinds: List<String>? = null,
         val excludePatterns: List<String>? = null,
-        val providers: List<String>? = null
+        val providers: List<String>? = null,
+        val format: String? = null
     )
 
     data class SnippetHit(
@@ -493,7 +494,8 @@ class QueryContextTool(
             "languages": {"type": ["array", "null"], "items": {"type": "string"}},
             "kinds": {"type": ["array", "null"], "items": {"type": "string"}},
             "excludePatterns": {"type": ["array", "null"], "items": {"type": "string"}},
-            "providers": {"type": ["array", "null"], "items": {"type": "string"}}
+            "providers": {"type": ["array", "null"], "items": {"type": "string"}},
+            "format": {"type": ["string", "null"], "enum": ["json", "markdown"]}
           },
           "additionalProperties": false
         }

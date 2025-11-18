@@ -56,6 +56,17 @@ allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
 # Enable or disable the entire context subsystem
 enabled = true
 
+# Structural weight for hybrid scoring (0.0 = DuckDB only, 0.15 = 15% Neo4j influence)
+# Phase 1: 0.0 (DuckDB RFR only)
+# Phase 2: 0.05 (5% Neo4j structural score)
+# Phase 3: 0.15 (15% Neo4j structural score)
+structural_weight = 0.0
+
+# Use structured output format (hierarchical markdown vs flat JSON)
+# false = JSON output (Phase 1-2, backward compatible)
+# true = Hierarchical markdown (Phase 3, enhanced UX)
+use_structured_output = false
+
 # ------------------------------------------------------------------------------
 # [context.engine] - Context system engine configuration
 # Configuration for the file indexing and semantic search engine.
@@ -75,6 +86,52 @@ retry_attempts = 3
 
 [context.storage]
 db_path = "./context.duckdb" # conext database file
+
+# ------------------------------------------------------------------------------
+# [context.neo4j] - Neo4j graph database configuration
+# ------------------------------------------------------------------------------
+# Neo4j stores code structure (classes, methods, functions) and document
+# structure (sections, paragraphs) for relationship-aware search.
+# DuckDB continues to handle semantic embeddings and full-text search.
+# Default: disabled (enable after Neo4j setup)
+# ------------------------------------------------------------------------------
+
+[context.neo4j]
+# Enable Neo4j integration
+# Default: false (disabled by default)
+enabled = true
+
+# Neo4j mode: "embedded" (automatic, in-process) or "server" (external Neo4j server)
+# Default: "embedded" (zero setup, runs inside JAR
+# Use "server" for production deployments with separate Neo4j instance
+mode = "embedded"
+
+# Data directory for embedded mode
+# Default: "./data/neo4j" (created automatically)
+data_dir = "./data/neo4j"
+
+# Neo4j connection URI (for server mode only)
+# Default: "bolt://localhost:7687" (standard Neo4j bolt protocol)
+uri = "bolt://localhost:7687"
+
+# Neo4j authentication (for server mode only)
+# Default username: "neo4j", default password: "password"
+# IMPORTANT: Change password in production!
+username = "neo4j"
+password = "password"
+
+# Neo4j database name
+# Default: "neo4j" (default database)
+database = "neo4j"
+
+# Connection pool settings (for server mode only)
+# max_connection_pool_size: Maximum concurrent connections
+# Default: 50
+max_connection_pool_size = 50
+
+# connection_timeout_ms: Connection timeout in milliseconds
+# Default: 30000 (30 seconds)
+connection_timeout_ms = 30000
 
 # ==============================================================================
 # [context.watcher] - File system watcher configuration
