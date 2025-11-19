@@ -1,23 +1,35 @@
 package com.orchestrator.context.neo4j
 
+import com.orchestrator.utils.Logger
 import org.neo4j.driver.Values
 
 class DocumentStructureIndexer(private val driver: Neo4jDriverInterface) {
+    private val log = Logger.logger("com.orchestrator.context.neo4j.DocumentStructureIndexer")
 
     fun indexDocumentStructure(structure: DocumentStructure) {
+        log.info("Indexing document structure: {} ({} sections)", structure.filePath, structure.sections.size)
+
         // Create or update Document node
-        driver.executeInTransaction(
-            """
-            MERGE (d:Document {path: ${'$'}path})
-            SET d.documentType = ${'$'}documentType, d.fileType = 'DOCUMENT'
-            """.trimIndent(),
-            mapOf("path" to structure.filePath, "documentType" to structure.documentType.name)
-        ) { _ -> Unit }
+        try {
+            driver.executeInTransaction(
+                """
+                MERGE (d:Document {path: ${'$'}path})
+                SET d.documentType = ${'$'}documentType, d.fileType = 'DOCUMENT'
+                """.trimIndent(),
+                mapOf("path" to structure.filePath, "documentType" to structure.documentType.name)
+            ) { _ -> Unit }
+            log.info("Created/updated Document node for: {}", structure.filePath)
+        } catch (e: Exception) {
+            log.error("Failed to create Document node for {}: {}", structure.filePath, e.message)
+            throw e
+        }
 
         // Create section nodes
         structure.sections.forEach { section ->
+            log.debug("Creating section node: title={}, paragraphs={}", section.title, section.paragraphs.size)
             createSectionNode(section, structure.filePath)
         }
+        log.info("Successfully indexed document structure: {}", structure.filePath)
     }
 
     fun linkChunkToSection(chunkId: Long, sectionId: String) {

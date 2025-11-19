@@ -770,7 +770,7 @@ class McpServerImpl(
 
     private fun registerTools(server: Server, sessionId: String) {
         tools().forEach { entry ->
-            log.info("[Session: $sessionId] Registering tool: ${entry.name}")
+            log.debug("[Session: $sessionId] Registering tool: ${entry.name}")
             val inputSchema = toolInputFromJsonSchema(entry.jsonSchema)
             server.addTool(
                 name = entry.name,

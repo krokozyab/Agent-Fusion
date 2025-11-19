@@ -4,19 +4,28 @@ import com.orchestrator.context.chunking.MarkdownChunker
 import com.orchestrator.context.chunking.PdfDocumentExtractor
 import com.orchestrator.context.chunking.WordDocumentExtractor
 import com.orchestrator.context.domain.ChunkKind
+import com.orchestrator.utils.Logger
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
 
 object DocumentStructureAdapter {
-    
+    private val log = Logger.logger("com.orchestrator.context.neo4j.DocumentStructureAdapter")
+
     fun extractStructure(filePath: Path, content: String, extension: String): DocumentStructure? {
-        return when {
+        log.info("Extracting document structure from: {} (extension: {})", filePath.fileName, extension)
+        val result = when {
             extension == "pdf" -> parseParagraphStructure(filePath, content, DocumentType.PDF)
             extension in setOf("doc", "docx") -> parseParagraphStructure(filePath, content, DocumentType.WORD)
             extension in setOf("md", "markdown", "txt") -> extractMarkdownStructure(filePath, content)
             else -> null
         }
+        if (result != null) {
+            log.info("Successfully extracted {} sections from {}", result.sections.size, filePath.fileName)
+        } else {
+            log.warn("Failed to extract structure from {} (extension not matched)", filePath.fileName)
+        }
+        return result
     }
     
     private fun extractMarkdownStructure(filePath: Path, text: String): DocumentStructure {

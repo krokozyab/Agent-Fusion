@@ -362,20 +362,21 @@ class FileIndexer(
         driver: Neo4jDriverInterface
     ) {
         when {
-            language != null -> {
-                // Code file - extract structure from chunks
-                val codeStructure = ChunkToStructureAdapter.fromChunks(path, chunks, language)
-                if (codeStructure != null) {
-                    val indexer = CodeStructureIndexer(driver)
-                    indexer.indexCodeStructure(codeStructure)
-                }
-            }
+            // Check document extensions FIRST (before language) to handle markdown/docs correctly
             extension in listOf("pdf", "docx", "doc", "md", "txt") -> {
                 // Document file - extract structure
                 val docStructure = DocumentStructureAdapter.extractStructure(path, content, extension)
                 if (docStructure != null) {
                     val indexer = DocumentStructureIndexer(driver)
                     indexer.indexDocumentStructure(docStructure)
+                }
+            }
+            language != null -> {
+                // Code file - extract structure from chunks
+                val codeStructure = ChunkToStructureAdapter.fromChunks(path, chunks, language)
+                if (codeStructure != null) {
+                    val indexer = CodeStructureIndexer(driver)
+                    indexer.indexCodeStructure(codeStructure)
                 }
             }
         }
