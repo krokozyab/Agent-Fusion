@@ -48,13 +48,21 @@ class SymbolIndexBuilder(
         val packageName = lines.firstNotNullOfOrNull { packageRegex.find(it)?.groupValues?.getOrNull(1) }
 
         val symbols = mutableListOf<SymbolRecord>()
-        val classStack = ArrayDeque<String>()
+        val classStack = ArrayDeque<Pair<String, Int>>() // name to indent level
         var lineNumber = 0
 
         for (line in lines) {
             lineNumber++
+            if (line.trim().isEmpty()) continue
+
+            val indent = line.indexOfFirst { !it.isWhitespace() }.let { if (it == -1) line.length else it }
+
+            // Track scope exit by indentation
+            while (classStack.isNotEmpty() && indent <= classStack.last().second) {
+                classStack.removeLastOrNull()
+            }
+
             val trimmed = line.trim()
-            if (trimmed.isEmpty()) continue
 
             importRegex.matchEntire(trimmed)?.let { match ->
                 val fqName = match.groupValues[1]
@@ -71,11 +79,12 @@ class SymbolIndexBuilder(
                 return@let
             }
 
+            // Match class/interface/enum/object (works with indentation now)
             classRegex.find(trimmed)?.let { match ->
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
-                classStack.addLast(name)
-                val qualified = listOfNotNull(packageName, name).joinToString(".")
+                classStack.addLast(name to indent)
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
                 symbols += symbol(
                     fileId = fileId,
                     type = when (kind) {
@@ -84,7 +93,7 @@ class SymbolIndexBuilder(
                         else -> SymbolType.CLASS
                     },
                     name = name,
-                    qualified = qualified.ifBlank { name },
+                    qualified = qualified,
                     signature = trimmed,
                     language = language,
                     startLine = lineNumber
@@ -94,7 +103,7 @@ class SymbolIndexBuilder(
 
             funRegex.find(trimmed)?.let { match ->
                 val name = match.groupValues[1]
-                val qualified = buildQualified(packageName, classStack, name)
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
                 symbols += symbol(
                     fileId = fileId,
                     type = SymbolType.FUNCTION,
@@ -109,7 +118,7 @@ class SymbolIndexBuilder(
 
             propertyRegex.find(trimmed)?.let { match ->
                 val name = match.groupValues[2]
-                val qualified = buildQualified(packageName, classStack, name)
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
                 val type = if (match.groupValues[1] == "val") SymbolType.PROPERTY else SymbolType.VARIABLE
                 symbols += symbol(
                     fileId = fileId,
@@ -123,10 +132,37 @@ class SymbolIndexBuilder(
                 return@let
             }
 
-            // Handle scope exit
-            if (trimmed.contains('}')) {
-                val closures = max(1, trimmed.count { it == '}' })
-                repeat(closures.coerceAtMost(classStack.size)) { classStack.removeLastOrNull() }
+            // Handle typealias
+            typeAliasRegex.find(trimmed)?.let { match ->
+                val name = match.groupValues[1]
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.CLASS, // Use CLASS for type aliases for now
+                    name = name,
+                    qualified = qualified,
+                    signature = trimmed,
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@let
+            }
+
+            // Handle extension functions
+            extensionFunctionRegex.find(trimmed)?.let { match ->
+                val receiverType = match.groupValues[1]
+                val name = match.groupValues[2]
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.FUNCTION,
+                    name = "$name (on $receiverType)",
+                    qualified = qualified,
+                    signature = trimmed,
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@let
             }
         }
 
@@ -137,13 +173,21 @@ class SymbolIndexBuilder(
         val lines = code.lines()
         val packageName = lines.firstNotNullOfOrNull { javaPackageRegex.find(it)?.groupValues?.getOrNull(1) }
         val symbols = mutableListOf<SymbolRecord>()
-        val classStack = ArrayDeque<String>()
+        val classStack = ArrayDeque<Pair<String, Int>>() // name to indent level
         var lineNumber = 0
 
         for (line in lines) {
             lineNumber++
+            if (line.trim().isEmpty()) continue
+
+            val indent = line.indexOfFirst { !it.isWhitespace() }.let { if (it == -1) line.length else it }
+
+            // Track scope exit by indentation
+            while (classStack.isNotEmpty() && indent <= classStack.last().second) {
+                classStack.removeLastOrNull()
+            }
+
             val trimmed = line.trim()
-            if (trimmed.isEmpty()) continue
 
             importRegex.matchEntire(trimmed)?.let { match ->
                 val fqName = match.groupValues[1]
@@ -161,11 +205,10 @@ class SymbolIndexBuilder(
             }
 
             javaClassRegex.matchEntire(trimmed)?.let { match ->
-                val modifier = match.groupValues[1]
-                val kind = match.groupValues[2]
-                val name = match.groupValues[3]
-                classStack.addLast(name)
-                val qualified = listOfNotNull(packageName, classStack.joinToString(".")).filter { it.isNotBlank() }.joinToString(".")
+                val kind = match.groupValues[1]
+                val name = match.groupValues[2]
+                classStack.addLast(name to indent)
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
                 val type = when (kind) {
                     "interface" -> SymbolType.INTERFACE
                     "enum" -> SymbolType.ENUM
@@ -183,9 +226,26 @@ class SymbolIndexBuilder(
                 return@let
             }
 
+            // Match constructors (ClassName followed by parenthesis)
+            javaConstructorRegex.matchEntire(trimmed)?.let { match ->
+                val name = match.groupValues[1]
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.FUNCTION,
+                    name = name,
+                    qualified = qualified,
+                    signature = trimmed,
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@let
+            }
+
+            // More permissive method regex - matches methods with or without modifiers
             javaMethodRegex.matchEntire(trimmed)?.let { match ->
                 val name = match.groupValues[2]
-                val qualified = buildQualified(packageName, classStack, name)
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
                 val type = if (classStack.isNotEmpty()) SymbolType.METHOD else SymbolType.FUNCTION
                 symbols += symbol(
                     fileId = fileId,
@@ -199,9 +259,10 @@ class SymbolIndexBuilder(
                 return@let
             }
 
+            // More permissive field regex - matches fields with or without modifiers
             javaFieldRegex.matchEntire(trimmed)?.let { match ->
                 val name = match.groupValues[2]
-                val qualified = buildQualified(packageName, classStack, name)
+                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
                 symbols += symbol(
                     fileId = fileId,
                     type = SymbolType.PROPERTY,
@@ -212,10 +273,6 @@ class SymbolIndexBuilder(
                     startLine = lineNumber
                 )
                 return@let
-            }
-
-            if (trimmed.contains('}')) {
-                repeat(trimmed.count { it == '}' }.coerceAtMost(classStack.size)) { classStack.removeLastOrNull() }
             }
         }
 
@@ -318,7 +375,7 @@ class SymbolIndexBuilder(
 
             tsImportRegex.matchEntire(line)?.let { match ->
                 val bindings = match.groupValues[1]
-                val module = match.groupValues[2].removeSurrounding("'", "'")
+                val module = match.groupValues[2].removeSurrounding("'", "'").removeSurrounding("\"", "\"")
                 bindings.split(',', ' ', '{', '}')
                     .map { it.trim() }
                     .filter { it.isNotBlank() && it != "from" && it != "as" }
@@ -389,6 +446,37 @@ class SymbolIndexBuilder(
                     language = language,
                     startLine = lineNumber
                 )
+                return@forEach
+            }
+
+            // Handle type definitions
+            tsTypeRegex.find(line)?.let { match ->
+                val name = match.groupValues[1]
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.CLASS, // Classify types as CLASS for now
+                    name = name,
+                    qualified = name,
+                    signature = line,
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@forEach
+            }
+
+            // Handle enums
+            tsEnumRegex.find(line)?.let { match ->
+                val name = match.groupValues[1]
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.ENUM,
+                    name = name,
+                    qualified = name,
+                    signature = line,
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@forEach
             }
         }
 
@@ -399,10 +487,11 @@ class SymbolIndexBuilder(
         val baseName = path.fileName.toString().substringBeforeLast('.')
         val simpleRegex = Regex("""\b([A-Za-z_][A-Za-z0-9_]{2,})\b""")
         val seen = LinkedHashSet<String>()
+        // Extract all symbols for unsupported languages - removed .take(20) limit
+        // This enables full symbol extraction for Go, Rust, C++, and other languages
         simpleRegex.findAll(code)
             .map { it.groupValues[1] }
             .filter { it != baseName }
-            .take(20)
             .forEach { seen += it }
 
         return seen.mapIndexed { idx, name ->
@@ -452,23 +541,31 @@ class SymbolIndexBuilder(
         private val packageRegex = Regex("""^\s*package\s+([A-Za-z0-9_.]+)""")
         private val javaPackageRegex = Regex("""^\s*package\s+([A-Za-z0-9_.]+)\s*;""")
         private val importRegex = Regex("""^import\s+([A-Za-z0-9_.*]+)""")
-        private val classRegex = Regex("""^(class|interface|enum|object)\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val funRegex = Regex("""^fun\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val propertyRegex = Regex("""^(val|var)\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val classRegex = Regex("""(class|interface|enum|object)\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val funRegex = Regex("""fun\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val propertyRegex = Regex("""(val|var)\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val typeAliasRegex = Regex("""typealias\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val extensionFunctionRegex = Regex("""fun\s+([A-Za-z0-9_.]+)\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)""")
 
-        private val javaClassRegex = Regex("""^(?:public|protected|private|final|abstract|\s)*\s*(class|interface|enum)\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val javaMethodRegex = Regex("""^(?:public|protected|private|static|final|abstract|\s)+([A-Za-z0-9_<>,\s\[\]]+)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(""")
-        private val javaFieldRegex = Regex("""^(?:public|protected|private|static|final|\s)+([A-Za-z0-9_<>,\s\[\]]+)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[=;]""")
+        // Java patterns - made more permissive to handle package-private members
+        private val javaClassRegex = Regex("""(?:public|protected|private|final|abstract|sealed|record|\s)*(class|interface|enum)\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        // Match methods with optional modifiers - allows package-private
+        private val javaMethodRegex = Regex("""(?:public|protected|private|static|final|abstract|synchronized|\s)*([A-Za-z0-9_<>,\s\[\]]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(""")
+        // Match fields with optional modifiers - allows package-private
+        private val javaFieldRegex = Regex("""(?:public|protected|private|static|final|transient|volatile|\s)*([A-Za-z0-9_<>,\s\[\]]+)\s+([A-Za-z_][A-Za-z0-9_]*)\s*[=;,]""")
+        private val javaConstructorRegex = Regex("""(?:public|protected|private|\s)*([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*(?:[A-Za-z0-9_<>.,\[\]\s]*)?\s*\)\s*(?:\{|throws)""")
 
         private val pythonImportRegex = Regex("""^import\s+([A-Za-z0-9_.]+)(?:\s+as\s+([A-Za-z0-9_]+))?$""")
         private val pythonFromImportRegex = Regex("""^from\s+([A-Za-z0-9_.]+)\s+import\s+([A-Za-z0-9_]+)""")
-        private val pythonClassRegex = Regex("""^class\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val pythonFunctionRegex = Regex("""^def\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val pythonClassRegex = Regex("""class\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val pythonFunctionRegex = Regex("""def\s+([A-Za-z_][A-Za-z0-9_]*)""")
 
         private val tsImportRegex = Regex("""^import\s+(.*)\s+from\s+(['"].+['"]);?""")
-        private val tsInterfaceRegex = Regex("""^(?:export\s+)?interface\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val tsClassRegex = Regex("""^(?:export\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val tsFunctionRegex = Regex("""^(?:export\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)""")
-        private val tsConstRegex = Regex("""^(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val tsInterfaceRegex = Regex("""(?:export\s+)?interface\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val tsClassRegex = Regex("""(?:export\s+)?class\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val tsFunctionRegex = Regex("""(?:export\s+)?function\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val tsConstRegex = Regex("""(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*)""")
+        private val tsTypeRegex = Regex("""(?:export\s+)?type\s+([A-Za-z_][A-Za-z0-9_]*)\s*=""")
+        private val tsEnumRegex = Regex("""(?:export\s+)?(?:const\s+)?enum\s+([A-Za-z_][A-Za-z0-9_]*)""")
     }
 }
