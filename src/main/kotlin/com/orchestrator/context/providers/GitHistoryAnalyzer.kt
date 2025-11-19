@@ -71,6 +71,22 @@ class GitHistoryAnalyzer(
     }
 
     /**
+     * Find repository root from current working directory (or return null if none).
+     */
+    fun findRepositoryRoot(): Path? {
+        val cwd = Path.of("").toAbsolutePath().normalize()
+        var currentPath: Path? = cwd
+        while (currentPath != null) {
+            val gitDir = currentPath.resolve(".git")
+            if (Files.exists(gitDir)) {
+                return currentPath
+            }
+            currentPath = currentPath.parent
+        }
+        return null
+    }
+
+    /**
      * Get recent commits affecting the given file path.
      *
      * @param path File path (relative or absolute)

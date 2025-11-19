@@ -47,29 +47,40 @@ class GitHistoryContextProvider(
 
         val candidates = mutableListOf<GitContextCandidate>()
 
-        // For each path, get git history and co-changed files
-        for (path in paths) {
-            // Get recent commits for this file
-            val commits = gitAnalyzer.getRecentCommits(path, limit = commitLimit)
-            if (commits.isNotEmpty()) {
-                // Add commit context
+        // If no paths resolved, fall back to repo-wide recent commits (last 30)
+        if (paths.isEmpty()) {
+            val repoRoot = gitAnalyzer.findRepositoryRoot()
+            if (repoRoot != null) {
+                val commits = gitAnalyzer.getRecentCommits(repoRoot, limit = 30)
                 commits.forEachIndexed { index, commit ->
+                    // Use score decay from commit position
                     val relevance = calculateCommitRelevance(index, commits.size)
-                    candidates += createCommitCandidate(path, commit, relevance)
+                    candidates += createRepoCommitCandidate(repoRoot, commit, relevance)
                 }
+            } else {
+                log.debug("No git repository found for repo-wide history")
+            }
+        } else {
+            // For each path, get git history and co-changed files
+            for (path in paths) {
+                val commits = gitAnalyzer.getRecentCommits(path, limit = commitLimit)
+                if (commits.isNotEmpty()) {
+                    commits.forEachIndexed { index, commit ->
+                        val relevance = calculateCommitRelevance(index, commits.size)
+                        candidates += createCommitCandidate(path, commit, relevance)
+                    }
 
-                // Get co-changed files
-                val coChangedFiles = gitAnalyzer.findCoChangedFiles(
-                    path = path,
-                    limit = commitLimit * 2,
-                    minCoOccurrence = 2
-                ).take(coChangeLimit)
+                    val coChangedFiles = gitAnalyzer.findCoChangedFiles(
+                        path = path,
+                        limit = commitLimit * 2,
+                        minCoOccurrence = 2
+                    ).take(coChangeLimit)
 
-                // Add co-changed file context
-                coChangedFiles.forEach { coChangedPath ->
-                    val recentCommit = gitAnalyzer.getRecentCommits(coChangedPath, limit = 1).firstOrNull()
-                    if (recentCommit != null) {
-                        candidates += createCoChangedCandidate(path, coChangedPath, recentCommit)
+                    coChangedFiles.forEach { coChangedPath ->
+                        val recentCommit = gitAnalyzer.getRecentCommits(coChangedPath, limit = 1).firstOrNull()
+                        if (recentCommit != null) {
+                            candidates += createCoChangedCandidate(path, coChangedPath, recentCommit)
+                        }
                     }
                 }
             }
@@ -234,6 +245,22 @@ class GitHistoryContextProvider(
         }
     }
 
+    private fun createRepoCommitCandidate(repoRoot: Path, commit: CommitInfo, relevance: Double): GitContextCandidate {
+        return GitContextCandidate(
+            filePath = repoRoot,
+            score = relevance,
+            metadata = mapOf(
+                "type" to "repo-commit",
+                "commit_hash" to commit.hash,
+                "commit_short_hash" to commit.shortHash,
+                "author" to commit.author.name,
+                "author_email" to commit.author.email,
+                "message" to commit.shortMessage,
+                "timestamp" to commit.timestamp.toString()
+            )
+        )
+    }
+
     /**
      * Calculate relevance score for a commit based on its position in the history.
      * More recent commits are more relevant.
@@ -296,6 +323,11 @@ class GitHistoryContextProvider(
     private fun createSnippet(chunk: ChunkInfo, candidate: GitContextCandidate): ContextSnippet {
         val label = when (candidate.metadata["type"]) {
             "commit" -> {
+                val shortHash = candidate.metadata["commit_short_hash"] ?: ""
+                val message = candidate.metadata["message"] ?: ""
+                "$shortHash: $message"
+            }
+            "repo-commit" -> {
                 val shortHash = candidate.metadata["commit_short_hash"] ?: ""
                 val message = candidate.metadata["message"] ?: ""
                 "$shortHash: $message"

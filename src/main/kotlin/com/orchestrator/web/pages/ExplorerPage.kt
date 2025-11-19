@@ -80,7 +80,7 @@ object ExplorerPage {
             script(src = "/static/js/modal.js?v=1763256400") {}
             script(src = "/static/js/explorer.js?v=1763257200") {}
             script(src = "/static/js/theme-toggle.js") {}
-            script(src = "/static/js/navigation.js") {}
+            script(src = "/static/js/navigation.js?v=20250116q") {}
             script {
                 unsafe {
                     +"""document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();document.getElementById('query-input')?.focus()}if((e.ctrlKey||e.metaKey)&&e.key==='Enter'&&document.activeElement?.id==='query-input'){e.preventDefault();document.getElementById('query-form')?.requestSubmit()}if(e.key==='Escape'){const m=document.getElementById('modal-container');if(m&&m.innerHTML)m.innerHTML=''}});""".trimIndent()
