@@ -138,7 +138,7 @@ object TaskDetailPage {
 
             script(src = "/static/js/app.js") {}
             script(src = "/static/js/theme-toggle.js") {}
-            script(src = "/static/js/navigation.js") {}
+            script(src = "/static/js/navigation.js?v=20250116q") {}
         }
     }
 

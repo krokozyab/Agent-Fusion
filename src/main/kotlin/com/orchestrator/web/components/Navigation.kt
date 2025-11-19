@@ -159,6 +159,7 @@ object Navigation {
                     attributes["hx-select"] = "#main-content"
                     attributes["hx-swap"] = "outerHTML"
                     attributes["hx-push-url"] = "true"
+                    attributes["hx-indicator"] = "#nav-overlay"
                 } else if (link.disableBoost) {
                     attributes["hx-boost"] = "false"
                 }

@@ -4,7 +4,6 @@ import com.orchestrator.config.ConfigLoader
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.WebServerConfig
-import com.orchestrator.web.routes.configRoutes
 import com.orchestrator.web.routes.explorerRoutes
 import com.orchestrator.web.routes.fileRoutes
 import com.orchestrator.web.routes.healthRoutes
@@ -52,9 +51,6 @@ internal fun Application.configureRouting(config: WebServerConfig) {
 
         // Context Explorer routes
         explorerRoutes()
-
-        // Configuration display routes
-        configRoutes(appConfig.context)
 
         // Metrics dashboard routes
         metricsRoutes()
