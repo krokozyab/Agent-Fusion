@@ -8,5 +8,6 @@ enum class ContextProviderType {
     SYMBOL,
     FULL_TEXT,
     HYBRID,
-    GIT_HISTORY
+    GIT_HISTORY,
+    NEO4J
 }

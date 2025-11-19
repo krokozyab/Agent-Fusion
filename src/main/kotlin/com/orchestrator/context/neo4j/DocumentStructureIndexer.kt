@@ -66,6 +66,45 @@ class DocumentStructureIndexer(private val driver: Neo4jDriverInterface) {
         ) { _ -> Unit }
     }
 
+    /**
+     * Link persisted chunks to document paragraphs based on line number ranges.
+     * This enables traversing from Sections through Paragraphs to Chunks in Neo4j queries.
+     */
+    fun linkChunksToParagraphs(
+        structure: DocumentStructure,
+        persistedChunks: List<com.orchestrator.context.domain.Chunk>,
+        sourceChunks: List<com.orchestrator.context.domain.Chunk>
+    ) {
+        // Build a map of source chunks (before persistence) to persisted chunks (with IDs)
+        // Match by content hash or position
+        val chunkMap = mutableMapOf<Int, Long>()
+        sourceChunks.forEachIndexed { index, sourceChunk ->
+            persistedChunks.getOrNull(index)?.let { persistedChunk ->
+                chunkMap[index] = persistedChunk.id
+            }
+        }
+
+        // For each section and its paragraphs, link to overlapping chunks
+        structure.sections.forEach { section ->
+            section.paragraphs.forEach { paragraph ->
+                // Find chunks that overlap with this paragraph's line range
+                if (paragraph.startLine != null && paragraph.endLine != null) {
+                    sourceChunks.forEachIndexed { index, chunk ->
+                        val chunkStart = chunk.startLine ?: 0
+                        val chunkEnd = chunk.endLine ?: 0
+
+                        // Check if chunk overlaps with paragraph
+                        if (chunkStart <= paragraph.endLine && chunkEnd >= paragraph.startLine) {
+                            chunkMap[index]?.let { chunkId ->
+                                linkChunkToParagraph(chunkId, paragraph.id)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun createSectionNode(section: Section, documentPath: String) {
         driver.executeInTransaction(
             """

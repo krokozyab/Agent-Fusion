@@ -71,6 +71,76 @@ class CodeStructureIndexer(private val driver: Neo4jDriverInterface) {
         ) { _ -> Unit }
     }
 
+    /**
+     * Link persisted chunks to code structure based on line number ranges.
+     * This enables traversing from Classes/Methods/Functions to Chunks in Neo4j queries.
+     *
+     * For each chunk, find overlapping code elements:
+     * - Methods (deepest level): Method -[:HAS_CHUNK]-> Chunk
+     * - Classes (fallback): Class -[:HAS_CHUNK]-> Chunk
+     * - Functions (fallback): Function -[:HAS_CHUNK]-> Chunk
+     */
+    fun linkChunksToCodeStructure(
+        structure: CodeStructure,
+        persistedChunks: List<com.orchestrator.context.domain.Chunk>,
+        sourceChunks: List<com.orchestrator.context.domain.Chunk>
+    ) {
+        // Build a map of source chunks (before persistence) to persisted chunks (with IDs)
+        val chunkMap = mutableMapOf<Int, Long>()
+        sourceChunks.forEachIndexed { index, sourceChunk ->
+            persistedChunks.getOrNull(index)?.let { persistedChunk ->
+                chunkMap[index] = persistedChunk.id
+            }
+        }
+
+        // For each chunk, find the deepest code element (Method > Class > Function) that contains it
+        sourceChunks.forEachIndexed { index, chunk ->
+            val chunkStart = chunk.startLine ?: 0
+            val chunkEnd = chunk.endLine ?: 0
+
+            if (chunkStart > 0 && chunkEnd > 0) {
+                val persistedChunkId = chunkMap[index] ?: return@forEachIndexed
+                var linked = false
+
+                // Try to link to methods first (deepest level)
+                for (classNode in structure.classes) {
+                    for (method in classNode.methods) {
+                        if (method.startLine != null && method.endLine != null &&
+                            chunkStart >= method.startLine && chunkEnd <= method.endLine) {
+                            linkChunkToMethod(persistedChunkId, method.id)
+                            linked = true
+                            break
+                        }
+                    }
+                    if (linked) break
+                }
+
+                // If not linked to method, try to link to classes
+                if (!linked) {
+                    for (classNode in structure.classes) {
+                        if (classNode.startLine != null && classNode.endLine != null &&
+                            chunkStart >= classNode.startLine && chunkEnd <= classNode.endLine) {
+                            linkChunkToClass(persistedChunkId, classNode.id)
+                            linked = true
+                            break
+                        }
+                    }
+                }
+
+                // If still not linked, try to link to top-level functions
+                if (!linked) {
+                    for (function in structure.functions) {
+                        if (function.startLine != null && function.endLine != null &&
+                            chunkStart >= function.startLine && chunkEnd <= function.endLine) {
+                            linkChunkToFunction(persistedChunkId, function.id)
+                            break
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private fun createClassNode(classNode: ClassNode, filePath: String) {
         driver.executeInTransaction(
             """

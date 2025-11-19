@@ -17,9 +17,9 @@ object ChunkerRegistry {
         "kts" to SimpleChunkerAdapter(KotlinChunker()),
         "yaml" to SimpleChunkerAdapter(YamlChunker()),
         "yml" to SimpleChunkerAdapter(YamlChunker()),
-        "doc" to PlainTextChunker(),
-        "docx" to PlainTextChunker(),
-        "pdf" to PlainTextChunker(),
+        "doc" to WordChunker(),
+        "docx" to WordChunker(),
+        "pdf" to PdfChunker(),
         "json" to SimpleChunkerAdapter(JsonChunker()),
         "sql" to SimpleChunkerAdapter(SqlChunker())
     )

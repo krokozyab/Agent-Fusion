@@ -49,7 +49,8 @@
       "Bash(then wc -l /tmp/test_results_full.txt)",
       "Bash(./gradlew clean)",
       "Bash(if [ -f /tmp/full_test_results_final.txt ])",
-      "Bash(then tail -50 /tmp/full_test_results_final.txt)"
+      "Bash(then tail -50 /tmp/full_test_results_final.txt)",
+      "Bash(javap:*)"
     ],
     "deny": [],
     "ask": []

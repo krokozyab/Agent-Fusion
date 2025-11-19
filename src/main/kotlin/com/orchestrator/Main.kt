@@ -16,6 +16,9 @@ import com.orchestrator.context.indexing.FileIndexer
 import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.SemanticContextProvider
 import com.orchestrator.context.neo4j.Neo4jFactory
+import com.orchestrator.context.neo4j.Neo4jSchema
+import com.orchestrator.context.neo4j.Neo4jDriver
+import com.orchestrator.context.neo4j.Neo4jDriverRegistry
 import com.orchestrator.storage.Database
 import com.orchestrator.utils.Logger
 import com.orchestrator.context.bootstrap.BootstrapProgressTracker
@@ -55,10 +58,6 @@ class Main {
             val config = loadConfiguration(cliArgs)
             log.info("Configuration loaded: server=${config.orchestrator.server.host}:${config.orchestrator.server.port}")
 
-            // Configure context module
-            ContextModule.configure(config.context)
-            log.info("Context module configured: enabled=${config.context.enabled}")
-
             // Initialize context database
             log.info("Initializing context database...")
             ContextDatabase.initialize(config.context.storage)
@@ -68,17 +67,41 @@ class Main {
             log.info("Initializing event bus...")
             val eventBus = EventBus.global
 
-            // Initialize Neo4j once if enabled (with graceful fallback if it fails)
+            // Initialize Neo4j BEFORE ContextModule to ensure Neo4jContextProvider can find the driver in the registry
+            // Neo4jContextProvider is instantiated when ContextModule.configure() is called, so the driver must be registered first
             var neo4jDriver: com.orchestrator.context.neo4j.Neo4jDriverInterface? = null
             if (config.context.neo4j.enabled) {
                 runCatching {
                     log.info("Initializing Neo4j...")
                     neo4jDriver = Neo4jFactory.createDriver(config.context.neo4j)
+
+                    // Register in global registry so all consumers (FileIndexer, Neo4jContextProvider) use same instance
+                    Neo4jDriverRegistry.register(neo4jDriver)
+
                     log.info("Neo4j initialized successfully")
+
+                    // Initialize Neo4j schema (constraints and indexes)
+                    neo4jDriver?.let { driver ->
+                        if (driver is Neo4jDriver) {
+                            try {
+                                val schema = Neo4jSchema(driver)
+                                schema.initialize()
+                                log.info("Neo4j schema initialized successfully")
+                            } catch (e: Exception) {
+                                log.warn("Failed to initialize Neo4j schema: {}", e.message)
+                            }
+                        }
+                    }
                 }.onFailure { throwable ->
                     log.warn("Failed to initialize Neo4j (continuing without it): {}", throwable.message)
+                    // Ensure registry is cleared on failure
+                    Neo4jDriverRegistry.register(null)
                 }
             }
+
+            // Configure context module (after Neo4j is initialized so Neo4jContextProvider can access the driver)
+            ContextModule.configure(config.context)
+            log.info("Context module configured: enabled=${config.context.enabled}")
 
             val filesystemSnapshotCalculator = FilesystemSnapshotCalculator(config.context)
 
@@ -326,7 +349,11 @@ class Main {
         )
         val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
         val batchIndexer = BatchIndexer(fileIndexer)
-        val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)
+        val incrementalIndexer = IncrementalIndexer(
+            changeDetector = changeDetector,
+            batchIndexer = batchIndexer,
+            neo4jDriver = neo4jDriver
+        )
 
         val reconciler = StartupReconciler(
             projectRoot = projectRoot,
@@ -418,7 +445,11 @@ class Main {
             )
             val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
             val batchIndexer = BatchIndexer(fileIndexer)
-            val incrementalIndexer = IncrementalIndexer(changeDetector, batchIndexer)
+            val incrementalIndexer = IncrementalIndexer(
+                changeDetector = changeDetector,
+                batchIndexer = batchIndexer,
+                neo4jDriver = neo4jDriver
+            )
 
             WatcherDaemon(
                 scope = watcherScope,

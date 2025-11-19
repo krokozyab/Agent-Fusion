@@ -182,7 +182,7 @@ class FileIndexer(
             neo4jDriver?.let { driver ->
                 try {
                     coroutineContext.ensureActive()
-                    indexToNeo4j(absolutePath, rawChunks, content, extension, languageHint, driver)
+                    indexToNeo4j(absolutePath, rawChunks, content, extension, languageHint, driver, persistedArtifacts, normalizedChunks)
                 } catch (e: Exception) {
                     log.warn("Failed to index to Neo4j for {}: {}", relativePath, e.message)
                 }
@@ -355,11 +355,13 @@ class FileIndexer(
 
     private suspend fun indexToNeo4j(
         path: Path,
-        chunks: List<Chunk>,
+        rawChunks: List<Chunk>,
         content: String,
         extension: String,
         language: String?,
-        driver: Neo4jDriverInterface
+        driver: Neo4jDriverInterface,
+        persistedArtifacts: ContextRepository.FileArtifacts,
+        normalizedChunks: List<Chunk>
     ) {
         when {
             // Check document extensions FIRST (before language) to handle markdown/docs correctly
@@ -369,14 +371,26 @@ class FileIndexer(
                 if (docStructure != null) {
                     val indexer = DocumentStructureIndexer(driver)
                     indexer.indexDocumentStructure(docStructure)
+
+                    // Link chunks to paragraphs if we have persisted chunks
+                    val persistedChunks = persistedArtifacts.chunks.map { it.chunk }
+                    if (persistedChunks.isNotEmpty()) {
+                        indexer.linkChunksToParagraphs(docStructure, persistedChunks, normalizedChunks)
+                    }
                 }
             }
             language != null -> {
                 // Code file - extract structure from chunks
-                val codeStructure = ChunkToStructureAdapter.fromChunks(path, chunks, language)
+                val codeStructure = ChunkToStructureAdapter.fromChunks(path, rawChunks, language)
                 if (codeStructure != null) {
                     val indexer = CodeStructureIndexer(driver)
                     indexer.indexCodeStructure(codeStructure)
+
+                    // Link chunks to code structure if we have persisted chunks
+                    val persistedChunks = persistedArtifacts.chunks.map { it.chunk }
+                    if (persistedChunks.isNotEmpty()) {
+                        indexer.linkChunksToCodeStructure(codeStructure, persistedChunks, normalizedChunks)
+                    }
                 }
             }
         }

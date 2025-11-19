@@ -35,15 +35,37 @@ class Neo4jDriver(private val config: Neo4jConfig) : Neo4jDriverInterface {
         block: (Map<String, Any>) -> T
     ): List<T> {
         return driver.session().use { session ->
-            session.writeTransaction { tx ->
-                val result = tx.run(query, parameters)
-                val results = mutableListOf<T>()
-                while (result.hasNext()) {
-                    val record = result.next()
-                    results.add(block(record.asMap()))
+            // Determine if this is a read or write query based on the Cypher command
+            val isReadOnly = query.trim().uppercase().startsWith("MATCH") ||
+                            query.trim().uppercase().startsWith("CALL") ||
+                            query.trim().uppercase().startsWith("WITH") ||
+                            query.trim().uppercase().startsWith("RETURN") ||
+                            query.trim().uppercase().startsWith("WHERE") ||
+                            query.trim().uppercase().startsWith("OPTIONAL")
+
+            val transaction = if (isReadOnly) {
+                session.readTransaction { tx ->
+                    val result = tx.run(query, parameters)
+                    val results = mutableListOf<T>()
+                    while (result.hasNext()) {
+                        val record = result.next()
+                        results.add(block(record.asMap()))
+                    }
+                    results
                 }
-                results
+            } else {
+                session.writeTransaction { tx ->
+                    val result = tx.run(query, parameters)
+                    val results = mutableListOf<T>()
+                    while (result.hasNext()) {
+                        val record = result.next()
+                        results.add(block(record.asMap()))
+                    }
+                    results
+                }
             }
+
+            transaction
         }
     }
 

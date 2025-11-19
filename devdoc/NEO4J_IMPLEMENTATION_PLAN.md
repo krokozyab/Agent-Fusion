@@ -1,5 +1,21 @@
 # Neo4j Context Engine Implementation Plan
 
+## Status: PHASE 5.5 COMPLETE - Runtime Integration Finished ✅
+
+**Last Updated**: November 18, 2025
+
+All infrastructure is now fully wired into the runtime:
+- ✅ Neo4jDriver instantiated and initialized (embedded or server mode)
+- ✅ Neo4jSchema created and initialized automatically
+- ✅ FileIndexer indexes to Neo4j during file processing
+- ✅ IncrementalIndexer cleans up Neo4j during file deletion
+- ✅ Integration tests passing
+- ✅ Build successful
+
+**Next Steps**: Testing with actual Neo4j instance, performance optimization, documentation updates.
+
+---
+
 ## Overview
 
 Implement Neo4j-based context engine with support for:
@@ -640,6 +656,96 @@ structural_weight = 0.15        # 0.0 (Phase 1) → 0.05 (Phase 2) → 0.15 (Pha
 - Phase 3: Returns hierarchical markdown with RFR + Structural scores
 - Graceful fallback to JSON if Neo4j unavailable
 - Supports language/document/structure filtering
+
+---
+
+## Phase 5.5: Runtime Integration (Week 2.5) ✅ COMPLETE
+
+### Task 5.5.1: Wire Neo4j Schema Initialization ✅ COMPLETE
+**Files**:
+- `src/main/kotlin/com/orchestrator/Main.kt` ✅
+
+**Implementation**:
+- Added Neo4jSchema initialization in Main.kt after Neo4jDriver is created
+- Schema initialization handles both embedded and server modes
+- Graceful error handling - schema initialization failures don't crash the app
+- Logs information about schema creation
+
+**Schema Initialization Flow**:
+```kotlin
+// In Main.kt after Neo4jFactory.createDriver()
+neo4jDriver?.let { driver ->
+    if (driver is Neo4jDriver) {
+        try {
+            val schema = Neo4jSchema(driver)
+            schema.initialize()
+            log.info("Neo4j schema initialized successfully")
+        } catch (e: Exception) {
+            log.warn("Failed to initialize Neo4j schema: {}", e.message)
+        }
+    }
+}
+```
+
+**Acceptance**: ✅ Neo4jSchema.initialize() called after driver creation; schema constraints and indexes created automatically
+
+---
+
+### Task 5.5.2: Wire Neo4j Deletion Cleanup ✅ COMPLETE
+**Files**:
+- `src/main/kotlin/com/orchestrator/context/indexing/IncrementalIndexer.kt` ✅
+- `src/main/kotlin/com/orchestrator/Main.kt` ✅
+
+**Implementation**:
+- Added `neo4jDriver` parameter to IncrementalIndexer constructor
+- Added `deleteFromNeo4j()` private method to handle deletion cleanup
+- Deletion cleanup calls CodeStructureIndexer.deleteCodeStructure() for code files
+- Deletion cleanup calls DocumentStructureIndexer.deleteDocumentStructure() for documents
+- Neo4j deletion failures are logged but don't stop DuckDB deletion (graceful fallback)
+
+**Deletion Flow**:
+```kotlin
+// In IncrementalIndexer.updateAsync()
+val deletionResults = changeSet.deletedFiles.map { deleted ->
+    runCatching {
+        // DuckDB cleanup
+        val removed = dataService.deleteFileByAbsPath(deleted.absolutePath)
+
+        // Neo4j cleanup (if driver available)
+        neo4jDriver?.let { driver ->
+            try {
+                deleteFromNeo4j(deleted.absolutePath, driver)
+            } catch (e: Exception) {
+                log.warn("Failed to delete from Neo4j for {}: {}", deleted.absolutePath, e.message)
+            }
+        }
+
+        // ... rest of handling
+    }
+}
+```
+
+**Acceptance**: ✅ File deletions clean up both DuckDB and Neo4j in sync; graceful fallback if Neo4j fails
+
+---
+
+### Task 5.5.3: Integrate Neo4j Driver Into Indexing Pipeline ✅ COMPLETE
+**Files**:
+- `src/main/kotlin/com/orchestrator/Main.kt` ✅ (multiple locations)
+
+**Implementation**:
+- Neo4jDriver created in Main.kt and passed to:
+  - FileIndexer (for Neo4j indexing during file processing)
+  - IncrementalIndexer (for Neo4j deletion cleanup)
+  - performStartupReconciliation() (for startup re-indexing with Neo4j)
+
+**Integration Points**:
+1. **FileIndexer.indexFileInternal()**: Calls `indexToNeo4j()` if neo4jDriver provided (lines 181-189)
+2. **IncrementalIndexer.updateAsync()**: Calls `deleteFromNeo4j()` during deletion (lines 83-90)
+3. **initializeWatcher()**: Passes neo4jDriver to FileIndexer, IncrementalIndexer
+4. **performStartupReconciliation()**: Passes neo4jDriver for startup re-indexing
+
+**Acceptance**: ✅ Neo4j indexing and deletion integrated into core indexing pipeline; all tests passing
 
 ---
 

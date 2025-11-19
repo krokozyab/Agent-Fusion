@@ -60,12 +60,12 @@ enabled = true
 # Phase 1: 0.0 (DuckDB RFR only)
 # Phase 2: 0.05 (5% Neo4j structural score)
 # Phase 3: 0.15 (15% Neo4j structural score)
-structural_weight = 0.0
+structural_weight = 0.05
 
 # Use structured output format (hierarchical markdown vs flat JSON)
 # false = JSON output (Phase 1-2, backward compatible)
 # true = Hierarchical markdown (Phase 3, enhanced UX)
-use_structured_output = false
+use_structured_output = true
 
 # ------------------------------------------------------------------------------
 # [context.engine] - Context system engine configuration
@@ -522,17 +522,24 @@ enabled = true
 weight = 0.2
 max_commits = 100
 
+# Neo4j graph search: Finds code structure relationships
+# Best for: Understanding dependencies, method calls, inheritance chains
+# Weight: Usually medium (0.2-0.4) - structural relationships are valuable
+[context.providers.neo4j]
+enabled = true
+weight = 0.25
+
 # Hybrid: Combines multiple providers for comprehensive search
 # Weights here are relative for ranking within hybrid results
 # fusion_strategy: How to combine provider scores
 #   - "rrf" (reciprocal rank fusion): Fair ranking, good for diverse results
 #   - "weighted": Use provider weights directly
 #   - "cascade": Try each provider in order, stop when results found
-# Default combines: ["semantic", "symbol", "git_history"] (excludes full_text)
+# Default combines: ["semantic", "symbol", "git_history", "neo4j"]
 [context.providers.hybrid]
 enabled = true
 weight = 0.5
-combines = ["semantic", "symbol", "git_history"]
+combines = ["semantic", "symbol", "git_history", "neo4j"]
 fusion_strategy = "rrf"
 
 # ==============================================================================

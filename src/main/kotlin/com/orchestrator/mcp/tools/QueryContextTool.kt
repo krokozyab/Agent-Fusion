@@ -8,8 +8,12 @@ import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.embedding.Embedder
 import com.orchestrator.context.embedding.LocalEmbedder
+import com.orchestrator.context.neo4j.Neo4jDriver
+import com.orchestrator.context.neo4j.Neo4jFactory
+import com.orchestrator.context.neo4j.Neo4jQueryProvider
 import com.orchestrator.context.providers.ContextProvider
 import com.orchestrator.context.providers.ContextProviderRegistry
+import com.orchestrator.context.providers.ResultOrganizer
 import com.orchestrator.context.search.MmrReranker
 import com.orchestrator.context.search.NeighborExpander
 import com.orchestrator.context.search.ScoreBooster
@@ -41,9 +45,9 @@ class QueryContextTool(
     private val config: ContextConfig = ContextConfig()
 ) {
     private val log = Logger.logger(this::class.qualifiedName!!)
-    
+
     // Lazy initialization of optimizer and embedder
-    private val embedder: Embedder by lazy { 
+    private val embedder: Embedder by lazy {
         LocalEmbedder(
             modelPath = config.embedding.modelPath?.let { java.nio.file.Path.of(it) },
             modelName = config.embedding.model,
@@ -53,11 +57,46 @@ class QueryContextTool(
         )
     }
     private val reranker: MmrReranker by lazy { MmrReranker() }
-    private val queryOptimizer: QueryOptimizer by lazy { 
+    private val queryOptimizer: QueryOptimizer by lazy {
         QueryOptimizer(config.query, reranker)
     }
     private val neighborExpander: NeighborExpander by lazy { NeighborExpander() }
     private val scoreBooster: ScoreBooster by lazy { ScoreBooster(config.query.boosts) }
+
+    // Neo4j integration (lazy, optional)
+    private val neo4jDriver: Neo4jDriver? by lazy {
+        if (config.neo4j.enabled) {
+            try {
+                Neo4jFactory.createDriver(config.neo4j) as? Neo4jDriver
+            } catch (e: Exception) {
+                log.warn("Failed to initialize Neo4j for query enhancement: {}", e.message)
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    private val neo4jQueryProvider: Neo4jQueryProvider? by lazy {
+        neo4jDriver?.let { driver ->
+            try {
+                Neo4jQueryProvider(driver)
+            } catch (e: Exception) {
+                log.warn("Failed to create Neo4jQueryProvider: {}", e.message)
+                null
+            }
+        }
+    }
+
+    private val resultOrganizer: ResultOrganizer by lazy {
+        ResultOrganizer(neo4jQueryProvider)
+    }
+
+    // Whether to apply Neo4j structural scoring
+    private val neo4jScoringEnabled = config.neo4j.enabled && config.structuralWeight > 0.0
+
+    // Whether to use structured output (markdown)
+    private val useStructuredOutput = config.useStructuredOutput && neo4jScoringEnabled
     
     // LRU cache for embeddings of non-semantic results
     private val embeddingCache = object : LinkedHashMap<String, FloatArray>(
@@ -96,7 +135,8 @@ class QueryContextTool(
 
     data class Result(
         val hits: List<SnippetHit>,
-        val metadata: Map<String, Any>
+        val metadata: Map<String, Any>,
+        val content: String? = null  // Hierarchical markdown output (Phase 3)
     )
 
     fun execute(params: Params): Result {
@@ -179,13 +219,20 @@ class QueryContextTool(
             optimizedSnippets
         }
 
-        // Ensure highest-score-first ordering after neighbor expansion/mixes
-        val rankedSnippets = expandedSnippets.sortedWith(
+        // Apply Neo4j structural scoring if enabled
+        val enhancedSnippets = if (neo4jScoringEnabled && expandedSnippets.isNotEmpty()) {
+            applyNeo4jStructuralScoring(params.query, expandedSnippets)
+        } else {
+            expandedSnippets
+        }
+
+        // Ensure highest-score-first ordering after enhancement
+        val rankedSnippets = enhancedSnippets.sortedWith(
             compareByDescending<ContextSnippet> { it.score }
                 .thenBy { it.filePath }
                 .thenBy { it.chunkId }
         )
-        
+
         // Apply token budget and limit to k results
         val finalSnippets = applyBudgetAndLimit(rankedSnippets, budget, k)
 
@@ -226,7 +273,20 @@ class QueryContextTool(
             tokensUsed
         )
 
-        return Result(hits = hits, metadata = metadata)
+        // Generate hierarchical markdown content if enabled or requested
+        val shouldUseStructuredOutput = useStructuredOutput || params.format?.lowercase() == "markdown"
+        val content = if (shouldUseStructuredOutput && existingSnippets.isNotEmpty()) {
+            try {
+                resultOrganizer.organizeHierarchically(existingSnippets)
+            } catch (e: Exception) {
+                log.warn("Failed to organize results hierarchically: {}", e.message)
+                null
+            }
+        } else {
+            null
+        }
+
+        return Result(hits = hits, metadata = metadata, content = content)
     }
 
     private fun buildScope(params: Params): ContextScope {
@@ -478,6 +538,43 @@ class QueryContextTool(
     
     private fun estimateTokens(snippet: ContextSnippet): Int =
         max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
+
+    private fun applyNeo4jStructuralScoring(query: String, snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (neo4jQueryProvider == null) return snippets
+
+        return try {
+            snippets.map { snippet ->
+                val rfrScore = snippet.score
+                val structuralScore = runBlocking {
+                    calculateStructuralScore(snippet.chunkId, query)
+                }
+                val finalScore = (1 - config.structuralWeight) * rfrScore + config.structuralWeight * structuralScore
+
+                val metadata = snippet.metadata + mapOf(
+                    "rfr_score" to "%.4f".format(rfrScore),
+                    "structural_score" to "%.4f".format(structuralScore),
+                    "final_score" to "%.4f".format(finalScore),
+                    "structural_weight" to config.structuralWeight.toString()
+                )
+
+                snippet.copy(score = finalScore, metadata = metadata)
+            }
+        } catch (e: Exception) {
+            log.warn("Failed to apply Neo4j structural scoring: {}", e.message)
+            snippets
+        }
+    }
+
+    private suspend fun calculateStructuralScore(chunkId: Long, query: String): Double {
+        val provider = neo4jQueryProvider ?: return 0.0
+
+        return try {
+            val chunkIds = provider.getChunkIdsForStructure(query, limit = 100)
+            if (chunkId in chunkIds) 1.0 else 0.0
+        } catch (e: Exception) {
+            0.0
+        }
+    }
 
     companion object {
         const val JSON_SCHEMA: String = """
