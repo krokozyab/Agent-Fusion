@@ -56,82 +56,12 @@ allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
 # Enable or disable the entire context subsystem
 enabled = true
 
-# Structural weight for hybrid scoring (0.0 = DuckDB only, 0.15 = 15% Neo4j influence)
-# Phase 1: 0.0 (DuckDB RFR only)
-# Phase 2: 0.05 (5% Neo4j structural score)
-# Phase 3: 0.15 (15% Neo4j structural score)
-structural_weight = 0.05
-
-# Use structured output format (hierarchical markdown vs flat JSON)
-# false = JSON output (Phase 1-2, backward compatible)
-# true = Hierarchical markdown (Phase 3, enhanced UX)
-use_structured_output = true
-
-# ------------------------------------------------------------------------------
-# [context.engine] - Context system engine configuration
-# Configuration for the file indexing and semantic search engine.
-# This is internal configuration and does not control any external server port.
-# The web dashboard is controlled by [web] section instead.
-# Default: timeout_ms = 10000, retry_attempts = 3
-# Override with environment variables: CONTEXT_ENGINE_TIMEOUT_MS, CONTEXT_ENGINE_RETRY_ATTEMPTS
-# ------------------------------------------------------------------------------
-
-[context.engine]
-timeout_ms = 10000
-retry_attempts = 3
-
 # ------------------------------------------------------------------------------
 # [context.storage] - Database and persistence settings
 # ------------------------------------------------------------------------------
 
 [context.storage]
-db_path = "./context.duckdb" # conext database file
-
-# ------------------------------------------------------------------------------
-# [context.neo4j] - Neo4j graph database configuration
-# ------------------------------------------------------------------------------
-# Neo4j stores code structure (classes, methods, functions) and document
-# structure (sections, paragraphs) for relationship-aware search.
-# DuckDB continues to handle semantic embeddings and full-text search.
-# Default: disabled (enable after Neo4j setup)
-# ------------------------------------------------------------------------------
-
-[context.neo4j]
-# Enable Neo4j integration
-# Default: false (disabled by default)
-enabled = true
-
-# Neo4j mode: "embedded" (automatic, in-process) or "server" (external Neo4j server)
-# Default: "embedded" (zero setup, runs inside JAR
-# Use "server" for production deployments with separate Neo4j instance
-mode = "embedded"
-
-# Data directory for embedded mode
-# Default: "./data/neo4j" (created automatically)
-data_dir = "./data/neo4j"
-
-# Neo4j connection URI (for server mode only)
-# Default: "bolt://localhost:7687" (standard Neo4j bolt protocol)
-uri = "bolt://localhost:7687"
-
-# Neo4j authentication (for server mode only)
-# Default username: "neo4j", default password: "password"
-# IMPORTANT: Change password in production!
-username = "neo4j"
-password = "password"
-
-# Neo4j database name
-# Default: "neo4j" (default database)
-database = "neo4j"
-
-# Connection pool settings (for server mode only)
-# max_connection_pool_size: Maximum concurrent connections
-# Default: 50
-max_connection_pool_size = 50
-
-# connection_timeout_ms: Connection timeout in milliseconds
-# Default: 30000 (30 seconds)
-connection_timeout_ms = 30000
+db_path = "./context.duckdb" # context database file
 
 # ==============================================================================
 # [context.watcher] - File system watcher configuration
@@ -162,8 +92,7 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    "/Users/sergeyrudenko/projects/codex_to_claude/docs",
-    "/Users/sergeyrudenko/projects/codex_to_claude/src/main/kotlin/com/orchestrator/agents"
+    "."
 ]
 
 # Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.
@@ -406,72 +335,6 @@ min_score_threshold = 0.3
 # Should generally be true unless you only want relevance-based ranking
 rerank_enabled = true
 
-# ==============================================================================
-# Phase 1 Search Quality Improvements
-# ==============================================================================
-
-# use_optimizer_in_tool: Apply QueryOptimizer (MMR) in QueryContextTool
-# When enabled, all provider results are re-ranked for diversity
-# Set to false to rollback Phase 1 MMR integration
-# Default: true
-use_optimizer_in_tool = true
-
-# neighbor_window: Include adjacent chunks for context coherence
-# 0 = disabled, 1 = include ±1 chunk, 2 = include ±2 chunks
-# Higher values provide more context but use more tokens
-# Default: 1
-neighbor_window = 1
-
-# embedding_cache_size: LRU cache size for on-the-fly embeddings
-# Used when non-semantic results need vectors for MMR
-# Higher = more memory, fewer re-computations
-# Default: 1000
-embedding_cache_size = 1000
-
-# idf_enabled: Enable inverse document frequency weighting in full-text search
-# Boosts rare terms, penalizes common terms (approximates BM25)
-# Set to false to use simple term frequency scoring
-# Default: true
-idf_enabled = true
-
-# Path and language boosts: Adjust scores based on file location and type
-# Multipliers applied after base scoring (1.0 = no change)
-[context.query.boosts.path_prefixes]
-"src/main" = 1.05      # Boost main source code
-"src/test" = 0.95      # Slightly penalize test code
-"vendor" = 0.90        # Penalize vendor/third-party code
-"node_modules" = 0.85  # Further penalize dependencies
-
-[context.query.boosts.languages]
-# Programming languages (higher boost = more relevant in search results)
-kotlin = 3          # Slight boost for Kotlin
-java = 1.02            # Slight boost for Java
-python = 1.02          # Slight boost for Python
-typescript = 1.01      # Slight boost for TypeScript
-javascript = 1.01      # Slight boost for JavaScript
-rust = 1.02            # Slight boost for Rust
-go = 1.02              # Slight boost for Go
-c = 1.00               # Neutral for C
-cpp = 1.00             # Neutral for C++
-csharp = 1.00          # Neutral for C#
-ruby = 1.00            # Neutral for Ruby
-php = 1.00             # Neutral for PHP
-swift = 1.00           # Neutral for Swift
-scala = 1.00           # Neutral for Scala
-
-# Documentation and config (lower boost = less relevant)
-markdown = 0.98        # Slight penalty for documentation
-sql = 0.98             # Slight penalty for SQL
-shell = 0.97           # Slight penalty for shell scripts
-dockerfile = 0.97      # Slight penalty for Dockerfiles
-json = 0.95            # Penalty for config files
-yaml = 0.95            # Penalty for config files
-xml = 0.95             # Penalty for config files
-toml = 0.95            # Penalty for config files
-html = 0.93            # Penalty for HTML
-css = 0.93             # Penalty for CSS
-text = 0.5            # Penalty for plain text
-document = 0.1        # Penalty for documents (PDF, DOCX)
 
 # ------------------------------------------------------------------------------
 # [context.budget] - Token budget management
@@ -522,24 +385,16 @@ enabled = true
 weight = 0.2
 max_commits = 100
 
-# Neo4j graph search: Finds code structure relationships
-# Best for: Understanding dependencies, method calls, inheritance chains
-# Weight: Usually medium (0.2-0.4) - structural relationships are valuable
-[context.providers.neo4j]
-enabled = true
-weight = 0.25
-
 # Hybrid: Combines multiple providers for comprehensive search
 # Weights here are relative for ranking within hybrid results
 # fusion_strategy: How to combine provider scores
 #   - "rrf" (reciprocal rank fusion): Fair ranking, good for diverse results
 #   - "weighted": Use provider weights directly
 #   - "cascade": Try each provider in order, stop when results found
-# Default combines: ["semantic", "symbol", "git_history", "neo4j"]
 [context.providers.hybrid]
 enabled = true
 weight = 0.5
-combines = ["semantic", "symbol", "git_history", "neo4j"]
+combines = ["semantic", "symbol", "git_history"]
 fusion_strategy = "rrf"
 
 # ==============================================================================
@@ -631,36 +486,6 @@ show_progress = true
 # Default: 30 seconds
 progress_interval_seconds = 30
 
-# ------------------------------------------------------------------------------
-# [context.security] - Security and privacy settings
-# ------------------------------------------------------------------------------
-
-# Scrub secrets from indexed content before storing
-# Applies secret_patterns to remove sensitive values
-# Recommended: true for production, false for dev/testing
-# Default: true
-# not implemented yet todo
-[context.security]
-scrub_secrets = true
-
-# Regex patterns to match and remove from indexed content
-# Each pattern finds sensitive strings and removes them during indexing
-# Default patterns (basic): passwords, API keys, tokens
-# Add custom patterns for enhanced security: AWS keys, private keys, bearer tokens, etc.
-# TODO: Feature not implemented yet - secret_patterns disabled to avoid TOML parsing issues
-# When implementing, use simple patterns without complex backslash escaping
-# secret_patterns = [
-#     "password=",
-#     "api_key=",
-#     "token="
-# ]
-
-# Encrypt the context database at rest
-# Requires system support and impacts performance
-# Recommended: false for most cases (use OS-level encryption if needed)
-# Default: false
-# not implemented yet todo
-encrypt_db = false
 
 # ==============================================================================
 # QUICK REFERENCE: ignore_patterns vs skip_patterns (SIDE-BY-SIDE)

@@ -1,9 +1,6 @@
 package com.orchestrator.context.indexing
 
 import com.orchestrator.context.ContextDataService
-import com.orchestrator.context.neo4j.CodeStructureIndexer
-import com.orchestrator.context.neo4j.DocumentStructureIndexer
-import com.orchestrator.context.neo4j.Neo4jDriverInterface
 import com.orchestrator.utils.Logger
 import java.nio.file.Path
 import java.time.Clock
@@ -20,8 +17,7 @@ class IncrementalIndexer(
     private val changeDetector: ChangeDetector,
     private val batchIndexer: BatchIndexer,
     private val dataService: ContextDataService = ContextDataService(),
-    private val clock: Clock = Clock.systemUTC(),
-    private val neo4jDriver: Neo4jDriverInterface? = null
+    private val clock: Clock = Clock.systemUTC()
 ) {
 
     private val log = Logger.logger("com.orchestrator.context.indexing.IncrementalIndexer")
@@ -80,15 +76,6 @@ class IncrementalIndexer(
                 // Use absolute path to ensure uniqueness when multiple watch roots have files with same relative names
                 val removed = dataService.deleteFileByAbsPath(deleted.absolutePath)
 
-                // Also clean up Neo4j if driver is available
-                neo4jDriver?.let { driver ->
-                    try {
-                        deleteFromNeo4j(deleted.absolutePath, driver)
-                    } catch (e: Exception) {
-                        log.warn("Failed to delete from Neo4j for {}: {}", deleted.absolutePath, e.message)
-                    }
-                }
-
                 if (removed) {
                     log.debug("Removed artefacts for {}", deleted.absolutePath)
                     DeletionResult(deleted.relativePath, true, null)
@@ -115,38 +102,6 @@ class IncrementalIndexer(
             completedAt = completedAt,
             durationMillis = duration
         )
-    }
-
-    private fun deleteFromNeo4j(absolutePath: String, driver: Neo4jDriverInterface) {
-        val extension = absolutePath.substringAfterLast('.')
-            .lowercase(Locale.US)
-            .takeIf { it.isNotBlank() }
-
-        when {
-            // Code files - try to delete as code structure
-            extension in listOf("kt", "java", "py", "js", "ts") -> {
-                try {
-                    val codeIndexer = CodeStructureIndexer(driver)
-                    codeIndexer.deleteCodeStructure(absolutePath)
-                    log.debug("Deleted code file from Neo4j: {}", absolutePath)
-                } catch (e: Exception) {
-                    log.debug("Failed to delete code file from Neo4j: {}", e.message)
-                }
-            }
-            // Document files - try to delete as document structure
-            extension in listOf("pdf", "docx", "doc", "md", "txt") -> {
-                try {
-                    val docIndexer = DocumentStructureIndexer(driver)
-                    docIndexer.deleteDocumentStructure(absolutePath)
-                    log.debug("Deleted document from Neo4j: {}", absolutePath)
-                } catch (e: Exception) {
-                    log.debug("Failed to delete document from Neo4j: {}", e.message)
-                }
-            }
-            else -> {
-                log.debug("Skipping Neo4j deletion for unsupported file type: {}", extension)
-            }
-        }
     }
 }
 

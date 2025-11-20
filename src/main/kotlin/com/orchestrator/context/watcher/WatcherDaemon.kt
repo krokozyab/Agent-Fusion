@@ -11,7 +11,6 @@ import com.orchestrator.context.discovery.SymlinkHandler
 import com.orchestrator.context.indexing.IncrementalIndexer
 import com.orchestrator.context.indexing.UpdateResult
 import com.orchestrator.context.config.ContextConfig
-import com.orchestrator.context.neo4j.UnifiedSynchronousIndexer
 import com.orchestrator.utils.Logger
 import java.io.Closeable
 import java.nio.file.Path
@@ -40,7 +39,6 @@ class WatcherDaemon(
     indexingConfig: IndexingConfig,
     private val incrementalIndexer: IncrementalIndexer,
     private val contextConfig: ContextConfig,
-    private val unifiedIndexer: UnifiedSynchronousIndexer? = null,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val batchWindowMillis: Long = DEFAULT_BATCH_WINDOW_MS,
     private val onUpdate: ((UpdateResult) -> Unit)? = null,
@@ -163,7 +161,6 @@ class WatcherDaemon(
             scope = scope,
             fileWatcher = watcher,
             incrementalIndexer = incrementalIndexer,
-            unifiedIndexer = unifiedIndexer,
             config = contextConfig
         )
         unifiedFileWatcher = unified

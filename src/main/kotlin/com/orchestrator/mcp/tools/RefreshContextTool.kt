@@ -10,8 +10,6 @@ import com.orchestrator.context.discovery.SymlinkHandler
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.IncrementalIndexer
-import com.orchestrator.context.neo4j.Neo4jDriver
-import com.orchestrator.context.neo4j.Neo4jFactory
 import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.utils.Logger
 import java.nio.file.Files
@@ -54,18 +52,6 @@ class RefreshContextTool(
                 dimension = config.embedding.dimension
             )
 
-            // Initialize Neo4j driver if enabled
-            val neo4jDriver: Neo4jDriver? = if (config.neo4j.enabled) {
-                try {
-                    Neo4jFactory.createDriver(config.neo4j) as? Neo4jDriver
-                } catch (e: Exception) {
-                    log.warn("Failed to initialize Neo4j for refresh: {}", e.message)
-                    null
-                }
-            } else {
-                null
-            }
-
             // Create file indexer
             val fileIndexer = com.orchestrator.context.indexing.FileIndexer(
                 embedder = embedder,
@@ -73,8 +59,7 @@ class RefreshContextTool(
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.embedding.batchSize,
                 maxFileSizeMb = config.indexing.maxFileSizeMb,
-                warnFileSizeMb = config.indexing.warnFileSizeMb,
-                neo4jDriver = neo4jDriver
+                warnFileSizeMb = config.indexing.warnFileSizeMb
             )
 
             // Create batch indexer

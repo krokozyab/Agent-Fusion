@@ -2,7 +2,6 @@ package com.orchestrator.context.watcher
 
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.context.indexing.IncrementalIndexer
-import com.orchestrator.context.neo4j.UnifiedSynchronousIndexer
 import com.orchestrator.utils.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -18,7 +17,6 @@ class UnifiedFileWatcher(
     private val scope: CoroutineScope,
     private val fileWatcher: FileWatcher,
     private val incrementalIndexer: IncrementalIndexer,
-    private val unifiedIndexer: UnifiedSynchronousIndexer?,
     private val config: ContextConfig
 ) : Closeable {
 
@@ -82,10 +80,9 @@ class UnifiedFileWatcher(
             scope: CoroutineScope,
             fileWatcher: FileWatcher,
             incrementalIndexer: IncrementalIndexer,
-            unifiedIndexer: UnifiedSynchronousIndexer?,
             config: ContextConfig
         ): UnifiedFileWatcher {
-            return UnifiedFileWatcher(scope, fileWatcher, incrementalIndexer, unifiedIndexer, config)
+            return UnifiedFileWatcher(scope, fileWatcher, incrementalIndexer, config)
         }
     }
 }
