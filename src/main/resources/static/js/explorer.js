@@ -261,13 +261,11 @@ function showFileModal(filePath, lineNumber, content) {
         console.warn('[Explorer] modal container not found');
         return;
     }
-    
+
     const lines = content.split('\n');
-    const startLine = Math.max(0, lineNumber - 10);
-    const endLine = Math.min(lines.length, lineNumber + 10);
-    const snippet = lines.slice(startLine, endLine)
+    const snippet = lines
         .map((line, idx) => {
-            const num = startLine + idx + 1;
+            const num = idx + 1;
             const highlight = num === lineNumber ? ' bg-warning' : '';
             return `<div class="code-line${highlight}"><span class="line-num">${num}</span>${escapeHtml(line)}</div>`;
         })

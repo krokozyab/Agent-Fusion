@@ -444,7 +444,7 @@ max_commits = 100
 [context.providers.hybrid]
 enabled = true
 weight = 0.5
-combines = ["semantic", "symbol", "git_history"]
+combines = ["semantic", "full_text", "symbol", "git_history"]
 fusion_strategy = "rrf"
 
 # ==============================================================================

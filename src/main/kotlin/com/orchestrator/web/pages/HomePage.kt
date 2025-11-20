@@ -119,18 +119,6 @@ object HomePage {
                     href = "/explorer",
                     ariaLabel = "Search code with semantic understanding",
                     icon = "🔍"
-                ),
-                Navigation.Link(
-                    label = "Config",
-                    href = "/config",
-                    ariaLabel = "View configuration parameters",
-                    icon = "⚙️"
-                ),
-                Navigation.Link(
-                    label = "Metrics",
-                    href = "/metrics",
-                    ariaLabel = "View metrics and analytics",
-                    icon = "📈"
                 )
             )
         )

@@ -4,22 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="--  implemented the file type penalty system for the context search! Here's what was added:&#10;   &#10;     1. Configuration Model (ContextConfig.kt:171-245)&#10;   &#10;     Added three new penalty/boost maps to BoostConfig:&#10;     - fileTypePenalties: Penalize specific file extensions (e.g., pdf=0.5, md=0.7)&#10;     - filePatternPenalties: Penalize files matching glob patterns (e.g., **/docs/**=0.6)&#10;     - chunkKindBoosts: Boost/penalize based on chunk type (e.g., CODE_CLASS=1.3, PARAGRAPH=0.7)&#10;   &#10;     2. Penalty Application Logic (HybridContextProvider.kt:138-236)&#10;   &#10;     Implemented penalty calculation that:&#10;     - Applies file type penalties based on extension&#10;     - Matches glob patterns for path-based penalties (supports ** and * wildcards)&#10;     - Applies chunk kind boosts/penalties&#10;     - Combines all penalties multiplicatively (e.g., 0.5 × 0.6 × 0.7 = 0.21)&#10;     - Preserves original scores in metadata for transparency&#10;     - Re-ranks results after applying penalties to ensure doc files are pushed down&#10;   &#10;     3. Default Configuration (fusionagent.toml:338-383)&#10;   &#10;     Added comprehensive default penalties:&#10;     - PDFs, DOC/DOCX: 50% penalty (heavily penalized)&#10;     - Markdown, TXT: 30% penalty (lightly penalized)&#10;     - Docs directories: 40% penalty&#10;     - Code chunks (CLASS, FUNCTION, METHOD): 30% boost&#10;     - Documentation chunks (PARAGRAPH, DOCSTRING): 30% penalty&#10;   &#10;     4. Comprehensive Tests (HybridContextProviderTest.kt:345-605)&#10;   &#10;     Added 8 new tests verifying:&#10;     - File type penalties work correctly&#10;     - Glob pattern matching works (e.g., **/docs/** matches project/docs/guide.md)&#10;     - Chunk kind boosts work correctly&#10;     - Penalties combine multiplicatively&#10;     - Metadata preservation&#10;     - Ranking order is affected by penalties&#10;     - Empty config works (no penalties applied)&#10;   &#10;     Key Design Decisions&#10;   &#10;     1. When penalties are applied:&#10;     - Penalties are applied AFTER RRF (Reciprocal Rank Fusion) aggregation&#10;     - Results are then re-sorted by penalized scores&#10;     - This ensures penalties affect both scores AND rankings&#10;   &#10;     2. Score preservation:&#10;     - Original scores are preserved in original_score metadata&#10;     - Penalty multipliers are visible in metadata (file_type_penalty, pattern_penalty, kind_boost, combined_multiplier)&#10;     - Provides full transparency for debugging&#10;   &#10;     3. Glob matching:&#10;     - Supports ** (match anything including /)&#10;     - Supports * (match anything except /)&#10;     - Pattern **/README* correctly matches both README.md and docs/README.md --">
-      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- indexing fix  --">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfigLoader.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfigLoader.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/BinaryDetector.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/BinaryDetector.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/PathFilter.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/PathFilter.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/PathValidator.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/discovery/PathValidator.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/BatchIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/BatchIndexer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/UnifiedFileWatcher.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/UnifiedFileWatcher.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/WatcherDaemon.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/WatcherDaemon.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ConfigSection.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ConfigSection.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/logback.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/logback.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ErrorState.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ErrorState.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ConfigPage.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ExplorerPage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/ExplorerPage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/HomePage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/HomePage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/MetricsPage.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/TaskDetailPage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/pages/TaskDetailPage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Routing.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/plugins/Routing.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/rendering/PageLayout.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/rendering/PageLayout.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/routes/ConfigRoutes.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/routes/MetricsRoutes.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/static/css/explorer.css" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/static/css/explorer.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/static/js/explorer.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -343,15 +343,7 @@
       <workItem from="1763205921932" duration="32890000" />
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
-      <workItem from="1763652739075" duration="6406000" />
-    </task>
-    <task id="LOCAL-00136" summary="-- timestamp fixed --&#10; Solution&#10;&#10;  Modified IndexStatusPage.kt:62-64 to use the system's local timezone instead of UTC:&#10;&#10;  Before:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot;)&#10;      .withZone(ZoneOffset.UTC)&#10;&#10;  After:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss z&quot;)&#10;      .withZone(ZoneId.systemDefault())&#10;&#10;  Changes Made&#10;&#10;  1. Added import java.time.ZoneId to the imports&#10;  2. Changed the date format pattern from &quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot; to &quot;yyyy-MM-dd HH:mm:ss z&quot; (the 'z' formats the timezone abbreviation)&#10;  3. Changed from ZoneOffset.UTC to ZoneId.systemDefault() to use the server's local timezone">
-      <option name="closed" value="true" />
-      <created>1762465521183</created>
-      <option name="number" value="00136" />
-      <option name="presentableId" value="LOCAL-00136" />
-      <option name="project" value="LOCAL" />
-      <updated>1762465521183</updated>
+      <workItem from="1763652739075" duration="8480000" />
     </task>
     <task id="LOCAL-00137" summary="-- fawicon added --">
       <option name="closed" value="true" />
@@ -737,13 +729,36 @@
       <option name="project" value="LOCAL" />
       <updated>1763642103102</updated>
     </task>
-    <option name="localTasksCounter" value="185" />
+    <task id="LOCAL-00185" summary="-- indexing fix  --">
+      <option name="closed" value="true" />
+      <created>1763677082460</created>
+      <option name="number" value="00185" />
+      <option name="presentableId" value="LOCAL-00185" />
+      <option name="project" value="LOCAL" />
+      <updated>1763677082460</updated>
+    </task>
+    <option name="localTasksCounter" value="186" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
+    <option name="RECENT_FILTERS">
+      <map>
+        <entry key="Branch">
+          <value>
+            <list>
+              <RecentGroup>
+                <option name="FILTER_VALUES">
+                  <option value="imp" />
+                </option>
+              </RecentGroup>
+            </list>
+          </value>
+        </entry>
+      </map>
+    </option>
     <option name="TAB_STATES">
       <map>
         <entry key="MAIN">
@@ -754,7 +769,7 @@
                   <entry key="branch">
                     <value>
                       <list>
-                        <option value="neo" />
+                        <option value="imp" />
                       </list>
                     </value>
                   </entry>
@@ -769,7 +784,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- root agent fixed --" />
     <MESSAGE value="-- timestamp fixed --&#10; Solution&#10;&#10;  Modified IndexStatusPage.kt:62-64 to use the system's local timezone instead of UTC:&#10;&#10;  Before:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot;)&#10;      .withZone(ZoneOffset.UTC)&#10;&#10;  After:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss z&quot;)&#10;      .withZone(ZoneId.systemDefault())&#10;&#10;  Changes Made&#10;&#10;  1. Added import java.time.ZoneId to the imports&#10;  2. Changed the date format pattern from &quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot; to &quot;yyyy-MM-dd HH:mm:ss z&quot; (the 'z' formats the timezone abbreviation)&#10;  3. Changed from ZoneOffset.UTC to ZoneId.systemDefault() to use the server's local timezone" />
     <MESSAGE value="-- fawicon added --" />
     <MESSAGE value="-- couners auto refresh --&#10;- Created the event bus before initializing the watcher (and removed the duplicate later in Main.kt) so we can inject it into initializeWatcher.&#10;  - WatcherDaemon’s onUpdate now uses a shared FilesystemSnapshotCalculator to publish IndexStatusUpdatedEvent whenever new/modified/deleted files are&#10;    processed, which unblocks the SSE pipeline.&#10;  - Added FilesystemSnapshotCalculator as a reusable helper; updated IndexOperationsService to reuse it instead of keeping its own duplicate scanner&#10;    logic.&#10;  - Reworked the calculator to use the actual SymlinkHandler/PathValidator signatures and added the missing imports (withContext, kotlin.math.max,&#10;    LinkedHashMap, etc.), clearing all the “unresolved reference” errors the build reported." />
@@ -794,7 +808,8 @@
     <MESSAGE value="-- all tests passed --" />
     <MESSAGE value="-- cleanup --" />
     <MESSAGE value="--  implemented the file type penalty system for the context search! Here's what was added:&#10;   &#10;     1. Configuration Model (ContextConfig.kt:171-245)&#10;   &#10;     Added three new penalty/boost maps to BoostConfig:&#10;     - fileTypePenalties: Penalize specific file extensions (e.g., pdf=0.5, md=0.7)&#10;     - filePatternPenalties: Penalize files matching glob patterns (e.g., **/docs/**=0.6)&#10;     - chunkKindBoosts: Boost/penalize based on chunk type (e.g., CODE_CLASS=1.3, PARAGRAPH=0.7)&#10;   &#10;     2. Penalty Application Logic (HybridContextProvider.kt:138-236)&#10;   &#10;     Implemented penalty calculation that:&#10;     - Applies file type penalties based on extension&#10;     - Matches glob patterns for path-based penalties (supports ** and * wildcards)&#10;     - Applies chunk kind boosts/penalties&#10;     - Combines all penalties multiplicatively (e.g., 0.5 × 0.6 × 0.7 = 0.21)&#10;     - Preserves original scores in metadata for transparency&#10;     - Re-ranks results after applying penalties to ensure doc files are pushed down&#10;   &#10;     3. Default Configuration (fusionagent.toml:338-383)&#10;   &#10;     Added comprehensive default penalties:&#10;     - PDFs, DOC/DOCX: 50% penalty (heavily penalized)&#10;     - Markdown, TXT: 30% penalty (lightly penalized)&#10;     - Docs directories: 40% penalty&#10;     - Code chunks (CLASS, FUNCTION, METHOD): 30% boost&#10;     - Documentation chunks (PARAGRAPH, DOCSTRING): 30% penalty&#10;   &#10;     4. Comprehensive Tests (HybridContextProviderTest.kt:345-605)&#10;   &#10;     Added 8 new tests verifying:&#10;     - File type penalties work correctly&#10;     - Glob pattern matching works (e.g., **/docs/** matches project/docs/guide.md)&#10;     - Chunk kind boosts work correctly&#10;     - Penalties combine multiplicatively&#10;     - Metadata preservation&#10;     - Ranking order is affected by penalties&#10;     - Empty config works (no penalties applied)&#10;   &#10;     Key Design Decisions&#10;   &#10;     1. When penalties are applied:&#10;     - Penalties are applied AFTER RRF (Reciprocal Rank Fusion) aggregation&#10;     - Results are then re-sorted by penalized scores&#10;     - This ensures penalties affect both scores AND rankings&#10;   &#10;     2. Score preservation:&#10;     - Original scores are preserved in original_score metadata&#10;     - Penalty multipliers are visible in metadata (file_type_penalty, pattern_penalty, kind_boost, combined_multiplier)&#10;     - Provides full transparency for debugging&#10;   &#10;     3. Glob matching:&#10;     - Supports ** (match anything including /)&#10;     - Supports * (match anything except /)&#10;     - Pattern **/README* correctly matches both README.md and docs/README.md --" />
-    <option name="LAST_COMMIT_MESSAGE" value="--  implemented the file type penalty system for the context search! Here's what was added:&#10;   &#10;     1. Configuration Model (ContextConfig.kt:171-245)&#10;   &#10;     Added three new penalty/boost maps to BoostConfig:&#10;     - fileTypePenalties: Penalize specific file extensions (e.g., pdf=0.5, md=0.7)&#10;     - filePatternPenalties: Penalize files matching glob patterns (e.g., **/docs/**=0.6)&#10;     - chunkKindBoosts: Boost/penalize based on chunk type (e.g., CODE_CLASS=1.3, PARAGRAPH=0.7)&#10;   &#10;     2. Penalty Application Logic (HybridContextProvider.kt:138-236)&#10;   &#10;     Implemented penalty calculation that:&#10;     - Applies file type penalties based on extension&#10;     - Matches glob patterns for path-based penalties (supports ** and * wildcards)&#10;     - Applies chunk kind boosts/penalties&#10;     - Combines all penalties multiplicatively (e.g., 0.5 × 0.6 × 0.7 = 0.21)&#10;     - Preserves original scores in metadata for transparency&#10;     - Re-ranks results after applying penalties to ensure doc files are pushed down&#10;   &#10;     3. Default Configuration (fusionagent.toml:338-383)&#10;   &#10;     Added comprehensive default penalties:&#10;     - PDFs, DOC/DOCX: 50% penalty (heavily penalized)&#10;     - Markdown, TXT: 30% penalty (lightly penalized)&#10;     - Docs directories: 40% penalty&#10;     - Code chunks (CLASS, FUNCTION, METHOD): 30% boost&#10;     - Documentation chunks (PARAGRAPH, DOCSTRING): 30% penalty&#10;   &#10;     4. Comprehensive Tests (HybridContextProviderTest.kt:345-605)&#10;   &#10;     Added 8 new tests verifying:&#10;     - File type penalties work correctly&#10;     - Glob pattern matching works (e.g., **/docs/** matches project/docs/guide.md)&#10;     - Chunk kind boosts work correctly&#10;     - Penalties combine multiplicatively&#10;     - Metadata preservation&#10;     - Ranking order is affected by penalties&#10;     - Empty config works (no penalties applied)&#10;   &#10;     Key Design Decisions&#10;   &#10;     1. When penalties are applied:&#10;     - Penalties are applied AFTER RRF (Reciprocal Rank Fusion) aggregation&#10;     - Results are then re-sorted by penalized scores&#10;     - This ensures penalties affect both scores AND rankings&#10;   &#10;     2. Score preservation:&#10;     - Original scores are preserved in original_score metadata&#10;     - Penalty multipliers are visible in metadata (file_type_penalty, pattern_penalty, kind_boost, combined_multiplier)&#10;     - Provides full transparency for debugging&#10;   &#10;     3. Glob matching:&#10;     - Supports ** (match anything including /)&#10;     - Supports * (match anything except /)&#10;     - Pattern **/README* correctly matches both README.md and docs/README.md --" />
+    <MESSAGE value="-- indexing fix  --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- indexing fix  --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

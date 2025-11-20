@@ -8,11 +8,11 @@
     border: 1px solid #dee2e6;
     border-radius: 4px;
     padding: 1rem;
-    max-height: 500px;
-    overflow-y: auto;
     font-family: 'Courier New', monospace;
     font-size: 14px;
     line-height: 1.5;
+    overflow-y: auto;
+    max-height: 100%;
 }
 
 .code-line {

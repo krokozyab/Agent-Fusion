@@ -16,7 +16,7 @@ object PageLayout {
      * Main dashboard shell with navigation and footer
      *
      * @param pageTitle The title for the page (used for accessibility)
-     * @param currentPath The current request path (e.g., "/", "/tasks", "/metrics")
+     * @param currentPath The current request path (e.g., "/", "/tasks", "/index")
      * @param content The page content lambda
      */
     fun BODY.dashboardShell(
@@ -104,20 +104,6 @@ object PageLayout {
                     ariaLabel = "Search code with semantic understanding",
                     icon = "🔍",
                     disableBoost = true
-                ),
-                Navigation.Link(
-                    label = "Config",
-                    href = "/config",
-                    active = currentPath.startsWith("/config"),
-                    ariaLabel = "View configuration parameters",
-                    icon = "⚙️"
-                ),
-                Navigation.Link(
-                    label = "Metrics",
-                    href = "/metrics",
-                    active = currentPath.startsWith("/metrics"),
-                    ariaLabel = "View metrics and analytics",
-                    icon = "📈"
                 )
             )
         )

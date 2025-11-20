@@ -87,15 +87,6 @@ object ErrorState {
             hxSwap = "outerHTML"
         )
 
-        fun loadMetricsFailed(retryUrl: String = "/metrics") = Config(
-            heading = "Failed to load metrics",
-            message = "An error occurred while loading metrics data. Please try again.",
-            retryUrl = retryUrl,
-            icon = "❌",
-            hxTarget = "#metrics-dashboard",
-            hxSwap = "outerHTML"
-        )
-
         fun searchFailed(retryUrl: String, query: String? = null) = Config(
             heading = "Search failed",
             message = "An error occurred while searching. Please try again.",

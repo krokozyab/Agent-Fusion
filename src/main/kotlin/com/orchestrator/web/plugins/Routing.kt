@@ -9,7 +9,6 @@ import com.orchestrator.web.routes.fileRoutes
 import com.orchestrator.web.routes.healthRoutes
 import com.orchestrator.web.routes.homeRoutes
 import com.orchestrator.web.routes.indexRoutes
-import com.orchestrator.web.routes.metricsRoutes
 import com.orchestrator.web.routes.sseRoutes
 import com.orchestrator.web.routes.taskRoutes
 import io.ktor.server.application.Application
@@ -51,9 +50,6 @@ internal fun Application.configureRouting(config: WebServerConfig) {
 
         // Context Explorer routes
         explorerRoutes()
-
-        // Metrics dashboard routes
-        metricsRoutes()
 
         // Server-Sent Events routes
         sseRoutes()

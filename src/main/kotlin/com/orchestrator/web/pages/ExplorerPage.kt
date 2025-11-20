@@ -26,9 +26,7 @@ object ExplorerPage {
                 Navigation.Link("Tasks", "/tasks", icon = "📋"),
                 Navigation.Link("Index Status", "/index", icon = "📊"),
                 Navigation.Link("Files", "/files", icon = "📂"),
-                Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍", disableBoost = true),
-                Navigation.Link("Config", "/config", icon = "⚙️"),
-                Navigation.Link("Metrics", "/metrics", icon = "📈")
+                Navigation.Link("Context Explorer", "/explorer", active = true, icon = "🔍", disableBoost = true)
             )
         )
 

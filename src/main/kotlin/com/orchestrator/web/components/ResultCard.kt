@@ -49,16 +49,6 @@ object ResultCard {
                                     onclick="openFile('${config.filePath.replace("'", "\\'")}',${config.startLine})">
                                 📂 Open
                             </button>
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="copyToClipboard(this)"
-                                    data-content="${escapeHtml(config.snippet).replace("\"", "&quot;")}">
-                                📋 Copy
-                            </button>
-                            <button type="button" class="btn btn-outline-info"
-                                    data-chunk-id="${config.chunkId}"
-                                    onclick="findRelated(${config.chunkId})">
-                                🔗 Related
-                            </button>
                         </div>
                     </div>
                 </div>
