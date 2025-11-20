@@ -204,6 +204,43 @@ data class BoostConfig(
         "css" to 0.93,
         "text" to 0.90,
         "document" to 0.92
+    ),
+    // File type penalties: Reduce scores for documentation/binary files that pollute code search
+    // Values < 1.0 = penalty (e.g., 0.5 = 50% penalty), values > 1.0 = boost
+    // Applied based on file extension
+    val fileTypePenalties: Map<String, Double> = mapOf(
+        "pdf" to 0.5,      // PDFs often dominate search results
+        "doc" to 0.5,      // Word documents
+        "docx" to 0.5,     // Word documents
+        "txt" to 0.7,      // Plain text
+        "md" to 0.7,       // Markdown docs (slight penalty, still useful)
+        "rst" to 0.7,      // ReStructuredText
+        "log" to 0.6,      // Log files
+        "csv" to 0.8       // Data files
+    ),
+    // File pattern penalties: Reduce scores for specific path patterns
+    // Supports glob patterns (e.g., "**/docs/**" matches docs directories anywhere)
+    val filePatternPenalties: Map<String, Double> = mapOf(
+        "**/docs/**" to 0.6,       // Documentation directories
+        "**/documentation/**" to 0.6,
+        "**/README*" to 0.8,        // READMEs less penalty (still valuable)
+        "**/CHANGELOG*" to 0.7,
+        "**/api-spec*" to 0.9       // API specs should stay visible
+    ),
+    // Chunk kind boosts: Boost or penalize based on chunk type
+    // Values > 1.0 = boost code chunks, values < 1.0 = penalize documentation
+    val chunkKindBoosts: Map<String, Double> = mapOf(
+        "CODE_CLASS" to 1.3,           // Strongly favor class definitions
+        "CODE_FUNCTION" to 1.3,        // Strongly favor function definitions
+        "CODE_METHOD" to 1.3,          // Strongly favor method definitions
+        "CODE_INTERFACE" to 1.2,       // Favor interfaces
+        "CODE_ENUM" to 1.2,            // Favor enums
+        "CODE_STRUCT" to 1.2,          // Favor structs
+        "CODE_BLOCK" to 1.1,           // Slight boost for code blocks
+        "DOCUMENTATION" to 0.6,        // Penalize documentation chunks
+        "TEXT_PARAGRAPH" to 0.7,       // Penalize text paragraphs
+        "COMMENT" to 0.8,              // Light penalty for comments
+        "MARKDOWN_SECTION" to 0.7      // Penalize markdown sections
     )
 )
 

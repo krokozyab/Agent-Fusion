@@ -1,5 +1,6 @@
 package com.orchestrator.context.providers
 
+import com.orchestrator.context.config.BoostConfig
 import com.orchestrator.context.domain.*
 import io.mockk.*
 import kotlinx.coroutines.runBlocking
@@ -341,14 +342,282 @@ class HybridContextProviderTest {
         assertTrue(avgTime < 200.0, "Average response time ${avgTime}ms exceeds 200ms requirement")
     }
 
+    @Test
+    fun `applies file type penalties correctly`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        // Return snippets with different file types
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.9, "pdf content", filePath = "docs/manual.pdf"),
+            createSnippet(2, 0.9, "code content", filePath = "src/Main.kt"),
+            createSnippet(3, 0.9, "markdown content", filePath = "README.md")
+        )
+
+        val boostConfig = BoostConfig(
+            fileTypePenalties = mapOf(
+                "pdf" to 0.5,  // 50% penalty
+                "md" to 0.7    // 30% penalty
+            )
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        // All snippets should be present
+        assertEquals(3, result.size)
+
+        // Check penalties were applied via metadata
+        val pdfSnippet = result.find { it.filePath.endsWith("pdf") }!!
+        assertEquals("0.500", pdfSnippet.metadata["file_type_penalty"])
+
+        val ktSnippet = result.find { it.filePath.endsWith("kt") }!!
+        assertEquals("1.000", ktSnippet.metadata["file_type_penalty"]) // No penalty for .kt
+
+        val mdSnippet = result.find { it.filePath.endsWith("md") }!!
+        assertEquals("0.700", mdSnippet.metadata["file_type_penalty"])
+    }
+
+    @Test
+    fun `applies file pattern penalties correctly`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        // Return snippets with different path patterns
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.9, "docs content", filePath = "project/docs/guide.md"),
+            createSnippet(2, 0.9, "code content", filePath = "src/main/Main.kt"),
+            createSnippet(3, 0.9, "readme", filePath = "README.md")
+        )
+
+        val boostConfig = BoostConfig(
+            filePatternPenalties = mapOf(
+                "**/docs/**" to 0.6,    // Docs directory
+                "**/README*" to 0.8     // READMEs
+            )
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(3, result.size)
+
+        // Check pattern penalties
+        val docsSnippet = result.find { it.filePath.contains("docs") }!!
+        assertEquals("0.600", docsSnippet.metadata["pattern_penalty"])
+
+        val codeSnippet = result.find { it.filePath.contains("src") }!!
+        assertEquals("1.000", codeSnippet.metadata["pattern_penalty"]) // No matching pattern
+
+        val readmeSnippet = result.find { it.filePath.contains("README") }!!
+        assertEquals("0.800", readmeSnippet.metadata["pattern_penalty"])
+    }
+
+    @Test
+    fun `applies chunk kind boosts correctly`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        // Return snippets with different chunk kinds
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.8, "class code", kind = ChunkKind.CODE_CLASS),
+            createSnippet(2, 0.8, "function code", kind = ChunkKind.CODE_FUNCTION),
+            createSnippet(3, 0.8, "comment", kind = ChunkKind.COMMENT),
+            createSnippet(4, 0.8, "paragraph", kind = ChunkKind.PARAGRAPH)
+        )
+
+        val boostConfig = BoostConfig(
+            chunkKindBoosts = mapOf(
+                "CODE_CLASS" to 1.3,     // Boost code
+                "CODE_FUNCTION" to 1.3,  // Boost code
+                "COMMENT" to 0.8,        // Penalize comments
+                "PARAGRAPH" to 0.7       // Penalize text
+            )
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(4, result.size)
+
+        // Check kind boosts
+        val classSnippet = result.find { it.kind == ChunkKind.CODE_CLASS }!!
+        assertEquals("1.300", classSnippet.metadata["kind_boost"])
+
+        val functionSnippet = result.find { it.kind == ChunkKind.CODE_FUNCTION }!!
+        assertEquals("1.300", functionSnippet.metadata["kind_boost"])
+
+        val commentSnippet = result.find { it.kind == ChunkKind.COMMENT }!!
+        assertEquals("0.800", commentSnippet.metadata["kind_boost"])
+
+        val paragraphSnippet = result.find { it.kind == ChunkKind.PARAGRAPH }!!
+        assertEquals("0.700", paragraphSnippet.metadata["kind_boost"])
+    }
+
+    @Test
+    fun `combines multiple penalties multiplicatively`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        // Return a PDF in docs directory with documentation chunk kind
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(
+                chunkId = 1,
+                score = 0.9,
+                text = "documentation",
+                filePath = "docs/manual.pdf",
+                kind = ChunkKind.PARAGRAPH
+            )
+        )
+
+        val boostConfig = BoostConfig(
+            fileTypePenalties = mapOf("pdf" to 0.5),           // 50% penalty
+            filePatternPenalties = mapOf("**/docs/**" to 0.6), // 40% penalty
+            chunkKindBoosts = mapOf("PARAGRAPH" to 0.7)        // 30% penalty
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(1, result.size)
+
+        val snippet = result[0]
+
+        // Check individual penalties
+        assertEquals("0.500", snippet.metadata["file_type_penalty"])
+        assertEquals("0.600", snippet.metadata["pattern_penalty"])
+        assertEquals("0.700", snippet.metadata["kind_boost"])
+
+        // Check combined multiplier: 0.5 * 0.6 * 0.7 = 0.21
+        assertEquals("0.210", snippet.metadata["combined_multiplier"])
+
+        // Original score was 0.9, after penalty: 0.9 * 0.21 = 0.189
+        assertTrue(snippet.score < 0.2)
+        assertEquals("0.9000", snippet.metadata["original_score"])
+    }
+
+    @Test
+    fun `penalty system preserves original score in metadata`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.85, "test", filePath = "docs/file.pdf")
+        )
+
+        val boostConfig = BoostConfig(
+            fileTypePenalties = mapOf("pdf" to 0.5)
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(1, result.size)
+
+        // Original score should be preserved in metadata
+        assertEquals("0.8500", result[0].metadata["original_score"])
+
+        // Adjusted score should be different
+        assertTrue(result[0].score < 0.85)
+    }
+
+    @Test
+    fun `no penalties applied when config is empty`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.9, "test", filePath = "docs/file.pdf", kind = ChunkKind.PARAGRAPH)
+        )
+
+        val boostConfig = BoostConfig(
+            fileTypePenalties = emptyMap(),
+            filePatternPenalties = emptyMap(),
+            chunkKindBoosts = emptyMap()
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(1, result.size)
+
+        // All penalties should be 1.0 (no penalty)
+        assertEquals("1.000", result[0].metadata["file_type_penalty"])
+        assertEquals("1.000", result[0].metadata["pattern_penalty"])
+        assertEquals("1.000", result[0].metadata["kind_boost"])
+        assertEquals("1.000", result[0].metadata["combined_multiplier"])
+
+        // Score should remain unchanged
+        assertEquals(0.9, result[0].score, 0.001)
+    }
+
+    @Test
+    fun `penalties affect ranking order`() = runBlocking {
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+
+        // Return snippets with same initial scores but different file types
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.9, "pdf content", filePath = "docs/file.pdf"),
+            createSnippet(2, 0.9, "code content", filePath = "src/Main.kt")
+        )
+
+        val boostConfig = BoostConfig(
+            fileTypePenalties = mapOf("pdf" to 0.5) // Heavy penalty for PDF
+        )
+
+        val hybrid = HybridContextProvider(
+            providers = listOf(provider1),
+            boostConfig = boostConfig
+        )
+
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(2, result.size)
+
+        // Code file should rank higher than PDF despite same original score
+        assertEquals("src/Main.kt", result[0].filePath, "Code file should rank first")
+        assertEquals("docs/file.pdf", result[1].filePath, "PDF should rank second")
+    }
+
     // Helper method to create test snippets
-    private fun createSnippet(chunkId: Long, score: Double, text: String): ContextSnippet {
+    private fun createSnippet(
+        chunkId: Long,
+        score: Double,
+        text: String,
+        filePath: String = "test/file.kt",
+        kind: ChunkKind = ChunkKind.CODE_CLASS
+    ): ContextSnippet {
         return ContextSnippet(
             chunkId = chunkId,
             score = score,
-            filePath = "test/file.kt",
+            filePath = filePath,
             label = "test snippet $chunkId",
-            kind = ChunkKind.CODE_CLASS,
+            kind = kind,
             text = text,
             language = "kotlin",
             offsets = IntRange(1, 10),

@@ -4,41 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- all tests passed --">
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PdfChunker.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/WordChunker.kt" afterDir="false" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- cleanup --">
+      <change afterPath="$PROJECT_DIR$/devdoc/Sergey_Rudenko_cv.docx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/external/kotlin-sdk" beforeDir="false" afterPath="$PROJECT_DIR$/external/kotlin-sdk" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/IncrementalIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/IncrementalIndexer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/ChunkToStructureAdapter.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/CodeStructure.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/CodeStructureExtractor.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/CodeStructureIndexer.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/DocumentStructure.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/DocumentStructureAdapter.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/DocumentStructureIndexer.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/DualStorageCoordinator.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/EmbeddedNeo4jDriver.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/EmbeddingCoordinator.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/IndexingMetrics.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/Neo4jDriver.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/Neo4jDriverInterface.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/Neo4jFactory.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/Neo4jQueryProvider.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/Neo4jSchema.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/neo4j/UnifiedSynchronousIndexer.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/ResultOrganizer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/ResultOrganizer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/UnifiedContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/UnifiedContextProvider.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/UnifiedFileWatcher.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/UnifiedFileWatcher.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/WatcherDaemon.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/watcher/WatcherDaemon.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/META-INF/services/com.orchestrator.context.providers.ContextProvider" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/META-INF/services/com.orchestrator.context.providers.ContextProvider" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/HybridContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/HybridContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/HybridContextProviderTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/HybridContextProviderTest.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,52 +91,52 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Gradle.AgentRegistryTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.AgentSelectorTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.Build codex_to_claude.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.ConsensusModuleTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.ConsensusWorkflowTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.ContextModuleTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.DirectiveParserTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.GetTaskStatusToolTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.McpServerImplTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.ProposalRepositoryTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.RoutingModuleTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.StrategyPickerTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.TaskClassifierTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.TaskRepositoryTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.TokenEstimatorTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.VotingStrategyTest.executor&quot;: &quot;Run&quot;,
-    &quot;Gradle.WorkflowExecutorTest.executor&quot;: &quot;Run&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;imp&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/sergeyrudenko/projects/codex_to_claude/docs&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;aws.codewhisperer&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Gradle.AgentRegistryTest.executor": "Run",
+    "Gradle.AgentSelectorTest.executor": "Run",
+    "Gradle.Build codex_to_claude.executor": "Run",
+    "Gradle.ConsensusModuleTest.executor": "Run",
+    "Gradle.ConsensusWorkflowTest.executor": "Run",
+    "Gradle.ContextModuleTest.executor": "Run",
+    "Gradle.DirectiveParserTest.executor": "Run",
+    "Gradle.GetTaskStatusToolTest.executor": "Run",
+    "Gradle.McpServerImplTest.executor": "Run",
+    "Gradle.ProposalRepositoryTest.executor": "Run",
+    "Gradle.RoutingModuleTest.executor": "Run",
+    "Gradle.StrategyPickerTest.executor": "Run",
+    "Gradle.TaskClassifierTest.executor": "Run",
+    "Gradle.TaskRepositoryTest.executor": "Run",
+    "Gradle.TokenEstimatorTest.executor": "Run",
+    "Gradle.VotingStrategyTest.executor": "Run",
+    "Gradle.WorkflowExecutorTest.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "imp",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/devdoc",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "settings.editor.selected.configurable": "aws.codewhisperer",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/devdoc" />
       <recent name="$PROJECT_DIR$/docs" />
       <recent name="$PROJECT_DIR$/devdoc/neo" />
       <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/pics" />
-      <recent name="$PROJECT_DIR$/devdoc" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/devdoc" />
@@ -362,14 +334,6 @@
       <workItem from="1763205921932" duration="32890000" />
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
-    </task>
-    <task id="LOCAL-00134" summary="-- modal fixed --">
-      <option name="closed" value="true" />
-      <created>1762332672562</created>
-      <option name="number" value="00134" />
-      <option name="presentableId" value="LOCAL-00134" />
-      <option name="project" value="LOCAL" />
-      <updated>1762332672563</updated>
     </task>
     <task id="LOCAL-00135" summary="-- root agent fixed --">
       <option name="closed" value="true" />
@@ -755,7 +719,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763490009482</updated>
     </task>
-    <option name="localTasksCounter" value="183" />
+    <task id="LOCAL-00183" summary="-- cleanup --">
+      <option name="closed" value="true" />
+      <created>1763629778245</created>
+      <option name="number" value="00183" />
+      <option name="presentableId" value="LOCAL-00183" />
+      <option name="project" value="LOCAL" />
+      <updated>1763629778245</updated>
+    </task>
+    <option name="localTasksCounter" value="184" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -787,7 +759,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- modal close fixed --&#10;Root Causes &amp; Fixes Applied:&#10;&#10;  1. Modal Not Opening&#10;&#10;  - Root Cause: htmx.ajax() wasn't respecting the target and swap options, causing content to load to wrong location&#10;  - Fix: Changed from HTMX API to native fetch() API for direct control over where content is inserted&#10;&#10;  2. Modal Close Button Not Visible&#10;&#10;  - Root Cause: .modal__close CSS had no color definition&#10;  - Fix: Added color: #333 to modal.css (lines 56-74) with hover/active states&#10;&#10;  3. Modal Closing Not Working (ESC &amp; × Button)&#10;&#10;  - Root Cause: Event listeners wrapped in DOMContentLoaded - if modal.js loaded after that event fired, listeners never attached&#10;  - Fix: Moved all event listeners OUTSIDE DOMContentLoaded (modal.js lines 28-72)&#10;  - Also Fixed: Used closest() instead of direct target check for more robust event delegation&#10;&#10;  4. Modal Container Not Found at Runtime&#10;&#10;  - Root Cause: task-grid.js loads and runs BEFORE the modal-container element is parsed by browser (script inside card, container defined&#10;  after)&#10;  - Fix: Added ensureModalContainer() helper function (modal.js lines 1-15) that:&#10;    - Checks if element exists&#10;    - Creates it dynamically if not found&#10;    - All click handlers use this before inserting content&#10;&#10;  ---&#10;  Files Modified:&#10;&#10;  1. modal.js (src/main/resources/static/js/modal.js)&#10;    - Added ensureModalContainer() helper function&#10;    - Moved click and ESC key handlers outside DOMContentLoaded&#10;    - Improved event handler with closest() for robustness&#10;    - Enhanced logging for debugging&#10;  2. modal.css (src/main/resources/static/css/modal.css)&#10;    - Added color: #333 to .modal__close&#10;    - Added padding, line-height, and transition effects&#10;    - Added :hover state (darker color + scale)&#10;    - Added :active state (scale-down for press effect)&#10;  3. task-grid.js (src/main/resources/static/js/task-grid.js)&#10;    - Changed View button from htmx.ajax() to fetch() API&#10;    - Changed row double-click handler to use fetch()&#10;    - Changed action button handlers to use fetch()&#10;    - All handlers now call ensureModalContainer() before inserting content&#10;    - Added comprehensive logging for debugging&#10;&#10;  ---&#10;  How It Works Now:&#10;&#10;  1. User clicks &quot;View&quot; button on a task row&#10;  2. task-grid.js:&#10;    - Fetches modal content from /tasks/{id}/modal&#10;    - Calls ensureModalContainer() to guarantee container exists&#10;    - Inserts HTML into #modal-container&#10;    - Calls window.openModal('modal-container')&#10;  3. modal.js:&#10;    - Adds is-open class to make modal visible&#10;    - Sets document.body.overflow = 'hidden' to prevent scrolling&#10;  4. User can close via:&#10;    - × Button: Click handler calls window.closeModal()&#10;    - ESC Key: Document listener detects and calls closeModal() for all open modals&#10;    - Backdrop: Click handler detects .modal__backdrop and closes" />
     <MESSAGE value="-- modal fixed --" />
     <MESSAGE value="-- root agent fixed --" />
     <MESSAGE value="-- timestamp fixed --&#10; Solution&#10;&#10;  Modified IndexStatusPage.kt:62-64 to use the system's local timezone instead of UTC:&#10;&#10;  Before:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot;)&#10;      .withZone(ZoneOffset.UTC)&#10;&#10;  After:&#10;  private val displayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(&quot;yyyy-MM-dd HH:mm:ss z&quot;)&#10;      .withZone(ZoneId.systemDefault())&#10;&#10;  Changes Made&#10;&#10;  1. Added import java.time.ZoneId to the imports&#10;  2. Changed the date format pattern from &quot;yyyy-MM-dd HH:mm:ss 'UTC'&quot; to &quot;yyyy-MM-dd HH:mm:ss z&quot; (the 'z' formats the timezone abbreviation)&#10;  3. Changed from ZoneOffset.UTC to ZoneId.systemDefault() to use the server's local timezone" />
@@ -812,7 +783,8 @@
     <MESSAGE value="-- config page added --" />
     <MESSAGE value="-- readme --" />
     <MESSAGE value="-- all tests passed --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- all tests passed --" />
+    <MESSAGE value="-- cleanup --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- cleanup --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

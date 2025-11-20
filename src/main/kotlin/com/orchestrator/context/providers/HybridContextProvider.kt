@@ -1,17 +1,21 @@
 package com.orchestrator.context.providers
 
+import com.orchestrator.context.config.BoostConfig
 import com.orchestrator.context.domain.ContextScope
 import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.TokenBudget
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import java.nio.file.FileSystems
+import java.nio.file.PathMatcher
 import kotlin.math.max
 
 class HybridContextProvider(
     private val providers: List<ContextProvider>? = null,
     private val k: Int = DEFAULT_K,
     private val weights: Map<ContextProviderType, Double> = emptyMap(),
-    private val failureStrategy: FailureStrategy = FailureStrategy.SKIP
+    private val failureStrategy: FailureStrategy = FailureStrategy.SKIP,
+    private val boostConfig: BoostConfig = BoostConfig()
 ) : ContextProvider {
 
     // Lazy initialization to discover other providers when needed
@@ -80,18 +84,23 @@ class HybridContextProvider(
         val ordered = aggregated.values
             .sortedByDescending { it.rrfScore }
             .map { entry ->
+                // Apply penalties to the original snippet score (not RRF score)
+                val penalizedSnippet = applyPenalties(entry.snippet)
+
                 val providerCount = entry.providers.distinct().size
-                val metadata = entry.snippet.metadata + mapOf(
-                    "sources" to mergeSources(entry.snippet.metadata["sources"], entry.providers.map { it.name.lowercase() }),
+                // Merge RRF metadata with penalty metadata
+                val metadata = penalizedSnippet.metadata + mapOf(
+                    "sources" to mergeSources(penalizedSnippet.metadata["sources"], entry.providers.map { it.name.lowercase() }),
                     "rrf_score" to "%.4f".format(entry.rrfScore),
                     "rrf_provider_count" to providerCount.toString(),
                     "rrf_agreement" to "%.2f".format(providerCount.toDouble() / effectiveProviders.size.toDouble())
                 )
-                entry.snippet.copy(
-                    score = entry.rrfScore.coerceIn(0.0, 1.0),
-                    metadata = metadata
-                )
+                // Use the penalized score, not the RRF score
+                // RRF is only for ranking, not for the final score
+                penalizedSnippet.copy(metadata = metadata)
             }
+            // Re-sort by penalized scores to ensure penalties affect ranking
+            .sortedByDescending { it.score }
 
         enforceBudget(ordered, budget)
     }
@@ -128,6 +137,106 @@ class HybridContextProvider(
         val providers: MutableList<ContextProviderType>,
         var rrfScore: Double
     )
+
+    /**
+     * Apply file type penalties, pattern penalties, and chunk kind boosts to a snippet.
+     * Returns a new snippet with adjusted score and penalty metadata.
+     */
+    private fun applyPenalties(snippet: ContextSnippet): ContextSnippet {
+        val fileTypePenalty = getFileTypePenalty(snippet.filePath)
+        val patternPenalty = getFilePatternPenalty(snippet.filePath)
+        val kindBoost = getChunkKindBoost(snippet.kind)
+
+        // Combine all penalties multiplicatively
+        val combinedMultiplier = fileTypePenalty * patternPenalty * kindBoost
+        val adjustedScore = (snippet.score * combinedMultiplier).coerceIn(0.0, 1.0)
+
+        // Add penalty info to metadata for transparency
+        val updatedMetadata = snippet.metadata + mapOf(
+            "file_type_penalty" to "%.3f".format(fileTypePenalty),
+            "pattern_penalty" to "%.3f".format(patternPenalty),
+            "kind_boost" to "%.3f".format(kindBoost),
+            "combined_multiplier" to "%.3f".format(combinedMultiplier),
+            "original_score" to "%.4f".format(snippet.score)
+        )
+
+        return snippet.copy(
+            score = adjustedScore,
+            metadata = updatedMetadata
+        )
+    }
+
+    /**
+     * Get penalty for a specific file extension.
+     * Returns 1.0 (no penalty) if extension not in penalty map.
+     */
+    private fun getFileTypePenalty(filePath: String): Double {
+        val extension = filePath.substringAfterLast('.', "")
+        if (extension.isBlank()) return 1.0
+        return boostConfig.fileTypePenalties[extension] ?: 1.0
+    }
+
+    /**
+     * Get penalty for file path matching configured patterns.
+     * Checks all patterns and returns the minimum penalty (most restrictive).
+     */
+    private fun getFilePatternPenalty(filePath: String): Double {
+        if (boostConfig.filePatternPenalties.isEmpty()) return 1.0
+
+        // Find matching patterns and get the minimum penalty (most restrictive)
+        val penalties = boostConfig.filePatternPenalties.mapNotNull { (pattern, penalty) ->
+            if (matchesGlobPattern(filePath, pattern)) penalty else null
+        }
+
+        return penalties.minOrNull() ?: 1.0
+    }
+
+    /**
+     * Get boost for a specific chunk kind.
+     * Returns 1.0 (no boost/penalty) if kind not in boost map.
+     */
+    private fun getChunkKindBoost(kind: com.orchestrator.context.domain.ChunkKind): Double {
+        return boostConfig.chunkKindBoosts[kind.name] ?: 1.0
+    }
+
+    /**
+     * Simple glob pattern matcher supporting wildcards.
+     */
+    private fun matchesGlobPattern(path: String, pattern: String): Boolean {
+        // Normalize paths
+        val normalizedPath = path.replace('\\', '/').removePrefix("/")
+        val normalizedPattern = pattern.replace('\\', '/')
+
+        // Convert glob pattern to regex
+        var regex = normalizedPattern
+            .replace(".", "\\.")  // Escape dots
+            .replace("**", "###DOUBLESTAR###")  // Temporarily replace **
+            .replace("*", "[^/]*")  // * matches anything except /
+            .replace("###DOUBLESTAR###", ".*")  // ** matches anything including /
+
+        // Handle anchoring carefully
+        // If pattern starts with **, make the .* optional (match zero or more path segments)
+        if (regex.startsWith(".*")) {
+            // Pattern like **/foo should match both "foo" and "bar/foo"
+            // Make the leading .* match zero or more characters followed by optional /
+            regex = "^(.*/)?" + regex.substring(3)  // Remove the .* and add optional prefix
+        } else {
+            // Pattern doesn't start with **, anchor to start
+            regex = "^$regex"
+        }
+
+        // Anchor to end
+        if (!regex.endsWith("$")) {
+            regex = "$regex$"
+        }
+
+        return try {
+            Regex(regex).matches(normalizedPath)
+        } catch (e: Exception) {
+            // Fallback to simple contains check
+            normalizedPath.contains(normalizedPattern.replace("**", "").replace("*", ""))
+        }
+    }
 
     companion object {
         private const val DEFAULT_K = 60
