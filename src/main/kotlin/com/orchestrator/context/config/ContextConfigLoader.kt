@@ -44,9 +44,8 @@ object ContextConfigLoader {
 
         val defaults = ContextConfig()
         val contextTable = toml.getTable("context")
-        val ignoreTable = toml.getTable("ignore")
         val config = if (contextTable == null) {
-            defaults.copy(ignore = parseIgnore(ignoreTable, env))
+            defaults
         } else {
             ContextConfig(
                 enabled = contextTable.getBoolean("enabled") ?: defaults.enabled,
@@ -64,8 +63,7 @@ object ContextConfigLoader {
                 providers = parseProviders(contextTable.getTable("providers"), env),
                 metrics = parseMetrics(contextTable.getTable("metrics")),
                 bootstrap = parseBootstrap(contextTable.getTable("bootstrap"), env),
-                security = parseSecurity(contextTable.getTable("security"), env),
-                ignore = parseIgnore(ignoreTable, env)
+                security = parseSecurity(contextTable.getTable("security"), env)
             )
         }
 
@@ -298,15 +296,6 @@ object ContextConfigLoader {
             scrubSecrets = table.getBoolean("scrub_secrets") ?: defaults.scrubSecrets,
             secretPatterns = patterns ?: defaults.secretPatterns,
             encryptDb = table.getBoolean("encrypt_db") ?: defaults.encryptDb
-        )
-    }
-
-    private fun parseIgnore(table: Toml?, env: Map<String, String>): IgnoreConfig {
-        val defaults = IgnoreConfig()
-        if (table == null) return defaults
-        val patterns = table.getList<Any>("patterns")?.map { it.toString().expandEnv(env) }
-        return IgnoreConfig(
-            patterns = patterns ?: defaults.patterns
         )
     }
 

@@ -9,11 +9,14 @@ import kotlin.math.min
 /** Detects files that should be treated as binary to avoid indexing them as text. */
 object BinaryDetector {
 
+    // Document types that have special extractors and should NOT be treated as binary
+    private val extractableDocuments = setOf(".doc", ".docx", ".pdf")
+
     private val binaryExtensions = setOf(
         ".exe", ".dll", ".so", ".dylib", ".bin", ".dat", ".class", ".jar",
         ".war", ".ear", ".zip", ".gz", ".gzip", ".tgz", ".tar", ".bz2", ".7z",
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svgz", ".ico", ".heic",
-        ".pdf", ".mp3", ".wav", ".flac", ".aac", ".ogg", ".mp4", ".mkv", ".avi",
+        ".mp3", ".wav", ".flac", ".aac", ".ogg", ".mp4", ".mkv", ".avi",
         ".mov", ".wmv", ".sqlite", ".db", ".duckdb"
     )
 
@@ -152,6 +155,16 @@ object BinaryDetector {
     }
 
     fun isBinary(path: Path): Boolean {
+        // Check if this is a document type that has a special extractor
+        val name = path.fileName?.toString()?.lowercase(Locale.US) ?: ""
+        val idx = name.lastIndexOf('.')
+        if (idx != -1) {
+            val extension = name.substring(idx)
+            if (extractableDocuments.contains(extension)) {
+                return false  // Not binary - has special text extractor
+            }
+        }
+
         if (detectByExtension(path)) return true
         if (detectByMimeType(path)) return true
         return detectByContent(path)

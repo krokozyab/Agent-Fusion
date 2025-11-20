@@ -125,7 +125,7 @@ class FileIndexer(
             }
 
             coroutineContext.ensureActive()
-            val embeddings = generateEmbeddings(normalizedChunks)
+            val embeddings = generateEmbeddings(normalizedChunks, relativePath)
             val now = Instant.now()
 
             val chunkArtifacts = normalizedChunks.mapIndexed { index, chunk ->
@@ -238,16 +238,16 @@ class FileIndexer(
         return max(tokenEstimator.estimate(chunk.content), MIN_TOKEN_ESTIMATE)
     }
 
-    private suspend fun generateEmbeddings(chunks: List<Chunk>): List<Embedding> {
+    private suspend fun generateEmbeddings(chunks: List<Chunk>, filePath: String): List<Embedding> {
         if (chunks.isEmpty()) return emptyList()
 
         val chunkCount = chunks.size
         if (chunkCount > 10) {
-            log.debug("Generating embeddings for {} chunks", chunkCount)
+            log.debug("Generating embeddings for {} chunks from {}", chunkCount, filePath)
         }
 
         val texts = chunks.map { it.content }
-        val vectors = embedInBatches(texts, chunkCount)
+        val vectors = embedInBatches(texts, chunkCount, filePath)
         if (vectors.size != chunks.size) {
             throw IllegalStateException("Embedding count ${vectors.size} does not match chunk count ${chunks.size}")
         }
@@ -269,7 +269,7 @@ class FileIndexer(
         }
     }
 
-    private suspend fun embedInBatches(texts: List<String>, totalChunks: Int): List<FloatArray> {
+    private suspend fun embedInBatches(texts: List<String>, totalChunks: Int, filePath: String): List<FloatArray> {
         if (texts.isEmpty()) return emptyList()
         val results = ArrayList<FloatArray>(texts.size)
         var index = 0
@@ -282,9 +282,9 @@ class FileIndexer(
             val batch = texts.subList(index, end)
             batchNumber++
 
-            // Log progress for large files
+            // Log progress for large files with file path
             if (totalBatches > 5) {
-                log.debug("Processing embedding batch {}/{} ({} chunks)", batchNumber, totalBatches, batch.size)
+                log.debug("Processing embedding batch {}/{} ({} chunks) for file: {}", batchNumber, totalBatches, batch.size, filePath)
             }
 
             val batchResult = embedder.embedBatch(batch)
@@ -302,7 +302,7 @@ class FileIndexer(
         }
 
         if (totalBatches > 5) {
-            log.debug("Completed all {} batches ({} total embeddings)", totalBatches, results.size)
+            log.debug("Completed all {} batches ({} total embeddings) for file: {}", totalBatches, results.size, filePath)
         }
 
         return results

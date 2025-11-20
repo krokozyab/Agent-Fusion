@@ -30,8 +30,9 @@
     </appender>
     
     <!-- Logger levels for specific packages -->
-    <logger name="com.orchestrator" level="DEBUG" />
+    <logger name="com.orchestrator" level="INFO" />
     <logger name="io.ktor" level="INFO" />
+    <logger name="io.ktor.server.Application" level="WARN" />
     <logger name="org.duckdb" level="WARN" />
     <logger name="io.modelcontextprotocol.kotlin.sdk" level="WARN" />
     <logger name="io.modelcontextprotocol.kotlin.sdk.server.FeatureRegistry" level="WARN" />

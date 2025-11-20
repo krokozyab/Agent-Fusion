@@ -21,7 +21,6 @@ data class ContextConfig(
     val metrics: MetricsConfig = MetricsConfig(),
     val bootstrap: BootstrapConfig = BootstrapConfig(),
     val security: SecurityConfig = SecurityConfig(),
-    val ignore: IgnoreConfig = IgnoreConfig(),
     val structuralWeight: Double = 0.0,
     val useStructuredOutput: Boolean = false
 ) {
@@ -306,8 +305,4 @@ data class SecurityConfig(
         "token\\s*=\\s*['\"]?.*['\"]?"
     ),
     val encryptDb: Boolean = false
-)
-
-data class IgnoreConfig(
-    val patterns: List<String> = emptyList()
 )

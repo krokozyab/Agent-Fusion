@@ -105,6 +105,12 @@ class PathFilter private constructor(
             val regex = buildString {
                 append('^')
                 var i = 0
+                // Special case: if pattern starts with **, make the leading part optional
+                // This allows "**/logs/**" to match both "logs/file" and "dir/logs/file"
+                if (glob.startsWith("**/")) {
+                    append("(.*/)?")
+                    i = 3
+                }
                 while (i < glob.length) {
                     val c = glob[i]
                     when (c) {

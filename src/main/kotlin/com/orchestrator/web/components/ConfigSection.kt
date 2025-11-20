@@ -34,7 +34,6 @@ object ConfigSection {
         renderSection("Metrics", "📊", config.metrics)
         renderSection("Bootstrap", "🚀", config.bootstrap)
         renderSection("Security", "🔒", config.security)
-        renderSection("Ignore", "🚫", config.ignore)
     }
 
     /**

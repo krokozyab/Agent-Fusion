@@ -214,6 +214,5 @@ class PathValidator(
 
     companion object {
         private const val ONE_MB: Long = 1024L * 1024L
-        private val BINARY_ALLOWED_EXTENSIONS = setOf("doc", "docx", "pdf")
     }
 }

@@ -354,16 +354,16 @@ class McpServerImpl(
     // ---- Transport handlers ----
 
     private suspend fun ApplicationCall.handleSseGet() {
-        log.info("Handling SSE GET request")
+        log.debug("Handling SSE GET request")
         respond(SSEServerContent(this) {
             val transport = SseServerTransport(SSE_POST_ENDPOINT, this)
             val sessionId = transport.sessionId
-            log.info("[Session: $sessionId] Created SSE transport")
+            log.debug("[Session: $sessionId] Created SSE transport")
             val closed = AtomicBoolean(false)
             val cleanup = {
                 if (closed.compareAndSet(false, true)) {
                     sseSessions.remove(sessionId)
-                    log.info("[Session: $sessionId] Cleaned up SSE session")
+                    log.debug("[Session: $sessionId] Cleaned up SSE session")
                 }
             }
 
@@ -451,12 +451,12 @@ class McpServerImpl(
             return
         }
 
-        log.info("Created Streamable HTTP session with ID: ${session.sessionId}")
+        log.debug("Created Streamable HTTP session with ID: ${session.sessionId}")
 
         // Extract agent identity from initialize request if available
         extractAgentIdFromInitialize(message)?.let { agentId ->
             sessionToAgent[session.sessionId] = agentId
-            log.info("Session ${session.sessionId} associated with agent ${agentId.value}")
+            log.debug("Session ${session.sessionId} associated with agent ${agentId.value}")
         }
 
         // Set current session for agent resolution during handshake
@@ -746,7 +746,7 @@ class McpServerImpl(
     }
 
     private fun createMcpServer(sessionId: String): Server {
-        log.info("[Session: $sessionId] Creating new MCP Server instance (Thread: ${Thread.currentThread().name})")
+        log.debug("[Session: $sessionId] Creating new MCP Server instance (Thread: ${Thread.currentThread().name})")
         val server = Server(
             serverInfo = Implementation(
                 name = "codex-to-claude-orchestrator",
@@ -763,7 +763,7 @@ class McpServerImpl(
 
         registerTools(server, sessionId)
         registerResources(server)
-        log.info("[Session: $sessionId] MCP Server instance created with ${tools().size} tools registered")
+        log.debug("[Session: $sessionId] MCP Server instance created with ${tools().size} tools registered")
 
         return server
     }
@@ -2988,7 +2988,7 @@ class McpServerImpl(
             if (sessionId != null) {
                 val sessionAgent = sessionToAgent[sessionId]
                 if (sessionAgent != null) {
-                    log.info("Resolved agentId from session $sessionId: ${sessionAgent.value}")
+                    log.debug("Resolved agentId from session $sessionId: ${sessionAgent.value}")
                     return sessionAgent.value
                 } else {
                     log.warn("Session $sessionId found but no agent mapping exists. Available mappings: ${sessionToAgent.keys}")

@@ -161,7 +161,8 @@ class WatcherDaemon(
             scope = scope,
             fileWatcher = watcher,
             incrementalIndexer = incrementalIndexer,
-            config = contextConfig
+            config = contextConfig,
+            pathValidator = pathValidator
         )
         unifiedFileWatcher = unified
         unified.start()

@@ -50,7 +50,11 @@
       "Bash(./gradlew clean)",
       "Bash(if [ -f /tmp/full_test_results_final.txt ])",
       "Bash(then tail -50 /tmp/full_test_results_final.txt)",
-      "Bash(javap:*)"
+      "Bash(javap:*)",
+      "mcp__orchestrator__refresh_context",
+      "Bash(test:*)",
+      "mcp__orchestrator__get_context_stats",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

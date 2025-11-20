@@ -112,6 +112,10 @@ ignore_patterns = [
     "node_modules/",      # Node packages
     ".venv/",             # Python virtual environments
     "venv/",              # Python virtual environments
+    "logs/",              # Log directory
+    "*.log",              # Log files
+    "*.tmp",              # Temporary files
+    "*.bak",              # Backup files
 ]
 use_gitignore = true          # Also respects .gitignore automatically
 use_contextignore = true      # Also respects .contextignore (default: true) .contextignore file: Per-project custom patterns stored in your repo root
@@ -570,89 +574,6 @@ progress_interval_seconds = 30
 #   6. Size limits
 #
 # ==============================================================================
-
-# ------------------------------------------------------------------------------
-# [ignore] - File patterns to exclude from context indexing
-# ------------------------------------------------------------------------------
-# These patterns are used during bootstrap and watching to exclude files
-# from being indexed by the context system. This replaces .contextignore.
-# Note: This is a LEGACY section (mirrors context.watcher.ignore_patterns)
-# Prefer using [context.watcher].ignore_patterns above.
-# ------------------------------------------------------------------------------
-
-[ignore]
-# NOTE: This section mirrors [context.watcher].ignore_patterns
-# Use [context.watcher].ignore_patterns above instead (this is legacy)
-patterns = [
-    # Build artifacts
-    "build/",
-    "dist/",
-    "out/",
-    "target/",
-    "*.class",
-    "*.jar",
-    "*.war",
-
-    # Gradle
-    ".gradle/",
-    "gradle-app.setting",
-
-    # Kotlin build metadata - auto-generated and pollutes search
-    ".kotlin/",
-
-    # IDE
-    ".idea/",
-    ".vscode/",
-    "*.iml",
-    "*.swp",
-    "*.swo",
-    "*~",
-
-    # Node
-    "node_modules/",
-    "npm-debug.log",
-    "yarn-error.log",
-
-    # Python
-    "__pycache__/",
-    "*.pyc",
-    ".venv/",
-    "venv/",
-    "*.egg-info/",
-
-    # Version control
-    ".git/",
-    ".svn/",
-
-    # OS
-    ".DS_Store",
-    ".DS_Store?",
-    "._*",
-    ".Spotlight-V100",
-    ".Trashes",
-    "ehthumbs.db",
-    "Thumbs.db",
-
-    # Test artifacts
-    "/tmp/",
-    "/temp/",
-    "test-output/",
-    ".test-results/",
-
-    # Large files that shouldn't be indexed
-    "*.log",
-    "*.tmp",
-    "*.bak",
-
-    # Generated files
-    "*.generated.kt",
-    "*.generated.java",
-
-    # Generated test output
-    "test-output.txt"
-]
-
-
 
 # ------------------------------------------------------------------------------
 # [agents] - Agent definitions

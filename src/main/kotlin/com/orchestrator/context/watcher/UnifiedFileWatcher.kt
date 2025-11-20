@@ -17,7 +17,8 @@ class UnifiedFileWatcher(
     private val scope: CoroutineScope,
     private val fileWatcher: FileWatcher,
     private val incrementalIndexer: IncrementalIndexer,
-    private val config: ContextConfig
+    private val config: ContextConfig,
+    private val pathValidator: com.orchestrator.context.discovery.PathValidator? = null
 ) : Closeable {
 
     private val log = Logger.logger("com.orchestrator.context.watcher.UnifiedFileWatcher")
@@ -45,9 +46,19 @@ class UnifiedFileWatcher(
     private suspend fun handleCreateOrModify(event: FileWatchEvent) {
         if (event.isDirectory) return
 
+        // Validate path before indexing to respect ignore patterns
+        if (pathValidator != null) {
+            val validation = pathValidator.validate(event.path)
+            if (!validation.valid) {
+                log.debug("Skipping {} due to validation failure: {} ({})",
+                    event.path, validation.code, validation.message)
+                return
+            }
+        }
+
         try {
             val result = incrementalIndexer.updateAsync(listOf(event.path))
-            log.debug("Indexed {} via IncrementalIndexer: {} new, {} modified", 
+            log.debug("Indexed {} via IncrementalIndexer: {} new, {} modified",
                 event.path, result.newCount, result.modifiedCount)
         } catch (e: Exception) {
             log.error("Failed to index {}: {}", event.path, e.message, e)
@@ -80,9 +91,10 @@ class UnifiedFileWatcher(
             scope: CoroutineScope,
             fileWatcher: FileWatcher,
             incrementalIndexer: IncrementalIndexer,
-            config: ContextConfig
+            config: ContextConfig,
+            pathValidator: com.orchestrator.context.discovery.PathValidator? = null
         ): UnifiedFileWatcher {
-            return UnifiedFileWatcher(scope, fileWatcher, incrementalIndexer, config)
+            return UnifiedFileWatcher(scope, fileWatcher, incrementalIndexer, config, pathValidator)
         }
     }
 }
