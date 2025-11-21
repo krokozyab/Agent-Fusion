@@ -192,7 +192,7 @@ skip_patterns = [
     "*.generated.kt",     # Auto-generated Kotlin
     "*.generated.java",   # Auto-generated Java
 
-    # Build artifacts (redundant with ignore_patterns, but safer as double-check)
+    # Build artifacts (redundant with filed_patterns, but safer as double-check)
     "**/dist/**",         # Distribution/compiled outputs
     "**/build/**",        # Build artifacts
     "**/node_modules/**", # Node packages

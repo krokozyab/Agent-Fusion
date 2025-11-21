@@ -46,8 +46,16 @@ class RespondToTaskTool {
         val task: TaskDTO,
         val proposals: List<ProposalDTO>,
         val context: ContextDTO,
-        val message: String
+        val message: String,
+        val proposalStatus: ProposalStatus? = null
     ) {
+        data class ProposalStatus(
+            val totalAssignees: Int,
+            val submittedCount: Int,
+            val pendingAgents: List<String>,
+            val allProposalsCollected: Boolean,
+            val nextActionGuidance: String
+        )
         data class TaskDTO(
             val id: String,
             val title: String,
@@ -307,6 +315,11 @@ class RespondToTaskTool {
                 "Response submitted successfully (proposal: ${proposal.id.value}). Task status updated to ${updatedTask.status.name}"
         }
 
+        // Calculate proposal status for consensus tasks
+        val proposalStatus = if (updatedTask.routing == RoutingStrategy.CONSENSUS && updatedTask.assigneeIds.size > 1) {
+            calculateProposalStatus(updatedTask, allProposals)
+        } else null
+
         return Result(
             taskId = taskId.value,
             proposalId = proposal.id.value,
@@ -318,7 +331,28 @@ class RespondToTaskTool {
                 history = historyDTOs,
                 fileHistory = fileOpsDTOs
             ),
-            message = message
+            message = message,
+            proposalStatus = proposalStatus
+        )
+    }
+
+    private fun calculateProposalStatus(task: Task, allProposals: List<Proposal>): Result.ProposalStatus {
+        val submittedAgentIds = allProposals.map { it.agentId }.toSet()
+        val pendingAgentIds = task.assigneeIds.filterNot { it in submittedAgentIds }
+        val allCollected = pendingAgentIds.isEmpty()
+
+        val guidance = when {
+            allCollected -> "All proposals collected! Return to primary agent and say 'Continue task ${task.id.value}' for synthesis and completion."
+            pendingAgentIds.size == 1 -> "Waiting for 1 agent: ${pendingAgentIds.first().value}. Switch to that agent to collect their proposal."
+            else -> "Waiting for ${pendingAgentIds.size} agents: ${pendingAgentIds.joinToString(", ") { it.value }}. Primary agent will synthesize after all proposals are in."
+        }
+
+        return Result.ProposalStatus(
+            totalAssignees = task.assigneeIds.size,
+            submittedCount = submittedAgentIds.size,
+            pendingAgents = pendingAgentIds.map { it.value },
+            allProposalsCollected = allCollected,
+            nextActionGuidance = guidance
         )
     }
 }

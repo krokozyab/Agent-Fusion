@@ -351,6 +351,101 @@ PRIMARY AGENT: complete_task(123, decision={...})
 
 **ALTERNATIVE PROTOCOL**: Use `continue_task` + `submit_input` separately only when agent must analyze before committing to submission
 
+### Pattern 2A: Consensus Task Completion Protocol (CRITICAL)
+
+**DIRECTIVE**: All agents participating in consensus tasks must understand the complete workflow from submission to completion.
+
+#### For SECONDARY AGENTS (responding to consensus tasks):
+
+**After submitting your proposal, you MUST:**
+
+1. **Inform user your proposal is submitted**:
+   ```
+   "✅ My proposal submitted for Task #{task_id}
+
+   Summary of my analysis:
+   • [Key point 1]
+   • [Key point 2]
+   • [Key point 3]
+
+   ⏳ Waiting for proposals from other agents: [list agents who haven't submitted]
+
+   💡 Next steps:
+   - If all agents have submitted → Return to PRIMARY AGENT to synthesize
+   - If waiting for more agents → Switch to next agent for their input"
+   ```
+
+2. **Check if all agents have submitted**:
+   - Call `continue_task(taskId)` to see all proposals
+   - Count how many agents have submitted vs assigned
+   - Inform user of status
+
+3. **Guide user on next action**:
+   - **If you're the LAST agent to submit**: Tell user to return to PRIMARY AGENT for synthesis
+   - **If agents are still pending**: Tell user which agent should submit next
+   - **Never call `complete_task`** - only primary agent completes
+
+#### For PRIMARY AGENT (task creator):
+
+**When user says "continue task X" after proposals are in:**
+
+1. **Load all proposals**:
+   ```kotlin
+   continue_task(taskId) → receives all proposals
+   ```
+
+2. **Analyze and synthesize**:
+   ```
+   "✅ Received {N} proposals from {agent_names}
+
+   Proposal Comparison:
+
+   Agent A (confidence: {score}):
+   • {summary}
+
+   Agent B (confidence: {score}):
+   • {summary}
+
+   Synthesis:
+   • Areas of agreement: {consensus_points}
+   • Divergences: {differences}
+   • Recommended approach: {selected_approach}
+
+   Proceeding with implementation based on {winning_proposal/hybrid_approach}..."
+   ```
+
+3. **Implement based on consensus**
+
+4. **Complete task with decision record**:
+   ```kotlin
+   complete_task(taskId, decision={
+     considered: [all_proposals],
+     selected: [winning_proposals],
+     agreementRate: 0.XX,
+     rationale: "Why this approach was chosen"
+   })
+   ```
+
+#### Consensus Completion Checklist
+
+**BEFORE implementing (Primary Agent):**
+- ✅ All assigned agents have submitted proposals (or timeout reached)
+- ✅ Loaded all proposals with `continue_task`
+- ✅ Compared proposals and identified consensus/divergence
+- ✅ Explained synthesis to user
+- ✅ Got user confirmation if approaches significantly differ
+
+**BEFORE completing task (Primary Agent):**
+- ✅ Implementation finished and tested
+- ✅ Decision record prepared (considered, selected, rationale)
+- ✅ agreementRate calculated
+- ✅ Call `complete_task` with full decision object
+
+**Secondary agents NEVER:**
+- ❌ Call `complete_task` (only primary agent completes)
+- ❌ Implement without proposals from other agents
+- ❌ Make final decisions (only submit proposals)
+
 ### Pattern 3: Review (Sequential Handoff) - RECOMMENDED WORKFLOW
 
 ```
@@ -803,10 +898,22 @@ Submitted:
 • {summary_point_2}
 • {summary_point_3}
 
-{primary_agent} can now access this and proceed.
+📊 Proposal Status:
+• Submitted: {N} of {M} agents
+• Pending: {list_of_pending_agents}
 
-💡 Return to {primary_agent} and say 'Continue task {task_id}'"
+💡 Next steps:
+{IF last agent to submit}
+  → All proposals collected! Return to {primary_agent} and say 'Continue task {task_id}' for synthesis
+{ELSE}
+  → Waiting for {next_agent}. Switch agents to collect remaining proposals.
+  → {primary_agent} will synthesize after all proposals are in.
+{END}
+
+ℹ️ See Pattern 2A in AGENT_ORCHESTRATOR_INSTRUCTIONS.md for complete consensus workflow"
 ```
+
+**CRITICAL**: After submitting, call `continue_task(taskId)` to check how many agents have submitted, then guide user accordingly.
 
 ### When Receiving Input (Primary Agent)
 

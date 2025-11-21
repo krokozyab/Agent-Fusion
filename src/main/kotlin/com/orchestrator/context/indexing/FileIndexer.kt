@@ -284,7 +284,7 @@ class FileIndexer(
 
             // Log progress for large files with file path
             if (totalBatches > 5) {
-                log.debug("Processing embedding batch {}/{} ({} chunks) for file: {}", batchNumber, totalBatches, batch.size, filePath)
+                log.info("Processing embedding batch {}/{} ({} chunks) for file: {}", batchNumber, totalBatches, batch.size, filePath)
             }
 
             val batchResult = embedder.embedBatch(batch)
@@ -302,7 +302,7 @@ class FileIndexer(
         }
 
         if (totalBatches > 5) {
-            log.debug("Completed all {} batches ({} total embeddings) for file: {}", totalBatches, results.size, filePath)
+            log.info("Completed all {} batches ({} total embeddings) for file: {}", totalBatches, results.size, filePath)
         }
 
         return results
