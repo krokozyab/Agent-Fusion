@@ -21,7 +21,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
         // Extract top-level declarations
         chunks.addAll(extractDeclarations(content, ordinal))
         
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
     
     private fun extractHeader(content: String): String {
@@ -235,6 +235,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
             return null
         }
 
+        val path = ChunkPaths.path(kind, label)
         return Chunk(
             id = 0,
             fileId = 0,
@@ -245,7 +246,8 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            chunkPath = path
         )
     }
     

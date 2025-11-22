@@ -137,6 +137,8 @@ object EmbeddingRepository {
                         c.start_line,
                         c.end_line,
                         c.token_count,
+                        c.chunk_path,
+                        c.parent_chunk_id,
                         c.content,
                         c.summary,
                         c.created_at AS chunk_created_at,
@@ -228,12 +230,14 @@ object EmbeddingRepository {
             fileId = getLong("file_id"),
             ordinal = getInt("ordinal"),
             kind = com.orchestrator.context.domain.ChunkKind.valueOf(getString("kind")),
-            startLine = getInt("start_line"),
-            endLine = getInt("end_line"),
+            startLine = getNullableInt("start_line"),
+            endLine = getNullableInt("end_line"),
             tokenEstimate = getNullableInt("token_count"),
             content = getString("content"),
             summary = getString("summary"),
-            createdAt = getTimestamp("chunk_created_at").toInstant()
+            createdAt = getTimestamp("chunk_created_at").toInstant(),
+            chunkPath = getString("chunk_path"),
+            parentChunkId = getNullableLong("parent_chunk_id")
         )
 
         return EmbeddingWithMetadata(
@@ -246,4 +250,6 @@ object EmbeddingRepository {
 
     private fun ResultSet.getNullableInt(column: String): Int? =
         getObject(column)?.let { (it as Number).toInt() }
+    private fun ResultSet.getNullableLong(column: String): Long? =
+        getObject(column)?.let { (it as Number).toLong() }
 }

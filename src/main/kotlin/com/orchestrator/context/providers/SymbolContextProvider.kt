@@ -242,6 +242,8 @@ class SymbolContextProvider(
                 text = text,
                 language = language,
                 offsets = offsets,
+                chunkPath = null,
+                parentChunkId = null,
                 metadata = mapOf(
                     "provider" to providerId,
                     "sources" to providerId,

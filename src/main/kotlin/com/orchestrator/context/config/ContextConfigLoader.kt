@@ -186,6 +186,8 @@ object ContextConfigLoader {
         val defaults = ChunkingConfig()
         if (table == null) return defaults
         return ChunkingConfig(
+            overlapEnabled = table.getBoolean("overlap_enabled") ?: defaults.overlapEnabled,
+            overlapPercent = table.getLong("overlap_percent")?.toInt() ?: defaults.overlapPercent,
             markdown = table.getTable("markdown")?.let {
                 ChunkingConfig.MarkdownChunkingConfig(
                     maxTokens = it.getLong("max_tokens")?.toInt() ?: defaults.markdown.maxTokens,

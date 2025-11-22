@@ -4,14 +4,49 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- pages fix  --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- pages fix one --">
+      <change afterPath="$PROJECT_DIR$/devdoc/chunk-overlap-implementation-plan.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/OverlapProcessor.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/PdfChunkerTest.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/WordChunkerTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/devdoc/Sergey_Rudenko_cv.docx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/AGENT_ORCHESTRATOR_INSTRUCTIONS.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/CSharpChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/CSharpChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/ChunkerRegistry.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/ChunkerRegistry.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/JavaChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/JavaChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/JsonChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/JsonChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/KotlinChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/KotlinChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/MarkdownChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/MarkdownChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PdfChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PdfChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PlainTextChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PlainTextChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PythonChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PythonChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/SqlChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/SqlChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/TypeScriptChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/TypeScriptChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/WordChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/WordChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/YamlChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/YamlChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfigLoader.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfigLoader.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/domain/Chunk.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/domain/Chunk.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/domain/ContextSnippet.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/domain/ContextSnippet.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RespondToTaskTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RespondToTaskTool.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/SubmitInputTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/SubmitInputTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/GitHistoryContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/GitHistoryContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/ResultOrganizer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/ResultOrganizer.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/SemanticContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/SemanticContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/SymbolContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/SymbolContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/search/MmrReranker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/search/MmrReranker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/search/VectorSearchEngine.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/search/VectorSearchEngine.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/EmbeddingRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/EmbeddingRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/modules/context/ContextRetrievalModule.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/modules/context/ContextRetrievalModule.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/ChunkerRegistryTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/ChunkerRegistryTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/components/ErrorStateTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/web/components/ErrorStateTest.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,7 +154,7 @@
     "git-widget-placeholder": "imp",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/devdoc",
+    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/docs",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -133,8 +168,8 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="$PROJECT_DIR$/devdoc" />
       <recent name="$PROJECT_DIR$/docs" />
+      <recent name="$PROJECT_DIR$/devdoc" />
       <recent name="$PROJECT_DIR$/devdoc/neo" />
       <recent name="$PROJECT_DIR$" />
       <recent name="$PROJECT_DIR$/pics" />
@@ -335,15 +370,7 @@
       <workItem from="1763205921932" duration="32890000" />
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
-      <workItem from="1763652739075" duration="27439000" />
-    </task>
-    <task id="LOCAL-00138" summary="-- fawicon added --">
-      <option name="closed" value="true" />
-      <created>1762502974125</created>
-      <option name="number" value="00138" />
-      <option name="presentableId" value="LOCAL-00138" />
-      <option name="project" value="LOCAL" />
-      <updated>1762502974125</updated>
+      <workItem from="1763652739075" duration="52125000" />
     </task>
     <task id="LOCAL-00139" summary="-- couners auto refresh --&#10;- Created the event bus before initializing the watcher (and removed the duplicate later in Main.kt) so we can inject it into initializeWatcher.&#10;  - WatcherDaemon’s onUpdate now uses a shared FilesystemSnapshotCalculator to publish IndexStatusUpdatedEvent whenever new/modified/deleted files are&#10;    processed, which unblocks the SSE pipeline.&#10;  - Added FilesystemSnapshotCalculator as a reusable helper; updated IndexOperationsService to reuse it instead of keeping its own duplicate scanner&#10;    logic.&#10;  - Reworked the calculator to use the actual SymlinkHandler/PathValidator signatures and added the missing imports (withContext, kotlin.math.max,&#10;    LinkedHashMap, etc.), clearing all the “unresolved reference” errors the build reported.">
       <option name="closed" value="true" />
@@ -729,7 +756,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763680679257</updated>
     </task>
-    <option name="localTasksCounter" value="187" />
+    <task id="LOCAL-00187" summary="-- pages fix one --">
+      <option name="closed" value="true" />
+      <created>1763768716786</created>
+      <option name="number" value="00187" />
+      <option name="presentableId" value="LOCAL-00187" />
+      <option name="project" value="LOCAL" />
+      <updated>1763768716786</updated>
+    </task>
+    <option name="localTasksCounter" value="188" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -776,7 +811,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- fawicon added --" />
     <MESSAGE value="-- couners auto refresh --&#10;- Created the event bus before initializing the watcher (and removed the duplicate later in Main.kt) so we can inject it into initializeWatcher.&#10;  - WatcherDaemon’s onUpdate now uses a shared FilesystemSnapshotCalculator to publish IndexStatusUpdatedEvent whenever new/modified/deleted files are&#10;    processed, which unblocks the SSE pipeline.&#10;  - Added FilesystemSnapshotCalculator as a reusable helper; updated IndexOperationsService to reuse it instead of keeping its own duplicate scanner&#10;    logic.&#10;  - Reworked the calculator to use the actual SymlinkHandler/PathValidator signatures and added the missing imports (withContext, kotlin.math.max,&#10;    LinkedHashMap, etc.), clearing all the “unresolved reference” errors the build reported." />
     <MESSAGE value="-- search refactoring --" />
     <MESSAGE value="-- md moved --" />
@@ -801,7 +835,8 @@
     <MESSAGE value="--  implemented the file type penalty system for the context search! Here's what was added:&#10;   &#10;     1. Configuration Model (ContextConfig.kt:171-245)&#10;   &#10;     Added three new penalty/boost maps to BoostConfig:&#10;     - fileTypePenalties: Penalize specific file extensions (e.g., pdf=0.5, md=0.7)&#10;     - filePatternPenalties: Penalize files matching glob patterns (e.g., **/docs/**=0.6)&#10;     - chunkKindBoosts: Boost/penalize based on chunk type (e.g., CODE_CLASS=1.3, PARAGRAPH=0.7)&#10;   &#10;     2. Penalty Application Logic (HybridContextProvider.kt:138-236)&#10;   &#10;     Implemented penalty calculation that:&#10;     - Applies file type penalties based on extension&#10;     - Matches glob patterns for path-based penalties (supports ** and * wildcards)&#10;     - Applies chunk kind boosts/penalties&#10;     - Combines all penalties multiplicatively (e.g., 0.5 × 0.6 × 0.7 = 0.21)&#10;     - Preserves original scores in metadata for transparency&#10;     - Re-ranks results after applying penalties to ensure doc files are pushed down&#10;   &#10;     3. Default Configuration (fusionagent.toml:338-383)&#10;   &#10;     Added comprehensive default penalties:&#10;     - PDFs, DOC/DOCX: 50% penalty (heavily penalized)&#10;     - Markdown, TXT: 30% penalty (lightly penalized)&#10;     - Docs directories: 40% penalty&#10;     - Code chunks (CLASS, FUNCTION, METHOD): 30% boost&#10;     - Documentation chunks (PARAGRAPH, DOCSTRING): 30% penalty&#10;   &#10;     4. Comprehensive Tests (HybridContextProviderTest.kt:345-605)&#10;   &#10;     Added 8 new tests verifying:&#10;     - File type penalties work correctly&#10;     - Glob pattern matching works (e.g., **/docs/** matches project/docs/guide.md)&#10;     - Chunk kind boosts work correctly&#10;     - Penalties combine multiplicatively&#10;     - Metadata preservation&#10;     - Ranking order is affected by penalties&#10;     - Empty config works (no penalties applied)&#10;   &#10;     Key Design Decisions&#10;   &#10;     1. When penalties are applied:&#10;     - Penalties are applied AFTER RRF (Reciprocal Rank Fusion) aggregation&#10;     - Results are then re-sorted by penalized scores&#10;     - This ensures penalties affect both scores AND rankings&#10;   &#10;     2. Score preservation:&#10;     - Original scores are preserved in original_score metadata&#10;     - Penalty multipliers are visible in metadata (file_type_penalty, pattern_penalty, kind_boost, combined_multiplier)&#10;     - Provides full transparency for debugging&#10;   &#10;     3. Glob matching:&#10;     - Supports ** (match anything including /)&#10;     - Supports * (match anything except /)&#10;     - Pattern **/README* correctly matches both README.md and docs/README.md --" />
     <MESSAGE value="-- indexing fix  --" />
     <MESSAGE value="-- pages fix  --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- pages fix  --" />
+    <MESSAGE value="-- pages fix one --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- pages fix one --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

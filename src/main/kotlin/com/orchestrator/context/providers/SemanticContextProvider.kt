@@ -89,13 +89,17 @@ class SemanticContextProvider(
                     val end = result.chunk.endLine ?: start
                     start..end
                 },
+                chunkPath = result.chunk.chunkPath,
+                parentChunkId = result.chunk.parentChunkId,
                 metadata = mapOf(
                     "provider" to id,
                     "sources" to id,
                     "model" to model,
                     "embedding_id" to result.embeddingId.toString(),
                     "score" to "%.3f".format(result.score),
-                    "token_estimate" to tokens.toString()
+                    "token_estimate" to tokens.toString(),
+                    "chunk_path" to (result.chunk.chunkPath ?: ""),
+                    "parent_chunk_id" to (result.chunk.parentChunkId?.toString() ?: "")
                 )
             )
             snippets += snippet

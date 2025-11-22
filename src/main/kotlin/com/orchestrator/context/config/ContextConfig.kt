@@ -123,6 +123,8 @@ data class EmbeddingConfig(
 )
 
 data class ChunkingConfig(
+    val overlapEnabled: Boolean = false,
+    val overlapPercent: Int = 15,
     val markdown: MarkdownChunkingConfig = MarkdownChunkingConfig(),
     val python: PythonChunkingConfig = PythonChunkingConfig(),
     val kotlin: KotlinChunkingConfig = KotlinChunkingConfig(),

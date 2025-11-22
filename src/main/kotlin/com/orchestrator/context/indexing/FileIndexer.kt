@@ -4,6 +4,7 @@ import com.orchestrator.context.ContextDataService
 import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.chunking.Chunker
 import com.orchestrator.context.chunking.ChunkerRegistry
+import com.orchestrator.context.chunking.ConfigurableChunkerRegistry
 import com.orchestrator.context.chunking.TokenEstimator
 import com.orchestrator.context.chunking.WordDocumentExtractor
 import com.orchestrator.context.chunking.PdfDocumentExtractor
@@ -38,7 +39,7 @@ class FileIndexer(
     watchRoots: List<Path> = emptyList(),
     private val dataService: ContextDataService = ContextDataService(),
     private val metadataExtractor: FileMetadataExtractor = FileMetadataExtractor,
-    private val chunkerRegistry: ChunkerRegistry = ChunkerRegistry,
+    private val chunkerRegistry: ChunkerRegistry = ConfigurableChunkerRegistry(),
     private val tokenEstimator: TokenEstimator = TokenEstimator,
     private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
     private val readCharset: Charset = StandardCharsets.UTF_8,

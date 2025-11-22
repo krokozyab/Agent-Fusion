@@ -5,7 +5,10 @@ import com.orchestrator.context.domain.ChunkKind
 import java.time.Instant
 import java.util.Locale
 
-class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
+class SqlChunker(
+    private val maxTokens: Int = 600,
+    private val overlapPercent: Int = 15
+) : SimpleChunker {
 
     private val routineStartRegex = Regex("""\bCREATE\s+(?:FUNCTION|PROCEDURE|TRIGGER)\b""", RegexOption.IGNORE_CASE)
     private val beginRegex = Regex("""\bBEGIN\b""", RegexOption.IGNORE_CASE)
@@ -25,7 +28,7 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
             }
         }
         
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
     
     private fun splitStatements(content: String): List<String> {
@@ -158,6 +161,7 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
         // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
         val validStartLine = startLine?.coerceAtLeast(1) ?: 1
         val validEndLine = endLine?.coerceAtLeast(1) ?: 1
+        val path = ChunkPaths.path(ChunkKind.SQL_STATEMENT, label)
         return Chunk(
             id = 0,
             fileId = 0,
@@ -168,7 +172,8 @@ class SqlChunker(private val maxTokens: Int = 600) : SimpleChunker {
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            chunkPath = path
         )
     }
     

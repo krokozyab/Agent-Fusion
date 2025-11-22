@@ -1,5 +1,7 @@
 # Gradle
 .gradle/
+.gradle-cache/
+.gradle-home/
 build/
 out/
 !gradle/wrapper/gradle-wrapper.jar

@@ -5,20 +5,24 @@ import com.orchestrator.context.domain.ContextSnippet
 class ResultOrganizer {
 
     fun organizeHierarchically(snippets: List<ContextSnippet>): String {
-        return formatFlat(snippets)
+        return formatHierarchical(snippets)
     }
     
-    private fun formatFlat(snippets: List<ContextSnippet>): String {
-        return buildString {
-            snippets.forEach { snippet ->
-                val filePath = snippet.metadata["file_path"] ?: "unknown"
-                val score = snippet.score
-                
-                appendLine("- **$filePath** (score: %.3f)".format(score))
-                val preview = snippet.text.take(100).replace("\n", " ")
-                appendLine("  $preview${if (snippet.text.length > 100) "..." else ""}")
-                appendLine()
+    private fun formatHierarchical(snippets: List<ContextSnippet>): String = buildString {
+        val byFile = snippets.groupBy { it.filePath }
+        byFile.forEach { (file, group) ->
+            appendLine("File: $file")
+            val byParent = group.groupBy { it.metadata["parent_chunk_id"] }
+            byParent[null]?.forEach { snippet ->
+                appendLine("- [${snippet.kind}] ${snippet.label ?: "(no label)"} (${snippet.chunkPath ?: snippet.metadata["chunk_path"] ?: "no-path"}) score=%.3f".format(snippet.score))
             }
+            byParent.filterKeys { it != null }.forEach { (parent, children) ->
+                appendLine("  Parent: $parent")
+                children.forEach { snippet ->
+                    appendLine("  - [${snippet.kind}] ${snippet.label ?: "(no label)"} (${snippet.chunkPath ?: snippet.metadata["chunk_path"] ?: "no-path"}) score=%.3f".format(snippet.score))
+                }
+            }
+            appendLine()
         }
     }
 }

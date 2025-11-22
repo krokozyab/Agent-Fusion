@@ -12,6 +12,8 @@ data class ContextSnippet(
     val text: String,
     val language: String?,
     val offsets: IntRange?,
+    val chunkPath: String? = null,
+    val parentChunkId: Long? = null,
     val metadata: Map<String, String> = emptyMap()
 ) {
     init {

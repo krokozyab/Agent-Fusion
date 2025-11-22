@@ -17,7 +17,10 @@ import java.time.Instant
  * - Respects token limits and splits large values
  * - Falls back to whole content if parsing fails
  */
-class JsonChunker(private val maxTokens: Int = 600) : SimpleChunker {
+class JsonChunker(
+    private val maxTokens: Int = 600,
+    private val overlapPercent: Int = 15
+) : SimpleChunker {
 
     private val json = Json { prettyPrint = true }
 
@@ -69,7 +72,7 @@ class JsonChunker(private val maxTokens: Int = 600) : SimpleChunker {
             chunks.add(createChunk(content, "root", 0, 1, totalLines))
         }
 
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
 
     private fun splitLargeValue(keyPath: String, value: JsonElement, startOrdinal: Int): List<Chunk> {
@@ -152,6 +155,7 @@ class JsonChunker(private val maxTokens: Int = 600) : SimpleChunker {
     }
 
     private fun createChunk(text: String, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+        val path = ChunkPaths.path(ChunkKind.JSON_BLOCK, label)
         return Chunk(
             id = 0,
             fileId = 0,
@@ -162,7 +166,8 @@ class JsonChunker(private val maxTokens: Int = 600) : SimpleChunker {
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            chunkPath = path
         )
     }
 

@@ -291,6 +291,8 @@ class ContextRetrievalModule(
         tokenEstimate = estimateTokens(this),
         content = text,
         summary = label,
-        createdAt = Instant.EPOCH
+        createdAt = Instant.EPOCH,
+        chunkPath = chunkPath ?: metadata["chunk_path"],
+        parentChunkId = parentChunkId ?: metadata["parent_chunk_id"]?.toLongOrNull()
     )
 }

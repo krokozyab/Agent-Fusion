@@ -109,7 +109,7 @@ class CSharpChunker(
             index++
         }
 
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
 
     private fun headerLineCount(lines: List<String>): Int {
@@ -316,6 +316,7 @@ class CSharpChunker(
         // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
         val validStartLine = startLine?.coerceAtLeast(1) ?: 1
         val validEndLine = endLine?.coerceAtLeast(1) ?: 1
+        val path = ChunkPaths.path(kind, label)
         return Chunk(
             id = 0L,
             fileId = 0L,
@@ -326,7 +327,8 @@ class CSharpChunker(
             tokenEstimate = estimate,
             content = text,
             summary = label,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            chunkPath = path
         )
     }
 

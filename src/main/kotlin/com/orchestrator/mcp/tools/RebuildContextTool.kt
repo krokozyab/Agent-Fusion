@@ -10,6 +10,7 @@ import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.context.discovery.DirectoryScanner
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.FileIndexer
+import com.orchestrator.context.chunking.ConfigurableChunkerRegistry
 import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.utils.Logger
@@ -616,9 +617,11 @@ class RebuildContextTool(
                     file_id               BIGINT NOT NULL,
                     ordinal               INTEGER NOT NULL,
                     kind                  VARCHAR NOT NULL,
-                    start_line            INTEGER NOT NULL,
-                    end_line              INTEGER NOT NULL,
+                    start_line            INTEGER,
+                    end_line              INTEGER,
                     token_count           INTEGER,
+                    chunk_path            TEXT,
+                    parent_chunk_id       BIGINT,
                     content               TEXT NOT NULL,
                     summary               TEXT,
                     created_at            TIMESTAMP NOT NULL,
@@ -649,6 +652,8 @@ class RebuildContextTool(
                     FOREIGN KEY(source_chunk_id) REFERENCES chunks(chunk_id)
                 )
                 """.trimIndent(),
+                "CREATE INDEX IF NOT EXISTS idx_chunks_chunk_path ON chunks(chunk_path)",
+                "CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_chunk_id)",
                 """
                 CREATE TABLE symbols (
                     symbol_id            BIGINT PRIMARY KEY,
@@ -731,7 +736,8 @@ class RebuildContextTool(
             watchRoots = paths,
             embeddingBatchSize = config.embedding.batchSize,
             maxFileSizeMb = config.indexing.maxFileSizeMb,
-            warnFileSizeMb = config.indexing.warnFileSizeMb
+            warnFileSizeMb = config.indexing.warnFileSizeMb,
+            chunkerRegistry = ConfigurableChunkerRegistry(config.chunking)
         )
 
         // Create batch indexer

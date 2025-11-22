@@ -10,7 +10,10 @@ private data class PdfParagraphInfo(
     val endLine: Int
 )
 
-class PdfChunker(private val maxTokens: Int = 600) : Chunker {
+class PdfChunker(
+    private val maxTokens: Int = 600,
+    private val overlapPercent: Int = 15
+) : Chunker {
 
     override val strategy = ChunkingStrategy(
         id = "pdf",
@@ -88,7 +91,7 @@ class PdfChunker(private val maxTokens: Int = 600) : Chunker {
             }
         }
 
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
 
     override fun estimateTokens(text: String): Int = text.length / 4
@@ -236,6 +239,7 @@ class PdfChunker(private val maxTokens: Int = 600) : Chunker {
     ): Chunk {
         val normalizedStartLine = startLine.coerceAtLeast(1)
         val normalizedEndLine = endLine.coerceAtLeast(normalizedStartLine)
+        val path = ChunkPaths.path(ChunkKind.PARAGRAPH, "paragraph-$ordinal")
         return Chunk(
             id = 0,
             fileId = 0,
@@ -246,7 +250,8 @@ class PdfChunker(private val maxTokens: Int = 600) : Chunker {
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = null,
-            createdAt = timestamp
+            createdAt = timestamp,
+            chunkPath = path
         )
     }
 }

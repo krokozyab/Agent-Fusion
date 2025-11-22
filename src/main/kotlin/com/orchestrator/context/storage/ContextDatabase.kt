@@ -248,12 +248,16 @@ object ContextDatabase {
                 start_line            INTEGER,
                 end_line              INTEGER,
                 token_count           INTEGER,
+                chunk_path            TEXT,
+                parent_chunk_id       BIGINT,
                 content               TEXT NOT NULL,
                 summary               TEXT,
                 created_at            TIMESTAMP NOT NULL,
                 FOREIGN KEY(file_id) REFERENCES file_state(file_id)
             )
             """.trimIndent(),
+            "ALTER TABLE chunks ADD COLUMN IF NOT EXISTS chunk_path TEXT",
+            "ALTER TABLE chunks ADD COLUMN IF NOT EXISTS parent_chunk_id BIGINT",
             """
             CREATE TABLE IF NOT EXISTS embeddings (
                 embedding_id          BIGINT PRIMARY KEY,
@@ -278,6 +282,8 @@ object ContextDatabase {
                 FOREIGN KEY(source_chunk_id) REFERENCES chunks(chunk_id)
             )
             """.trimIndent(),
+            "CREATE INDEX IF NOT EXISTS idx_chunks_chunk_path ON chunks(chunk_path)",
+            "CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_chunk_id)",
             """
             CREATE TABLE IF NOT EXISTS symbols (
                 symbol_id            BIGINT PRIMARY KEY,

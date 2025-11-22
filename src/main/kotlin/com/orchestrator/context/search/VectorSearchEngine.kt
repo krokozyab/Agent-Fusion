@@ -20,17 +20,22 @@ class VectorSearchEngine(
     data class Filters(
         val languages: Set<String> = emptySet(),
         val kinds: Set<ChunkKind> = emptySet(),
-        val paths: Set<String> = emptySet()
+        val paths: Set<String> = emptySet(),
+        val chunkPathPrefixes: Set<String> = emptySet()
     ) {
         private val normalizedLanguages = languages.map { it.lowercase() }.toSet()
 
-        fun matches(language: String?, kind: ChunkKind, path: String): Boolean {
+        fun matches(language: String?, kind: ChunkKind, path: String, chunkPath: String?): Boolean {
             if (normalizedLanguages.isNotEmpty()) {
                 val candidate = language?.lowercase() ?: return false
                 if (candidate !in normalizedLanguages) return false
             }
             if (kinds.isNotEmpty() && kind !in kinds) return false
             if (paths.isNotEmpty() && path !in paths) return false
+            if (chunkPathPrefixes.isNotEmpty()) {
+                val candidate = chunkPath ?: return false
+                if (chunkPathPrefixes.none { candidate.startsWith(it) }) return false
+            }
             return true
         }
 
@@ -58,7 +63,7 @@ class VectorSearchEngine(
         val scored = buildList<ScoredChunk> {
             for (row in rows) {
                 if (row.embedding.dimensions != normalizedQuery.size) continue
-                if (!filters.matches(row.language, row.chunk.kind, row.relativePath)) continue  // Note: relativePath field in EmbeddingRepository.EmbeddingWithMetadata now contains abs_path
+                if (!filters.matches(row.language, row.chunk.kind, row.relativePath, row.chunk.chunkPath)) continue
 
                 val candidateVector = row.embedding.vector.toFloatArray()
                 val normalizedCandidate = when {
@@ -116,6 +121,8 @@ class VectorSearchEngine(
         val embeddingId: Long,
         val path: String = "(unknown)",
         val language: String? = null,
-        val vector: FloatArray = floatArrayOf(score)
+        val vector: FloatArray = floatArrayOf(score),
+        val chunkPath: String? = chunk.chunkPath,
+        val parentChunkId: Long? = chunk.parentChunkId
     )
 }

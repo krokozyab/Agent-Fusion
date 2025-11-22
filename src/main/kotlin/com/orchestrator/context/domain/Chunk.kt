@@ -15,7 +15,9 @@ data class Chunk(
     val tokenEstimate: Int?,
     val content: String,
     val summary: String?,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val chunkPath: String? = null,
+    val parentChunkId: Long? = null
 ) {
     init {
         require(ordinal >= 0) { "ordinal must be non-negative" }

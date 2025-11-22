@@ -289,6 +289,10 @@ dimension = 768
 # [context.chunking] - Text chunking strategies per language
 # ------------------------------------------------------------------------------
 
+[context.chunking]
+overlap_enabled = true
+overlap_percent = 15  # 0-50; when disabled, overlap is skipped
+
 [context.chunking.markdown]
 max_tokens = 400
 split_by_headings = true

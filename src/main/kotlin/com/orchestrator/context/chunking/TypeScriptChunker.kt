@@ -9,6 +9,7 @@ import java.time.Instant
  */
 class TypeScriptChunker(
     private val maxTokens: Int = DEFAULT_MAX_TOKENS,
+    private val overlapPercent: Int = 15,
     private val estimator: TokenEstimator = TokenEstimator
 ) : Chunker {
 
@@ -39,9 +40,9 @@ class TypeScriptChunker(
             }
         }
 
-        if (blocks.isEmpty()) {
-            val now = Instant.now()
-            return listOf(
+        val now = Instant.now()
+        val baseChunks = if (blocks.isEmpty()) {
+            listOf(
                 Chunk(
                     id = 0,
                     fileId = 0,
@@ -52,52 +53,55 @@ class TypeScriptChunker(
                     tokenEstimate = estimator.estimate(content),
                     content = content,
                     summary = null,
-                    createdAt = now
+                    createdAt = now,
+                    chunkPath = ChunkPaths.path(ChunkKind.CODE_BLOCK, filePath)
                 )
             )
-        }
+        } else {
+            val importText = imports.joinToString("\n") { it.text }.trim()
+            val importTokens = if (importText.isEmpty()) 0 else estimator.estimate(importText)
+            val includeImports = importText.isNotEmpty() && importTokens < maxTokens
+            val availableTokens = if (includeImports) (maxTokens - importTokens).coerceAtLeast(64) else maxTokens
 
-        val now = Instant.now()
-        val importText = imports.joinToString("\n") { it.text }.trim()
-        val importTokens = if (importText.isEmpty()) 0 else estimator.estimate(importText)
-        val includeImports = importText.isNotEmpty() && importTokens < maxTokens
-        val availableTokens = if (includeImports) (maxTokens - importTokens).coerceAtLeast(64) else maxTokens
-
-        val chunks = mutableListOf<Chunk>()
-        blocks.forEach { block ->
-            val pieces = splitLines(block.lines, availableTokens)
-            pieces.forEachIndexed { pieceIndex, pieceLines ->
-                val body = pieceLines.joinToString("\n") { it.text }.trimEnd()
-                var finalText = body
-                if (includeImports) {
-                    val candidate = buildString {
-                        append(importText)
-                        append("\n\n")
-                        append(body)
+            val chunks = mutableListOf<Chunk>()
+            blocks.forEach { block ->
+                val pieces = splitLines(block.lines, availableTokens)
+                pieces.forEachIndexed { pieceIndex, pieceLines ->
+                    val body = pieceLines.joinToString("\n") { it.text }.trimEnd()
+                    var finalText = body
+                    if (includeImports) {
+                        val candidate = buildString {
+                            append(importText)
+                            append("\n\n")
+                            append(body)
+                        }
+                        finalText = if (estimator.estimate(candidate) <= maxTokens) candidate else body
                     }
-                    finalText = if (estimator.estimate(candidate) <= maxTokens) candidate else body
-                }
 
-                val label = block.label?.let {
-                    if (pieces.size > 1) "$it (part ${pieceIndex + 1}/${pieces.size})" else it
-                }
+                    val label = block.label?.let {
+                        if (pieces.size > 1) "$it (part ${pieceIndex + 1}/${pieces.size})" else it
+                    }
+                    val path = ChunkPaths.path(block.kind, label)
 
-                chunks += Chunk(
-                    id = 0,
-                    fileId = 0,
-                    ordinal = chunks.size,
-                    kind = block.kind,
-                    startLine = pieceLines.firstOrNull()?.number,
-                    endLine = pieceLines.lastOrNull()?.number,
-                    tokenEstimate = estimator.estimate(finalText),
-                    content = finalText,
-                    summary = label,
-                    createdAt = now
-                )
+                    chunks += Chunk(
+                        id = 0,
+                        fileId = 0,
+                        ordinal = chunks.size,
+                        kind = block.kind,
+                        startLine = pieceLines.firstOrNull()?.number,
+                        endLine = pieceLines.lastOrNull()?.number,
+                        tokenEstimate = estimator.estimate(finalText),
+                        content = finalText,
+                        summary = label,
+                        createdAt = now,
+                        chunkPath = path
+                    )
+                }
             }
+            chunks
         }
 
-        return chunks
+        return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)

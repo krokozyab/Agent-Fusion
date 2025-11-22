@@ -10,6 +10,7 @@ import com.orchestrator.context.discovery.SymlinkHandler
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.IncrementalIndexer
+import com.orchestrator.context.chunking.ConfigurableChunkerRegistry
 import com.orchestrator.context.watcher.WatcherRegistry
 import com.orchestrator.utils.Logger
 import java.nio.file.Files
@@ -59,7 +60,8 @@ class RefreshContextTool(
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.embedding.batchSize,
                 maxFileSizeMb = config.indexing.maxFileSizeMb,
-                warnFileSizeMb = config.indexing.warnFileSizeMb
+                warnFileSizeMb = config.indexing.warnFileSizeMb,
+                chunkerRegistry = ConfigurableChunkerRegistry(config.chunking)
             )
 
             // Create batch indexer

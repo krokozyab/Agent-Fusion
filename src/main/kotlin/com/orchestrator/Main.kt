@@ -13,6 +13,7 @@ import com.orchestrator.context.indexing.IncrementalIndexer
 import com.orchestrator.context.indexing.ChangeDetector
 import com.orchestrator.context.indexing.BatchIndexer
 import com.orchestrator.context.indexing.FileIndexer
+import com.orchestrator.context.chunking.ConfigurableChunkerRegistry
 import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.SemanticContextProvider
 import com.orchestrator.storage.Database
@@ -307,7 +308,8 @@ class Main {
             watchRoots = resolvedWatchRoots,
             embeddingBatchSize = config.context.embedding.batchSize,
             maxFileSizeMb = config.context.indexing.maxFileSizeMb,
-            warnFileSizeMb = config.context.indexing.warnFileSizeMb
+            warnFileSizeMb = config.context.indexing.warnFileSizeMb,
+            chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
         )
         val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
         val batchIndexer = BatchIndexer(fileIndexer)
@@ -400,7 +402,8 @@ class Main {
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.context.embedding.batchSize,
                 maxFileSizeMb = config.context.indexing.maxFileSizeMb,
-                warnFileSizeMb = config.context.indexing.warnFileSizeMb
+                warnFileSizeMb = config.context.indexing.warnFileSizeMb,
+                chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
             )
             val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
             val batchIndexer = BatchIndexer(fileIndexer)

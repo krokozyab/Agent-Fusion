@@ -174,15 +174,34 @@ object ContextRepository {
             ContextDatabase.transaction { conn ->
                 val persistedFile = upsertFileState(conn, fileState)
 
-                val persistedChunks = ArrayList<ChunkArtifacts>(chunkArtifacts.size)
-                chunkArtifacts.forEach { artifact ->
+                val assigned = chunkArtifacts.map { artifact ->
                     val chunkId = nextId(conn, "chunks_seq")
-                    insertChunk(conn, artifact.chunk.copy(id = chunkId, fileId = persistedFile.id))
+                    val chunkWithIds = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id)
+                    chunkId to artifact.copy(chunk = chunkWithIds)
+                }
+
+                val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
+                    artifact.chunk.chunkPath?.let { it to chunkId }
+                }.toMap()
+
+                val withParents = assigned.map { (chunkId, artifact) ->
+                    val parentPath = artifact.chunk.chunkPath?.let { path ->
+                        val idx = path.lastIndexOf('/')
+                        if (idx > 0) path.substring(0, idx) else null
+                    }
+                    val parentId = parentPath?.let { pathToId[it] }
+                    val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
+                    chunkId to artifact.copy(chunk = chunkWithParent)
+                }
+
+                val persistedChunks = ArrayList<ChunkArtifacts>(withParents.size)
+                withParents.forEach { (chunkId, artifact) ->
+                    insertChunk(conn, artifact.chunk)
                     val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
                     val links = insertLinks(conn, chunkId, persistedFile.id, artifact.links)
                     persistedChunks.add(
                         ChunkArtifacts(
-                            chunk = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id),
+                            chunk = artifact.chunk,
                             embeddings = embeddings,
                             links = links
                         )
@@ -295,10 +314,14 @@ object ContextRepository {
                     text = chunk.content,
                     language = chunkWithFile.language,
                     offsets = chunk.lineSpan,
+                    chunkPath = chunk.chunkPath,
+                    parentChunkId = chunk.parentChunkId,
                     metadata = buildMap {
                         put("fileId", chunk.fileId.toString())
                         put("tokens", estimatedTokens.toString())
                         chunkWithFile.relativePath?.let { put("relativePath", it) }
+                        chunk.chunkPath?.let { put("chunk_path", it) }
+                        chunk.parentChunkId?.let { put("parent_chunk_id", it.toString()) }
                     }
                 )
             )
@@ -488,10 +511,11 @@ object ContextRepository {
         val sql = """
             INSERT INTO chunks (
                 chunk_id, file_id, ordinal, kind, start_line, end_line,
-                token_count, content, summary, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                token_count, chunk_path, parent_chunk_id, content, summary, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()
         conn.prepareStatement(sql).use { ps ->
+        val path = chunk.chunkPath ?: chunk.summary ?: "${chunk.kind.name}:${chunk.ordinal}"
             var idx = 1
             ps.setLong(idx++, chunk.id)
             ps.setLong(idx++, chunk.fileId)
@@ -500,6 +524,8 @@ object ContextRepository {
             if (chunk.startLine != null) ps.setInt(idx++, chunk.startLine) else ps.setNull(idx++, java.sql.Types.INTEGER)
             if (chunk.endLine != null) ps.setInt(idx++, chunk.endLine) else ps.setNull(idx++, java.sql.Types.INTEGER)
             if (chunk.tokenEstimate != null) ps.setInt(idx++, chunk.tokenEstimate) else ps.setNull(idx++, java.sql.Types.INTEGER)
+            ps.setString(idx++, path)
+            if (chunk.parentChunkId != null) ps.setLong(idx++, chunk.parentChunkId) else ps.setNull(idx++, java.sql.Types.BIGINT)
             ps.setString(idx++, chunk.content)
             ps.setString(idx++, chunk.summary)
             ps.setTimestamp(idx, Timestamp.from(chunk.createdAt))
@@ -1316,7 +1342,9 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
             tokenEstimate = getNullableInt("token_count"),
             content = getString("content"),
             summary = getString("summary"),
-            createdAt = getTimestamp("created_at").toInstant()
+            createdAt = getTimestamp("created_at").toInstant(),
+            chunkPath = getString("chunk_path"),
+            parentChunkId = getNullableLong("parent_chunk_id")
         )
     }
 

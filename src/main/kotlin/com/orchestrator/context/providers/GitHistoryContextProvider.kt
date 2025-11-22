@@ -235,7 +235,9 @@ class GitHistoryContextProvider(
                             startLine = rs.getInt("start_line"),
                             endLine = rs.getInt("end_line"),
                             absPath = rs.getString("abs_path"),
-                            language = rs.getString("language")
+                            language = rs.getString("language"),
+                            chunkPath = rs.getString("chunk_path"),
+                            parentChunkId = rs.getLong("parent_chunk_id").takeIf { !rs.wasNull() }
                         )
                     } else {
                         null
@@ -346,6 +348,8 @@ class GitHistoryContextProvider(
             "score" to "%.3f".format(candidate.score)
         )
         metadata.putAll(candidate.metadata)
+        metadata["chunk_path"] = chunk.chunkPath ?: ""
+        metadata["parent_chunk_id"] = chunk.parentChunkId?.toString() ?: ""
 
         return ContextSnippet(
             chunkId = chunk.chunkId,
@@ -356,6 +360,8 @@ class GitHistoryContextProvider(
             text = chunk.content,
             language = chunk.language,
             offsets = chunk.startLine..chunk.endLine,
+            chunkPath = chunk.chunkPath,
+            parentChunkId = chunk.parentChunkId,
             metadata = metadata
         )
     }
@@ -374,6 +380,8 @@ class GitHistoryContextProvider(
         val startLine: Int,
         val endLine: Int,
         val absPath: String,
-        val language: String?
+        val language: String?,
+        val chunkPath: String?,
+        val parentChunkId: Long?
     )
 }

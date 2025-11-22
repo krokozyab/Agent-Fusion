@@ -10,6 +10,7 @@ import java.time.Instant
 class PythonChunker(
     private val maxTokens: Int = DEFAULT_MAX_TOKENS,
     private val overlapRatio: Double = DEFAULT_OVERLAP_RATIO,
+    private val overlapPercent: Int = 15,
     private val estimator: TokenEstimator = TokenEstimator
 ) : Chunker {
 
@@ -79,10 +80,11 @@ class PythonChunker(
         }
 
         val timestamp = Instant.now()
-        return outputs.mapIndexed { ordinal, input ->
+        val baseChunks = outputs.mapIndexed { ordinal, input ->
             val text = input.lines.joinToString("\n") { it.text }
             val startLine = input.lines.firstOrNull()?.number
             val endLine = input.lines.lastOrNull()?.number
+            val path = ChunkPaths.path(input.kind, input.label)
             Chunk(
                 id = 0,
                 fileId = 0,
@@ -93,9 +95,12 @@ class PythonChunker(
                 tokenEstimate = estimator.estimate(text),
                 content = text,
                 summary = input.label,
-                createdAt = timestamp
+                createdAt = timestamp,
+                chunkPath = path
             )
         }
+
+        return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)

@@ -48,6 +48,8 @@ class FullTextContextProvider(
                         val summary = rs.getString("summary")
                         val kind = rs.getString("kind")
                         val tokenEstimate = rs.getInt("token_count").takeIf { !rs.wasNull() } ?: content.length / 4
+                        val chunkPath = rs.getString("chunk_path")
+                        val parentChunkId = rs.getLong("parent_chunk_id").takeIf { !rs.wasNull() }
                         val path = rs.getString("abs_path")
                         val language = rs.getString("language")
 
@@ -71,12 +73,16 @@ class FullTextContextProvider(
                             text = content,
                             language = language,
                             offsets = null,
+                            chunkPath = chunkPath,
+                            parentChunkId = parentChunkId,
                             metadata = mapOf(
                                 "provider" to id,
                                 "sources" to id,
                                 "bm25_score" to "%.3f".format(contentScore),
                                 "file_id" to fileId.toString(),
-                                "token_estimate" to tokens.toString()
+                                "token_estimate" to tokens.toString(),
+                                "chunk_path" to (chunkPath ?: ""),
+                                "parent_chunk_id" to (parentChunkId?.toString() ?: "")
                             )
                         )
                         snippets += snippet
@@ -134,7 +140,8 @@ class FullTextContextProvider(
 
         val sql = """
             SELECT c.chunk_id, c.file_id, c.kind, c.content, c.summary,
-                   c.token_count, f.abs_path, f.language
+                   c.token_count, c.chunk_path, c.parent_chunk_id,
+                   f.abs_path, f.language
             FROM chunks c
             JOIN file_state f ON f.file_id = c.file_id
             WHERE $where

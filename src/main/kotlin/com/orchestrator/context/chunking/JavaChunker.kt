@@ -32,7 +32,7 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
             ordinal = chunks.size
         }
         
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
     
     private fun buildHeader(cu: CompilationUnit): String {
@@ -158,6 +158,7 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
         val validStartLine = startLine?.coerceAtLeast(1) ?: 1
         val validEndLine = endLine?.coerceAtLeast(1) ?: 1
+        val path = ChunkPaths.path(kind, label)
 
         return Chunk(
             id = 0,
@@ -169,7 +170,8 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            chunkPath = path
         )
     }
 

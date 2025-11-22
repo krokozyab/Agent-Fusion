@@ -1,69 +1,93 @@
 package com.orchestrator.context.chunking
 
+import com.orchestrator.context.config.ChunkingConfig
 import java.nio.file.Path
+import kotlin.math.max
+import kotlin.math.min
 
-object ChunkerRegistry {
-    
-    private val registry = mapOf(
-        "md" to MarkdownChunker(),
-        "py" to PythonChunker(),
-        "ts" to TypeScriptChunker(),
-        "tsx" to TypeScriptChunker(),
-        "js" to TypeScriptChunker(),
-        "jsx" to TypeScriptChunker(),
-        "java" to SimpleChunkerAdapter(JavaChunker()),
-        "cs" to SimpleChunkerAdapter(CSharpChunker()),
-        "kt" to SimpleChunkerAdapter(KotlinChunker()),
-        "kts" to SimpleChunkerAdapter(KotlinChunker()),
-        "yaml" to SimpleChunkerAdapter(YamlChunker()),
-        "yml" to SimpleChunkerAdapter(YamlChunker()),
-        "doc" to WordChunker(),
-        "docx" to WordChunker(),
-        "pdf" to PdfChunker(),
-        "json" to SimpleChunkerAdapter(JsonChunker()),
-        "sql" to SimpleChunkerAdapter(SqlChunker())
+interface ChunkerRegistry {
+    fun getChunker(filePath: Path): Chunker
+    fun getChunker(extension: String): Chunker
+    fun getSupportedExtensions(): Set<String>
+    fun isSupported(filePath: Path): Boolean
+    fun isSupported(extension: String): Boolean
+}
+
+class ConfigurableChunkerRegistry(
+    private val config: ChunkingConfig = ChunkingConfig()
+) : ChunkerRegistry {
+
+    private val overlapPercent: Int = if (config.overlapEnabled) {
+        min(50, max(0, config.overlapPercent))
+    } else {
+        0
+    }
+
+    private val registry: Map<String, Chunker> = buildRegistry()
+
+    private fun buildRegistry(): Map<String, Chunker> = mapOf(
+        "md" to MarkdownChunker(maxTokens = config.markdown.maxTokens, overlapPercent = overlapPercent),
+        "py" to PythonChunker(maxTokens = config.python.maxTokens, overlapPercent = overlapPercent),
+        "ts" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
+        "tsx" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
+        "js" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
+        "jsx" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
+        "java" to CachingSimpleChunkerAdapter { JavaChunker(overlapPercent = overlapPercent) },
+        "cs" to CachingSimpleChunkerAdapter { CSharpChunker(overlapPercent = overlapPercent) },
+        "kt" to CachingSimpleChunkerAdapter { KotlinChunker(overlapPercent = overlapPercent) },
+        "kts" to CachingSimpleChunkerAdapter { KotlinChunker(overlapPercent = overlapPercent) },
+        "yaml" to CachingSimpleChunkerAdapter { YamlChunker(overlapPercent = overlapPercent) },
+        "yml" to CachingSimpleChunkerAdapter { YamlChunker(overlapPercent = overlapPercent) },
+        "doc" to WordChunker(overlapPercent = overlapPercent),
+        "docx" to WordChunker(overlapPercent = overlapPercent),
+        "pdf" to PdfChunker(overlapPercent = overlapPercent),
+        "json" to CachingSimpleChunkerAdapter { JsonChunker(overlapPercent = overlapPercent) },
+        "sql" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) }
     )
-    
-    fun getChunker(filePath: Path): Chunker {
+
+    override fun getChunker(filePath: Path): Chunker {
         val extension = filePath.fileName.toString()
             .substringAfterLast('.', "")
             .lowercase()
-        
-        return registry[extension] ?: PlainTextChunker()
+        return registry[extension] ?: PlainTextChunker(overlapPercent = overlapPercent)
     }
-    
-    fun getChunker(extension: String): Chunker {
-        return registry[extension.lowercase().removePrefix(".")] ?: PlainTextChunker()
+
+    override fun getChunker(extension: String): Chunker {
+        return registry[extension.lowercase().removePrefix(".")] ?: PlainTextChunker(overlapPercent = overlapPercent)
     }
-    
-    fun getSupportedExtensions(): Set<String> {
+
+    override fun getSupportedExtensions(): Set<String> {
         return registry.keys
     }
-    
-    fun isSupported(filePath: Path): Boolean {
+
+    override fun isSupported(filePath: Path): Boolean {
         val extension = filePath.fileName.toString()
             .substringAfterLast('.', "")
             .lowercase()
         return registry.containsKey(extension)
     }
-    
-    fun isSupported(extension: String): Boolean {
+
+    override fun isSupported(extension: String): Boolean {
         return registry.containsKey(extension.lowercase().removePrefix("."))
     }
 }
 
-interface SimpleChunker {
-    fun chunk(content: String, filePath: String): List<com.orchestrator.context.domain.Chunk>
+private class CachingSimpleChunkerAdapter(
+    private val factory: () -> SimpleChunker
+) : Chunker {
+    private val delegate: SimpleChunker by lazy { factory() }
+
+    override val strategy = ChunkingStrategy(
+        id = delegate::class.simpleName ?: "unknown",
+        displayName = delegate::class.simpleName ?: "Unknown"
+    )
+
+    override fun chunk(content: String, filePath: String, language: String) =
+        delegate.chunk(content, filePath)
+
+    override fun estimateTokens(text: String) = text.length / 4
 }
 
-private class SimpleChunkerAdapter(private val simpleChunker: SimpleChunker) : Chunker {
-    override val strategy = ChunkingStrategy(
-        id = simpleChunker::class.simpleName ?: "unknown",
-        displayName = simpleChunker::class.simpleName ?: "Unknown"
-    )
-    
-    override fun chunk(content: String, filePath: String, language: String) = 
-        simpleChunker.chunk(content, filePath)
-    
-    override fun estimateTokens(text: String) = text.length / 4
+interface SimpleChunker {
+    fun chunk(content: String, filePath: String): List<com.orchestrator.context.domain.Chunk>
 }

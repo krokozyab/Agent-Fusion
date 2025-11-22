@@ -5,7 +5,10 @@ import com.orchestrator.context.domain.ChunkKind
 import org.yaml.snakeyaml.Yaml
 import java.time.Instant
 
-class YamlChunker(private val maxTokens: Int = 600) : SimpleChunker {
+class YamlChunker(
+    private val maxTokens: Int = 600,
+    private val overlapPercent: Int = 15
+) : SimpleChunker {
 
     private val yaml = Yaml()
 
@@ -59,7 +62,7 @@ class YamlChunker(private val maxTokens: Int = 600) : SimpleChunker {
             chunks.add(createChunk(content, "root", 0, 1, totalLines))
         }
 
-        return chunks
+        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
     
     private fun splitLargeValue(keyPath: String, value: Any?, startOrdinal: Int): List<Chunk> {
@@ -144,6 +147,7 @@ class YamlChunker(private val maxTokens: Int = 600) : SimpleChunker {
     }
     
     private fun createChunk(text: String, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+        val path = ChunkPaths.path(ChunkKind.YAML_BLOCK, label)
         return Chunk(
             id = 0,
             fileId = 0,
@@ -154,7 +158,8 @@ class YamlChunker(private val maxTokens: Int = 600) : SimpleChunker {
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,
-            createdAt = Instant.now()
+            createdAt = Instant.now(),
+            chunkPath = path
         )
     }
     

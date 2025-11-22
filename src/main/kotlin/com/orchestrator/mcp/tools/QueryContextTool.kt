@@ -99,6 +99,12 @@ class QueryContextTool(
         val language: String?,
         val startLine: Int?,
         val endLine: Int?,
+        val chunkPath: String?,
+        val parentChunkId: Long?,
+        val siblingChunkIds: List<Long> = emptyList(),
+        val prevChunkId: Long? = null,
+        val nextChunkId: Long? = null,
+        val chunkPathSegments: List<String>? = null,
         val metadata: Map<String, String>
     )
 
@@ -204,7 +210,21 @@ class QueryContextTool(
         }
 
         // Convert to DTO format
+        val byParent = existingSnippets.groupBy { it.parentChunkId }
+        val orderedByFile = existingSnippets.groupBy { it.filePath }.mapValues { (_, list) ->
+            list.sortedWith(compareByDescending<ContextSnippet> { it.score }.thenBy { it.chunkId })
+        }
+
         val hits = existingSnippets.map { snippet ->
+            val meta = snippet.metadata.toMutableMap()
+            snippet.chunkPath?.let { meta["chunk_path"] = it }
+            snippet.parentChunkId?.let { meta["parent_chunk_id"] = it.toString() }
+            val siblings = byParent[snippet.parentChunkId].orEmpty().map { it.chunkId }.filter { it != snippet.chunkId }
+            val orderedSiblings = orderedByFile[snippet.filePath].orEmpty()
+            val idx = orderedSiblings.indexOfFirst { it.chunkId == snippet.chunkId }
+            val prevId = if (idx > 0) orderedSiblings[idx - 1].chunkId else null
+            val nextId = if (idx >= 0 && idx + 1 < orderedSiblings.size) orderedSiblings[idx + 1].chunkId else null
+            val pathSegments = snippet.chunkPath?.split("/")?.filter { it.isNotBlank() }
             SnippetHit(
                 chunkId = snippet.chunkId,
                 score = snippet.score,
@@ -215,7 +235,13 @@ class QueryContextTool(
                 language = snippet.language,
                 startLine = snippet.offsets?.first,
                 endLine = snippet.offsets?.last,
-                metadata = snippet.metadata
+                chunkPath = snippet.chunkPath,
+                parentChunkId = snippet.parentChunkId,
+                siblingChunkIds = siblings,
+                prevChunkId = prevId,
+                nextChunkId = nextId,
+                chunkPathSegments = pathSegments,
+                metadata = meta
             )
         }
 
@@ -389,12 +415,13 @@ class QueryContextTool(
         
         try {
             // Convert ContextSnippets to SearchResults
-            val searchResults = snippets.map { snippet ->
-                val vector = getOrEmbedVector(snippet)
-                VectorSearchEngine.ScoredChunk(
-                    chunk = Chunk(
-                        id = snippet.chunkId,
-                        fileId = snippet.metadata["file_id"]?.toLongOrNull() ?: 0L,
+        val deduped = dedupByChunkPath(snippets)
+        val searchResults = deduped.map { snippet ->
+            val vector = getOrEmbedVector(snippet)
+            VectorSearchEngine.ScoredChunk(
+                chunk = Chunk(
+                    id = snippet.chunkId,
+                    fileId = snippet.metadata["file_id"]?.toLongOrNull() ?: 0L,
                         ordinal = snippet.metadata["ordinal"]?.toIntOrNull() ?: 0,
                         kind = snippet.kind,
                         startLine = snippet.offsets?.first,
@@ -402,13 +429,17 @@ class QueryContextTool(
                         tokenEstimate = estimateTokens(snippet),
                         content = snippet.text,
                         summary = snippet.label,
-                        createdAt = java.time.Instant.now()
+                        createdAt = java.time.Instant.now(),
+                        chunkPath = snippet.metadata["chunk_path"],
+                        parentChunkId = snippet.metadata["parent_chunk_id"]?.toLongOrNull()
                     ),
                     score = snippet.score.toFloat(),
                     embeddingId = snippet.metadata["embedding_id"]?.toLongOrNull() ?: 0L,
                     path = snippet.filePath,
                     language = snippet.language,
-                    vector = vector
+                    vector = vector,
+                    chunkPath = snippet.metadata["chunk_path"],
+                    parentChunkId = snippet.metadata["parent_chunk_id"]?.toLongOrNull()
                 )
             }
             
@@ -433,6 +464,29 @@ class QueryContextTool(
         } catch (e: Exception) {
             log.warn("MMR optimization failed, returning original results: {}", e.message)
             return snippets
+        }
+    }
+
+    private fun dedupByChunkPath(snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (snippets.isEmpty()) return emptyList()
+        val bestByPath = LinkedHashMap<String, ContextSnippet>()
+        val passthrough = mutableListOf<ContextSnippet>()
+
+        snippets.forEach { snippet ->
+            val path = snippet.metadata["chunk_path"]
+            if (path.isNullOrBlank()) {
+                passthrough.add(snippet)
+            } else {
+                val existing = bestByPath[path]
+                if (existing == null || snippet.score > existing.score) {
+                    bestByPath[path] = snippet
+                }
+            }
+        }
+
+        return buildList {
+            addAll(bestByPath.values)
+            addAll(passthrough)
         }
     }
     

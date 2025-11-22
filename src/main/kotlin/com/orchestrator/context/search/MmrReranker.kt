@@ -26,7 +26,23 @@ class MmrReranker(
             tokenEstimator(chunk.chunk.content)
         }
 
-        val candidates = results.sortedByDescending { it.score }.toMutableList()
+        val parentPenalty = 0.05  // small diversity boost against siblings
+        val leafBoost = 0.02      // slight preference for leaves (no children observed)
+        val parentCounts = results.groupingBy { it.chunk.parentChunkId }.eachCount()
+        val pathCounts = results.groupingBy { it.chunk.chunkPath }.eachCount()
+
+        fun adjustedRelevance(candidate: SearchResult): Double {
+            var rel = candidate.score.toDouble()
+            val siblings = parentCounts[candidate.chunk.parentChunkId] ?: 0
+            if (candidate.chunk.parentChunkId != null && siblings > 1) {
+                rel -= parentPenalty
+            }
+            val isLeaf = candidate.chunk.chunkPath?.let { path -> (pathCounts[path] ?: 0) <= 1 } ?: false
+            if (isLeaf) rel += leafBoost
+            return rel
+        }
+
+        val candidates = results.sortedByDescending { adjustedRelevance(it) }.toMutableList()
         val selected = mutableListOf<SearchResult>()
         var tokensUsed = 0
 
@@ -48,7 +64,7 @@ class MmrReranker(
             for (candidate in candidates) {
                 if (!fitsBudget(candidate)) continue
 
-                val relevance = candidate.score.toDouble()
+                val relevance = adjustedRelevance(candidate)
                 val maxSimilarity = selected.maxOfOrNull { other ->
                     VectorOps.dotProduct(candidate.vector, other.vector).toDouble()
                 } ?: 0.0

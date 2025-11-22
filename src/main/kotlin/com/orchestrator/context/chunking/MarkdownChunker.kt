@@ -9,6 +9,7 @@ import java.time.Instant
  */
 class MarkdownChunker(
     private val maxTokens: Int = DEFAULT_MAX_TOKENS,
+    private val overlapPercent: Int = 15,
     private val estimator: TokenEstimator = TokenEstimator
 ) : Chunker {
 
@@ -84,12 +85,13 @@ class MarkdownChunker(
                 }
             }
 
-        return prepared.mapIndexedNotNull { ordinal, (input, text, span) ->
+        val baseChunks = prepared.mapIndexedNotNull { ordinal, (input, text, span) ->
             val start = span.first
             val end = span.second
             if (start == null || end == null) {
                 return@mapIndexedNotNull null
             }
+            val path = ChunkPaths.path(input.kind, input.label)
             Chunk(
                 id = 0,
                 fileId = 0,
@@ -100,9 +102,12 @@ class MarkdownChunker(
                 tokenEstimate = estimator.estimate(text),
                 content = text,
                 summary = input.label,
-                createdAt = now
+                createdAt = now,
+                chunkPath = path
             )
         }
+
+        return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)
