@@ -4,11 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- Changes Made&#10;   &#10;     1. QueryContextTool.kt (src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt:27-47)&#10;   &#10;     Before:&#10;     - &quot;Use short, specific keywords (like grep/find commands)&quot;&#10;     - &quot;2-5 words&quot;&#10;   &#10;     After:&#10;     - &quot;Use domain-specific descriptive phrases (5-10 words) with concrete terms&quot;&#10;     - Mentions the semantic model (sentence-transformers/all-MiniLM-L6-v2)&#10;     - Better examples showing descriptive queries&#10;   &#10;     2. McpServerImpl.kt (src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt:2364+)&#10;   &#10;     Updated sections:&#10;   &#10;     1. Main CRITICAL guidance (line 2368):&#10;       - Changed from: &quot;Use SHORT keywords (2-5 words)&quot;&#10;       - Changed to: &quot;Use domain-specific descriptive phrases (5-10 words) with concrete technical terms&quot;&#10;       - Added explanation about semantic model understanding meaning&#10;     2. Good Query Examples (line 2420):&#10;       - Extended all examples from 3-4 words to 5-8 words&#10;       - Example: &quot;authentication JWT token&quot; → &quot;authentication JWT token validation implementation&quot;&#10;     3. Query Formulation Section (line 2448):&#10;       - New formula emphasizing domain terms + technical concepts + implementation details&#10;       - Explicitly mentions optimal length: 5-10 words&#10;       - Notes that semantic model understands meaning and context&#10;     4. Comparison Table (line 2465):&#10;       - All &quot;Good Query&quot; examples now use 5-8 word descriptive phrases&#10;       - Example: &quot;TaskRepository class&quot; → &quot;TaskRepository database access implementation&quot;&#10;     5. User Phrase Mapping (line 2408):&#10;       - Updated all suggested queries to be more descriptive&#10;       - Example: &quot;feature implementation&quot; → &quot;feature implementation core logic flow&quot;&#10;   &#10;     Rationale&#10;   &#10;     The changes reflect that:&#10;     - Semantic search with sentence-transformers benefits from richer context, not just keywords&#10;     - Domain-specific vocabulary provides better signals than generic grep-like terms&#10;     - 5-10 words is optimal for semantic understanding while staying focused&#10;     - Question words and abstract meta-queries still fail (kept those warnings)&#10;     - Concrete technical terms work better than vague concepts&#10;   &#10;     The tool will now guide users to write queries like:&#10;     - ✅ &quot;PGP encryption FTP adapter file transfer configuration&quot;&#10;     - ✅ &quot;consensus workflow voting mechanism implementation&quot;&#10;   &#10;     Instead of:&#10;     - ❌ &quot;PGP encryption&quot; (too short, lacks context)&#10;     - ❌ &quot;how does PGP encryption work in FTP?&quot; (question format)&#10;   &#10;     This better leverages the semantic search capabilities while still avoiding natural language questions that fail! --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- relative path in query fixed --">
       <change afterPath="$PROJECT_DIR$/devdoc/using-integrations-oracle-integration-3.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/INSTALL.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/INSTALL.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -332,15 +332,7 @@
       <workItem from="1763205921932" duration="32890000" />
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
-      <workItem from="1763652739075" duration="80342000" />
-    </task>
-    <task id="LOCAL-00144" summary="-- doc added --">
-      <option name="closed" value="true" />
-      <created>1762615837686</created>
-      <option name="number" value="00144" />
-      <option name="presentableId" value="LOCAL-00144" />
-      <option name="project" value="LOCAL" />
-      <updated>1762615837686</updated>
+      <workItem from="1763652739075" duration="85384000" />
     </task>
     <task id="LOCAL-00145" summary="-- doc added --">
       <option name="closed" value="true" />
@@ -726,7 +718,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763911543273</updated>
     </task>
-    <option name="localTasksCounter" value="193" />
+    <task id="LOCAL-00193" summary="-- relative path in query fixed --">
+      <option name="closed" value="true" />
+      <created>1763913869329</created>
+      <option name="number" value="00193" />
+      <option name="presentableId" value="LOCAL-00193" />
+      <option name="project" value="LOCAL" />
+      <updated>1763913869329</updated>
+    </task>
+    <option name="localTasksCounter" value="194" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -773,7 +773,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- Task 1: Add QueryConfig for Phase 1 Features --" />
     <MESSAGE value="-- Task 2: Implement MMR Integration in QueryContextTool --" />
     <MESSAGE value="-- Task 3: Implement Neighbor Expansion --" />
     <MESSAGE value="-- Task 4: Implement Path/Language Boosts --" />
@@ -798,7 +797,8 @@
     <MESSAGE value="-- hierarchy basic traversal --" />
     <MESSAGE value="-- hierarchy final traversal --" />
     <MESSAGE value="-- Changes Made&#10;   &#10;     1. QueryContextTool.kt (src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt:27-47)&#10;   &#10;     Before:&#10;     - &quot;Use short, specific keywords (like grep/find commands)&quot;&#10;     - &quot;2-5 words&quot;&#10;   &#10;     After:&#10;     - &quot;Use domain-specific descriptive phrases (5-10 words) with concrete terms&quot;&#10;     - Mentions the semantic model (sentence-transformers/all-MiniLM-L6-v2)&#10;     - Better examples showing descriptive queries&#10;   &#10;     2. McpServerImpl.kt (src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt:2364+)&#10;   &#10;     Updated sections:&#10;   &#10;     1. Main CRITICAL guidance (line 2368):&#10;       - Changed from: &quot;Use SHORT keywords (2-5 words)&quot;&#10;       - Changed to: &quot;Use domain-specific descriptive phrases (5-10 words) with concrete technical terms&quot;&#10;       - Added explanation about semantic model understanding meaning&#10;     2. Good Query Examples (line 2420):&#10;       - Extended all examples from 3-4 words to 5-8 words&#10;       - Example: &quot;authentication JWT token&quot; → &quot;authentication JWT token validation implementation&quot;&#10;     3. Query Formulation Section (line 2448):&#10;       - New formula emphasizing domain terms + technical concepts + implementation details&#10;       - Explicitly mentions optimal length: 5-10 words&#10;       - Notes that semantic model understands meaning and context&#10;     4. Comparison Table (line 2465):&#10;       - All &quot;Good Query&quot; examples now use 5-8 word descriptive phrases&#10;       - Example: &quot;TaskRepository class&quot; → &quot;TaskRepository database access implementation&quot;&#10;     5. User Phrase Mapping (line 2408):&#10;       - Updated all suggested queries to be more descriptive&#10;       - Example: &quot;feature implementation&quot; → &quot;feature implementation core logic flow&quot;&#10;   &#10;     Rationale&#10;   &#10;     The changes reflect that:&#10;     - Semantic search with sentence-transformers benefits from richer context, not just keywords&#10;     - Domain-specific vocabulary provides better signals than generic grep-like terms&#10;     - 5-10 words is optimal for semantic understanding while staying focused&#10;     - Question words and abstract meta-queries still fail (kept those warnings)&#10;     - Concrete technical terms work better than vague concepts&#10;   &#10;     The tool will now guide users to write queries like:&#10;     - ✅ &quot;PGP encryption FTP adapter file transfer configuration&quot;&#10;     - ✅ &quot;consensus workflow voting mechanism implementation&quot;&#10;   &#10;     Instead of:&#10;     - ❌ &quot;PGP encryption&quot; (too short, lacks context)&#10;     - ❌ &quot;how does PGP encryption work in FTP?&quot; (question format)&#10;   &#10;     This better leverages the semantic search capabilities while still avoiding natural language questions that fail! --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- Changes Made&#10;   &#10;     1. QueryContextTool.kt (src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt:27-47)&#10;   &#10;     Before:&#10;     - &quot;Use short, specific keywords (like grep/find commands)&quot;&#10;     - &quot;2-5 words&quot;&#10;   &#10;     After:&#10;     - &quot;Use domain-specific descriptive phrases (5-10 words) with concrete terms&quot;&#10;     - Mentions the semantic model (sentence-transformers/all-MiniLM-L6-v2)&#10;     - Better examples showing descriptive queries&#10;   &#10;     2. McpServerImpl.kt (src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt:2364+)&#10;   &#10;     Updated sections:&#10;   &#10;     1. Main CRITICAL guidance (line 2368):&#10;       - Changed from: &quot;Use SHORT keywords (2-5 words)&quot;&#10;       - Changed to: &quot;Use domain-specific descriptive phrases (5-10 words) with concrete technical terms&quot;&#10;       - Added explanation about semantic model understanding meaning&#10;     2. Good Query Examples (line 2420):&#10;       - Extended all examples from 3-4 words to 5-8 words&#10;       - Example: &quot;authentication JWT token&quot; → &quot;authentication JWT token validation implementation&quot;&#10;     3. Query Formulation Section (line 2448):&#10;       - New formula emphasizing domain terms + technical concepts + implementation details&#10;       - Explicitly mentions optimal length: 5-10 words&#10;       - Notes that semantic model understands meaning and context&#10;     4. Comparison Table (line 2465):&#10;       - All &quot;Good Query&quot; examples now use 5-8 word descriptive phrases&#10;       - Example: &quot;TaskRepository class&quot; → &quot;TaskRepository database access implementation&quot;&#10;     5. User Phrase Mapping (line 2408):&#10;       - Updated all suggested queries to be more descriptive&#10;       - Example: &quot;feature implementation&quot; → &quot;feature implementation core logic flow&quot;&#10;   &#10;     Rationale&#10;   &#10;     The changes reflect that:&#10;     - Semantic search with sentence-transformers benefits from richer context, not just keywords&#10;     - Domain-specific vocabulary provides better signals than generic grep-like terms&#10;     - 5-10 words is optimal for semantic understanding while staying focused&#10;     - Question words and abstract meta-queries still fail (kept those warnings)&#10;     - Concrete technical terms work better than vague concepts&#10;   &#10;     The tool will now guide users to write queries like:&#10;     - ✅ &quot;PGP encryption FTP adapter file transfer configuration&quot;&#10;     - ✅ &quot;consensus workflow voting mechanism implementation&quot;&#10;   &#10;     Instead of:&#10;     - ❌ &quot;PGP encryption&quot; (too short, lacks context)&#10;     - ❌ &quot;how does PGP encryption work in FTP?&quot; (question format)&#10;   &#10;     This better leverages the semantic search capabilities while still avoiding natural language questions that fail! --" />
+    <MESSAGE value="-- relative path in query fixed --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- relative path in query fixed --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

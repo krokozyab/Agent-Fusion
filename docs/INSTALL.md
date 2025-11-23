@@ -26,10 +26,8 @@ Extract the downloaded ZIP file to any location on your computer. You should see
 ```
 codex_to_claude/
   ├── orchestrator-0.1.0-all.jar (jar file)
-  ├── fusionagent.toml (config Mac/Linux) 
-  ├── fusionagent_win.toml (config Windows)
+  ├── fusionagent.toml 
   ├── start.sh      (startup script Mac/Linux)
-  ├── start.bat     (startup script Windows)
   └── orchestrator-mcp-proxy.sh (proxy for Claude desktop Mac/Linux)
 ```
 
@@ -54,12 +52,6 @@ Other options you can configure later
 
 Or double-click `start.sh` in Finder
 
-**Windows:**
-```bash
-start.bat
-```
-
-Or double-click `start.bat` in Explorer
 
 ### 5. Verify It's Running
 
