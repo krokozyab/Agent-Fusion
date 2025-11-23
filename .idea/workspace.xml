@@ -7,8 +7,6 @@
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- relative path in query fixed --">
       <change afterPath="$PROJECT_DIR$/devdoc/using-integrations-oracle-integration-3.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/INSTALL.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/INSTALL.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -332,15 +330,7 @@
       <workItem from="1763205921932" duration="32890000" />
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
-      <workItem from="1763652739075" duration="85384000" />
-    </task>
-    <task id="LOCAL-00145" summary="-- doc added --">
-      <option name="closed" value="true" />
-      <created>1762615919057</created>
-      <option name="number" value="00145" />
-      <option name="presentableId" value="LOCAL-00145" />
-      <option name="project" value="LOCAL" />
-      <updated>1762615919057</updated>
+      <workItem from="1763652739075" duration="87219000" />
     </task>
     <task id="LOCAL-00146" summary="-- doc added --">
       <option name="closed" value="true" />
@@ -726,7 +716,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763913869329</updated>
     </task>
-    <option name="localTasksCounter" value="194" />
+    <task id="LOCAL-00194" summary="-- relative path in query fixed --">
+      <option name="closed" value="true" />
+      <created>1763920488247</created>
+      <option name="number" value="00194" />
+      <option name="presentableId" value="LOCAL-00194" />
+      <option name="project" value="LOCAL" />
+      <updated>1763920488248</updated>
+    </task>
+    <option name="localTasksCounter" value="195" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
