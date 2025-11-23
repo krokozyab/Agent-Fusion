@@ -5,6 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- relative path in query fixed --">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -110,7 +111,7 @@
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "#30 on imp",
+    "git-widget-placeholder": "#31 on imp",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/devdoc",
@@ -330,14 +331,6 @@
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
       <workItem from="1763652739075" duration="88099000" />
-    </task>
-    <task id="LOCAL-00148" summary="-- memory leak fix --">
-      <option name="closed" value="true" />
-      <created>1762721628198</created>
-      <option name="number" value="00148" />
-      <option name="presentableId" value="LOCAL-00148" />
-      <option name="project" value="LOCAL" />
-      <updated>1762721628198</updated>
     </task>
     <task id="LOCAL-00149" summary="-- readme --">
       <option name="closed" value="true" />
@@ -723,7 +716,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763926022326</updated>
     </task>
-    <option name="localTasksCounter" value="197" />
+    <task id="LOCAL-00197" summary="-- relative path in query fixed --">
+      <option name="closed" value="true" />
+      <created>1763926108108</created>
+      <option name="number" value="00197" />
+      <option name="presentableId" value="LOCAL-00197" />
+      <option name="project" value="LOCAL" />
+      <updated>1763926108108</updated>
+    </task>
+    <option name="localTasksCounter" value="198" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
