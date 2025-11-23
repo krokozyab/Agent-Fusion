@@ -2365,7 +2365,9 @@ class McpServerImpl(
             description = """
                 **🔍 SMART CODE SEARCH** - Semantic + symbol + full-text search across the entire indexed codebase.
                 **ALWAYS USE THIS INSTEAD OF**: grep, find, bash search commands, or manual file reading when you don't know exact paths.
-                **CRITICAL**: Use SHORT keywords (2-5 words), NOT natural language questions.
+                **QUERY GUIDANCE**: Use domain-specific descriptive phrases (5-10 words) with concrete technical terms.
+                The semantic search (sentence-transformers/all-MiniLM-L6-v2) understands meaning, not just keywords.
+                Avoid question words ("how", "why", "what") and abstract meta-queries.
 
                 ## ⚡ When to Auto-Invoke (Proactive - Use Constantly!)
                 - ✅ **Before ANY implementation** - Find similar code, understand patterns, avoid duplication
@@ -2389,6 +2391,11 @@ class McpServerImpl(
                 7. **Architecture Questions**: User asks about design/structure → query_context to gather context
                 8. **Code Review**: Before reviewing changes → query_context for related code and patterns
 
+                ## ⚠️ Paths filter tips
+                - Use absolute paths or drop the filter. Relative paths may not match the indexed path.
+                - For PDFs/Word, prefer absolute file paths (e.g., `/Users/.../devdoc/using-integrations-oracle-integration-3.pdf`).
+                - If in doubt, omit `paths` to let the tool search globally, then refine.
+
                 ## 🔀 Traversal via chunkIds (no search needed)
                 - `chunkIds`: fetch chunks directly (query can be empty when using chunkIds)
                 - Response navigation fields: `parentChunkId`, `childrenChunkIds`, `siblingChunkIds`, `prevChunkId`, `nextChunkId`, `depth`, `chunkPath`
@@ -2399,27 +2406,27 @@ class McpServerImpl(
                   - Context depth → use `depth` (slash count of `chunk_path`)
 
                 ## 💬 User Phrases That Trigger This Tool
-                - "How does [feature] work?" → query_context("feature implementation")
-                - "Where is [component] defined?" → query_context("component class")
-                - "Find all [pattern] usage" → query_context("pattern usage")
-                - "Show me [API] implementation" → query_context("API method")
-                - "What does [module] do?" → query_context("module core logic")
-                - "Search for [keyword]" → query_context("keyword")
-                - "Fix [bug/issue]" → query_context("bug related code")
-                - "Implement [feature]" → query_context("feature similar code")
-                - "Explain [concept]" → query_context("concept implementation")
-                - "Refactor [code]" → query_context("code usages dependencies")
+                - "How does [feature] work?" → query_context("[feature] implementation core logic flow")
+                - "Where is [component] defined?" → query_context("[component] class definition interface")
+                - "Find all [pattern] usage" → query_context("[pattern] usage examples implementation")
+                - "Show me [API] implementation" → query_context("[API] method implementation endpoints")
+                - "What does [module] do?" → query_context("[module] core functionality main operations")
+                - "Search for [keyword]" → query_context("[keyword] implementation usage patterns")
+                - "Fix [bug/issue]" → query_context("[bug] related code error handling")
+                - "Implement [feature]" → query_context("[feature] similar code implementation examples")
+                - "Explain [concept]" → query_context("[concept] implementation technical details")
+                - "Refactor [code]" → query_context("[code] usages dependencies patterns")
 
-                ## ✅ Good Query Examples (Short & Specific - Like Grep)
+                ## ✅ Good Query Examples (Descriptive & Domain-Specific)
                 **General Software Development:**
-                - "authentication JWT token" ← finds auth code with JWT
-                - "database connection pool" ← finds DB connection logic
-                - "error handling exception" ← finds error handling patterns
-                - "HTTP request handler" ← finds request handlers
-                - "configuration parser YAML" ← finds config parsing
-                - "logger initialization setup" ← finds logging setup
-                - "cache Redis implementation" ← finds caching code
-                - "validation input sanitize" ← finds validation logic
+                - "authentication JWT token validation implementation" ← finds auth code with JWT
+                - "database connection pool configuration setup" ← finds DB connection logic
+                - "error handling exception logging patterns" ← finds error handling patterns
+                - "HTTP request handler endpoint routing" ← finds request handlers
+                - "configuration parser YAML file loading" ← finds config parsing
+                - "logger initialization setup application startup" ← finds logging setup
+                - "cache Redis implementation memory storage" ← finds caching code
+                - "validation input sanitize security filtering" ← finds validation logic
 
                 **TESTED Project-Specific Examples (Proven Hits):**
                 - "task consensus workflow" ← 32 total hits, focuses on consensus implementation
@@ -2440,28 +2447,31 @@ class McpServerImpl(
 
                 ## 🎯 Query Formulation: Anatomy of a Good Query
 
-                **Formula: [Verb/Noun] + [Noun] + [Optional: Domain/Context]**
+                **Formula: [Domain Terms] + [Technical Concepts] + [Implementation Details]**
+                **Optimal Length**: 5-10 words with concrete technical vocabulary
+                **Semantic Model**: Uses sentence-transformers to understand meaning and context
 
                 | Pattern | Example | What It Finds |
                 |---------|---------|---------------|
-                | **[Action] [Concept]** | "find usages", "create task" | Code that performs the action |
-                | **[Class/Function] [Domain]** | "task consensus", "workflow executor" | Implementation of concept in domain |
-                | **[Pattern] [Behavior]** | "proposal manager", "voting strategy" | Specific implementations of pattern |
-                | **[Noun] [Noun] [Noun]** | "task consensus workflow" | Multi-level concept hierarchy |
-                | **[Implementation] [Feature]** | "repository find", "manager execute" | Specific methods doing work |
+                | **[Action] [Concept] [Detail]** | "validate JWT token authentication" | Code performing specific action |
+                | **[Class/Function] [Domain] [Context]** | "TaskRepository database access layer" | Implementation in domain |
+                | **[Pattern] [Behavior] [Implementation]** | "proposal manager consensus voting" | Specific pattern usage |
+                | **[Feature] [Technology] [Operation]** | "PGP encryption FTP file transfer" | Multi-concept implementation |
+                | **[Component] [Action] [Detail]** | "workflow executor task scheduling" | Specific methods and operations |
 
-                **Rule: Query = Nouns + Verbs, NOT questions or explanations**
+                **Rule**: Use descriptive technical phrases with domain vocabulary.
+                **Avoid**: Question words, abstract concepts, meta-queries.
 
                 | Goal | Good Query ✅ | Why Works | Bad Query ❌ | Why Fails |
                 |------|-------------|----------|------------|----------|
-                | Find class | "TaskRepository class" | Specific noun | "where is TaskRepository" | Question format |
-                | Find method | "execute proposal" | Verb + noun | "how to execute proposal" | Question/explanation |
-                | Understand feature | "consensus workflow" | Noun + noun | "how does consensus work" | Seeking explanation |
-                | Find usage patterns | "create task proposal" | Stacked nouns | "show me task creation" | Indirect/vague |
-                | Locate implementation | "voting strategy consensus" | Specific terms | "explain voting strategy" | Explanation-seeking |
-                | Find config | "configuration parser" | Noun + noun | "what is configuration" | Purpose-seeking |
-                | Debug error | "proposal validation error" | Error context | "why does validation fail" | Question format |
-                | Find dependencies | "import context provider" | Dependency terms | "what depends on context" | Indirect/vague |
+                | Find class | "TaskRepository database access implementation" | Domain + context | "where is TaskRepository" | Question format |
+                | Find method | "execute proposal consensus workflow" | Action + context | "how to execute proposal" | Question format |
+                | Understand feature | "consensus workflow voting mechanism implementation" | Technical detail | "how does consensus work" | Explanation-seeking |
+                | Find usage patterns | "create task proposal submission patterns" | Domain-rich | "show me task creation" | Vague command |
+                | Locate implementation | "voting strategy consensus decision algorithm" | Implementation focus | "explain voting strategy" | Explanation-seeking |
+                | Find config | "configuration parser TOML file loading" | Technology specific | "what is configuration" | Abstract/vague |
+                | Debug error | "proposal validation error handling exceptions" | Error context + tech | "why does validation fail" | Question format |
+                | Find dependencies | "import context provider dependency injection" | Technical pattern | "what depends on context" | Vague question |
 
                 ## 🔍 Query Refinement: When Hits Are Low or Too Broad
 

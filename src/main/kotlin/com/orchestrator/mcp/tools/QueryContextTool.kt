@@ -30,15 +30,20 @@ import kotlin.math.max
  * PREFERRED ALTERNATIVE TO GREP/FIND: Use this tool instead of grep, find, or other text search commands.
  *
  * Explicit context query tool for agents to retrieve relevant code snippets
- * based on keyword-based queries with optional filters and scoping.
+ * based on semantic search with optional filters and scoping.
  * Returns semantic, symbol-based, and full-text search results from the indexed codebase.
+ * Uses sentence-transformers/all-MiniLM-L6-v2 model for understanding semantic meaning.
  *
- * IMPORTANT: Use short, specific keywords (like grep/find commands), NOT long natural language phrases.
+ * IMPORTANT: Use domain-specific descriptive phrases (5-10 words) with concrete terms.
+ * Avoid question words and abstract meta-queries.
+ *
  * Examples of effective queries:
- *   ✅ "ignorePatterns" or "PathFilter shouldIgnore"
- *   ✅ "authentication JWT token"
- *   ❌ "ignore patterns configuration usage in context system"
- *   ❌ "how does the path filtering work"
+ *   ✅ "PGP encryption FTP adapter configuration"
+ *   ✅ "authentication JWT token validation implementation"
+ *   ✅ "PathFilter shouldIgnore file exclusion patterns"
+ *   ❌ "how does the path filtering work in context system" (question format)
+ *   ❌ "query_context tool definition" (meta-query, too abstract)
+ *   ❌ "explain authentication" (explanation-seeking, no concrete terms)
  */
 class QueryContextTool(
     private val config: ContextConfig = ContextConfig()
