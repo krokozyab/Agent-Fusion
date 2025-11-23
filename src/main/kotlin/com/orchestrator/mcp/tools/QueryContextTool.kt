@@ -209,21 +209,35 @@ class QueryContextTool(
             log.warn("Dropped {} query_context snippets because files no longer exist on disk", purgedCount)
         }
 
-        // Convert to DTO format
-        val byParent = existingSnippets.groupBy { it.parentChunkId }
-        val orderedByFile = existingSnippets.groupBy { it.filePath }.mapValues { (_, list) ->
-            list.sortedWith(compareByDescending<ContextSnippet> { it.score }.thenBy { it.chunkId })
+        // Build parent relationships using stored parentChunkId or derived from chunk_path prefix
+        val pathToId = existingSnippets.mapNotNull { snippet ->
+            snippet.chunkPath?.let { it to snippet.chunkId }
+        }.toMap()
+
+        data class Enriched(val snippet: ContextSnippet, val parentId: Long?)
+
+        val enriched = existingSnippets.map { snippet ->
+            val derivedParent = snippet.chunkPath
+                ?.let { path -> path.lastIndexOf('/').takeIf { it > 0 }?.let { path.substring(0, it) } }
+                ?.let { pathToId[it] }
+            Enriched(snippet, snippet.parentChunkId ?: derivedParent)
         }
 
-        val hits = existingSnippets.map { snippet ->
+        val byParent = enriched.groupBy { it.parentId }
+        val orderedByFile = enriched.groupBy { it.snippet.filePath }.mapValues { (_, list) ->
+            list.sortedWith(compareByDescending<Enriched> { it.snippet.score }.thenBy { it.snippet.chunkId })
+        }
+
+        val hits = enriched.map { enrichedSnippet ->
+            val snippet = enrichedSnippet.snippet
             val meta = snippet.metadata.toMutableMap()
             snippet.chunkPath?.let { meta["chunk_path"] = it }
-            snippet.parentChunkId?.let { meta["parent_chunk_id"] = it.toString() }
-            val siblings = byParent[snippet.parentChunkId].orEmpty().map { it.chunkId }.filter { it != snippet.chunkId }
+            enrichedSnippet.parentId?.let { meta["parent_chunk_id"] = it.toString() }
+            val siblings = byParent[enrichedSnippet.parentId].orEmpty().map { it.snippet.chunkId }.filter { it != snippet.chunkId }
             val orderedSiblings = orderedByFile[snippet.filePath].orEmpty()
-            val idx = orderedSiblings.indexOfFirst { it.chunkId == snippet.chunkId }
-            val prevId = if (idx > 0) orderedSiblings[idx - 1].chunkId else null
-            val nextId = if (idx >= 0 && idx + 1 < orderedSiblings.size) orderedSiblings[idx + 1].chunkId else null
+            val idx = orderedSiblings.indexOfFirst { it.snippet.chunkId == snippet.chunkId }
+            val prevId = if (idx > 0) orderedSiblings[idx - 1].snippet.chunkId else null
+            val nextId = if (idx >= 0 && idx + 1 < orderedSiblings.size) orderedSiblings[idx + 1].snippet.chunkId else null
             val pathSegments = snippet.chunkPath?.split("/")?.filter { it.isNotBlank() }
             SnippetHit(
                 chunkId = snippet.chunkId,
@@ -236,7 +250,7 @@ class QueryContextTool(
                 startLine = snippet.offsets?.first,
                 endLine = snippet.offsets?.last,
                 chunkPath = snippet.chunkPath,
-                parentChunkId = snippet.parentChunkId,
+                parentChunkId = enrichedSnippet.parentId,
                 siblingChunkIds = siblings,
                 prevChunkId = prevId,
                 nextChunkId = nextId,

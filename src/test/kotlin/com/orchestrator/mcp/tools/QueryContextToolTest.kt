@@ -45,6 +45,9 @@ class QueryContextToolTest {
                 batchSize = 4,
                 normalize = false
             ),
+            storage = com.orchestrator.context.config.StorageConfig(
+                dbPath = tempDir.resolve("context.duckdb").toString()
+            ),
             providers = mapOf(
                 "semantic" to ProviderConfig(enabled = true, weight = 0.6),
                 "symbol" to ProviderConfig(enabled = true, weight = 0.3),

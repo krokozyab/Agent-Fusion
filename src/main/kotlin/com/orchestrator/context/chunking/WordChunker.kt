@@ -65,6 +65,22 @@ class WordChunker(
         val chunks = mutableListOf<Chunk>()
         var ordinal = 0
         val createdAt = Instant.now()
+        val rootPath = ChunkPaths.path(ChunkKind.PARAGRAPH, listOf(filePath))
+
+        // Document root chunk
+        chunks += Chunk(
+            id = 0,
+            fileId = 0,
+            ordinal = ordinal++,
+            kind = ChunkKind.PARAGRAPH,
+            startLine = 1,
+            endLine = lines.size,
+            tokenEstimate = estimateTokens(content),
+            content = "Document $filePath",
+            summary = "Document root",
+            createdAt = createdAt,
+            chunkPath = rootPath
+        )
 
         for (paragraphInfo in paragraphs) {
             val tokens = estimateTokens(paragraphInfo.text)
@@ -75,7 +91,8 @@ class WordChunker(
                     ordinal++,
                     paragraphInfo.startLine,
                     paragraphInfo.endLine,
-                    createdAt
+                    createdAt,
+                    rootPath
                 ))
             } else {
                 // Split large paragraphs by sentences, lines and words while respecting the token budget
@@ -84,7 +101,8 @@ class WordChunker(
                     ordinal,
                     paragraphInfo.startLine,
                     paragraphInfo.endLine,
-                    createdAt
+                    createdAt,
+                    rootPath
                 )
                 chunks.addAll(subChunks)
                 ordinal = chunks.size
@@ -101,7 +119,8 @@ class WordChunker(
         startOrdinal: Int,
         startLine: Int,
         endLine: Int,
-        timestamp: Instant
+        timestamp: Instant,
+        parentPath: String
     ): List<Chunk> {
         val chunks = mutableListOf<Chunk>()
         var ordinal = startOrdinal
@@ -116,7 +135,7 @@ class WordChunker(
                 val chunkLines = cleaned.lines().size
                 val chunkStartLine = (startLine + approximateLineOffset * lineRatio).toInt().coerceAtLeast(1)
                 val chunkEndLine = (chunkStartLine + chunkLines - 1).coerceAtLeast(chunkStartLine)
-                chunks += createChunk(cleaned, ordinal++, chunkStartLine, chunkEndLine, timestamp)
+                chunks += createChunk(cleaned, ordinal++, chunkStartLine, chunkEndLine, timestamp, parentPath)
             }
         }
 
@@ -125,7 +144,7 @@ class WordChunker(
             .filter { it.isNotEmpty() }
 
         if (sentences.isEmpty()) {
-            splitByWords(text, ordinal, startLine, endLine, timestamp, maxLength, chunks)
+            splitByWords(text, ordinal, startLine, endLine, timestamp, maxLength, chunks, parentPath)
             return chunks
         }
 
@@ -151,7 +170,7 @@ class WordChunker(
                 if (sentence.length <= maxLength) {
                     buffer.append(sentence)
                 } else {
-                    ordinal = splitByWords(sentence, ordinal, startLine + lineOffset, endLine, timestamp, maxLength, chunks)
+                    ordinal = splitByWords(sentence, ordinal, startLine + lineOffset, endLine, timestamp, maxLength, chunks, parentPath)
                     lineOffset += sentence.lines().size
                 }
             }
@@ -162,7 +181,7 @@ class WordChunker(
         }
 
         if (chunks.isEmpty()) {
-            splitByWords(text, startOrdinal, startLine, endLine, timestamp, maxLength, chunks)
+            splitByWords(text, startOrdinal, startLine, endLine, timestamp, maxLength, chunks, parentPath)
         }
 
         return chunks
@@ -175,7 +194,8 @@ class WordChunker(
         endLine: Int,
         timestamp: Instant,
         maxLength: Int,
-        target: MutableList<Chunk>
+        target: MutableList<Chunk>,
+        parentPath: String
     ): Int {
         var ordinal = startOrdinal
         val words = text.split(Regex("\\s+"))
@@ -193,7 +213,7 @@ class WordChunker(
                 val content = buffer.toString().trim()
                 val lines = content.lines().size
                 val chunkEndLine = (currentLine + lines - 1).coerceAtLeast(currentLine).coerceAtMost(endLine)
-                target += createChunk(content, ordinal++, currentLine, chunkEndLine, timestamp)
+                target += createChunk(content, ordinal++, currentLine, chunkEndLine, timestamp, parentPath)
                 currentLine = chunkEndLine + 1
                 buffer.setLength(0)
             }
@@ -218,7 +238,7 @@ class WordChunker(
                     while (index < word.length) {
                         val end = (index + maxLength).coerceAtMost(word.length)
                         val part = word.substring(index, end)
-                        target += createChunk(part, ordinal++, currentLine, currentLine, timestamp)
+                        target += createChunk(part, ordinal++, currentLine, currentLine, timestamp, parentPath)
                         currentLine++
                         index = end
                     }
@@ -235,11 +255,12 @@ class WordChunker(
         ordinal: Int,
         startLine: Int,
         endLine: Int,
-        timestamp: Instant
+        timestamp: Instant,
+        parentPath: String
     ): Chunk {
         val normalizedStartLine = startLine.coerceAtLeast(1)
         val normalizedEndLine = endLine.coerceAtLeast(normalizedStartLine)
-        val path = ChunkPaths.path(ChunkKind.PARAGRAPH, "paragraph-$ordinal")
+        val path = "$parentPath/paragraph-$ordinal"
         return Chunk(
             id = 0,
             fileId = 0,

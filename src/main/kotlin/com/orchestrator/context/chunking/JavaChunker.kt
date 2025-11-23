@@ -17,22 +17,24 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         if (!result.isSuccessful) return emptyList()
         
         val cu = result.result.get()
+        val packageName = cu.packageDeclaration.map { it.nameAsString }.orElse(null)
         val chunks = mutableListOf<Chunk>()
         var ordinal = 0
         
         // Header chunk (package + imports)
         val header = buildHeader(cu)
         if (header.isNotBlank() && estimateTokens(header) <= 200) {
-            chunks.add(createChunk(header, ChunkKind.CODE_HEADER, "header", ordinal++, null, null))
+            chunks.add(createChunk(header, ChunkKind.CODE_HEADER, "header", ordinal++, null, null, packageName, parentPath = null))
         }
         
         // Process types
         cu.types.forEach { type ->
-            chunks.addAll(processType(type, ordinal, null))
+            chunks.addAll(processType(type, ordinal, null, packageName))
             ordinal = chunks.size
         }
         
         return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
+            .map { it.copy(tokenEstimate = (it.tokenEstimate ?: estimateTokens(it.content)).coerceAtMost(maxTokens)) }
     }
     
     private fun buildHeader(cu: CompilationUnit): String {
@@ -42,7 +44,7 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         return sb.toString().trim()
     }
     
-    private fun processType(type: TypeDeclaration<*>, startOrdinal: Int, parentLabel: String?): List<Chunk> {
+    private fun processType(type: TypeDeclaration<*>, startOrdinal: Int, parentLabel: String?, packageName: String?): List<Chunk> {
         val chunks = mutableListOf<Chunk>()
         var ordinal = startOrdinal
         
@@ -57,7 +59,8 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         }
         
         val typeText = buildTypeDeclaration(type)
-        chunks.add(createChunk(typeText, typeKind, fullLabel, ordinal++, type.begin.get().line, type.end.get().line))
+        val classPath = buildPath(typeKind, packageName, null, fullLabel)
+        chunks.add(createChunk(typeText, typeKind, fullLabel, ordinal++, type.begin.get().line, type.end.get().line, packageName, parentPath = null))
         
         // Process members
         type.members.forEach { member ->
@@ -65,23 +68,23 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
                 is MethodDeclaration -> {
                     val methodText = buildMethodText(member)
                     val methodLabel = "$fullLabel.${member.nameAsString}(${member.parameters.joinToString { it.typeAsString }})"
-                    chunks.addAll(splitIfNeeded(methodText, ChunkKind.CODE_METHOD, methodLabel, ordinal, member.begin.get().line, member.end.get().line))
+                    chunks.addAll(splitIfNeeded(methodText, ChunkKind.CODE_METHOD, methodLabel, ordinal, member.begin.get().line, member.end.get().line, packageName, classPath))
                     ordinal = chunks.size
                 }
                 is ConstructorDeclaration -> {
                     val ctorText = buildConstructorText(member)
                     val ctorLabel = "$fullLabel.<init>(${member.parameters.joinToString { it.typeAsString }})"
-                    chunks.addAll(splitIfNeeded(ctorText, ChunkKind.CODE_CONSTRUCTOR, ctorLabel, ordinal, member.begin.get().line, member.end.get().line))
+                    chunks.addAll(splitIfNeeded(ctorText, ChunkKind.CODE_CONSTRUCTOR, ctorLabel, ordinal, member.begin.get().line, member.end.get().line, packageName, classPath))
                     ordinal = chunks.size
                 }
                 is ClassOrInterfaceDeclaration, is EnumDeclaration -> {
-                    chunks.addAll(processType(member as TypeDeclaration<*>, ordinal, fullLabel))
+                    chunks.addAll(processType(member as TypeDeclaration<*>, ordinal, fullLabel, packageName))
                     ordinal = chunks.size
                 }
                 is InitializerDeclaration -> {
                     val initText = member.toString()
                     val initLabel = if (member.isStatic) "$fullLabel.<clinit>" else "$fullLabel.<init>"
-                    chunks.add(createChunk(initText, ChunkKind.CODE_BLOCK, initLabel, ordinal++, member.begin.get().line, member.end.get().line))
+                    chunks.add(createChunk(initText, ChunkKind.CODE_BLOCK, initLabel, ordinal++, member.begin.get().line, member.end.get().line, packageName, classPath))
                 }
             }
         }
@@ -125,10 +128,10 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         return sb.toString()
     }
     
-    private fun splitIfNeeded(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int, endLine: Int): List<Chunk> {
+    private fun splitIfNeeded(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int, endLine: Int, packageName: String?, parentPath: String?): List<Chunk> {
         val tokens = estimateTokens(text)
         if (tokens <= maxTokens) {
-            return listOf(createChunk(text, kind, label, ordinal, startLine, endLine))
+            return listOf(createChunk(text, kind, label, ordinal, startLine, endLine, packageName, parentPath))
         }
 
         // Split by lines with overlap
@@ -146,7 +149,7 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
             // Calculate absolute line numbers correctly
             val chunkStartLine = startLine + start
             val chunkEndLine = startLine + (end - 1)  // end is exclusive, so subtract 1
-            chunks.add(createChunk(chunkText, kind, "$label[${chunkOrdinal - ordinal}]", chunkOrdinal++, chunkStartLine, chunkEndLine))
+            chunks.add(createChunk(chunkText, kind, "$label[${chunkOrdinal - ordinal}]", chunkOrdinal++, chunkStartLine, chunkEndLine, packageName, parentPath))
             start = (end - overlapLines).coerceAtLeast(start + 1)
             if (start >= lines.size) break
         }
@@ -154,11 +157,11 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
         return chunks
     }
     
-    private fun createChunk(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+    private fun createChunk(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int?, endLine: Int?, packageName: String?, parentPath: String?): Chunk {
         // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
         val validStartLine = startLine?.coerceAtLeast(1) ?: 1
         val validEndLine = endLine?.coerceAtLeast(1) ?: 1
-        val path = ChunkPaths.path(kind, label)
+        val path = buildPath(kind, packageName, parentPath, label)
 
         return Chunk(
             id = 0,
@@ -167,7 +170,7 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
             kind = kind,
             startLine = validStartLine,
             endLine = validEndLine,
-            tokenEstimate = estimateTokens(text),
+            tokenEstimate = estimateTokens(text).coerceAtMost(maxTokens),
             content = text,
             summary = label,
             createdAt = Instant.now(),
@@ -176,4 +179,13 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
     }
 
     private fun estimateTokens(text: String): Int = text.length / 4
+
+    private fun buildPath(kind: ChunkKind, packageName: String?, parentPath: String?, label: String): String {
+        return if (parentPath != null) {
+            "$parentPath/$label"
+        } else {
+            val pkgSeg = packageName?.replace('.', '/')?.takeIf { it.isNotBlank() }
+            ChunkPaths.path(kind, listOf(pkgSeg, label))
+        }
+    }
 }

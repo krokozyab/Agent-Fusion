@@ -2,6 +2,7 @@ package com.orchestrator.context.chunking
 
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
+import com.orchestrator.context.chunking.ChunkPaths
 import java.time.Instant
 
 class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent: Int = 15) : SimpleChunker {
@@ -10,18 +11,21 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
         val chunks = mutableListOf<Chunk>()
         var ordinal = 0
         
+        val pkg = packageName(content)
+
         // Extract header (package + imports)
         val header = extractHeader(content)
         if (header.isNotBlank() && estimateTokens(header) <= 200) {
-            createChunk(header, ChunkKind.CODE_HEADER, "header", ordinal++, 1, header.lines().size)?.let {
+            createChunk(header, ChunkKind.CODE_HEADER, "header", ordinal++, 1, header.lines().size, pkg, parentPath = null)?.let {
                 chunks.add(it)
             }
         }
         
         // Extract top-level declarations
-        chunks.addAll(extractDeclarations(content, ordinal))
+        chunks.addAll(extractDeclarations(content, ordinal, pkg))
         
         return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
+            .map { it.copy(tokenEstimate = (it.tokenEstimate ?: estimateTokens(it.content)).coerceAtMost(maxTokens)) }
     }
     
     private fun extractHeader(content: String): String {
@@ -40,7 +44,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
         return headerLines.joinToString("\n")
     }
     
-    private fun extractDeclarations(content: String, startOrdinal: Int): List<Chunk> {
+    private fun extractDeclarations(content: String, startOrdinal: Int, pkg: String?): List<Chunk> {
         val chunks = mutableListOf<Chunk>()
         var ordinal = startOrdinal
         val lines = content.lines()
@@ -70,7 +74,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
                 val kdoc = extractKDocBefore(lines, i)
                 val fullText = if (kdoc.isNotBlank()) "$kdoc\n$text" else text
                 
-                val newChunks = splitIfNeeded(fullText, ChunkKind.CODE_ENUM, name, ordinal, i + 1, endLine + 1)
+                val newChunks = splitIfNeeded(fullText, ChunkKind.CODE_ENUM, name, ordinal, i + 1, endLine + 1, pkg, parentPath = null)
                 chunks.addAll(newChunks)
                 ordinal = chunks.size
                 i = endLine + 1
@@ -90,9 +94,50 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
                     else -> ChunkKind.CODE_CLASS
                 }
                 
-                val newChunks = splitIfNeeded(fullText, kind, name, ordinal, i + 1, endLine + 1)
+                val newChunks = splitIfNeeded(fullText, kind, name, ordinal, i + 1, endLine + 1, pkg, parentPath = null)
                 chunks.addAll(newChunks)
                 ordinal = chunks.size
+
+                // Process members inside the class/object/interface using the class path as parent
+                var innerIndex = i + 1
+                val classPath = chunks.lastOrNull()?.chunkPath
+                while (innerIndex <= endLine) {
+                    val innerLine = lines[innerIndex]
+                    val innerTrimmed = innerLine.trim()
+
+                    if (innerTrimmed.isEmpty() || innerTrimmed.startsWith("//")) {
+                        innerIndex++
+                        continue
+                    }
+
+                    val innerFunMatch = funPattern.find(innerLine)
+                    if (innerFunMatch != null) {
+                        val name = innerFunMatch.groupValues[2]
+                        val (text, innerEnd) = extractBlock(lines, innerIndex)
+                        val kdoc = extractKDocBefore(lines, innerIndex)
+                        val fullText = if (kdoc.isNotBlank()) "$kdoc\n$text" else text
+
+                        val newMemberChunks = splitIfNeeded(fullText, ChunkKind.CODE_FUNCTION, name, ordinal, innerIndex + 1, innerEnd + 1, pkg, classPath)
+                        chunks.addAll(newMemberChunks)
+                        ordinal = chunks.size
+                        innerIndex = innerEnd + 1
+                        continue
+                    }
+
+                    val innerPropMatch = propertyPattern.find(innerLine)
+                    if (innerPropMatch != null && !innerLine.contains("{")) {
+                        val name = innerPropMatch.groupValues[3]
+                        val kdoc = extractKDocBefore(lines, innerIndex)
+                        val fullText = if (kdoc.isNotBlank()) "$kdoc\n$innerLine" else innerLine
+
+                        createChunk(fullText, ChunkKind.CODE_BLOCK, name, ordinal++, innerIndex + 1, innerIndex + 1, pkg, classPath)?.let { chunks.add(it) }
+                        innerIndex++
+                        continue
+                    }
+
+                    innerIndex++
+                }
+
                 i = endLine + 1
                 continue
             }
@@ -105,7 +150,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
                 val kdoc = extractKDocBefore(lines, i)
                 val fullText = if (kdoc.isNotBlank()) "$kdoc\n$text" else text
                 
-                val newChunks = splitIfNeeded(fullText, ChunkKind.CODE_FUNCTION, name, ordinal, i + 1, endLine + 1)
+                val newChunks = splitIfNeeded(fullText, ChunkKind.CODE_FUNCTION, name, ordinal, i + 1, endLine + 1, pkg, parentPath = null)
                 chunks.addAll(newChunks)
                 ordinal = chunks.size
                 i = endLine + 1
@@ -119,7 +164,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
                 val kdoc = extractKDocBefore(lines, i)
                 val fullText = if (kdoc.isNotBlank()) "$kdoc\n$line" else line
                 
-                createChunk(fullText, ChunkKind.CODE_BLOCK, name, ordinal++, i + 1, i + 1)?.let { chunks.add(it) }
+                createChunk(fullText, ChunkKind.CODE_BLOCK, name, ordinal++, i + 1, i + 1, pkg, parentPath = null)?.let { chunks.add(it) }
                 i++
                 continue
             }
@@ -192,10 +237,10 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
         return Pair(blockLines.joinToString("\n"), i - 1)
     }
     
-    private fun splitIfNeeded(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int, endLine: Int): List<Chunk> {
+    private fun splitIfNeeded(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int, endLine: Int, pkg: String?, parentPath: String?): List<Chunk> {
         val tokens = estimateTokens(text)
         if (tokens < maxTokens) {
-            return createChunk(text, kind, label, ordinal, startLine, endLine)?.let { listOf(it) } ?: emptyList()
+            return createChunk(text, kind, label, ordinal, startLine, endLine, pkg, parentPath)?.let { listOf(it) } ?: emptyList()
         }
 
         // Split by lines with overlap
@@ -213,7 +258,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
             // Calculate absolute line numbers correctly
             val chunkStartLine = startLine + start
             val chunkEndLine = startLine + (end - 1)  // end is exclusive, so subtract 1
-            createChunk(chunkText, kind, "$label[${chunkOrdinal - ordinal}]", chunkOrdinal++, chunkStartLine, chunkEndLine)?.let {
+            createChunk(chunkText, kind, "$label[${chunkOrdinal - ordinal}]", chunkOrdinal++, chunkStartLine, chunkEndLine, pkg, parentPath)?.let {
                 chunks.add(it)
             }
             start = (end - overlapLines).coerceAtLeast(start + 1)
@@ -223,7 +268,16 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
         return chunks
     }
     
-    private fun createChunk(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk? {
+    private fun createChunk(
+        text: String,
+        kind: ChunkKind,
+        label: String,
+        ordinal: Int,
+        startLine: Int?,
+        endLine: Int?,
+        pkg: String?,
+        parentPath: String?
+    ): Chunk? {
         if (text.isBlank()) return null
 
         // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
@@ -235,7 +289,7 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
             return null
         }
 
-        val path = ChunkPaths.path(kind, label)
+        val path = buildPath(kind, pkg, parentPath, label)
         return Chunk(
             id = 0,
             fileId = 0,
@@ -252,4 +306,20 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
     }
     
     private fun estimateTokens(text: String): Int = text.length / 4
+
+    private fun packageName(content: String): String? =
+        content.lineSequence()
+            .firstOrNull { it.trim().startsWith("package ") }
+            ?.trim()
+            ?.removePrefix("package ")
+            ?.trim()
+
+    private fun buildPath(kind: ChunkKind, pkg: String?, parentPath: String?, label: String): String {
+        return if (parentPath != null) {
+            "$parentPath/$label"
+        } else {
+            val pkgSeg = pkg?.replace('.', '/')?.takeIf { it.isNotBlank() }
+            ChunkPaths.path(kind, listOf(pkgSeg, label))
+        }
+    }
 }

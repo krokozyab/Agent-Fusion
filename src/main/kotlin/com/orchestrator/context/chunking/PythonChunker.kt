@@ -80,15 +80,35 @@ class PythonChunker(
         }
 
         val timestamp = Instant.now()
-        val baseChunks = outputs.mapIndexed { ordinal, input ->
+        val rootPath = ChunkPaths.path(ChunkKind.CODE_BLOCK, listOf(filePath))
+
+        val baseChunks = mutableListOf<Chunk>()
+
+        // Root/module chunk
+        baseChunks += Chunk(
+            id = 0,
+            fileId = 0,
+            ordinal = 0,
+            kind = ChunkKind.CODE_BLOCK,
+            startLine = 1,
+            endLine = lines.lastOrNull()?.number,
+            tokenEstimate = estimator.estimate(content),
+            content = "Module $filePath",
+            summary = "Module root",
+            createdAt = timestamp,
+            chunkPath = rootPath
+        )
+
+        outputs.forEachIndexed { idx, input ->
             val text = input.lines.joinToString("\n") { it.text }
             val startLine = input.lines.firstOrNull()?.number
             val endLine = input.lines.lastOrNull()?.number
-            val path = ChunkPaths.path(input.kind, input.label)
-            Chunk(
+            val label = input.label ?: input.kind.name.lowercase()
+            val path = "$rootPath/$label"
+            baseChunks += Chunk(
                 id = 0,
                 fileId = 0,
-                ordinal = ordinal,
+                ordinal = baseChunks.size,
                 kind = input.kind,
                 startLine = startLine,
                 endLine = endLine,

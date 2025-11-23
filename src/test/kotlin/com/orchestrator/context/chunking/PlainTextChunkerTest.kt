@@ -1,5 +1,6 @@
 package com.orchestrator.context.chunking
 
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -7,6 +8,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PlainTextChunkerTest {
+
+    private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Document root" }
 
     @Test
     fun `empty content returns empty list`() {
@@ -26,7 +29,7 @@ class PlainTextChunkerTest {
     fun `single paragraph creates one chunk`() {
         val text = "This is a single paragraph with multiple words."
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.PARAGRAPH, chunks[0].kind)
@@ -45,7 +48,7 @@ class PlainTextChunkerTest {
         """.trimIndent()
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(3, chunks.size)
         chunks.forEach {
@@ -65,7 +68,7 @@ class PlainTextChunkerTest {
         """.trimIndent()
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertTrue(chunks[0].content.contains("First"))
@@ -78,7 +81,7 @@ class PlainTextChunkerTest {
         val text = sentences.joinToString(" ")
 
         val chunker = PlainTextChunker(maxTokens = 50)
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertTrue(chunks.size > 1)
         chunks.forEach {
@@ -91,7 +94,7 @@ class PlainTextChunkerTest {
         val longLine = List(100) { "word" }.joinToString(" ")
 
         val chunker = PlainTextChunker(maxTokens = 30)
-        val chunks = chunker.chunk(longLine, "test.txt", "text")
+        val chunks = chunker.chunk(longLine, "test.txt", "text").withoutRoot()
 
         assertTrue(chunks.size >= 1)
         chunks.forEach {
@@ -104,7 +107,7 @@ class PlainTextChunkerTest {
         val text = "First sentence. Second sentence. Third sentence."
 
         val chunker = PlainTextChunker(maxTokens = 10)
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
         val combined = chunks.joinToString(" ") { it.content }
@@ -116,7 +119,7 @@ class PlainTextChunkerTest {
         val text = "What is this? This is a test! Amazing."
 
         val chunker = PlainTextChunker(maxTokens = 10)
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
     }
@@ -132,10 +135,10 @@ class PlainTextChunkerTest {
         """.trimIndent()
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal) // ordinals start after root
         }
     }
 
@@ -148,7 +151,7 @@ class PlainTextChunkerTest {
         """.trimIndent()
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         chunks.forEach {
             assertEquals(ChunkKind.PARAGRAPH, it.kind)
@@ -188,7 +191,7 @@ class PlainTextChunkerTest {
         val text = "This is text without any sentence terminators at all"
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(text, chunks[0].content)
@@ -199,7 +202,7 @@ class PlainTextChunkerTest {
         val text = "Line one\nLine two\nLine three"
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("Line one"))
@@ -217,7 +220,7 @@ class PlainTextChunkerTest {
         """.trimIndent()
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertFalse(chunks[0].content.startsWith(" "))
@@ -229,7 +232,7 @@ class PlainTextChunkerTest {
         val text = "Single line of text."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(text, chunks[0].content)
@@ -240,7 +243,7 @@ class PlainTextChunkerTest {
         val text = "Hello 世界! This is a test with émojis and special chars: ñ, ü, ö."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("世界"))
@@ -254,7 +257,7 @@ class PlainTextChunkerTest {
         val text = paragraphs.joinToString("\n\n")
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "huge.txt", "text")
+        val chunks = chunker.chunk(text, "huge.txt", "text").withoutRoot()
 
         assertTrue(chunks.size >= 100)
         chunks.forEach {
@@ -268,7 +271,7 @@ class PlainTextChunkerTest {
         val text = "\n\n\n\n"
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertTrue(chunks.isEmpty())
     }
@@ -278,7 +281,7 @@ class PlainTextChunkerTest {
         val text = "First paragraph.\t\t\n\n\tSecond paragraph."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(2, chunks.size)
     }
@@ -289,7 +292,7 @@ class PlainTextChunkerTest {
         val text = sentences.joinToString(" ")
 
         val chunker = PlainTextChunker(maxTokens = 30)
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         val combined = chunks.joinToString(" ") { it.content.trim() }
         sentences.forEach { sentence ->
@@ -302,7 +305,7 @@ class PlainTextChunkerTest {
         val text = "Test paragraph."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         chunks.forEach {
             assertTrue(it.createdAt != null)
@@ -314,7 +317,7 @@ class PlainTextChunkerTest {
         val text = "Test paragraph."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         chunks.forEach {
             assertEquals(null, it.summary)
@@ -332,7 +335,7 @@ class PlainTextChunkerTest {
         """.trimIndent()
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertTrue(chunks[0].content.contains("multiple lines"))
@@ -343,7 +346,7 @@ class PlainTextChunkerTest {
         val text = List(500) { "word$it" }.joinToString(" ")
 
         val chunker = PlainTextChunker(maxTokens = 50)
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertTrue(chunks.size > 1)
         chunks.forEach {
@@ -356,7 +359,7 @@ class PlainTextChunkerTest {
         val text = "Paragraph one.\n\nParagraph two."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertTrue(chunks[0].content.trim().endsWith("."))
@@ -368,7 +371,7 @@ class PlainTextChunkerTest {
         val text = "First paragraph.     Second paragraph."
 
         val chunker = PlainTextChunker()
-        val chunks = chunker.chunk(text, "test.txt", "text")
+        val chunks = chunker.chunk(text, "test.txt", "text").withoutRoot()
 
         assertEquals(1, chunks.size)
     }

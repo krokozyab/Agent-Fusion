@@ -73,7 +73,6 @@ class MarkdownChunker(
 
         flushSection()
 
-        val now = Instant.now()
         val prepared = chunkInputs
             .flatMap { it.ensureWithinLimit(maxTokens, estimator) }
             .mapNotNull { input ->
@@ -85,17 +84,38 @@ class MarkdownChunker(
                 }
             }
 
-        val baseChunks = prepared.mapIndexedNotNull { ordinal, (input, text, span) ->
+        val now = Instant.now()
+        val rootPath = ChunkPaths.path(ChunkKind.MARKDOWN_SECTION, listOf(filePath))
+
+        val baseChunks = mutableListOf<Chunk>()
+
+        // Document root chunk to anchor hierarchy
+        baseChunks += Chunk(
+            id = 0,
+            fileId = 0,
+            ordinal = 0,
+            kind = ChunkKind.MARKDOWN_SECTION,
+            startLine = 1,
+            endLine = prepared.lastOrNull()?.third?.second ?: 1,
+            tokenEstimate = estimator.estimate(content),
+            content = "Document $filePath",
+            summary = "Document root",
+            createdAt = now,
+            chunkPath = rootPath
+        )
+
+        prepared.forEach { (input, text, span) ->
             val start = span.first
             val end = span.second
             if (start == null || end == null) {
-                return@mapIndexedNotNull null
+                return@forEach
             }
-            val path = ChunkPaths.path(input.kind, input.label)
-            Chunk(
+            val label = input.label ?: input.kind.name.lowercase()
+            val path = "$rootPath/$label"
+            baseChunks += Chunk(
                 id = 0,
                 fileId = 0,
-                ordinal = ordinal,
+                ordinal = baseChunks.size,
                 kind = input.kind,
                 startLine = start,
                 endLine = end,

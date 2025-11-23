@@ -1,11 +1,14 @@
 package com.orchestrator.context.chunking
 
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class TypeScriptChunkerTest {
+
+    private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Module root" }
 
     @Test
     fun `extracts exports with imports and jsdoc`() {
@@ -31,7 +34,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker(maxTokens = 400)
-        val chunks = chunker.chunk(code, "src/app.ts", "typescript")
+        val chunks = chunker.chunk(code, "src/app.ts", "typescript").withoutRoot()
 
         assertEquals(3, chunks.size)
         val functionChunk = chunks[0]
@@ -59,7 +62,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "src/default.ts", "typescript")
+        val chunks = chunker.chunk(code, "src/default.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         val chunk = chunks.first()
@@ -77,7 +80,7 @@ class TypeScriptChunkerTest {
         }
 
         val chunker = TypeScriptChunker(maxTokens = 80)
-        val chunks = chunker.chunk(code, "src/big.ts", "typescript")
+        val chunks = chunker.chunk(code, "src/big.ts", "typescript").withoutRoot()
         val functionChunks = chunks.filter { it.summary?.startsWith("Function big") == true }
 
         assertTrue(functionChunks.size > 1)
@@ -109,7 +112,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_BLOCK, chunks[0].kind)
@@ -125,7 +128,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals("Interface User", chunks[0].summary)
@@ -139,7 +142,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals("Type Status", chunks[0].summary)
@@ -156,7 +159,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_CLASS, chunks[0].kind)
@@ -171,7 +174,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_FUNCTION, chunks[0].kind)
@@ -184,7 +187,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("getValue()"))
@@ -201,7 +204,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("Block comment"))
@@ -218,7 +221,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("// Another comment"))
@@ -231,7 +234,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("not:"))
@@ -250,7 +253,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("deeper"))
@@ -297,7 +300,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.tsx", "tsx")
+        val chunks = chunker.chunk(code, "test.tsx", "tsx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("<div>"))
@@ -316,7 +319,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.tsx", "tsx")
+        val chunks = chunker.chunk(code, "test.tsx", "tsx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("import React"))
@@ -333,7 +336,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
             assertEquals(index, chunk.ordinal)
@@ -348,7 +351,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         chunks.forEach { chunk ->
             assertTrue(chunk.startLine != null)
@@ -392,7 +395,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals("Class Widget", chunks[0].summary)
@@ -437,7 +440,7 @@ class TypeScriptChunkerTest {
         val code = exports.joinToString("\n\n")
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "huge.ts", "typescript")
+        val chunks = chunker.chunk(code, "huge.ts", "typescript").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
         assertTrue(chunks.all { (it.tokenEstimate ?: 0) > 0 })
@@ -451,7 +454,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("\\\"Hello\\\""))
@@ -464,7 +467,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
     }

@@ -41,64 +41,67 @@ class TypeScriptChunker(
         }
 
         val now = Instant.now()
-        val baseChunks = if (blocks.isEmpty()) {
-            listOf(
-                Chunk(
+        val rootPath = ChunkPaths.path(ChunkKind.CODE_BLOCK, listOf(filePath))
+        val baseChunks = mutableListOf<Chunk>()
+
+        // Root/module chunk to anchor hierarchy
+        baseChunks += Chunk(
+            id = 0,
+            fileId = 0,
+            ordinal = 0,
+            kind = ChunkKind.CODE_BLOCK,
+            startLine = 1,
+            endLine = lines.lastOrNull()?.number ?: 1,
+            tokenEstimate = estimator.estimate(content).coerceAtMost(maxTokens),
+            content = "Module $filePath",
+            summary = "Module root",
+            createdAt = now,
+            chunkPath = rootPath
+        )
+
+        if (blocks.isEmpty()) {
+            return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
+        }
+
+        val importText = imports.joinToString("\n") { it.text }.trim()
+        val importTokens = if (importText.isEmpty()) 0 else estimator.estimate(importText)
+        val includeImports = importText.isNotEmpty() && importTokens < maxTokens
+        val availableTokens = if (includeImports) (maxTokens - importTokens).coerceAtLeast(64) else maxTokens
+
+        blocks.forEach { block ->
+            val pieces = splitLines(block.lines, availableTokens)
+            pieces.forEachIndexed { pieceIndex, pieceLines ->
+                val body = pieceLines.joinToString("\n") { it.text }.trimEnd()
+                var finalText = body
+                if (includeImports) {
+                    val candidate = buildString {
+                        append(importText)
+                        append("\n\n")
+                        append(body)
+                    }
+                    finalText = if (estimator.estimate(candidate) <= maxTokens) candidate else body
+                }
+
+                val baseLabel = block.label ?: filePath
+                val label = block.label?.let {
+                    if (pieces.size > 1) "$it (part ${pieceIndex + 1}/${pieces.size})" else it
+                }
+                val path = "$rootPath/${baseLabel}${if (pieces.size > 1) "/part-${pieceIndex + 1}" else ""}"
+
+                baseChunks += Chunk(
                     id = 0,
                     fileId = 0,
-                    ordinal = 0,
-                    kind = ChunkKind.CODE_BLOCK,
-                    startLine = 1,
-                    endLine = lines.last().number,
-                    tokenEstimate = estimator.estimate(content),
-                    content = content,
-                    summary = null,
+                    ordinal = baseChunks.size,
+                    kind = block.kind,
+                    startLine = pieceLines.firstOrNull()?.number,
+                    endLine = pieceLines.lastOrNull()?.number,
+                    tokenEstimate = estimator.estimate(finalText),
+                    content = finalText,
+                    summary = label,
                     createdAt = now,
-                    chunkPath = ChunkPaths.path(ChunkKind.CODE_BLOCK, filePath)
+                    chunkPath = path
                 )
-            )
-        } else {
-            val importText = imports.joinToString("\n") { it.text }.trim()
-            val importTokens = if (importText.isEmpty()) 0 else estimator.estimate(importText)
-            val includeImports = importText.isNotEmpty() && importTokens < maxTokens
-            val availableTokens = if (includeImports) (maxTokens - importTokens).coerceAtLeast(64) else maxTokens
-
-            val chunks = mutableListOf<Chunk>()
-            blocks.forEach { block ->
-                val pieces = splitLines(block.lines, availableTokens)
-                pieces.forEachIndexed { pieceIndex, pieceLines ->
-                    val body = pieceLines.joinToString("\n") { it.text }.trimEnd()
-                    var finalText = body
-                    if (includeImports) {
-                        val candidate = buildString {
-                            append(importText)
-                            append("\n\n")
-                            append(body)
-                        }
-                        finalText = if (estimator.estimate(candidate) <= maxTokens) candidate else body
-                    }
-
-                    val label = block.label?.let {
-                        if (pieces.size > 1) "$it (part ${pieceIndex + 1}/${pieces.size})" else it
-                    }
-                    val path = ChunkPaths.path(block.kind, label)
-
-                    chunks += Chunk(
-                        id = 0,
-                        fileId = 0,
-                        ordinal = chunks.size,
-                        kind = block.kind,
-                        startLine = pieceLines.firstOrNull()?.number,
-                        endLine = pieceLines.lastOrNull()?.number,
-                        tokenEstimate = estimator.estimate(finalText),
-                        content = finalText,
-                        summary = label,
-                        createdAt = now,
-                        chunkPath = path
-                    )
-                }
             }
-            chunks
         }
 
         return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)

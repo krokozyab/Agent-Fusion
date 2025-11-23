@@ -1,11 +1,14 @@
 package com.orchestrator.context.chunking
 
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class PythonChunkerTest {
+
+    private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Module root" }
 
     @Test
     fun `extracts module and function docstrings`() {
@@ -18,7 +21,7 @@ class PythonChunkerTest {
         ).joinToString("\n")
 
         val chunker = PythonChunker(maxTokens = 120)
-        val chunks = chunker.chunk(code, "app/main.py", "python")
+        val chunks = chunker.chunk(code, "app/main.py", "python").withoutRoot()
 
         assertEquals(3, chunks.size)
         assertEquals(ChunkKind.DOCSTRING, chunks[0].kind)
@@ -44,7 +47,7 @@ class PythonChunkerTest {
         ).joinToString("\n")
 
         val chunker = PythonChunker(maxTokens = 200)
-        val chunks = chunker.chunk(code, "app/widget.py", "python")
+        val chunks = chunker.chunk(code, "app/widget.py", "python").withoutRoot()
 
         assertTrue(chunks.any { it.kind == ChunkKind.DOCSTRING && it.summary == "Class Widget docstring" })
         val classChunk = chunks.first { it.kind == ChunkKind.CODE_CLASS }
@@ -61,7 +64,7 @@ class PythonChunkerTest {
         }.joinToString("\n")
 
         val chunker = PythonChunker(maxTokens = 25)
-        val chunks = chunker.chunk(code, "app/calc.py", "python")
+        val chunks = chunker.chunk(code, "app/calc.py", "python").withoutRoot()
         val functionChunks = chunks.filter { it.kind == ChunkKind.CODE_FUNCTION }
 
         assertTrue(functionChunks.size > 1)
@@ -93,7 +96,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
@@ -112,7 +115,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val classChunk = chunks.find { it.kind == ChunkKind.CODE_CLASS }
         val functionChunks = chunks.filter { it.kind == ChunkKind.CODE_FUNCTION }
@@ -132,7 +135,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val docstrings = chunks.filter { it.kind == ChunkKind.DOCSTRING }
         assertTrue(docstrings.size >= 2)
@@ -151,7 +154,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val docstring = chunks.find { it.kind == ChunkKind.DOCSTRING }
         assertTrue(docstring != null)
@@ -165,7 +168,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
     }
@@ -181,7 +184,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
@@ -200,7 +203,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
@@ -218,7 +221,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
@@ -232,7 +235,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         // Lambdas should not create function chunks
         val functionChunks = chunks.filter { it.kind == ChunkKind.CODE_FUNCTION }
@@ -251,7 +254,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunks = chunks.filter { it.kind == ChunkKind.CODE_FUNCTION }
         assertEquals(2, functionChunks.size)
@@ -262,7 +265,7 @@ class PythonChunkerTest {
         val code = "def test():\n\treturn True"
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
@@ -282,7 +285,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
             assertEquals(index, chunk.ordinal)
@@ -300,7 +303,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         chunks.forEach { chunk ->
             assertTrue(chunk.startLine != null)
@@ -339,7 +342,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val classChunk = chunks.find { it.kind == ChunkKind.CODE_CLASS }
         assertTrue(classChunk != null)
@@ -373,7 +376,7 @@ class PythonChunkerTest {
         val code = "class BigClass:\n    pass\n\n" + methods.joinToString("\n\n")
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "huge.py", "python")
+        val chunks = chunker.chunk(code, "huge.py", "python").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
         assertTrue(chunks.all { (it.tokenEstimate ?: 0) > 0 })
@@ -388,7 +391,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
@@ -404,7 +407,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val classChunk = chunks.find { it.kind == ChunkKind.CODE_CLASS }
         assertTrue(classChunk != null)
@@ -420,7 +423,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         // Should handle gracefully without crashing
         assertTrue(chunks.isNotEmpty())
@@ -436,7 +439,7 @@ class PythonChunkerTest {
         """.trimIndent()
 
         val chunker = PythonChunker()
-        val chunks = chunker.chunk(code, "test.py", "python")
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)

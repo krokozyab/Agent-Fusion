@@ -1,11 +1,14 @@
 package com.orchestrator.context.chunking
 
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class MarkdownChunkerTest {
+
+    private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Document root" }
 
     @Test
     fun `splits by headings with labels`() {
@@ -18,7 +21,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker(maxTokens = 200)
-        val chunks = chunker.chunk(markdown, "docs/readme.md", "markdown")
+        val chunks = chunker.chunk(markdown, "docs/readme.md", "markdown").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertEquals(ChunkKind.MARKDOWN_SECTION, chunks[0].kind)
@@ -37,7 +40,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "docs/example.md", "markdown")
+        val chunks = chunker.chunk(markdown, "docs/example.md", "markdown").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertEquals(ChunkKind.MARKDOWN_SECTION, chunks[0].kind)
@@ -51,7 +54,7 @@ class MarkdownChunkerTest {
         repeat(20) { builder.append("Paragraph $it with words repeated.\n\n") }
         val chunker = MarkdownChunker(maxTokens = 40)
 
-        val chunks = chunker.chunk(builder.toString(), "docs/long.md", "markdown")
+        val chunks = chunker.chunk(builder.toString(), "docs/long.md", "markdown").withoutRoot()
 
         assertTrue(chunks.size > 1)
         assertTrue(chunks.all { it.tokenEstimate ?: 0 <= 120_000 })
@@ -83,7 +86,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(6, chunks.size)
         assertEquals("H1", chunks[0].summary)
@@ -103,7 +106,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertTrue(chunks.all { it.summary == null || it.summary.isBlank() })
     }
@@ -113,7 +116,7 @@ class MarkdownChunkerTest {
         val markdown = "####### Not a heading"
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertTrue(chunks.isEmpty() || chunks.all { it.summary == null })
     }
@@ -128,7 +131,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_BLOCK, chunks[0].kind)
@@ -147,7 +150,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_BLOCK, chunks[0].kind)
@@ -162,7 +165,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.MARKDOWN_SECTION, chunks[0].kind)
@@ -179,7 +182,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertTrue(chunks.size >= 2)
         assertTrue(chunks[0].summary == null || chunks[0].summary?.isBlank() == true)
@@ -204,7 +207,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         val codeBlocks = chunks.filter { it.kind == ChunkKind.CODE_BLOCK }
         assertTrue(codeBlocks.size >= 2)
@@ -218,7 +221,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_BLOCK, chunks[0].kind)
@@ -232,7 +235,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertEquals("Section: Introduction & Overview", chunks[0].summary)
@@ -248,10 +251,10 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal)
         }
     }
 
@@ -267,7 +270,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         chunks.forEach { chunk ->
             assertTrue(chunk.startLine != null)
@@ -306,7 +309,7 @@ class MarkdownChunkerTest {
         val markdown = sections.joinToString("\n\n")
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "huge.md", "markdown")
+        val chunks = chunker.chunk(markdown, "huge.md", "markdown").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
         assertTrue(chunks.all { (it.tokenEstimate ?: 0) > 0 })
@@ -318,7 +321,7 @@ class MarkdownChunkerTest {
         val markdown = "# Just a heading"
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(1, chunks[0].startLine)
@@ -336,7 +339,7 @@ class MarkdownChunkerTest {
         """.trimIndent()
 
         val chunker = MarkdownChunker()
-        val chunks = chunker.chunk(markdown, "test.md", "markdown")
+        val chunks = chunker.chunk(markdown, "test.md", "markdown").withoutRoot()
 
         assertTrue(chunks.isNotEmpty())
         assertEquals("Test", chunks[0].summary)

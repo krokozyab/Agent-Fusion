@@ -12,4 +12,7 @@ object ChunkPaths {
         val suffix = if (parts.isEmpty()) kind.name.lowercase() else parts.joinToString("/")
         return "${kind.name}:$suffix"
     }
+
+    fun path(kind: ChunkKind, segments: List<String?>): String =
+        path(kind, *segments.toTypedArray())
 }

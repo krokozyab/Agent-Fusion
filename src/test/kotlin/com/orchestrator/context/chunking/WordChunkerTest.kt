@@ -1,11 +1,14 @@
 package com.orchestrator.context.chunking
 
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class WordChunkerTest {
+
+    private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Document root" }
 
     @Test
     fun `empty content returns empty list`() {
@@ -25,7 +28,7 @@ class WordChunkerTest {
     fun `single paragraph creates one chunk with correct line numbers`() {
         val text = "This is a single paragraph."
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.PARAGRAPH, chunks[0].kind)
@@ -40,7 +43,7 @@ class WordChunkerTest {
 Line 2
 Line 3"""
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(1, chunks[0].startLine)
@@ -56,7 +59,7 @@ Second paragraph.
 
 Third paragraph."""
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(3, chunks.size)
 
@@ -83,7 +86,7 @@ Fourth line
 
 Fifth line"""
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(3, chunks.size)
 
@@ -107,7 +110,7 @@ Fifth line"""
 
 Second paragraph."""
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(2, chunks.size)
         assertEquals(1, chunks[0].startLine)
@@ -124,10 +127,10 @@ Second paragraph.
 
 Third paragraph."""
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal)
         }
     }
 
@@ -167,7 +170,7 @@ Second paragraph."""
     fun `summary field is null for word chunks`() {
         val text = "Test paragraph."
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         chunks.forEach {
             assertEquals(null, it.summary)
@@ -178,7 +181,7 @@ Second paragraph."""
     fun `handles single line file`() {
         val text = "Single line of text."
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals(text, chunks[0].content)
@@ -190,7 +193,7 @@ Second paragraph."""
     fun `handles Unicode characters`() {
         val text = "Hello 世界! This is a test with émojis and special chars: ñ, ü, ö."
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("世界"))
@@ -200,7 +203,7 @@ Second paragraph."""
     fun `chunks have non-null timestamps`() {
         val text = "Test paragraph."
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         chunks.forEach {
             assertTrue(it.createdAt != null)
@@ -219,7 +222,7 @@ to test the line counting.
 Final short paragraph."""
 
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(3, chunks.size)
 
@@ -237,7 +240,7 @@ Final short paragraph."""
     fun `handles text with only newlines`() {
         val text = "Line one\nLine two\nLine three"
         val chunker = WordChunker()
-        val chunks = chunker.chunk(text, "test.docx", "docx")
+        val chunks = chunker.chunk(text, "test.docx", "docx").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals("Line one\nLine two\nLine three", chunks[0].content)
