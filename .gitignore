@@ -48,3 +48,8 @@ logs/
 
 docs/IMPLEMENTATION_PLAN.md
 docs/CLAUDE.md
+
+*.duckdb
+*.duckdb-wal
+data/
+test-data/
