@@ -107,6 +107,8 @@ class QueryContextTool(
         val siblingChunkIds: List<Long> = emptyList(),
         val prevChunkId: Long? = null,
         val nextChunkId: Long? = null,
+        val childrenChunkIds: List<Long> = emptyList(),
+        val depth: Int? = null,
         val chunkPathSegments: List<String>? = null,
         val metadata: Map<String, String>
     )
@@ -237,6 +239,7 @@ class QueryContextTool(
         val orderedByFile = enriched.groupBy { it.snippet.filePath }.mapValues { (_, list) ->
             list.sortedWith(compareByDescending<Enriched> { it.snippet.score }.thenBy { it.snippet.chunkId })
         }
+        val children = enriched.groupBy { it.parentId }.mapValues { entry -> entry.value.map { it.snippet.chunkId } }
 
         val hits = enriched.map { enrichedSnippet ->
             val snippet = enrichedSnippet.snippet
@@ -249,6 +252,8 @@ class QueryContextTool(
             val prevId = if (idx > 0) orderedSiblings[idx - 1].snippet.chunkId else null
             val nextId = if (idx >= 0 && idx + 1 < orderedSiblings.size) orderedSiblings[idx + 1].snippet.chunkId else null
             val pathSegments = snippet.chunkPath?.split("/")?.filter { it.isNotBlank() }
+            val depth = snippet.chunkPath?.count { it == '/' }
+            val childIds = children[snippet.chunkId] ?: emptyList()
             SnippetHit(
                 chunkId = snippet.chunkId,
                 score = snippet.score,
@@ -264,6 +269,8 @@ class QueryContextTool(
                 siblingChunkIds = siblings,
                 prevChunkId = prevId,
                 nextChunkId = nextId,
+                childrenChunkIds = childIds,
+                depth = depth,
                 chunkPathSegments = pathSegments,
                 metadata = meta
             )

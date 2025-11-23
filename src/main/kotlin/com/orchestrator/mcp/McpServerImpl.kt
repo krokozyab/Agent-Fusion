@@ -1339,6 +1339,34 @@ class McpServerImpl(
                     } else {
                         put("endLine", JsonPrimitive(hit.endLine))
                     }
+                    if (hit.chunkPath == null) {
+                        put("chunkPath", JsonNull)
+                    } else {
+                        put("chunkPath", JsonPrimitive(hit.chunkPath))
+                    }
+                    if (hit.parentChunkId == null) {
+                        put("parentChunkId", JsonNull)
+                    } else {
+                        put("parentChunkId", JsonPrimitive(hit.parentChunkId))
+                    }
+                    put("siblingChunkIds", buildJsonArray { hit.siblingChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    if (hit.prevChunkId == null) {
+                        put("prevChunkId", JsonNull)
+                    } else {
+                        put("prevChunkId", JsonPrimitive(hit.prevChunkId))
+                    }
+                    if (hit.nextChunkId == null) {
+                        put("nextChunkId", JsonNull)
+                    } else {
+                        put("nextChunkId", JsonPrimitive(hit.nextChunkId))
+                    }
+                    put("childrenChunkIds", buildJsonArray { hit.childrenChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    if (hit.depth == null) {
+                        put("depth", JsonNull)
+                    } else {
+                        put("depth", JsonPrimitive(hit.depth))
+                    }
+                    put("chunkPathSegments", buildJsonArray { hit.chunkPathSegments?.forEach { add(JsonPrimitive(it)) } })
                     put("metadata", buildJsonObject {
                         hit.metadata.forEach { (k, v) -> put(k, JsonPrimitive(v)) }
                     })
@@ -2361,6 +2389,15 @@ class McpServerImpl(
                 7. **Architecture Questions**: User asks about design/structure → query_context to gather context
                 8. **Code Review**: Before reviewing changes → query_context for related code and patterns
 
+                ## 🔀 Traversal via chunkIds (no search needed)
+                - `chunkIds`: fetch chunks directly (query can be empty when using chunkIds)
+                - Response navigation fields: `parentChunkId`, `childrenChunkIds`, `siblingChunkIds`, `prevChunkId`, `nextChunkId`, `depth`, `chunkPath`
+                - Patterns:
+                  - Fetch method → follow `parentChunkId` to its class
+                  - List class members → use `childrenChunkIds`
+                  - Walk file sequentially → use `prevChunkId` / `nextChunkId`
+                  - Context depth → use `depth` (slash count of `chunk_path`)
+
                 ## 💬 User Phrases That Trigger This Tool
                 - "How does [feature] work?" → query_context("feature implementation")
                 - "Where is [component] defined?" → query_context("component class")
@@ -3122,7 +3159,8 @@ class McpServerImpl(
     private fun mapQueryContextParams(el: JsonElement): QueryContextTool.Params {
         val o = el.asObj()
         return QueryContextTool.Params(
-            query = o.reqStr("query"),
+            query = o.str("query") ?: "",
+            chunkIds = o.listLong("chunkIds"),
             k = o.int("k"),
             maxTokens = o.int("maxTokens"),
             paths = o.listStr("paths"),
@@ -3165,6 +3203,10 @@ class McpServerImpl(
         ?: throw IllegalArgumentException("Missing required numeric field '$key'")
     private fun JsonObject.bool(key: String): Boolean? = prim(key)?.booleanOrNull
     private fun JsonObject.listStr(key: String): List<String>? = array(key)?.mapNotNull { (it as? JsonPrimitive)?.content }
+
+    private fun JsonObject.listLong(key: String): List<Long>? = array(key)?.mapNotNull {
+        (it as? JsonPrimitive)?.content?.toLongOrNull()
+    }
     private fun JsonObject.mapStr(key: String): Map<String, String>? = obj(key)?.entries?.associate { (k, v) ->
         k to ((v as? JsonPrimitive)?.content ?: v.toString())
     }

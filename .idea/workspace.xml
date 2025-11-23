@@ -4,10 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- hierarchy parent id --">
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- hierarchy basic traversal --">
       <change afterPath="$PROJECT_DIR$/devdoc/using-integrations-oracle-integration-3.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -332,15 +332,7 @@
       <workItem from="1763205921932" duration="32890000" />
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
-      <workItem from="1763652739075" duration="70716000" />
-    </task>
-    <task id="LOCAL-00141" summary="-- md moved --">
-      <option name="closed" value="true" />
-      <created>1762605883813</created>
-      <option name="number" value="00141" />
-      <option name="presentableId" value="LOCAL-00141" />
-      <option name="project" value="LOCAL" />
-      <updated>1762605883813</updated>
+      <workItem from="1763652739075" duration="72934000" />
     </task>
     <task id="LOCAL-00142" summary="-- doc added --">
       <option name="closed" value="true" />
@@ -726,7 +718,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763890431339</updated>
     </task>
-    <option name="localTasksCounter" value="190" />
+    <task id="LOCAL-00190" summary="-- hierarchy basic traversal --">
+      <option name="closed" value="true" />
+      <created>1763891694252</created>
+      <option name="number" value="00190" />
+      <option name="presentableId" value="LOCAL-00190" />
+      <option name="project" value="LOCAL" />
+      <updated>1763891694252</updated>
+    </task>
+    <option name="localTasksCounter" value="191" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -773,7 +773,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- md moved --" />
     <MESSAGE value="-- doc added --" />
     <MESSAGE value="-- memory leak fix --" />
     <MESSAGE value="-- Task 1: Add QueryConfig for Phase 1 Features --" />
@@ -798,7 +797,8 @@
     <MESSAGE value="-- pages fix one --" />
     <MESSAGE value="-- hierarchy 1st --" />
     <MESSAGE value="-- hierarchy parent id --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- hierarchy parent id --" />
+    <MESSAGE value="-- hierarchy basic traversal --" />
+    <option name="LAST_COMMIT_MESSAGE" value="-- hierarchy basic traversal --" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
