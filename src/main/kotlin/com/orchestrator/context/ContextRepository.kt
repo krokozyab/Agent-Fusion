@@ -642,6 +642,37 @@ object ContextRepository {
         }
     }
 
+    fun getChunksByIds(ids: List<Long>): List<ChunkWithFile> {
+        if (ids.isEmpty()) return emptyList()
+        val placeholders = ids.joinToString(",") { "?" }
+        val sql = """
+            SELECT c.*, f.rel_path, f.abs_path, f.language
+            FROM chunks c
+            JOIN file_state f ON f.file_id = c.file_id
+            WHERE c.chunk_id IN ($placeholders)
+            ORDER BY c.file_id, c.ordinal
+        """.trimIndent()
+        return ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                ids.forEachIndexed { idx, id -> ps.setLong(idx + 1, id) }
+                ps.executeQuery().use { rs ->
+                    val results = ArrayList<ChunkWithFile>()
+                    while (rs.next()) {
+                        results.add(
+                            ChunkWithFile(
+                                chunk = rs.toChunk(),
+                                filePath = rs.getString("abs_path"),
+                                relativePath = rs.getString("rel_path"),
+                                language = rs.getString("language")
+                            )
+                        )
+                    }
+                    results
+                }
+            }
+        }
+    }
+
     private fun getChunksByFileId(conn: Connection, fileId: Long): List<ChunkWithFile> {
         val sql = """
             SELECT c.*, f.rel_path, f.abs_path, f.language

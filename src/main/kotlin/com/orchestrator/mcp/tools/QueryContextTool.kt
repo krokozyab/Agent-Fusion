@@ -15,6 +15,8 @@ import com.orchestrator.context.search.MmrReranker
 import com.orchestrator.context.search.NeighborExpander
 import com.orchestrator.context.search.ScoreBooster
 import com.orchestrator.context.search.VectorSearchEngine
+import com.orchestrator.context.ContextRepository
+import com.orchestrator.context.ContextRepository.ChunkWithFile
 import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
 import kotlinx.coroutines.runBlocking
@@ -78,7 +80,8 @@ class QueryContextTool(
     }
 
     data class Params(
-        val query: String,
+        val query: String = "",
+        val chunkIds: List<Long>? = null,
         val k: Int? = null,
         val maxTokens: Int? = null,
         val paths: List<String>? = null,
@@ -115,7 +118,14 @@ class QueryContextTool(
     )
 
     fun execute(params: Params): Result {
-        require(params.query.isNotBlank()) { "query cannot be blank" }
+        if (params.chunkIds.isNullOrEmpty()) {
+            require(params.query.isNotBlank()) { "query cannot be blank" }
+        }
+
+        // Direct lookup by chunk IDs
+        if (!params.chunkIds.isNullOrEmpty()) {
+            return fetchChunksByIds(params.chunkIds)
+        }
 
         val k = params.k?.coerceAtLeast(1) ?: config.query.defaultK
         val maxTokens = params.maxTokens?.coerceAtLeast(100) ?: 4000
@@ -569,6 +579,67 @@ class QueryContextTool(
     private fun estimateTokens(snippet: ContextSnippet): Int =
         max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
 
+    private fun fetchChunksByIds(ids: List<Long>): Result {
+        val chunks = ContextRepository.getChunksByIds(ids)
+        if (chunks.isEmpty()) {
+            return Result(
+                hits = emptyList(),
+                metadata = mapOf(
+                    "totalHits" to 0,
+                    "returnedHits" to 0,
+                    "tokensUsed" to 0,
+                    "tokensRequested" to 0,
+                    "providers" to emptyMap<String, Any>()
+                ),
+                content = null
+            )
+        }
+
+        val tokensUsed = chunks.sumOf { it.chunk.tokenEstimate ?: max(1, it.chunk.content.length / 4) }
+        val byParent = chunks.groupBy { it.chunk.parentChunkId }
+
+        val hits = chunks.map { chunkWithFile ->
+            val chunk = chunkWithFile.chunk
+            val meta = buildMap<String, String> {
+                put("fileId", chunk.fileId.toString())
+                put("tokens", (chunk.tokenEstimate ?: max(1, chunk.content.length / 4)).toString())
+                chunkWithFile.relativePath?.let { put("relativePath", it) }
+                chunk.chunkPath?.let { put("chunk_path", it) }
+                chunk.parentChunkId?.let { put("parent_chunk_id", it.toString()) }
+            }
+            val siblings = byParent[chunk.parentChunkId].orEmpty().map { it.chunk.id }.filter { it != chunk.id }
+            val pathSegments = chunk.chunkPath?.split("/")?.filter { it.isNotBlank() }
+            SnippetHit(
+                chunkId = chunk.id,
+                score = 1.0,
+                filePath = chunkWithFile.filePath,
+                label = chunk.summary,
+                kind = chunk.kind.name,
+                text = chunk.content,
+                language = chunkWithFile.language,
+                startLine = chunk.startLine,
+                endLine = chunk.endLine,
+                chunkPath = chunk.chunkPath,
+                parentChunkId = chunk.parentChunkId,
+                siblingChunkIds = siblings,
+                prevChunkId = null,
+                nextChunkId = null,
+                chunkPathSegments = pathSegments,
+                metadata = meta
+            )
+        }
+
+        val metadata = mapOf(
+            "totalHits" to hits.size,
+            "returnedHits" to hits.size,
+            "tokensUsed" to tokensUsed,
+            "tokensRequested" to tokensUsed,
+            "providers" to emptyMap<String, Any>()
+        )
+
+        return Result(hits = hits, metadata = metadata, content = null)
+    }
+
 
     companion object {
         const val JSON_SCHEMA: String = """
@@ -576,9 +647,10 @@ class QueryContextTool(
           "${'$'}schema": "http://json-schema.org/draft-07/schema#",
           "title": "query_context params",
           "type": "object",
-          "required": ["query"],
+          "required": [],
           "properties": {
-            "query": {"type": "string", "minLength": 1},
+            "query": {"type": "string", "minLength": 0},
+            "chunkIds": {"type": ["array", "null"], "items": {"type": "number"}},
             "k": {"type": ["integer", "null"], "minimum": 1},
             "maxTokens": {"type": ["integer", "null"], "minimum": 100},
             "paths": {"type": ["array", "null"], "items": {"type": "string"}},
