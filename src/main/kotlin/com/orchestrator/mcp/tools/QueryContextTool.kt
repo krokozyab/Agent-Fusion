@@ -134,6 +134,9 @@ class QueryContextTool(
             return fetchChunksByIds(params.chunkIds)
         }
 
+        // Validate query quality and provide suggestions if likely to fail
+        val queryWarnings = validateQueryQuality(params.query)
+
         val k = params.k?.coerceAtLeast(1) ?: config.query.defaultK
         val maxTokens = params.maxTokens?.coerceAtLeast(100) ?: 4000
 
@@ -282,13 +285,22 @@ class QueryContextTool(
         }
 
         val tokensUsed = existingSnippets.sumOf { estimateTokens(it) }
-        val metadata = mapOf<String, Any>(
-            "totalHits" to allSnippets.size,
-            "returnedHits" to hits.size,
-            "tokensUsed" to tokensUsed,
-            "tokensRequested" to budget.availableForSnippets,
-            "providers" to providerStats
-        )
+        val metadata = buildMap<String, Any> {
+            put("totalHits", allSnippets.size)
+            put("returnedHits", hits.size)
+            put("tokensUsed", tokensUsed)
+            put("tokensRequested", budget.availableForSnippets)
+            put("providers", providerStats)
+
+            // Add query warnings if query is likely to fail
+            if (queryWarnings.isNotEmpty()) {
+                put("queryWarnings", queryWarnings)
+                if (allSnippets.isEmpty()) {
+                    put("suggestionForEmptyResults",
+                        "Query may be too short or generic. Try: ${suggestBetterQuery(params.query)}")
+                }
+            }
+        }
 
         log.debug("Returned {} hits ({}% of {} total) using {} tokens",
             hits.size,
@@ -315,16 +327,34 @@ class QueryContextTool(
 
     private fun buildScope(params: Params): ContextScope {
         val paths = params.paths?.filter { it.isNotBlank() } ?: emptyList()
+        // Normalize relative paths to absolute paths for filtering
+        val normalizedPaths = paths.map { normalizePath(it) }
         val languages = params.languages?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
         val kinds = parseKinds(params.kinds)
         val excludePatterns = params.excludePatterns?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
 
         return ContextScope(
-            paths = paths,
+            paths = normalizedPaths,
             languages = languages,
             kinds = kinds,
             excludePatterns = excludePatterns
         )
+    }
+
+    /**
+     * Normalize a path to absolute form for database filtering.
+     * Relative paths are resolved against the current working directory.
+     * Absolute paths are returned as-is after normalization.
+     */
+    private fun normalizePath(pathStr: String): String {
+        val candidate = Path.of(pathStr)
+        val baseDir = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
+        val resolved = if (candidate.isAbsolute) {
+            candidate
+        } else {
+            baseDir.resolve(candidate)
+        }
+        return resolved.normalize().toString()
     }
 
     private fun dropMissingFiles(snippets: List<ContextSnippet>): Pair<List<ContextSnippet>, Int> {
@@ -590,6 +620,48 @@ class QueryContextTool(
     
     private fun estimateTokens(snippet: ContextSnippet): Int =
         max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
+
+    /**
+     * Validates query quality and returns warnings if likely to produce poor results.
+     * Helps agents understand why their queries might fail.
+     */
+    private fun validateQueryQuality(query: String): List<String> {
+        val warnings = mutableListOf<String>()
+        val words = query.trim().split("\\s+".toRegex())
+
+        // Check if query is too short
+        if (words.size < 3) {
+            warnings.add("Query is very short (${words.size} words). Semantic search works better with 5-8 words.")
+        }
+
+        // Check for question words (likely to fail)
+        val questionWords = listOf("how", "why", "what", "where", "when", "who", "which", "explain", "show")
+        if (words.any { it.lowercase() in questionWords }) {
+            warnings.add("Query contains question words. Use declarative phrases instead (e.g., 'authentication implementation' not 'how does authentication work').")
+        }
+
+        // Check if query is just a single generic term
+        val genericTerms = listOf("ftp", "file", "data", "config", "error", "test", "code", "class", "method")
+        if (words.size == 1 && words[0].lowercase() in genericTerms) {
+            warnings.add("Single generic term detected. Add domain context and action words (e.g., 'FTP adapter file transfer operations').")
+        }
+
+        return warnings
+    }
+
+    /**
+     * Suggests a better query by expanding the original with common domain terms.
+     */
+    private fun suggestBetterQuery(query: String): String {
+        val words = query.trim().split("\\s+".toRegex())
+
+        // If very short, add generic expansion suggestions
+        return when {
+            words.size == 1 -> "$query configuration implementation usage"
+            words.size == 2 -> "$query implementation configuration details"
+            else -> "$query (add more specific domain terms)"
+        }
+    }
 
     private fun fetchChunksByIds(ids: List<Long>): Result {
         val chunks = ContextRepository.getChunksByIds(ids)

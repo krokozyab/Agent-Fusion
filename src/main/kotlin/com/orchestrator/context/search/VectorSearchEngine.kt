@@ -31,7 +31,8 @@ class VectorSearchEngine(
                 if (candidate !in normalizedLanguages) return false
             }
             if (kinds.isNotEmpty() && kind !in kinds) return false
-            if (paths.isNotEmpty() && path !in paths) return false
+            // Use prefix matching for file paths (not exact match)
+            if (paths.isNotEmpty() && paths.none { path.startsWith(it) }) return false
             if (chunkPathPrefixes.isNotEmpty()) {
                 val candidate = chunkPath ?: return false
                 if (chunkPathPrefixes.none { candidate.startsWith(it) }) return false

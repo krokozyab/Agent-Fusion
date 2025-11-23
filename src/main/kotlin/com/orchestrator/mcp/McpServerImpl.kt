@@ -2392,9 +2392,31 @@ class McpServerImpl(
                 8. **Code Review**: Before reviewing changes → query_context for related code and patterns
 
                 ## ⚠️ Paths filter tips
-                - Use absolute paths or drop the filter. Relative paths may not match the indexed path.
-                - For PDFs/Word, prefer absolute file paths (e.g., `/Users/.../devdoc/using-integrations-oracle-integration-3.pdf`).
+                - Both relative and absolute paths work! Relative paths are automatically normalized to absolute paths.
+                - Examples: `"devdoc/"`, `"/Users/.../devdoc/"`, `"src/main/kotlin/"`
+                - Paths are matched using SQL LIKE with trailing wildcard (e.g., `abs_path LIKE '/path/%'`)
                 - If in doubt, omit `paths` to let the tool search globally, then refine.
+
+                ## 📄 Searching Documents (PDFs, Word, Markdown)
+                Documents require **richer queries** with domain context because semantic search needs to match concepts:
+
+                **For Documentation PDFs:**
+                - ❌ BAD: `"ftp"` or `"ftp operations"` (too generic, no context)
+                - ✅ GOOD: `"FTP adapter file transfer operations configuration"`
+                - ✅ GOOD: `"FTP download upload directory operations"`
+
+                **For Technical Documents:**
+                - ❌ BAD: `"authentication"` (too broad)
+                - ✅ GOOD: `"OAuth2 authentication token configuration setup"`
+                - ✅ GOOD: `"user authentication credentials validation flow"`
+
+                **Proven successful queries for OIC documentation:**
+                - `"FTP adapter PGP encryption file transfer"` ← 52+ hits
+                - `"stage file encrypt decrypt operation"` ← 92+ hits
+                - `"REST adapter configuration endpoint"` ← many hits
+                - `"database connection pool setup"` ← relevant results
+
+                **Rule for documents**: Always include 5-8 words with domain/product context (e.g., "OIC", "adapter", "Oracle Integration")
 
                 ## 🔀 Traversal via chunkIds (no search needed)
                 - `chunkIds`: fetch chunks directly (query can be empty when using chunkIds)
@@ -2475,30 +2497,40 @@ class McpServerImpl(
 
                 ## 🔍 Query Refinement: When Hits Are Low or Too Broad
 
-                **Problem: Got 0 hits → Make query more specific OR more general**
+                **Problem: Got 0 hits → Query too short or lacks domain context**
                 ```
-                Start: "task workflow execution" → 0 hits
-                    ↓ Try more specific
-                Refined: "workflow executor suspend" → 8 hits ✅
+                Start: "ftp" → 0 hits (TOO SHORT!)
+                    ↓ Add domain context and action
+                Refined: "FTP adapter file download upload operations" → Many hits ✅
+
+                Start: "ftp operations" → 0 hits (lacks domain context)
+                    ↓ Add domain + technology
+                Refined: "FTP adapter configuration download directory" → Hits! ✅
 
                 Start: "authentication JWT token" → 2 hits
-                    ↓ Try broader
-                Refined: "authentication" → 15 hits ✅
+                    ↓ Add more context
+                Refined: "authentication JWT token validation security" → 15 hits ✅
                 ```
 
                 **Problem: Too many hits (100+) → Add domain qualifiers**
                 ```
                 Start: "create" → 500+ hits (too broad)
                     ↓ Add domain context
-                Refined: "create task consensus" → 32 hits ✅
+                Refined: "create task consensus workflow" → 32 hits ✅
                 ```
 
                 **Problem: Tool/infrastructure code → Add specific keywords**
                 ```
                 Start: "tool execute" → Mixed results
                     ↓ Add implementation detail
-                Refined: "tool params execute" → Better results ✅
+                Refined: "tool params execute handler implementation" → Better results ✅
                 ```
+
+                **Quick fix for 0 results:**
+                1. **Check query length** - Is it 5+ words? If not, add more context
+                2. **Add domain terms** - Include product name, component type, technology
+                3. **Remove path filters** - Try without `paths` first, then add if needed
+                4. **Try variations** - Use synonyms: "download" vs "retrieve", "upload" vs "write"
 
                 ## 🔧 Advanced Filtering (Precision Boost)
                 Use filters to narrow results when you know the location/type:
