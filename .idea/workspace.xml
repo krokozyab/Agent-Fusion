@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- relative path in query fixed --">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/sample_convetsation.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -330,14 +332,6 @@
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
       <workItem from="1763652739075" duration="88099000" />
-    </task>
-    <task id="LOCAL-00150" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762851498642</created>
-      <option name="number" value="00150" />
-      <option name="presentableId" value="LOCAL-00150" />
-      <option name="project" value="LOCAL" />
-      <updated>1762851498642</updated>
     </task>
     <task id="LOCAL-00151" summary="-- readme --">
       <option name="closed" value="true" />
@@ -723,7 +717,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763926313280</updated>
     </task>
-    <option name="localTasksCounter" value="199" />
+    <task id="LOCAL-00199" summary="-- relative path in query fixed --">
+      <option name="closed" value="true" />
+      <created>1763928858422</created>
+      <option name="number" value="00199" />
+      <option name="presentableId" value="LOCAL-00199" />
+      <option name="project" value="LOCAL" />
+      <updated>1763928858422</updated>
+    </task>
+    <option name="localTasksCounter" value="200" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
