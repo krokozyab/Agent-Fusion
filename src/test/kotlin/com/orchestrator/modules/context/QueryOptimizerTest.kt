@@ -52,6 +52,42 @@ class QueryOptimizerTest {
         verify(exactly = 0) { reranker.rerank(any(), any(), any()) }
     }
 
+    @Test
+    fun `does not reuse cache when token budget differs`() {
+        val reranker = mockk<MmrReranker>()
+        val config = QueryConfig(defaultK = 5, mmrLambda = 0.5, minScoreThreshold = 0.0, rerankEnabled = true)
+        val optimizer = QueryOptimizer(config, reranker = reranker, clock = clock, cacheSize = 4, cacheTtl = Duration.ofMinutes(5))
+
+        val budgetA = TokenBudget(maxTokens = 400, reserveForPrompt = 50, diversityWeight = 0.3)
+        val budgetB = TokenBudget(maxTokens = 800, reserveForPrompt = 100, diversityWeight = 0.3)
+        val results = listOf(searchResult(1L, 0.9f), searchResult(2L, 0.85f))
+
+        every { reranker.rerank(any(), any(), any()) } returns results
+
+        optimizer.optimize("query text", results, budgetA)
+        optimizer.optimize("query text", results, budgetB)
+
+        verify(exactly = 2) { reranker.rerank(any(), any(), any()) }
+    }
+
+    @Test
+    fun `does not reuse cache when candidate results differ`() {
+        val reranker = mockk<MmrReranker>()
+        val config = QueryConfig(defaultK = 5, mmrLambda = 0.5, minScoreThreshold = 0.0, rerankEnabled = true)
+        val optimizer = QueryOptimizer(config, reranker = reranker, clock = clock, cacheSize = 4, cacheTtl = Duration.ofMinutes(5))
+
+        val budget = TokenBudget(maxTokens = 400, reserveForPrompt = 50, diversityWeight = 0.3)
+        val resultsA = listOf(searchResult(1L, 0.9f), searchResult(2L, 0.85f))
+        val resultsB = listOf(searchResult(3L, 0.88f), searchResult(4L, 0.84f))
+
+        every { reranker.rerank(any(), any(), any()) } answers { firstArg<List<SearchResult>>() }
+
+        optimizer.optimize("query text", resultsA, budget)
+        optimizer.optimize("query text", resultsB, budget)
+
+        verify(exactly = 2) { reranker.rerank(any(), any(), any()) }
+    }
+
     private fun searchResult(id: Long, score: Float): SearchResult {
         val chunk = Chunk(
             id = id,

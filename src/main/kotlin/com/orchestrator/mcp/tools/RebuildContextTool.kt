@@ -21,12 +21,11 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 /**
  * MCP tool for full context rebuild with safety checks.
@@ -42,6 +41,7 @@ class RebuildContextTool(
     private val config: ContextConfig = ContextConfig()
 ) {
     private val log = Logger.logger("com.orchestrator.mcp.tools.RebuildContextTool")
+    private val asyncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     data class Params(
         val confirm: Boolean = false,
@@ -71,13 +71,13 @@ class RebuildContextTool(
         val jobId: String,
         val paths: List<Path>,
         val startedAt: Instant,
-        var status: JobStatus,
-        var phase: String = "validation",
-        var totalFiles: Int = 0,
-        var processedFiles: Int = 0,
-        var successfulFiles: Int = 0,
-        var failedFiles: Int = 0,
-        var error: String? = null
+        @Volatile var status: JobStatus,
+        @Volatile var phase: String = "validation",
+        @Volatile var totalFiles: Int = 0,
+        @Volatile var processedFiles: Int = 0,
+        @Volatile var successfulFiles: Int = 0,
+        @Volatile var failedFiles: Int = 0,
+        @Volatile var error: String? = null
     )
 
     enum class JobStatus {
@@ -469,71 +469,69 @@ class RebuildContextTool(
 
         jobs[jobId] = job
 
-        // Launch background coroutine
-        @OptIn(DelicateCoroutinesApi::class)
-        GlobalScope.launch {
+        asyncScope.launch {
             WatcherRegistry.pauseWhile {
                 try {
-                // Phase 2: Pre-rebuild
-                log.info("Async rebuild (job={}): Pre-rebuild phase", jobId)
-                job.phase = "pre-rebuild"
-                onProgress?.invoke(
-                    BootstrapProgress(
-                        totalFiles = job.totalFiles,
-                        processedFiles = 0,
-                        successfulFiles = 0,
-                        failedFiles = 0,
-                        lastProcessedFile = null
+                    // Phase 2: Pre-rebuild
+                    log.info("Async rebuild (job={}): Pre-rebuild phase", jobId)
+                    job.phase = "pre-rebuild"
+                    onProgress?.invoke(
+                        BootstrapProgress(
+                            totalFiles = job.totalFiles,
+                            processedFiles = 0,
+                            successfulFiles = 0,
+                            failedFiles = 0,
+                            lastProcessedFile = null
+                        )
                     )
-                )
 
-                // Phase 3: Destructive phase
-                log.info("Async rebuild (job={}): Destructive phase", jobId)
-                job.phase = "destructive"
-                clearContextData()
+                    // Phase 3: Destructive phase
+                    log.info("Async rebuild (job={}): Destructive phase", jobId)
+                    job.phase = "destructive"
+                    clearContextData()
 
-                // Phase 4: Rebuild phase
-                log.info("Async rebuild (job={}): Rebuild phase", jobId)
-                job.phase = "rebuild"
-                val progressCallback: (BootstrapProgress) -> Unit = { progress ->
-                    job.totalFiles = progress.totalFiles
-                    job.processedFiles = progress.processedFiles
-                    job.successfulFiles = progress.successfulFiles
-                    job.failedFiles = progress.failedFiles
-                    onProgress?.invoke(progress)
-                }
+                    // Phase 4: Rebuild phase
+                    log.info("Async rebuild (job={}): Rebuild phase", jobId)
+                    job.phase = "rebuild"
+                    val progressCallback: (BootstrapProgress) -> Unit = { progress ->
+                        job.totalFiles = progress.totalFiles
+                        job.processedFiles = progress.processedFiles
+                        job.successfulFiles = progress.successfulFiles
+                        job.failedFiles = progress.failedFiles
+                        onProgress?.invoke(progress)
+                    }
 
-                val bootstrapResult = runBootstrap(paths, params.parallelism, progressCallback)
+                    val bootstrapResult = runBootstrap(paths, params.parallelism, progressCallback)
 
-                job.totalFiles = bootstrapResult.totalFiles
-                job.processedFiles = bootstrapResult.totalFiles
-                job.successfulFiles = bootstrapResult.successfulFiles
-                job.failedFiles = bootstrapResult.failedFiles
+                    job.totalFiles = bootstrapResult.totalFiles
+                    job.processedFiles = bootstrapResult.totalFiles
+                    job.successfulFiles = bootstrapResult.successfulFiles
+                    job.failedFiles = bootstrapResult.failedFiles
 
-                // Phase 5: Post-rebuild
-                log.info("Async rebuild (job={}): Post-rebuild phase", jobId)
-                job.phase = "post-rebuild"
-                optimizeDatabase()
+                    // Phase 5: Post-rebuild
+                    log.info("Async rebuild (job={}): Post-rebuild phase", jobId)
+                    job.phase = "post-rebuild"
+                    optimizeDatabase()
 
-                job.status = JobStatus.COMPLETED
-                job.phase = "completed"
-                onProgress?.invoke(
-                    BootstrapProgress(
-                        totalFiles = job.totalFiles,
-                        processedFiles = job.processedFiles,
-                        successfulFiles = job.successfulFiles,
-                        failedFiles = job.failedFiles,
-                        lastProcessedFile = null
+                    job.status = JobStatus.COMPLETED
+                    job.phase = "completed"
+                    onProgress?.invoke(
+                        BootstrapProgress(
+                            totalFiles = job.totalFiles,
+                            processedFiles = job.processedFiles,
+                            successfulFiles = job.successfulFiles,
+                            failedFiles = job.failedFiles,
+                            lastProcessedFile = null
+                        )
                     )
-                )
 
-                log.info(
-                    "Async rebuild completed (job={}): total={} successful={} failed={}",
-                    jobId,
-                    bootstrapResult.totalFiles,
-                    bootstrapResult.successfulFiles,
-                    bootstrapResult.failedFiles
-                )
+                    log.info(
+                        "Async rebuild completed (job={}): total={} successful={} failed={}",
+                        jobId,
+                        bootstrapResult.totalFiles,
+                        bootstrapResult.successfulFiles,
+                        bootstrapResult.failedFiles
+                    )
                 } catch (e: Exception) {
                     val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
                     job.error = errorMessage
@@ -819,18 +817,23 @@ class RebuildContextTool(
         // Reset progress tracker to ensure clean state for this rebuild
         progressTracker.reset()
 
-        // Run bootstrap with forceScan=true since we cleared the progress table
-        // This ensures bootstrap will scan for files instead of checking remaining items
-        val result = orchestrator.bootstrap(onProgress = onProgress, forceScan = true)
+        return try {
+            // Run bootstrap with forceScan=true since we cleared the progress table
+            // This ensures bootstrap will scan for files instead of checking remaining items
+            orchestrator.bootstrap(onProgress = onProgress, forceScan = true)
+        } finally {
+            runCatching {
+                progressTracker.reset()
+                log.info("Bootstrap progress table cleared after rebuild run")
+            }.onFailure { throwable ->
+                log.warn("Failed to clear bootstrap progress after rebuild: ${throwable.message}")
+            }
 
-        runCatching {
-            progressTracker.reset()
-            log.info("Bootstrap progress table cleared after rebuild run")
-        }.onFailure { throwable ->
-            log.warn("Failed to clear bootstrap progress after rebuild: ${throwable.message}")
+            runCatching { embedder.close() }
+                .onFailure { throwable ->
+                    log.warn("Failed to close embedder after rebuild: ${throwable.message}")
+                }
         }
-
-        return result
     }
 
     private fun optimizeDatabase() {

@@ -19,13 +19,11 @@ import java.nio.file.Paths
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 /**
  * MCP tool for manually triggering context re-indexing.
@@ -36,6 +34,7 @@ class RefreshContextTool(
     private val incrementalIndexer: IncrementalIndexer? = null
 ) {
     private val log = Logger.logger("com.orchestrator.mcp.tools.RefreshContextTool")
+    private val asyncScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Lazy initialization of indexer if not provided
     private val indexer: IncrementalIndexer by lazy {
@@ -153,9 +152,9 @@ class RefreshContextTool(
         val jobId: String,
         val paths: List<Path>,
         val startedAt: Instant,
-        var status: JobStatus,
-        var result: com.orchestrator.context.indexing.UpdateResult? = null,
-        var error: String? = null
+        @Volatile var status: JobStatus,
+        @Volatile var result: com.orchestrator.context.indexing.UpdateResult? = null,
+        @Volatile var error: String? = null
     )
 
     enum class JobStatus {
@@ -341,52 +340,52 @@ class RefreshContextTool(
 
         jobs[jobId] = job
 
-        // Launch background coroutine
-        @OptIn(DelicateCoroutinesApi::class)
-        GlobalScope.launch {
-            try {
-                log.info("Discovering files from {} root path(s) (job={})...", paths.size, jobId)
-                val discoveredFiles = discoverFiles(paths)
-                log.info("Discovered {} file(s) to index (job={})", discoveredFiles.size, jobId)
+        asyncScope.launch {
+            WatcherRegistry.pauseWhile {
+                try {
+                    log.info("Discovering files from {} root path(s) (job={})...", paths.size, jobId)
+                    val discoveredFiles = discoverFiles(paths)
+                    log.info("Discovered {} file(s) to index (job={})", discoveredFiles.size, jobId)
 
-                val updateResult = if (discoveredFiles.isEmpty()) {
-                    val now = Instant.now()
-                    com.orchestrator.context.indexing.UpdateResult(
-                        changeSet = com.orchestrator.context.indexing.ChangeSet(
-                            newFiles = emptyList(),
-                            modifiedFiles = emptyList(),
-                            deletedFiles = emptyList(),
-                            unchangedFiles = emptyList(),
-                            scannedAt = now
-                        ),
-                        batchResult = null,
-                        deletions = emptyList(),
-                        startedAt = now,
-                        completedAt = now,
-                        durationMillis = 0
+                    val updateResult = if (discoveredFiles.isEmpty()) {
+                        val now = Instant.now()
+                        com.orchestrator.context.indexing.UpdateResult(
+                            changeSet = com.orchestrator.context.indexing.ChangeSet(
+                                newFiles = emptyList(),
+                                modifiedFiles = emptyList(),
+                                deletedFiles = emptyList(),
+                                unchangedFiles = emptyList(),
+                                scannedAt = now
+                            ),
+                            batchResult = null,
+                            deletions = emptyList(),
+                            startedAt = now,
+                            completedAt = now,
+                            durationMillis = 0
+                        )
+                    } else {
+                        indexer.updateAsync(
+                            paths = discoveredFiles,
+                            parallelism = params.parallelism
+                        )
+                    }
+
+                    job.result = updateResult
+                    job.status = JobStatus.COMPLETED
+
+                    log.info(
+                        "Async refresh completed (job={}): new={} modified={} deleted={}",
+                        jobId,
+                        updateResult.newCount,
+                        updateResult.modifiedCount,
+                        updateResult.deletedCount
                     )
-                } else {
-                    indexer.updateAsync(
-                        paths = discoveredFiles,
-                        parallelism = params.parallelism
-                    )
+                } catch (e: Exception) {
+                    val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
+                    job.error = errorMessage
+                    job.status = JobStatus.FAILED
+                    log.error("Async refresh failed (job={}): {}", jobId, errorMessage, e)
                 }
-
-                job.result = updateResult
-                job.status = JobStatus.COMPLETED
-
-                log.info(
-                    "Async refresh completed (job={}): new={} modified={} deleted={}",
-                    jobId,
-                    updateResult.newCount,
-                    updateResult.modifiedCount,
-                    updateResult.deletedCount
-                )
-            } catch (e: Exception) {
-                val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
-                job.error = errorMessage
-                job.status = JobStatus.FAILED
-                log.error("Async refresh failed (job={}): {}", jobId, errorMessage, e)
             }
         }
 
