@@ -202,7 +202,7 @@ object ContextDatabase {
             val threads = Runtime.getRuntime().availableProcessors().coerceAtLeast(2).coerceAtMost(8)
             st.execute("PRAGMA threads=$threads")
             // Allow DuckDB to use as much memory as the host can provide during full rebuilds
-            st.execute("PRAGMA memory_limit='16GB'")
+            st.execute("PRAGMA memory_limit='32GB'")
             // Avoid expensive per-row ordering overhead when bulk loading thousands of chunks
             st.execute("PRAGMA preserve_insertion_order=false")
             // Force periodic checkpoints to keep transactions from ballooning indefinitely
@@ -210,7 +210,7 @@ object ContextDatabase {
             // Note: Compression pragma (PRAGMA compression = 'zstd') available in DuckDB 1.5+
             // Current version (1.4.0) uses automatic compression for column storage
             // Future optimization: upgrade DuckDB and enable explicit compression
-            log.info("Applied DuckDB pragmas: threads=$threads, memory_limit=16GB")
+            log.info("Applied DuckDB pragmas: threads=$threads, memory_limit=32GB")
         }
     }
 

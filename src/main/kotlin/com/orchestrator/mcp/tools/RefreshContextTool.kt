@@ -59,6 +59,7 @@ class RefreshContextTool(
                 projectRoot = projectRoot,
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.embedding.batchSize,
+                persistBatchSize = config.bootstrap.batchSize,
                 maxFileSizeMb = config.indexing.maxFileSizeMb,
                 warnFileSizeMb = config.indexing.warnFileSizeMb,
                 chunkerRegistry = ConfigurableChunkerRegistry(config.chunking)

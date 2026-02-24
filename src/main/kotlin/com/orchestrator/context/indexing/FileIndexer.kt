@@ -44,12 +44,14 @@ class FileIndexer(
     private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
     private val readCharset: Charset = StandardCharsets.UTF_8,
     private val embeddingBatchSize: Int = 32,
+    private val persistBatchSize: Int = 128,
     private val maxFileSizeMb: Int = 5,
     private val warnFileSizeMb: Int = 2
 ) {
 
     init {
         require(embeddingBatchSize > 0) { "embeddingBatchSize must be positive" }
+        require(persistBatchSize > 0) { "persistBatchSize must be positive" }
         require(maxFileSizeMb > 0) { "maxFileSizeMb must be positive" }
         require(warnFileSizeMb > 0) { "warnFileSizeMb must be positive" }
     }
@@ -153,14 +155,14 @@ class FileIndexer(
             )
 
             val persistedArtifacts = try {
-                dataService.syncFileArtifacts(fileState, chunkArtifacts)
+                dataService.syncFileArtifacts(fileState, chunkArtifacts, persistBatchSize)
             } catch (sql: SQLException) {
                 log.warn(
                     "Falling back to metadata-only index for {} after database error: {}",
                     relativePath,
                     sql.message
                 )
-                dataService.syncFileArtifacts(fileState, emptyList())
+                dataService.syncFileArtifacts(fileState, emptyList(), persistBatchSize)
             }
 
             // Index symbols for code files if language detection succeeded

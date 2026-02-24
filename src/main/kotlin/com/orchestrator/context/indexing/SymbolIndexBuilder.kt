@@ -23,6 +23,13 @@ class SymbolIndexBuilder(
 
     suspend fun indexFile(path: Path, fileId: Long, language: String): List<SymbolRecord> {
         require(Files.exists(path)) { "File does not exist: $path" }
+
+        // Skip symbol indexing for document file types — they contain prose, not code
+        val ext = path.fileName.toString().substringAfterLast('.', "").lowercase(Locale.US)
+        if (ext in DOCUMENT_EXTENSIONS) {
+            return emptyList()
+        }
+
         val code = Files.readString(path)
         if (code.isBlank()) {
             repository.replaceForFile(fileId, emptyList())
@@ -538,6 +545,8 @@ class SymbolIndexBuilder(
     }
 
     companion object {
+        private val DOCUMENT_EXTENSIONS = setOf("doc", "docx", "pdf", "txt", "csv", "md", "rst")
+
         private val packageRegex = Regex("""^\s*package\s+([A-Za-z0-9_.]+)""")
         private val javaPackageRegex = Regex("""^\s*package\s+([A-Za-z0-9_.]+)\s*;""")
         private val importRegex = Regex("""^import\s+([A-Za-z0-9_.*]+)""")

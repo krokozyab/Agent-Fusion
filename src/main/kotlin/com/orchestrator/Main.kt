@@ -307,6 +307,7 @@ class Main {
             projectRoot = projectRoot,
             watchRoots = resolvedWatchRoots,
             embeddingBatchSize = config.context.embedding.batchSize,
+            persistBatchSize = config.context.bootstrap.batchSize,
             maxFileSizeMb = config.context.indexing.maxFileSizeMb,
             warnFileSizeMb = config.context.indexing.warnFileSizeMb,
             chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
@@ -401,6 +402,7 @@ class Main {
                 projectRoot = projectRoot,
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.context.embedding.batchSize,
+                persistBatchSize = config.context.bootstrap.batchSize,
                 maxFileSizeMb = config.context.indexing.maxFileSizeMb,
                 warnFileSizeMb = config.context.indexing.warnFileSizeMb,
                 chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)

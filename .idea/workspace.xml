@@ -5,9 +5,69 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- relative path in query fixed --">
-      <change afterPath="$PROJECT_DIR$/docs/sample_convetsation.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeTest.cinteropLibraries.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextDataService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextDataService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/SymbolIndexBuilder.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/SymbolIndexBuilder.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,7 +129,10 @@
     &quot;repository&quot;: &quot;codex_to_claude&quot;
   }
 }</component>
-  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.7+6/Contents/Home" gradleVersion="8.14" />
+  <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="true" />
+  </component>
+  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.sdkman/candidates/java/current" gradleVersion="8.14" />
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
   &quot;isMigrated&quot;: true
@@ -94,7 +157,7 @@
     "Gradle.AgentSelectorTest.executor": "Run",
     "Gradle.Build codex_to_claude.executor": "Run",
     "Gradle.ConsensusModuleTest.executor": "Run",
-    "Gradle.ConsensusWorkflowTest.executor": "Run",
+    "Gradle.ConsensusWorkflowTest.executor": "Debug",
     "Gradle.ContextModuleTest.executor": "Run",
     "Gradle.DirectiveParserTest.executor": "Run",
     "Gradle.GetTaskStatusToolTest.executor": "Run",
@@ -111,18 +174,22 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
     "git-widget-placeholder": "imp",
+    "go.import.settings.migrated": "true",
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/devdoc",
+    "last_opened_file_path": "/Users/sergeyrudenko_1_2/projects/codex_to_claude",
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "settings.editor.selected.configurable": "aws.codewhisperer",
+    "settings.editor.selected.configurable": "reference.settingsdialog.project.gradle",
     "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
   }
@@ -297,11 +364,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.ConsensusWorkflowTest" />
         <item itemvalue="Gradle.WorkflowExecutorTest" />
         <item itemvalue="Gradle.TaskClassifierTest" />
         <item itemvalue="Gradle.McpServerImplTest" />
         <item itemvalue="Gradle.GetTaskStatusToolTest" />
-        <item itemvalue="Gradle.ConsensusWorkflowTest" />
       </list>
     </recent_temporary>
   </component>
@@ -332,14 +399,13 @@
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
       <workItem from="1763652739075" duration="88099000" />
-    </task>
-    <task id="LOCAL-00151" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762859642281</created>
-      <option name="number" value="00151" />
-      <option name="presentableId" value="LOCAL-00151" />
-      <option name="project" value="LOCAL" />
-      <updated>1762859642281</updated>
+      <workItem from="1764854596366" duration="636000" />
+      <workItem from="1764894507780" duration="13677000" />
+      <workItem from="1765345281260" duration="596000" />
+      <workItem from="1765381553531" duration="236000" />
+      <workItem from="1765432680589" duration="598000" />
+      <workItem from="1765543733341" duration="24815000" />
+      <workItem from="1771777811259" duration="17289000" />
     </task>
     <task id="LOCAL-00152" summary="-- readme --">
       <option name="closed" value="true" />
@@ -725,7 +791,15 @@
       <option name="project" value="LOCAL" />
       <updated>1763928858422</updated>
     </task>
-    <option name="localTasksCounter" value="200" />
+    <task id="LOCAL-00200" summary="-- relative path in query fixed --">
+      <option name="closed" value="true" />
+      <created>1763965870013</created>
+      <option name="number" value="00200" />
+      <option name="presentableId" value="LOCAL-00200" />
+      <option name="project" value="LOCAL" />
+      <updated>1763965870013</updated>
+    </task>
+    <option name="localTasksCounter" value="201" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -798,6 +872,10 @@
     <MESSAGE value="-- Changes Made&#10;   &#10;     1. QueryContextTool.kt (src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt:27-47)&#10;   &#10;     Before:&#10;     - &quot;Use short, specific keywords (like grep/find commands)&quot;&#10;     - &quot;2-5 words&quot;&#10;   &#10;     After:&#10;     - &quot;Use domain-specific descriptive phrases (5-10 words) with concrete terms&quot;&#10;     - Mentions the semantic model (sentence-transformers/all-MiniLM-L6-v2)&#10;     - Better examples showing descriptive queries&#10;   &#10;     2. McpServerImpl.kt (src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt:2364+)&#10;   &#10;     Updated sections:&#10;   &#10;     1. Main CRITICAL guidance (line 2368):&#10;       - Changed from: &quot;Use SHORT keywords (2-5 words)&quot;&#10;       - Changed to: &quot;Use domain-specific descriptive phrases (5-10 words) with concrete technical terms&quot;&#10;       - Added explanation about semantic model understanding meaning&#10;     2. Good Query Examples (line 2420):&#10;       - Extended all examples from 3-4 words to 5-8 words&#10;       - Example: &quot;authentication JWT token&quot; → &quot;authentication JWT token validation implementation&quot;&#10;     3. Query Formulation Section (line 2448):&#10;       - New formula emphasizing domain terms + technical concepts + implementation details&#10;       - Explicitly mentions optimal length: 5-10 words&#10;       - Notes that semantic model understands meaning and context&#10;     4. Comparison Table (line 2465):&#10;       - All &quot;Good Query&quot; examples now use 5-8 word descriptive phrases&#10;       - Example: &quot;TaskRepository class&quot; → &quot;TaskRepository database access implementation&quot;&#10;     5. User Phrase Mapping (line 2408):&#10;       - Updated all suggested queries to be more descriptive&#10;       - Example: &quot;feature implementation&quot; → &quot;feature implementation core logic flow&quot;&#10;   &#10;     Rationale&#10;   &#10;     The changes reflect that:&#10;     - Semantic search with sentence-transformers benefits from richer context, not just keywords&#10;     - Domain-specific vocabulary provides better signals than generic grep-like terms&#10;     - 5-10 words is optimal for semantic understanding while staying focused&#10;     - Question words and abstract meta-queries still fail (kept those warnings)&#10;     - Concrete technical terms work better than vague concepts&#10;   &#10;     The tool will now guide users to write queries like:&#10;     - ✅ &quot;PGP encryption FTP adapter file transfer configuration&quot;&#10;     - ✅ &quot;consensus workflow voting mechanism implementation&quot;&#10;   &#10;     Instead of:&#10;     - ❌ &quot;PGP encryption&quot; (too short, lacks context)&#10;     - ❌ &quot;how does PGP encryption work in FTP?&quot; (question format)&#10;   &#10;     This better leverages the semantic search capabilities while still avoiding natural language questions that fail! --" />
     <MESSAGE value="-- relative path in query fixed --" />
     <option name="LAST_COMMIT_MESSAGE" value="-- relative path in query fixed --" />
+  </component>
+  <component name="VgoProject">
+    <integration-enabled>false</integration-enabled>
+    <settings-migrated>true</settings-migrated>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

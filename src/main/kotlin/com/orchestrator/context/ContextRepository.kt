@@ -48,7 +48,7 @@ object ContextRepository {
 
     // region Public API
 
-    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts =
+    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>, batchSize: Int = 128): FileArtifacts =
         writeLock.withLock {
             // Phase 1: Delete old artifacts using separate transactions for each deletion step
             // This approach isolates each deletion operation, preventing a single FK constraint error
@@ -169,47 +169,79 @@ object ContextRepository {
                 }
             }
 
-            // Phase 2: Insert new artifacts in separate transaction
-            // This ensures that even if Phase 1 partially succeeds, Phase 2 can still proceed
-            ContextDatabase.transaction { conn ->
-                val persistedFile = upsertFileState(conn, fileState)
+            // Phase 2: Insert new artifacts in batched transactions
+            // This ensures that progress is committed incrementally, preventing data loss on crashes
+            val persistedFile = ContextDatabase.transaction { conn ->
+                upsertFileState(conn, fileState)
+            }
 
-                val assigned = chunkArtifacts.map { artifact ->
+            // Assign IDs to all chunks upfront (but don't persist yet)
+            val assigned = ContextDatabase.withConnection { conn ->
+                chunkArtifacts.map { artifact ->
                     val chunkId = nextId(conn, "chunks_seq")
                     val chunkWithIds = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id)
                     chunkId to artifact.copy(chunk = chunkWithIds)
                 }
-
-                val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
-                    artifact.chunk.chunkPath?.let { it to chunkId }
-                }.toMap()
-
-                val withParents = assigned.map { (chunkId, artifact) ->
-                    val parentPath = artifact.chunk.chunkPath?.let { path ->
-                        val idx = path.lastIndexOf('/')
-                        if (idx > 0) path.substring(0, idx) else null
-                    }
-                    val parentId = parentPath?.let { pathToId[it] }
-                    val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
-                    chunkId to artifact.copy(chunk = chunkWithParent)
-                }
-
-                val persistedChunks = ArrayList<ChunkArtifacts>(withParents.size)
-                withParents.forEach { (chunkId, artifact) ->
-                    insertChunk(conn, artifact.chunk)
-                    val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
-                    val links = insertLinks(conn, chunkId, persistedFile.id, artifact.links)
-                    persistedChunks.add(
-                        ChunkArtifacts(
-                            chunk = artifact.chunk,
-                            embeddings = embeddings,
-                            links = links
-                        )
-                    )
-                }
-
-                FileArtifacts(persistedFile, persistedChunks)
             }
+
+            val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
+                artifact.chunk.chunkPath?.let { it to chunkId }
+            }.toMap()
+
+            val withParents = assigned.map { (chunkId, artifact) ->
+                val parentPath = artifact.chunk.chunkPath?.let { path ->
+                    val idx = path.lastIndexOf('/')
+                    if (idx > 0) path.substring(0, idx) else null
+                }
+                val parentId = parentPath?.let { pathToId[it] }
+                val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
+                chunkId to artifact.copy(chunk = chunkWithParent)
+            }
+
+            // Insert chunks in batches with commits between batches
+            val persistedChunks = ArrayList<ChunkArtifacts>(withParents.size)
+            val totalChunks = withParents.size
+            val totalBatches = (totalChunks + batchSize - 1) / batchSize
+
+            if (totalBatches > 1) {
+                log.info("Persisting {} chunks in {} batches of {} chunks each", totalChunks, totalBatches, batchSize)
+            }
+
+            withParents.chunked(batchSize).forEachIndexed { batchIndex, batch ->
+                val batchNumber = batchIndex + 1
+                if (totalBatches > 1) {
+                    log.debug("Persisting batch {}/{} ({} chunks)...", batchNumber, totalBatches, batch.size)
+                }
+
+                val batchPersisted = ContextDatabase.transaction { conn ->
+                    val batchResult = ArrayList<ChunkArtifacts>(batch.size)
+                    batch.forEach { (chunkId, artifact) ->
+                        insertChunk(conn, artifact.chunk)
+                        val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
+                        val links = insertLinks(conn, chunkId, persistedFile.id, artifact.links)
+                        batchResult.add(
+                            ChunkArtifacts(
+                                chunk = artifact.chunk,
+                                embeddings = embeddings,
+                                links = links
+                            )
+                        )
+                    }
+                    batchResult
+                }
+
+                persistedChunks.addAll(batchPersisted)
+
+                if (totalBatches > 1 && batchNumber % 10 == 0) {
+                    log.info("Progress: {}/{} batches persisted ({:.1f}%)", batchNumber, totalBatches, (batchNumber * 100.0 / totalBatches))
+                }
+            }
+
+            if (totalBatches > 1) {
+                log.info("Successfully persisted all {} chunks in {} batches", totalChunks, totalBatches)
+            }
+
+            FileArtifacts(persistedFile, persistedChunks)
         }
 
     fun fetchFileArtifactsByPath(path: String): FileArtifacts? = ContextDatabase.withConnection { conn ->

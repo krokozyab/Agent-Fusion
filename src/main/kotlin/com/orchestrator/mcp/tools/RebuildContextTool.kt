@@ -735,6 +735,7 @@ class RebuildContextTool(
             projectRoot = projectRoot,
             watchRoots = paths,
             embeddingBatchSize = config.embedding.batchSize,
+            persistBatchSize = config.bootstrap.batchSize,
             maxFileSizeMb = config.indexing.maxFileSizeMb,
             warnFileSizeMb = config.indexing.warnFileSizeMb,
             chunkerRegistry = ConfigurableChunkerRegistry(config.chunking)
