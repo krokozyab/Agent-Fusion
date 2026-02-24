@@ -78,7 +78,7 @@ class FullTextContextProvider(
                             metadata = mapOf(
                                 "provider" to id,
                                 "sources" to id,
-                                "bm25_score" to "%.3f".format(contentScore),
+                                "bm25_score" to "%.3f".format(Locale.US, contentScore),
                                 "file_id" to fileId.toString(),
                                 "token_estimate" to tokens.toString(),
                                 "chunk_path" to (chunkPath ?: ""),

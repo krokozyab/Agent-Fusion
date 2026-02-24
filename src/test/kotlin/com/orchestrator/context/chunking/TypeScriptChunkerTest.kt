@@ -269,7 +269,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals("Function fetchData", chunks[0].summary)
@@ -285,7 +285,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("<T>"))
@@ -339,7 +339,7 @@ class TypeScriptChunkerTest {
         val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal)
         }
     }
 
@@ -410,7 +410,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(2, chunks.size)
     }
@@ -423,7 +423,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(2, chunks.size)
     }

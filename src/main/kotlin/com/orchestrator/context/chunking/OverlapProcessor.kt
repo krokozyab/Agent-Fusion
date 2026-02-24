@@ -17,11 +17,17 @@ object OverlapProcessor {
     fun addOverlap(
         chunks: List<Chunk>,
         overlapPercent: Int,
-        estimateTokens: (String) -> Int = TokenEstimator::estimate
+        estimateTokens: (String) -> Int = TokenEstimator::estimate,
+        isEligible: (Chunk) -> Boolean = { true }
     ): List<Chunk> {
         if (chunks.size <= 1 || overlapPercent <= 0) return chunks
 
         return chunks.mapIndexed { index, chunk ->
+            if (!isEligible(chunk)) {
+                val originalTokens = chunk.tokenEstimate ?: estimateTokens(chunk.content)
+                return@mapIndexed chunk.copy(tokenEstimate = originalTokens)
+            }
+
             val originalTokens = chunk.tokenEstimate ?: estimateTokens(chunk.content)
             val overlapTarget = ((originalTokens * (overlapPercent / 100.0)).roundToInt()).coerceAtLeast(0)
             val tokenCap = min(originalTokens * 2, originalTokens + overlapTarget)
@@ -33,7 +39,7 @@ object OverlapProcessor {
 
             var remainingExtra = allowedExtra
 
-            val leftNeighbor = chunks.getOrNull(index - 1)?.content
+            val leftNeighbor = findEligibleNeighbor(chunks, index, -1, isEligible)?.content
             val leftOverlap = if (leftNeighbor.isNullOrBlank() || remainingExtra == 0) {
                 ""
             } else {
@@ -42,7 +48,7 @@ object OverlapProcessor {
             }
             remainingExtra -= estimateTokens(leftOverlap).coerceAtMost(remainingExtra)
 
-            val rightNeighbor = chunks.getOrNull(index + 1)?.content
+            val rightNeighbor = findEligibleNeighbor(chunks, index, +1, isEligible)?.content
             val rightOverlap = if (rightNeighbor.isNullOrBlank() || remainingExtra == 0) {
                 ""
             } else {
@@ -60,6 +66,21 @@ object OverlapProcessor {
 
             chunk.copy(content = combined, tokenEstimate = updatedTokens)
         }
+    }
+
+    private fun findEligibleNeighbor(
+        chunks: List<Chunk>,
+        startIndex: Int,
+        direction: Int,
+        isEligible: (Chunk) -> Boolean
+    ): Chunk? {
+        var idx = startIndex + direction
+        while (idx in chunks.indices) {
+            val candidate = chunks[idx]
+            if (isEligible(candidate)) return candidate
+            idx += direction
+        }
+        return null
     }
 
     private fun takeLastSentences(

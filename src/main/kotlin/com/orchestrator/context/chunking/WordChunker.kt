@@ -12,7 +12,7 @@ private data class WordDocParagraphInfo(
 
 class WordChunker(
     private val maxTokens: Int = 600,
-    private val overlapPercent: Int = 15
+    private val overlapPercent: Int = 0
 ) : Chunker {
 
     override val strategy = ChunkingStrategy(
@@ -71,7 +71,7 @@ class WordChunker(
         chunks += Chunk(
             id = 0,
             fileId = 0,
-            ordinal = ordinal++,
+            ordinal = ordinal,
             kind = ChunkKind.PARAGRAPH,
             startLine = 1,
             endLine = lines.size,
@@ -81,6 +81,7 @@ class WordChunker(
             createdAt = createdAt,
             chunkPath = rootPath
         )
+        ordinal += 1
 
         for (paragraphInfo in paragraphs) {
             val tokens = estimateTokens(paragraphInfo.text)
@@ -109,7 +110,11 @@ class WordChunker(
             }
         }
 
-        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
+        return OverlapProcessor.addOverlap(
+            chunks,
+            overlapPercent,
+            ::estimateTokens
+        ) { it.summary != "Document root" }
     }
 
     override fun estimateTokens(text: String): Int = text.length / 4

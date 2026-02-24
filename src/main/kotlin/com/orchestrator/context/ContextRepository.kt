@@ -273,6 +273,8 @@ object ContextRepository {
                        c.start_line,
                        c.end_line,
                        c.token_count,
+                       c.chunk_path,
+                       c.parent_chunk_id,
                        c.content,
                        c.summary,
                        c.created_at,

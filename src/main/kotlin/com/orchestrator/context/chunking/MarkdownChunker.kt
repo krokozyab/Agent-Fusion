@@ -127,7 +127,11 @@ class MarkdownChunker(
             )
         }
 
-        return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
+        return OverlapProcessor.addOverlap(
+            baseChunks,
+            overlapPercent,
+            estimator::estimate
+        ) { it.summary != "Document root" }
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)

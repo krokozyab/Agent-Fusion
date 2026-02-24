@@ -60,7 +60,24 @@ class TypeScriptChunker(
         )
 
         if (blocks.isEmpty()) {
-            return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
+            baseChunks += Chunk(
+                id = 0,
+                fileId = 0,
+                ordinal = baseChunks.size,
+                kind = ChunkKind.CODE_BLOCK,
+                startLine = 1,
+                endLine = lines.lastOrNull()?.number ?: 1,
+                tokenEstimate = estimator.estimate(content),
+                content = content,
+                summary = null,
+                createdAt = now,
+                chunkPath = "$rootPath/module-body"
+            )
+            return OverlapProcessor.addOverlap(
+                baseChunks,
+                overlapPercent,
+                estimator::estimate
+            ) { it.summary != "Module root" }
         }
 
         val importText = imports.joinToString("\n") { it.text }.trim()
@@ -104,7 +121,11 @@ class TypeScriptChunker(
             }
         }
 
-        return OverlapProcessor.addOverlap(baseChunks, overlapPercent, estimator::estimate)
+        return OverlapProcessor.addOverlap(
+            baseChunks,
+            overlapPercent,
+            estimator::estimate
+        ) { it.summary != "Module root" }
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)

@@ -92,7 +92,7 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    "."
+    "/Users/sergeyrudenko_1_2/PycharmProjects/jirat"
 ]
 
 # Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.
@@ -203,7 +203,7 @@ skip_patterns = [
 # Default: 5MB (skips most binary/compiled files automatically)
 # Increase for large documents (10-50MB for PDFs, documents)
 # Set very high (500+) if you want to index everything
-max_file_size_mb = 50
+max_file_size_mb = 200
 
 # Warn when files exceed this size (during indexing)
 # Set to 0 to disable warnings
@@ -248,12 +248,12 @@ binary_threshold = 30
 #   - "sentence-transformers/all-mpnet-base-v2" (768-dim, 438MB, slower, better quality)
 #   - "sentence-transformers/paraphrase-MiniLM-L6-v2" (384-dim, lightweight, paraphrase-aware)
 #   - Custom ONNX models: use model_path to specify local file
-model = "sentence-transformers/all-MiniLM-L6-v2"
+#model = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Optional: Path to custom ONNX model file
 # If specified, overrides the default bundled model
 # Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
- model_path = "/Users/sergeyrudenko/Downloads/model.onnx"
+ model_path = "/Users/sergeyrudenko_1_2/Downloads/model.onnx"
 
 # Embedding dimension (must match your model's output)
 # Default: 384 (matches all-MiniLM-L6-v2)
@@ -263,7 +263,7 @@ model = "sentence-transformers/all-MiniLM-L6-v2"
 # Batch size for embedding generation
 # Higher values = faster (more GPU utilization) but more memory
 # Lower values = slower but less memory
-batch_size = 16
+batch_size = 32
 
 # Normalize embeddings to unit length (recommended for cosine similarity)
 # Required for MMR reranking and semantic search
@@ -278,9 +278,11 @@ cache_enabled = true
 
 # Example: Using a larger, higher-quality model
 # [context.embedding]
-# model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
-#model = /Users/sergeyrudenko/Downloads/model.onnx
+model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
+#model = "/Users/sergeyrudenko/Downloads/model.onnx"
+
 dimension = 768
+
 # batch_size = 64  # Reduce for larger model
 # normalize = true
 # cache_enabled = false  # Disable if memory-constrained
@@ -294,7 +296,7 @@ overlap_enabled = true
 overlap_percent = 15  # 0-50; when disabled, overlap is skipped
 
 [context.chunking.markdown]
-max_tokens = 400
+max_tokens = 1000
 split_by_headings = true
 preserve_code_blocks = true
 

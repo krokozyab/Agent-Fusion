@@ -288,7 +288,7 @@ class PythonChunkerTest {
         val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal)
         }
     }
 

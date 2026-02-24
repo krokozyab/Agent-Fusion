@@ -5,6 +5,7 @@ import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.utils.Logger
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.Locale
 import kotlin.io.path.pathString
 import kotlin.math.max
 
@@ -204,6 +205,7 @@ class GitHistoryContextProvider(
         val sql = buildString {
             append("""
                 SELECT c.chunk_id, c.content, c.token_count, c.kind, c.start_line, c.end_line,
+                       c.chunk_path, c.parent_chunk_id,
                        f.abs_path, f.language
                 FROM chunks c
                 JOIN file_state f ON f.file_id = c.file_id
@@ -345,7 +347,7 @@ class GitHistoryContextProvider(
             "provider" to id,
             "sources" to id,
             "chunk_id" to chunk.chunkId.toString(),
-            "score" to "%.3f".format(candidate.score)
+            "score" to "%.3f".format(Locale.US, candidate.score)
         )
         metadata.putAll(candidate.metadata)
         metadata["chunk_path"] = chunk.chunkPath ?: ""

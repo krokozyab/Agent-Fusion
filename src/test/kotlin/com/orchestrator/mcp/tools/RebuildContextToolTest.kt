@@ -3,6 +3,7 @@ package com.orchestrator.mcp.tools
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.context.config.EmbeddingConfig
 import com.orchestrator.context.config.IndexingConfig
+import com.orchestrator.context.config.StorageConfig
 import com.orchestrator.context.config.WatcherConfig
 import com.orchestrator.context.storage.ContextDatabase
 import kotlinx.coroutines.delay
@@ -30,6 +31,9 @@ class RebuildContextToolTest {
     fun setup() {
         tempDir = createTempDirectory("rebuild-context-test")
         config = ContextConfig(
+            storage = StorageConfig(
+                dbPath = tempDir.resolve("context-test.duckdb").toString()
+            ),
             watcher = WatcherConfig(
                 watchPaths = listOf(tempDir.toString()),
                 ignorePatterns = emptyList()

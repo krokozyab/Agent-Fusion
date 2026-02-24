@@ -91,7 +91,7 @@ class SymbolIndexBuilder(
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
                 classStack.addLast(name to indent)
-                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                val qualified = buildQualified(packageName, classStack.map { it.first }) ?: name
                 symbols += symbol(
                     fileId = fileId,
                     type = when (kind) {
@@ -215,7 +215,7 @@ class SymbolIndexBuilder(
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
                 classStack.addLast(name to indent)
-                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                val qualified = buildQualified(packageName, classStack.map { it.first }) ?: name
                 val type = when (kind) {
                     "interface" -> SymbolType.INTERFACE
                     "enum" -> SymbolType.ENUM
@@ -337,7 +337,7 @@ class SymbolIndexBuilder(
             pythonClassRegex.find(line)?.let { match ->
                 val name = match.groupValues[1]
                 classStack.addLast(name to indent)
-                val qualified = buildQualified(moduleQualified.takeIf { it.isNotBlank() }, classStack.map { it.first }, name)
+                val qualified = buildQualified(moduleQualified.takeIf { it.isNotBlank() }, classStack.map { it.first })
                 symbols += symbol(
                     fileId = fileId,
                     type = SymbolType.CLASS,
@@ -536,11 +536,11 @@ class SymbolIndexBuilder(
         createdAt = Instant.EPOCH
     )
 
-    private fun buildQualified(packageName: String?, classStack: Collection<String>, member: String): String? {
+    private fun buildQualified(packageName: String?, classStack: Collection<String>, member: String? = null): String? {
         val segments = mutableListOf<String>()
         packageName?.takeIf { it.isNotBlank() }?.let { segments += it }
         if (classStack.isNotEmpty()) segments += classStack
-        segments += member
+        member?.takeIf { it.isNotBlank() }?.let { segments += it }
         return segments.joinToString(".").takeIf { it.isNotBlank() }
     }
 

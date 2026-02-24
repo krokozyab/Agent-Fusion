@@ -32,10 +32,11 @@ class CSharpChunker(
                 text = headerText,
                 kind = ChunkKind.CODE_HEADER,
                 label = "header",
-                ordinal = ordinal++,
+                ordinal = ordinal,
                 startLine = 1,
                 endLine = headerEnd
             )
+            ordinal += 1
         }
 
         var index = headerEnd
@@ -64,10 +65,11 @@ class CSharpChunker(
                     text = chunkText,
                     kind = kind,
                     label = typeName,
-                    ordinal = ordinal++,
+                    ordinal = ordinal,
                     startLine = chunkStart + 1,
                     endLine = block.endIndex + 1
                 )
+                ordinal += 1
 
                 val emittedChunks = mutableSetOf<String>()
 

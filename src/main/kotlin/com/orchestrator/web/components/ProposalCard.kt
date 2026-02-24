@@ -5,6 +5,7 @@ import com.orchestrator.web.rendering.Fragment
 import com.orchestrator.web.utils.JsonFormatter
 import com.orchestrator.web.utils.TimeFormatters
 import kotlinx.html.*
+import java.util.Locale
 import java.time.ZoneId
 
 object ProposalCard {
@@ -42,7 +43,7 @@ object ProposalCard {
                 div(classes = "proposal-card__meta") {
                     span(classes = "proposal-card__confidence") {
                         +"Confidence: "
-                        strong { +"%.2f".format(model.proposal.confidence) }
+                        strong { +"%.2f".format(Locale.US, model.proposal.confidence) }
                     }
                     span(classes = "proposal-card__tokens") {
                         +"Tokens: ${model.proposal.tokenUsage.totalTokens}"
