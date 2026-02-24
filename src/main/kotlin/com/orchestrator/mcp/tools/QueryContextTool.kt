@@ -9,6 +9,7 @@ import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.embedding.Embedder
 import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.ContextProvider
+import com.orchestrator.context.providers.ContextProviderType
 import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.providers.ResultOrganizer
 import com.orchestrator.context.search.MmrReranker
@@ -19,6 +20,9 @@ import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.ContextRepository.ChunkWithFile
 import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
@@ -124,6 +128,14 @@ class QueryContextTool(
         val content: String? = null  // Hierarchical markdown output (Phase 3)
     )
 
+    private data class ProviderQueryResult(
+        val providerId: String,
+        val providerType: String,
+        val snippets: List<ContextSnippet>,
+        val durationMs: Long,
+        val error: String? = null
+    )
+
     fun execute(params: Params): Result {
         if (params.chunkIds.isNullOrEmpty()) {
             require(params.query.isNotBlank()) { "query cannot be blank" }
@@ -144,9 +156,12 @@ class QueryContextTool(
         val scope = buildScope(params)
 
         // Create TokenBudget
+        val reserveForPrompt = config.budget.reserveForPrompt
+            .coerceAtLeast(0)
+            .coerceAtMost(maxTokens / 2)
         val budget = TokenBudget(
             maxTokens = maxTokens,
-            reserveForPrompt = 0
+            reserveForPrompt = reserveForPrompt
         )
 
         // Get enabled providers
@@ -157,31 +172,24 @@ class QueryContextTool(
             return Result(hits = emptyList(), metadata = mapOf("warning" to "No enabled providers"))
         }
 
-        // Query all enabled providers
+        // Query all enabled providers concurrently.
+        val providerResults = queryProviders(params.query, scope, budget, providers)
         val allSnippets = mutableListOf<ContextSnippet>()
-        val providerStats = mutableMapOf<String, Map<String, Any>>()
+        val providerStats = linkedMapOf<String, Map<String, Any>>()
 
-        for (provider in providers) {
-            try {
-                val startTime = System.currentTimeMillis()
-                val snippets = runBlocking {
-                    provider.getContext(params.query, scope, budget)
-                }
-                val durationMs = System.currentTimeMillis() - startTime
-
-                allSnippets.addAll(snippets)
-                providerStats[provider.id] = mapOf(
-                    "snippets" to snippets.size,
-                    "durationMs" to durationMs,
-                    "type" to provider.type.name
+        for (result in providerResults) {
+            allSnippets.addAll(result.snippets)
+            providerStats[result.providerId] = if (result.error == null) {
+                mapOf(
+                    "snippets" to result.snippets.size,
+                    "durationMs" to result.durationMs,
+                    "type" to result.providerType
                 )
-
-                log.debug("Provider {} returned {} snippets in {}ms", provider.id, snippets.size, durationMs)
-            } catch (e: Exception) {
-                log.warn("Provider {} failed: {}", provider.id, e.message)
-                providerStats[provider.id] = mapOf(
-                    "error" to (e.message ?: "Unknown error"),
-                    "type" to provider.type.name
+            } else {
+                mapOf(
+                    "error" to result.error,
+                    "type" to result.providerType,
+                    "durationMs" to result.durationMs
                 )
             }
         }
@@ -201,9 +209,16 @@ class QueryContextTool(
         }
 
         // Apply MMR optimization if enabled
-        val optimizedSnippets = if (config.query.useOptimizerInTool && filteredSnippets.isNotEmpty()) {
+        val shouldRunMmr = config.query.useOptimizerInTool &&
+            filteredSnippets.isNotEmpty() &&
+            isMmrEligible(providers)
+        val optimizedSnippets = if (shouldRunMmr) {
             applyMmrOptimization(params.query, filteredSnippets, budget)
         } else {
+            if (config.query.useOptimizerInTool && filteredSnippets.isNotEmpty() && !isMmrEligible(providers)) {
+                log.debug("Skipping MMR optimization for non-semantic provider set: {}",
+                    providers.joinToString(",") { it.id })
+            }
             filteredSnippets
         }
         
@@ -390,8 +405,10 @@ class QueryContextTool(
 
         // If specific providers requested, filter to those
         if (requestedProviders != null && requestedProviders.isNotEmpty()) {
-            val requested = requestedProviders.map { it.lowercase() }.toSet()
-            return allProviders.filter { it.id.lowercase() in requested }
+            val requested = requestedProviders
+                .map { canonicalProviderId(it) }
+                .toSet()
+            return allProviders.filter { canonicalProviderId(it.id) in requested }
         }
 
         // Otherwise, use all enabled providers from config
@@ -403,6 +420,47 @@ class QueryContextTool(
         return allProviders.filter { provider ->
             config.providers[provider.id]?.enabled ?: false
         }
+    }
+
+    private fun canonicalProviderId(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]"), "")
+
+    private fun isMmrEligible(providers: List<ContextProvider>): Boolean =
+        providers.any { it.type == ContextProviderType.SEMANTIC || it.type == ContextProviderType.HYBRID }
+
+    private fun queryProviders(
+        query: String,
+        scope: ContextScope,
+        budget: TokenBudget,
+        providers: List<ContextProvider>
+    ): List<ProviderQueryResult> = runBlocking {
+        providers.map { provider ->
+            async(Dispatchers.IO) {
+                val startTime = System.currentTimeMillis()
+                try {
+                    val snippets = provider.getContext(query, scope, budget)
+                    val durationMs = System.currentTimeMillis() - startTime
+                    log.debug("Provider {} returned {} snippets in {}ms", provider.id, snippets.size, durationMs)
+                    ProviderQueryResult(
+                        providerId = provider.id,
+                        providerType = provider.type.name,
+                        snippets = snippets,
+                        durationMs = durationMs
+                    )
+                } catch (e: Exception) {
+                    val durationMs = System.currentTimeMillis() - startTime
+                    val errorMessage = e.message ?: "Unknown error"
+                    log.warn("Provider {} failed: {}", provider.id, errorMessage)
+                    ProviderQueryResult(
+                        providerId = provider.id,
+                        providerType = provider.type.name,
+                        snippets = emptyList(),
+                        durationMs = durationMs,
+                        error = errorMessage
+                    )
+                }
+            }
+        }.awaitAll()
     }
 
     private fun deduplicateSnippets(snippets: List<ContextSnippet>): List<ContextSnippet> {

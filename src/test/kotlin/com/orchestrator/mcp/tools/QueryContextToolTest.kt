@@ -1,6 +1,7 @@
 package com.orchestrator.mcp.tools
 
 import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.config.BudgetConfig
 import com.orchestrator.context.config.EmbeddingConfig
 import com.orchestrator.context.config.IndexingConfig
 import com.orchestrator.context.config.ProviderConfig
@@ -122,6 +123,21 @@ class QueryContextToolTest {
         assertNotNull(result)
         val tokensUsed = result.metadata["tokensUsed"] as? Int ?: 0
         assertTrue(tokensUsed <= 100, "Expected at most 100 tokens, used $tokensUsed")
+    }
+
+    @Test
+    fun `execute reserves prompt tokens from configured budget`() {
+        val reservedConfig = config.copy(
+            budget = BudgetConfig(
+                defaultMaxTokens = config.budget.defaultMaxTokens,
+                reserveForPrompt = 200
+            )
+        )
+        val tool = QueryContextTool(reservedConfig)
+        val result = tool.execute(QueryContextTool.Params(query = "main function", maxTokens = 1000))
+
+        val tokensRequested = result.metadata["tokensRequested"] as? Int
+        assertEquals(800, tokensRequested)
     }
 
     @Test
