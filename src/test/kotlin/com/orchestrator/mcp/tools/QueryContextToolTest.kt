@@ -236,6 +236,8 @@ class QueryContextToolTest {
         assertNotNull(result.metadata)
         assertTrue(result.metadata.containsKey("totalHits"))
         assertTrue(result.metadata.containsKey("returnedHits"))
+        assertTrue(result.metadata.containsKey("originalQuery"))
+        assertTrue(result.metadata.containsKey("effectiveQuery"))
     }
 
     @Test
@@ -320,6 +322,62 @@ class QueryContextToolTest {
         assertEquals(chunkIds.toSet().size, chunkIds.size, "Duplicate chunk IDs found")
     }
 
+    @Test
+    fun `chunkId lookup includes cross file and git intent edge fields`() {
+        val sourceFile = insertFileState("src/Source.kt", language = "kotlin", size = 256)
+        val targetFile = insertFileState("src/Target.kt", language = "kotlin", size = 256)
+        val commitFile = insertFileStateAbsolute(
+            relativePath = "git/commit/abc123",
+            absolutePath = "git://commit/abc123",
+            language = "git"
+        )
+
+        insertChunk(100L, fileId = sourceFile, content = "fun source() { targetCall() }", kind = ChunkKind.CODE_FUNCTION)
+        insertChunk(200L, fileId = targetFile, content = "fun targetCall() = Unit", kind = ChunkKind.CODE_FUNCTION)
+        insertChunk(300L, fileId = commitFile, content = "Increase JWT timeout", kind = ChunkKind.COMMIT_MESSAGE)
+
+        insertLink(sourceChunkId = 100L, targetFileId = targetFile, targetChunkId = 200L, linkType = "CALLS")
+        insertLink(sourceChunkId = 100L, targetFileId = targetFile, targetChunkId = 200L, linkType = "DEPENDS_ON")
+        insertLink(sourceChunkId = 300L, targetFileId = sourceFile, targetChunkId = 100L, linkType = "MODIFIES")
+
+        val tool = QueryContextTool(config)
+        val result = tool.execute(QueryContextTool.Params(chunkIds = listOf(100L, 200L, 300L)))
+
+        val byId = result.hits.associateBy { it.chunkId }
+        val source = byId.getValue(100L)
+        val commit = byId.getValue(300L)
+
+        assertTrue(200L in source.callsChunkIds)
+        assertTrue(200L in source.dependsOnChunkIds)
+        assertTrue(300L in source.modifiedByCommitChunkIds)
+        assertTrue(100L in commit.modifiesChunkIds)
+    }
+
+    @Test
+    fun `virtual git snippets are not purged by missing file filter`() {
+        val commitFile = insertFileStateAbsolute(
+            relativePath = "git/commit/def456",
+            absolutePath = "git://commit/def456",
+            language = "git"
+        )
+        insertChunk(
+            chunkId = 400L,
+            fileId = commitFile,
+            content = "Increase JWT timeout changed after authentication retry failures",
+            kind = ChunkKind.COMMIT_MESSAGE
+        )
+
+        val tool = QueryContextTool(config)
+        val result = tool.execute(
+            QueryContextTool.Params(
+                query = "jwt timeout changed",
+                providers = listOf("full_text")
+            )
+        )
+
+        assertTrue(result.hits.any { it.filePath.startsWith("git://commit/") })
+    }
+
     private fun insertFileState(path: String, language: String?, size: Long): Long {
         val persisted = FileStateRepository.insert(
             FileState(
@@ -328,6 +386,25 @@ class QueryContextToolTest {
                 absolutePath = tempDir.resolve(path).normalize().toString(),
                 contentHash = "hash-$path",
                 sizeBytes = size,
+                modifiedTimeNs = 0,
+                language = language,
+                kind = null,
+                fingerprint = null,
+                indexedAt = Instant.now(),
+                isDeleted = false
+            )
+        )
+        return persisted.id
+    }
+
+    private fun insertFileStateAbsolute(relativePath: String, absolutePath: String, language: String?): Long {
+        val persisted = FileStateRepository.insert(
+            FileState(
+                id = 0,
+                relativePath = relativePath,
+                absolutePath = absolutePath,
+                contentHash = "hash-$relativePath",
+                sizeBytes = 256,
                 modifiedTimeNs = 0,
                 language = language,
                 kind = null,
@@ -369,9 +446,45 @@ class QueryContextToolTest {
         )
     }
 
+    private fun insertLink(
+        sourceChunkId: Long,
+        targetFileId: Long,
+        targetChunkId: Long,
+        linkType: String
+    ) {
+        ContextDatabase.withConnection { conn ->
+            val linkId = conn.prepareStatement("SELECT nextval('links_seq')").use { ps ->
+                ps.executeQuery().use { rs ->
+                    rs.next()
+                    rs.getLong(1)
+                }
+            }
+            conn.prepareStatement(
+                """
+                INSERT INTO links (
+                    link_id, source_chunk_id, target_file_id, target_chunk_id,
+                    link_type, label, score, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent()
+            ).use { ps ->
+                ps.setLong(1, linkId)
+                ps.setLong(2, sourceChunkId)
+                ps.setLong(3, targetFileId)
+                ps.setLong(4, targetChunkId)
+                ps.setString(5, linkType)
+                ps.setString(6, linkType.lowercase())
+                ps.setDouble(7, 1.0)
+                ps.setTimestamp(8, java.sql.Timestamp.from(Instant.now()))
+                ps.executeUpdate()
+            }
+        }
+    }
+
     private fun clearTables() {
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
+                st.executeUpdate("DELETE FROM links")
+                st.executeUpdate("DELETE FROM symbols")
                 st.executeUpdate("DELETE FROM embeddings")
                 st.executeUpdate("DELETE FROM chunks")
                 st.executeUpdate("DELETE FROM file_state")

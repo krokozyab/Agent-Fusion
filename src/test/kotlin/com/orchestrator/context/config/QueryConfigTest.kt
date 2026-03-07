@@ -14,6 +14,13 @@ class QueryConfigTest {
         assertEquals(0.5, config.mmrLambda)
         assertEquals(1000, config.embeddingCacheSize)
         assertEquals(true, config.idfEnabled)
+        assertEquals(false, config.secondStageRerankEnabled)
+        assertEquals(false, config.queryExpansionEnabled)
+        assertEquals(false, config.hydeEnabled)
+        assertEquals(80, config.secondStageTopN)
+        assertEquals(0.35, config.secondStageBlendWeight)
+        assertEquals(8, config.maxExpansionTerms)
+        assertTrue(config.synonyms.isNotEmpty())
     }
 
     @Test

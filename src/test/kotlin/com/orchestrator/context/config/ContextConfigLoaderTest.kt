@@ -160,4 +160,64 @@ class ContextConfigLoaderTest {
 
         assertTrue(error.message!!.contains("allowed_extensions"))
     }
+
+    @Test
+    fun `loads query expansion and second stage rerank settings`() {
+        val tempDir = Files.createTempDirectory("context-config-query-enhancements")
+        val tomlPath = tempDir.resolve("context.toml")
+        val watchPath = Paths.get("src").toAbsolutePath()
+
+        Files.writeString(
+            tomlPath,
+            """
+            [context.watcher]
+            watch_paths = ["${'$'}{WATCH}"]
+
+            [context.query]
+            second_stage_rerank_enabled = true
+            second_stage_top_n = 42
+            second_stage_blend_weight = 0.4
+            query_expansion_enabled = true
+            hyde_enabled = true
+            max_expansion_terms = 12
+
+            [context.query.synonyms]
+            login = ["authentication", "auth", "token"]
+            """.trimIndent()
+        )
+
+        val env = mapOf("WATCH" to watchPath.toString())
+        val config = ContextConfigLoader.load(path = tomlPath, env = env)
+
+        assertTrue(config.query.secondStageRerankEnabled)
+        assertEquals(42, config.query.secondStageTopN)
+        assertEquals(0.4, config.query.secondStageBlendWeight)
+        assertTrue(config.query.queryExpansionEnabled)
+        assertTrue(config.query.hydeEnabled)
+        assertEquals(12, config.query.maxExpansionTerms)
+        assertEquals(listOf("authentication", "auth", "token"), config.query.synonyms["login"])
+    }
+
+    @Test
+    fun `loads go chunking overrides`() {
+        val tempDir = Files.createTempDirectory("context-config-go-chunking")
+        val tomlPath = tempDir.resolve("context.toml")
+        val watchPath = Paths.get("src").toAbsolutePath()
+
+        Files.writeString(
+            tomlPath,
+            """
+            [context.watcher]
+            watch_paths = ["${'$'}{WATCH}"]
+
+            [context.chunking.go]
+            max_tokens = 720
+            """.trimIndent()
+        )
+
+        val env = mapOf("WATCH" to watchPath.toString())
+        val config = ContextConfigLoader.load(path = tomlPath, env = env)
+
+        assertEquals(720, config.chunking.go.maxTokens)
+    }
 }

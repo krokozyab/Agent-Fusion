@@ -42,6 +42,10 @@ class FileIndexer(
     private val chunkerRegistry: ChunkerRegistry = ConfigurableChunkerRegistry(),
     private val tokenEstimator: TokenEstimator = TokenEstimator,
     private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
+    private val crossFileLinkBuilder: CrossFileLinkBuilder = CrossFileLinkBuilder(),
+    private val gitIntentLinkBuilder: GitIntentLinkBuilder = GitIntentLinkBuilder(),
+    private val semanticGraphEnabled: Boolean = true,
+    private val gitIntentEdgesEnabled: Boolean = true,
     private val readCharset: Charset = StandardCharsets.UTF_8,
     private val embeddingBatchSize: Int = 32,
     private val persistBatchSize: Int = 128,
@@ -169,9 +173,30 @@ class FileIndexer(
             if (languageHint != null && persistedArtifacts.file.id > 0) {
                 try {
                     coroutineContext.ensureActive()
-                    symbolIndexBuilder.indexFile(absolutePath, persistedArtifacts.file.id, languageHint)
+                    symbolIndexBuilder.indexFile(
+                        path = absolutePath,
+                        fileId = persistedArtifacts.file.id,
+                        language = languageHint,
+                        chunks = persistedArtifacts.chunks.map { it.chunk }
+                    )
                 } catch (e: Exception) {
                     log.warn("Failed to index symbols for {}: {}", relativePath, e.message)
+                }
+            }
+
+            if (semanticGraphEnabled && persistedArtifacts.file.id > 0) {
+                try {
+                    crossFileLinkBuilder.rebuildForFile(persistedArtifacts.file.id)
+                } catch (e: Exception) {
+                    log.warn("Failed to build cross-file links for {}: {}", relativePath, e.message)
+                }
+            }
+
+            if (gitIntentEdgesEnabled && persistedArtifacts.file.id > 0) {
+                try {
+                    gitIntentLinkBuilder.rebuildForFile(persistedArtifacts.file.id)
+                } catch (e: Exception) {
+                    log.warn("Failed to build git intent links for {}: {}", relativePath, e.message)
                 }
             }
 

@@ -94,6 +94,18 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+    jvmArgs(
+        "-Djdk.attach.allowAttachSelf=true",
+        "-XX:+EnableDynamicAgentLoading"
+    )
+    // Pre-load ByteBuddy agent to avoid runtime self-attachment failures on GraalVM/JDK 16+.
+    doFirst {
+        val agentJar = configurations.testRuntimeClasspath.get().files
+            .firstOrNull { it.name.startsWith("byte-buddy-agent") }
+        if (agentJar != null) {
+            jvmArgs("-javaagent:${agentJar.absolutePath}")
+        }
+    }
 }
 
 kotlin {

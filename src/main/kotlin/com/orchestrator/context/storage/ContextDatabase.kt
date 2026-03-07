@@ -284,6 +284,8 @@ object ContextDatabase {
             """.trimIndent(),
             "CREATE INDEX IF NOT EXISTS idx_chunks_chunk_path ON chunks(chunk_path)",
             "CREATE INDEX IF NOT EXISTS idx_chunks_parent ON chunks(parent_chunk_id)",
+            "CREATE INDEX IF NOT EXISTS idx_links_source ON links(source_chunk_id)",
+            "CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_chunk_id)",
             """
             CREATE TABLE IF NOT EXISTS symbols (
                 symbol_id            BIGINT PRIMARY KEY,
@@ -324,6 +326,42 @@ object ContextDatabase {
             """.trimIndent()
         )
         applyStatements(conn, statements)
+        ensureFtsIndex(conn)
+    }
+
+    /**
+     * Create the DuckDB FTS index on the chunks table (content + summary).
+     * Idempotent: drops and recreates so the index reflects current data.
+     */
+    private fun ensureFtsIndex(conn: Connection) {
+        try {
+            conn.createStatement().use { st ->
+                st.execute("INSTALL fts")
+                st.execute("LOAD fts")
+                // Drop previous index if it exists, then recreate.
+                // DuckDB's PRAGMA create_fts_index is idempotent only if we drop first.
+                runCatching {
+                    st.execute("PRAGMA drop_fts_index('chunks')")
+                }
+                st.execute(
+                    "PRAGMA create_fts_index('chunks', 'chunk_id', 'content', 'summary', overwrite = 1)"
+                )
+            }
+            log.info("DuckDB FTS index created on chunks(content, summary)")
+        } catch (e: Exception) {
+            log.warn("Failed to create FTS index (falling back to LIKE search): {}", e.message)
+        }
+    }
+
+    /**
+     * Rebuild the FTS index after bulk inserts/deletes.
+     * Call this after bootstrap or refresh operations.
+     */
+    fun refreshFtsIndex() {
+        val conn = getConnection()
+        connectionLock.withLock {
+            ensureFtsIndex(conn)
+        }
     }
 
     private fun ensureParentDirectory(path: String) {

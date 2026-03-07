@@ -7,7 +7,6 @@ import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.providers.ContextProvider
 import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.providers.ContextProviderType
-import com.orchestrator.context.search.SearchResult
 import com.orchestrator.domain.AgentId
 import com.orchestrator.domain.Task
 import com.orchestrator.domain.TaskId
@@ -64,7 +63,7 @@ class ContextRetrievalModuleTest {
         every { ContextProviderRegistry.getAllProviders() } returns listOf(provider)
         every { ContextProviderRegistry.getProvider(any()) } returns null
         every { budgetManager.calculateBudget(any(), any()) } returns TokenBudget(maxTokens = 500, reserveForPrompt = 100, diversityWeight = 0.5)
-        every { queryOptimizer.optimize(any(), any(), any()) } answers { secondArg<List<SearchResult>>() }
+
         coEvery { provider.getContext(any(), any(), any()) } returns listOf(snippet)
 
         val task = task()
@@ -90,7 +89,7 @@ class ContextRetrievalModuleTest {
         every { ContextProviderRegistry.getAllProviders() } returns listOf(primary)
         every { ContextProviderRegistry.getProvider("semantic") } returns fallback
         every { budgetManager.calculateBudget(any(), any()) } returns TokenBudget(400, reserveForPrompt = 100, diversityWeight = 0.5)
-        every { queryOptimizer.optimize(any(), any(), any()) } answers { secondArg<List<SearchResult>>() }
+
         coEvery { primary.getContext(any(), any(), any()) } returns emptyList()
         coEvery { fallback.getContext(any(), any(), any()) } returns listOf(snippet)
 

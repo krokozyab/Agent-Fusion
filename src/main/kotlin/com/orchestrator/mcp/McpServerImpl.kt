@@ -1361,6 +1361,12 @@ class McpServerImpl(
                         put("nextChunkId", JsonPrimitive(hit.nextChunkId))
                     }
                     put("childrenChunkIds", buildJsonArray { hit.childrenChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("callsChunkIds", buildJsonArray { hit.callsChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("dependsOnChunkIds", buildJsonArray { hit.dependsOnChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("modifiesChunkIds", buildJsonArray { hit.modifiesChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("modifiedByCommitChunkIds", buildJsonArray {
+                        hit.modifiedByCommitChunkIds.forEach { add(JsonPrimitive(it)) }
+                    })
                     if (hit.depth == null) {
                         put("depth", JsonNull)
                     } else {
@@ -2420,11 +2426,13 @@ class McpServerImpl(
 
                 ## 🔀 Traversal via chunkIds (no search needed)
                 - `chunkIds`: fetch chunks directly (query can be empty when using chunkIds)
-                - Response navigation fields: `parentChunkId`, `childrenChunkIds`, `siblingChunkIds`, `prevChunkId`, `nextChunkId`, `depth`, `chunkPath`
+                - Response navigation fields: `parentChunkId`, `childrenChunkIds`, `siblingChunkIds`, `prevChunkId`, `nextChunkId`, `callsChunkIds`, `dependsOnChunkIds`, `modifiesChunkIds`, `modifiedByCommitChunkIds`, `depth`, `chunkPath`
                 - Patterns:
                   - Fetch method → follow `parentChunkId` to its class
                   - List class members → use `childrenChunkIds`
                   - Walk file sequentially → use `prevChunkId` / `nextChunkId`
+                  - Follow cross-file usage → use `callsChunkIds` / `dependsOnChunkIds`
+                  - Explain "why changed" → start from `modifiedByCommitChunkIds`
                   - Context depth → use `depth` (slash count of `chunk_path`)
 
                 ## 💬 User Phrases That Trigger This Tool
@@ -3202,7 +3210,9 @@ class McpServerImpl(
         val o = el.asObj()
         val query = o.str("query") ?: o.str("searchText") ?: ""
         val chunkIds = o.listLongFlexible("chunkIds")
+        val filePath = o.str("filePath") ?: o.str("file_path") ?: o.str("file")
         val k = o.intFlexible("k") ?: o.intFlexible("maxUsageCount")
+        val offset = o.intFlexible("offset")
         val maxTokens = o.intFlexible("maxTokens")
         val paths = o.listStrFlexible("paths")
             ?: o.str("projectPath")?.takeIf { it.isNotBlank() }?.let { listOf(it) }
@@ -3214,7 +3224,9 @@ class McpServerImpl(
         return QueryContextTool.Params(
             query = query,
             chunkIds = chunkIds,
+            filePath = filePath,
             k = k,
+            offset = offset,
             maxTokens = maxTokens,
             paths = paths,
             languages = languages,

@@ -507,9 +507,11 @@ class HybridContextProviderTest {
         // Check combined multiplier: 0.5 * 0.6 * 0.7 = 0.21
         assertEquals("0.210", snippet.metadata["combined_multiplier"])
 
-        // Original score was 0.9, after penalty: 0.9 * 0.21 = 0.189
-        assertTrue(snippet.score < 0.2)
-        assertEquals("0.9000", snippet.metadata["original_score"])
+        // RRF score ~0.0164, after penalty * 0.21 → very small
+        val expectedRrf = 1.0 / 61.0
+        assertTrue(snippet.score < expectedRrf, "Penalized score should be less than raw RRF score")
+        // original_score now reflects the pre-penalty RRF score, not the provider score
+        assertEquals("%.4f".format(java.util.Locale.US, expectedRrf), snippet.metadata["original_score"])
     }
 
     @Test
@@ -534,11 +536,12 @@ class HybridContextProviderTest {
 
         assertEquals(1, result.size)
 
-        // Original score should be preserved in metadata
-        assertEquals("0.8500", result[0].metadata["original_score"])
+        // original_score now reflects the pre-penalty RRF score
+        val expectedRrf = 1.0 / 61.0
+        assertEquals("%.4f".format(java.util.Locale.US, expectedRrf), result[0].metadata["original_score"])
 
-        // Adjusted score should be different
-        assertTrue(result[0].score < 0.85)
+        // Adjusted score should be less than RRF score (penalty applied)
+        assertTrue(result[0].score < expectedRrf)
     }
 
     @Test
@@ -571,8 +574,9 @@ class HybridContextProviderTest {
         assertEquals("1.000", result[0].metadata["kind_boost"])
         assertEquals("1.000", result[0].metadata["combined_multiplier"])
 
-        // Score should remain unchanged
-        assertEquals(0.9, result[0].score, 0.001)
+        // Score is RRF-based: 1/(60+1) ≈ 0.0164; with no penalties it stays the same
+        val expectedRrf = 1.0 / 61.0
+        assertEquals(expectedRrf, result[0].score, 0.001)
     }
 
     @Test

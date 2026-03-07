@@ -211,6 +211,11 @@ object ContextConfigLoader {
                     preserveKdoc = it.getBoolean("preserve_kdoc") ?: defaults.kotlin.preserveKdoc
                 )
             } ?: defaults.kotlin,
+            go = table.getTable("go")?.let {
+                ChunkingConfig.GoChunkingConfig(
+                    maxTokens = it.getLong("max_tokens")?.toInt() ?: defaults.go.maxTokens
+                )
+            } ?: defaults.go,
             typescript = table.getTable("typescript")?.let {
                 ChunkingConfig.TypeScriptChunkingConfig(
                     maxTokens = it.getLong("max_tokens")?.toInt() ?: defaults.typescript.maxTokens,
@@ -224,11 +229,76 @@ object ContextConfigLoader {
     private fun parseQuery(table: Toml?): QueryConfig {
         val defaults = QueryConfig()
         if (table == null) return defaults
+
+        val synonymOverrides = table.getTable("synonyms")?.let { synonymsTable ->
+            val parsed = mutableMapOf<String, List<String>>()
+            for (key in synonymsTable.toMap().keys) {
+                val values = synonymsTable.getList<Any>(key)
+                    ?.map { it.toString().trim().lowercase() }
+                    ?.filter { it.isNotBlank() }
+                    ?: emptyList()
+                if (values.isNotEmpty()) {
+                    parsed[key.trim().lowercase()] = values.distinct()
+                }
+            }
+            parsed
+        }
+
         return QueryConfig(
             defaultK = table.getLong("default_k")?.toInt() ?: defaults.defaultK,
             mmrLambda = table.getDouble("mmr_lambda") ?: defaults.mmrLambda,
             minScoreThreshold = table.getDouble("min_score_threshold") ?: defaults.minScoreThreshold,
-            rerankEnabled = table.getBoolean("rerank_enabled") ?: defaults.rerankEnabled
+            rerankEnabled = table.getBoolean("rerank_enabled") ?: defaults.rerankEnabled,
+            useOptimizerInTool = table.getBoolean("use_optimizer_in_tool") ?: defaults.useOptimizerInTool,
+            neighborWindow = table.getLong("neighbor_window")?.toInt() ?: defaults.neighborWindow,
+            embeddingCacheSize = table.getLong("embedding_cache_size")?.toInt() ?: defaults.embeddingCacheSize,
+            idfEnabled = table.getBoolean("idf_enabled") ?: defaults.idfEnabled,
+            secondStageRerankEnabled = table.getBoolean("second_stage_rerank_enabled")
+                ?: defaults.secondStageRerankEnabled,
+            secondStageTopN = table.getLong("second_stage_top_n")?.toInt() ?: defaults.secondStageTopN,
+            secondStageBlendWeight = table.getDouble("second_stage_blend_weight") ?: defaults.secondStageBlendWeight,
+            queryExpansionEnabled = table.getBoolean("query_expansion_enabled") ?: defaults.queryExpansionEnabled,
+            hydeEnabled = table.getBoolean("hyde_enabled") ?: defaults.hydeEnabled,
+            maxExpansionTerms = table.getLong("max_expansion_terms")?.toInt() ?: defaults.maxExpansionTerms,
+            synonyms = synonymOverrides ?: defaults.synonyms,
+            boosts = parseBoosts(table.getTable("boosts")),
+            graph = parseGraph(table.getTable("graph"))
+        )
+    }
+
+    private fun parseBoosts(table: Toml?): BoostConfig {
+        val defaults = BoostConfig()
+        if (table == null) return defaults
+
+        val fileTypePenalties = table.getTable("file_type_penalties")?.let { t ->
+            t.toMap().mapValues { (_, v) -> (v as? Number)?.toDouble() ?: 1.0 }
+        } ?: defaults.fileTypePenalties
+
+        val filePatternPenalties = table.getTable("file_pattern_penalties")?.let { t ->
+            t.toMap().mapValues { (_, v) -> (v as? Number)?.toDouble() ?: 1.0 }
+        } ?: defaults.filePatternPenalties
+
+        val chunkKindBoosts = table.getTable("chunk_kind_boosts")?.let { t ->
+            t.toMap().mapValues { (_, v) -> (v as? Number)?.toDouble() ?: 1.0 }
+        } ?: defaults.chunkKindBoosts
+
+        return BoostConfig(
+            fileTypePenalties = fileTypePenalties,
+            filePatternPenalties = filePatternPenalties,
+            chunkKindBoosts = chunkKindBoosts
+        )
+    }
+
+    private fun parseGraph(table: Toml?): GraphConfig {
+        val defaults = GraphConfig()
+        if (table == null) return defaults
+        return GraphConfig(
+            enabled = table.getBoolean("enabled") ?: defaults.enabled,
+            maxDepth = table.getLong("max_depth")?.toInt() ?: defaults.maxDepth,
+            decayFactor = table.getDouble("decay_factor") ?: defaults.decayFactor,
+            maxGraphResults = table.getLong("max_graph_results")?.toInt() ?: defaults.maxGraphResults,
+            defaultLinkScore = table.getDouble("default_link_score") ?: defaults.defaultLinkScore,
+            minPropagatedScore = table.getDouble("min_propagated_score") ?: defaults.minPropagatedScore
         )
     }
 
@@ -387,6 +457,15 @@ object ContextConfigLoader {
         }
         if (config.query.minScoreThreshold !in 0.0..1.0) {
             errors += "query.min_score_threshold must be in [0.0, 1.0]"
+        }
+        if (config.query.secondStageTopN <= 0) {
+            errors += "query.second_stage_top_n must be greater than 0"
+        }
+        if (config.query.secondStageBlendWeight !in 0.0..1.0) {
+            errors += "query.second_stage_blend_weight must be in [0.0, 1.0]"
+        }
+        if (config.query.maxExpansionTerms < 0) {
+            errors += "query.max_expansion_terms cannot be negative"
         }
         if (config.budget.defaultMaxTokens <= 0) {
             errors += "budget.default_max_tokens must be greater than 0"

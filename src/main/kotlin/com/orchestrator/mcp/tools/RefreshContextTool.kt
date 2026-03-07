@@ -373,6 +373,11 @@ class RefreshContextTool(
                     job.result = updateResult
                     job.status = JobStatus.COMPLETED
 
+                    // Rebuild FTS index if any data changed
+                    if (updateResult.newCount + updateResult.modifiedCount + updateResult.deletedCount > 0) {
+                        com.orchestrator.context.storage.ContextDatabase.refreshFtsIndex()
+                    }
+
                     log.info(
                         "Async refresh completed (job={}): new={} modified={} deleted={}",
                         jobId,

@@ -82,7 +82,8 @@ class QueryOptimizer(
             hash = 31 * hash + result.chunk.id.hashCode()
             hash = 31 * hash + result.embeddingId.hashCode()
             hash = 31 * hash + result.path.hashCode()
-            hash = 31 * hash + result.score.toBits()
+            // Intentionally omit score.toBits(): Float scores can fluctuate
+            // slightly between identical queries, causing cache misses.
         }
         return hash
     }

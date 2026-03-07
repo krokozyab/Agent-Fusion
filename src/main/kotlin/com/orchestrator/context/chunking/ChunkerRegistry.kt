@@ -28,6 +28,9 @@ class ConfigurableChunkerRegistry(
     private fun buildRegistry(): Map<String, Chunker> = mapOf(
         "md" to MarkdownChunker(maxTokens = config.markdown.maxTokens, overlapPercent = overlapPercent),
         "py" to PythonChunker(maxTokens = config.python.maxTokens, overlapPercent = overlapPercent),
+        "go" to CachingSimpleChunkerAdapter {
+            GoChunker(maxTokens = config.go.maxTokens, overlapPercent = overlapPercent)
+        },
         "ts" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
         "tsx" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
         "js" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),

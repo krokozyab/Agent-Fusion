@@ -3,12 +3,11 @@ package com.orchestrator.modules.context
 import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.context.domain.ContextScope
 import com.orchestrator.context.domain.ContextSnippet
-import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.providers.ContextProvider
 import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.providers.ContextProviderType
-import com.orchestrator.context.search.SearchResult
+import com.orchestrator.context.search.LinkExpander
 import com.orchestrator.domain.AgentId
 import com.orchestrator.domain.Task
 import com.orchestrator.utils.Logger
@@ -26,6 +25,7 @@ class ContextRetrievalModule(
     private val budgetManager: BudgetManager,
     private val queryOptimizer: QueryOptimizer,
     private val metricsRecorder: ContextMetricsRecorder,
+    private val linkExpander: LinkExpander = LinkExpander(config.query.graph),
     private val logger: Logger = Logger.logger<ContextRetrievalModule>()
 ) {
 
@@ -157,7 +157,14 @@ class ContextRetrievalModule(
             warnings += "No providers returned context"
         }
 
-        val finalSnippets = deduplicateAndLimit(aggregated, budget)
+        val expanded = try {
+            linkExpander.expand(aggregated)
+        } catch (t: Throwable) {
+            logger.warn("Graph link expansion failed: {}", t.message)
+            aggregated
+        }
+
+        val finalSnippets = deduplicateAndLimit(expanded, budget)
         val tokensUsed = finalSnippets.sumOf { estimateTokens(it) }
         val duration = Duration.between(overallStart, Instant.now())
 
@@ -185,21 +192,13 @@ class ContextRetrievalModule(
     ): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
 
-        val results = snippets.mapIndexed { index, snippet ->
-            SearchResult(
-                chunk = snippet.asChunk(index),
-                score = snippet.score.toFloat(),
-                embeddingId = snippet.chunkId,
-                path = snippet.filePath,
-                language = snippet.language,
-                vector = floatArrayOf(snippet.score.toFloat())
-            )
-        }
-        val optimised = queryOptimizer.optimize(query, results, budget)
-        val byChunkId = snippets.associateBy { it.chunkId }
-        return optimised.mapNotNull { result ->
-            byChunkId[result.chunk.id] ?: byChunkId[result.embeddingId]
-        }
+        // All providers now go through the same score-threshold + sort + truncate path.
+        // MMR with fake vectors was causing score distortion; real embedding-based MMR
+        // is only applied in the QueryContextTool path where stored vectors are available.
+        return snippets
+            .filter { it.score >= config.query.minScoreThreshold }
+            .sortedByDescending { it.score }
+            .take(config.query.defaultK.coerceAtLeast(1))
     }
 
     private fun annotateSnippet(snippet: ContextSnippet, providerId: String): ContextSnippet {
@@ -224,42 +223,69 @@ class ContextRetrievalModule(
     ): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
 
-        val sorted = snippets.sortedWith(
-            compareByDescending<ContextSnippet> { it.score }
-                .thenBy { it.filePath }
-                .thenBy { it.chunkId }
+        // Weighted fusion-aware aggregation (same as QueryContextTool).
+        // Each provider's score is multiplied by its configured weight.
+        data class WeightedScore(val score: Double, val weight: Double)
+        data class Acc(
+            var bestSnippet: ContextSnippet,
+            val sources: MutableSet<String>,
+            val weightedScores: MutableList<WeightedScore>
         )
 
-        val unique = linkedMapOf<Pair<Long, String>, ContextSnippet>()
-        var tokensUsed = 0
-        val tokenBudget = budget.availableForSnippets.coerceAtLeast(0)
-
-        for (snippet in sorted) {
+        val grouped = linkedMapOf<Pair<Long, String>, Acc>()
+        for (snippet in snippets) {
             val key = snippet.chunkId to snippet.filePath
-            val tokens = estimateTokens(snippet)
+            val providerSources = snippet.metadata["sources"]
+                ?.split(',')?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet()
+                ?: emptySet()
+            val providerId = snippet.metadata["provider"] ?: providerSources.firstOrNull() ?: ""
+            val weight = config.providers[providerId]?.weight ?: 1.0
 
-            val existing = unique[key]
+            val existing = grouped[key]
             if (existing != null) {
-                val mergedSources = mergeSources(existing.metadata["sources"], snippet.metadata["sources"])
-                val updated = existing.copy(
-                    metadata = existing.metadata + mapOf(
-                        "sources" to mergedSources,
-                        "source_count" to mergedSources.split(',').distinct().size.toString()
-                    )
+                existing.sources.addAll(providerSources)
+                existing.weightedScores += WeightedScore(snippet.score, weight)
+                if (snippet.score > existing.bestSnippet.score) {
+                    existing.bestSnippet = snippet
+                }
+            } else {
+                grouped[key] = Acc(
+                    bestSnippet = snippet,
+                    sources = providerSources.toMutableSet(),
+                    weightedScores = mutableListOf(WeightedScore(snippet.score, weight))
                 )
-                unique[key] = updated
-                continue
             }
-
-            if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) {
-                continue
-            }
-
-            tokensUsed += tokens
-            unique[key] = snippet
         }
 
-        return unique.values.toList()
+        val fused = grouped.values.map { acc ->
+            val mergedSources = acc.sources.joinToString(",")
+            val providerCount = acc.sources.size
+            val totalWeight = acc.weightedScores.sumOf { it.weight }
+            val weightedMean = if (totalWeight > 0) acc.weightedScores.sumOf { it.score * it.weight } / totalWeight else 0.0
+            val agreementMultiplier = 1.0 + (providerCount - 1) * 0.15
+            val fusedScore = (weightedMean * agreementMultiplier).coerceAtMost(1.0)
+            acc.bestSnippet.copy(
+                score = fusedScore,
+                metadata = acc.bestSnippet.metadata + mapOf(
+                    "sources" to mergedSources,
+                    "source_count" to providerCount.toString()
+                )
+            )
+        }.sortedByDescending { it.score }
+
+        // Apply token budget
+        val tokenBudget = budget.availableForSnippets.coerceAtLeast(0)
+        val result = mutableListOf<ContextSnippet>()
+        var tokensUsed = 0
+
+        for (snippet in fused) {
+            val tokens = estimateTokens(snippet)
+            if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) continue
+            tokensUsed += tokens
+            result += snippet
+        }
+
+        return result
     }
 
     private fun providerKey(provider: ContextProvider): String {
@@ -280,19 +306,4 @@ class ContextRetrievalModule(
 
     private fun estimateTokens(snippet: ContextSnippet): Int =
         max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
-
-    private fun ContextSnippet.asChunk(ordinal: Int): Chunk = Chunk(
-        id = chunkId,
-        fileId = chunkId,
-        ordinal = ordinal,
-        kind = kind,
-        startLine = offsets?.first ?: 1,
-        endLine = offsets?.last ?: (offsets?.first ?: 1),
-        tokenEstimate = estimateTokens(this),
-        content = text,
-        summary = label,
-        createdAt = Instant.EPOCH,
-        chunkPath = chunkPath ?: metadata["chunk_path"],
-        parentChunkId = parentChunkId ?: metadata["parent_chunk_id"]?.toLongOrNull()
-    )
 }

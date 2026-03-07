@@ -73,7 +73,7 @@ class HybridContextProvider(
             val providerSnippets = results.firstOrNull { it.first == provider }?.second ?: emptyList()
             providerSnippets.forEachIndexed { index, snippet ->
                 val entry = aggregated.getOrPut(snippet.chunkId) {
-                    MutableEntry(snippet, mutableListOf(), snippet.score)
+                    MutableEntry(snippet, mutableListOf(), 0.0)
                 }
                 entry.providers += provider.type
                 val rank = index + 1
@@ -83,24 +83,20 @@ class HybridContextProvider(
         }
 
         val ordered = aggregated.values
-            .sortedByDescending { it.rrfScore }
             .map { entry ->
-                // Apply penalties to the original snippet score (not RRF score)
-                val penalizedSnippet = applyPenalties(entry.snippet)
+                // Use the fused RRF score as the base, then apply penalties on top.
+                val baseSnippet = entry.snippet.copy(score = entry.rrfScore.coerceIn(0.0, 1.0))
+                val penalizedSnippet = applyPenalties(baseSnippet)
 
                 val providerCount = entry.providers.distinct().size
-                // Merge RRF metadata with penalty metadata
                 val metadata = penalizedSnippet.metadata + mapOf(
                     "sources" to mergeSources(penalizedSnippet.metadata["sources"], entry.providers.map { it.name.lowercase() }),
                     "rrf_score" to "%.4f".format(Locale.US, entry.rrfScore),
                     "rrf_provider_count" to providerCount.toString(),
                     "rrf_agreement" to "%.2f".format(Locale.US, providerCount.toDouble() / effectiveProviders.size.toDouble())
                 )
-                // Use the penalized score, not the RRF score
-                // RRF is only for ranking, not for the final score
                 penalizedSnippet.copy(metadata = metadata)
             }
-            // Re-sort by penalized scores to ensure penalties affect ranking
             .sortedByDescending { it.score }
 
         enforceBudget(ordered, budget)

@@ -149,11 +149,12 @@ This section configures the text chunking strategies for different languages.
 | `kotlin.split_by_class` | Whether to split kotlin by classes. | Yes (hardcoded) |
 | `kotlin.split_by_function` | Whether to split kotlin by functions. | Yes (hardcoded) |
 | `kotlin.preserve_kdoc` | Whether to preserve KDoc comments in kotlin. | Yes (hardcoded) |
+| `go.max_tokens` | Maximum number of tokens for a Go chunk. | Yes |
 | `typescript.max_tokens` | Maximum number of tokens for a typescript chunk. | Yes |
 | `typescript.split_by_export` | Whether to split typescript by exports. | Yes (hardcoded) |
 | `typescript.preserve_jsdoc` | Whether to preserve JSDoc comments in typescript. | Yes (hardcoded) |
 
-**Analysis:** The `max_tokens` and `overlap_percent` options are used in the respective chunker implementations. The `split_by_*` and `preserve_*` options are effectively hardcoded to `true` in the current implementation.
+**Analysis:** The `max_tokens` and `overlap_percent` options are used in the respective chunker implementations (including Go). The `split_by_*` and `preserve_*` options are effectively hardcoded to `true` in the current implementation.
 
 ### `[context.query]`
 

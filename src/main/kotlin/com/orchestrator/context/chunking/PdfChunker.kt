@@ -83,31 +83,29 @@ class PdfChunker(
         )
         ordinal += 1
 
-        for (paragraphInfo in paragraphs) {
-            val tokens = estimateTokens(paragraphInfo.text)
-
-            if (tokens <= maxTokens) {
-                chunks.add(createChunk(
-                    paragraphInfo.text,
-                    ordinal++,
-                    paragraphInfo.startLine,
-                    paragraphInfo.endLine,
-                    createdAt,
-                    rootPath
-                ))
-            } else {
-                // Split large paragraphs by sentences, lines and words while respecting the token budget
-                val subChunks = splitLargeParagraph(
-                    paragraphInfo.text,
-                    ordinal,
-                    paragraphInfo.startLine,
-                    paragraphInfo.endLine,
-                    createdAt,
-                    rootPath
+        val proseChunks = SemanticProseChunker.split(
+            blocks = paragraphs.map { paragraph ->
+                SemanticProseChunker.ProseBlock(
+                    text = paragraph.text,
+                    startLine = paragraph.startLine,
+                    endLine = paragraph.endLine
                 )
-                chunks.addAll(subChunks)
-                ordinal = chunks.size
-            }
+            },
+            maxTokens = maxTokens,
+            estimateTokens = ::estimateTokens,
+            semanticShiftThreshold = SEMANTIC_SHIFT_THRESHOLD,
+            minTokensBeforeSemanticSplit = MIN_TOKENS_BEFORE_SEMANTIC_SPLIT
+        )
+
+        for (proseChunk in proseChunks) {
+            chunks += createChunk(
+                text = proseChunk.text,
+                ordinal = ordinal++,
+                startLine = proseChunk.startLine,
+                endLine = proseChunk.endLine,
+                timestamp = createdAt,
+                parentPath = rootPath
+            )
         }
 
         return OverlapProcessor.addOverlap(
@@ -118,142 +116,6 @@ class PdfChunker(
     }
 
     override fun estimateTokens(text: String): Int = text.length / 4
-
-    private fun splitLargeParagraph(
-        text: String,
-        startOrdinal: Int,
-        startLine: Int,
-        endLine: Int,
-        timestamp: Instant,
-        parentPath: String
-    ): List<Chunk> {
-        val chunks = mutableListOf<Chunk>()
-        var ordinal = startOrdinal
-        val maxLength = (maxTokens * 4).coerceAtLeast(1)
-
-        val totalLines = text.lines().size
-        val lineRatio = (endLine - startLine + 1).toDouble() / totalLines.coerceAtLeast(1)
-
-        fun addChunk(content: String, approximateLineOffset: Int) {
-            val cleaned = content.trim()
-            if (cleaned.isNotEmpty()) {
-                val chunkLines = cleaned.lines().size
-                val chunkStartLine = (startLine + approximateLineOffset * lineRatio).toInt().coerceAtLeast(1)
-                val chunkEndLine = (chunkStartLine + chunkLines - 1).coerceAtLeast(chunkStartLine)
-                chunks += createChunk(cleaned, ordinal++, chunkStartLine, chunkEndLine, timestamp, parentPath)
-            }
-        }
-
-        val sentences = text.split(Regex("(?<=[.!?])\\s+"))
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-
-        if (sentences.isEmpty()) {
-            splitByWords(text, ordinal, startLine, endLine, timestamp, maxLength, chunks, parentPath)
-            return chunks
-        }
-
-        val buffer = StringBuilder()
-        var lineOffset = 0
-        for (sentence in sentences) {
-            val candidateLength = if (buffer.isEmpty()) {
-                sentence.length
-            } else {
-                buffer.length + 1 + sentence.length
-            }
-
-            if (candidateLength <= maxLength) {
-                if (buffer.isNotEmpty()) buffer.append(' ')
-                buffer.append(sentence)
-            } else {
-                if (buffer.isNotEmpty()) {
-                    addChunk(buffer.toString(), lineOffset)
-                    lineOffset += buffer.toString().lines().size
-                    buffer.setLength(0)
-                }
-
-                if (sentence.length <= maxLength) {
-                    buffer.append(sentence)
-                } else {
-                    ordinal = splitByWords(sentence, ordinal, startLine + lineOffset, endLine, timestamp, maxLength, chunks, parentPath)
-                    lineOffset += sentence.lines().size
-                }
-            }
-        }
-
-        if (buffer.isNotEmpty()) {
-            addChunk(buffer.toString(), lineOffset)
-        }
-
-        if (chunks.isEmpty()) {
-            splitByWords(text, startOrdinal, startLine, endLine, timestamp, maxLength, chunks, parentPath)
-        }
-
-        return chunks
-    }
-
-    private fun splitByWords(
-        text: String,
-        startOrdinal: Int,
-        startLine: Int,
-        endLine: Int,
-        timestamp: Instant,
-        maxLength: Int,
-        target: MutableList<Chunk>,
-        parentPath: String
-    ): Int {
-        var ordinal = startOrdinal
-        val words = text.split(Regex("\\s+"))
-            .filter { it.isNotEmpty() }
-
-        if (words.isEmpty()) {
-            return ordinal
-        }
-
-        val buffer = StringBuilder()
-        var currentLine = startLine
-
-        fun flush() {
-            if (buffer.isNotEmpty()) {
-                val content = buffer.toString().trim()
-                val lines = content.lines().size
-                val chunkEndLine = (currentLine + lines - 1).coerceAtLeast(currentLine).coerceAtMost(endLine)
-                target += createChunk(content, ordinal++, currentLine, chunkEndLine, timestamp, parentPath)
-                currentLine = chunkEndLine + 1
-                buffer.setLength(0)
-            }
-        }
-
-        for (word in words) {
-            val candidateLength = if (buffer.isEmpty()) {
-                word.length
-            } else {
-                buffer.length + 1 + word.length
-            }
-
-            if (candidateLength <= maxLength) {
-                if (buffer.isNotEmpty()) buffer.append(' ')
-                buffer.append(word)
-            } else {
-                flush()
-                if (word.length <= maxLength) {
-                    buffer.append(word)
-                } else {
-                    var index = 0
-                    while (index < word.length) {
-                        val end = (index + maxLength).coerceAtMost(word.length)
-                        val part = word.substring(index, end)
-                        target += createChunk(part, ordinal++, currentLine, currentLine, timestamp, parentPath)
-                        currentLine++
-                        index = end
-                    }
-                }
-            }
-        }
-
-        flush()
-        return ordinal
-    }
 
     private fun createChunk(
         text: String,
@@ -279,5 +141,10 @@ class PdfChunker(
             createdAt = timestamp,
             chunkPath = path
         )
+    }
+
+    companion object {
+        private const val SEMANTIC_SHIFT_THRESHOLD = 0.72
+        private const val MIN_TOKENS_BEFORE_SEMANTIC_SPLIT = 80
     }
 }

@@ -76,11 +76,13 @@ class MarkdownChunker(
         val prepared = chunkInputs
             .flatMap { it.ensureWithinLimit(maxTokens, estimator) }
             .mapNotNull { input ->
-                val text = input.lines.joinToString("\n") { it.text }
+                val text = input.textOverride ?: input.lines.joinToString("\n") { it.text }
                 if (text.isBlank()) {
                     null
                 } else {
-                    Triple(input, text, Pair(input.lines.firstOrNull()?.number, input.lines.lastOrNull()?.number))
+                    val start = input.startLineOverride ?: input.lines.firstOrNull()?.number
+                    val end = input.endLineOverride ?: input.lines.lastOrNull()?.number
+                    Triple(input, text, Pair(start, end))
                 }
             }
 
@@ -160,12 +162,49 @@ class MarkdownChunker(
     private data class ChunkInput(
         val kind: ChunkKind,
         val lines: List<Line>,
-        val label: String?
+        val label: String?,
+        val textOverride: String? = null,
+        val startLineOverride: Int? = null,
+        val endLineOverride: Int? = null
     ) {
         fun ensureWithinLimit(maxTokens: Int, estimator: TokenEstimator): List<ChunkInput> {
+            if (textOverride != null) return listOf(this)
             if (lines.isEmpty()) return emptyList()
-            val tokens = estimator.estimate(lines.joinToString("\n") { it.text })
-            if (tokens <= maxTokens || lines.size == 1) return listOf(this)
+            val content = lines.joinToString("\n") { it.text }
+            val tokens = estimator.estimate(content)
+            if (tokens <= maxTokens) return listOf(this)
+            if (lines.size == 1 && kind != ChunkKind.MARKDOWN_SECTION) return listOf(this)
+
+            if (kind == ChunkKind.MARKDOWN_SECTION) {
+                val startLine = lines.first().number
+                val endLine = lines.last().number
+                val semanticChunks = SemanticProseChunker.split(
+                    blocks = listOf(
+                        SemanticProseChunker.ProseBlock(
+                            text = content,
+                            startLine = startLine,
+                            endLine = endLine
+                        )
+                    ),
+                    maxTokens = maxTokens,
+                    estimateTokens = estimator::estimate,
+                    semanticShiftThreshold = SEMANTIC_SHIFT_THRESHOLD,
+                    minTokensBeforeSemanticSplit = MIN_TOKENS_BEFORE_SEMANTIC_SPLIT
+                )
+
+                if (semanticChunks.isNotEmpty()) {
+                    return semanticChunks.map { prose ->
+                        ChunkInput(
+                            kind = kind,
+                            lines = emptyList(),
+                            label = label,
+                            textOverride = prose.text,
+                            startLineOverride = prose.startLine,
+                            endLineOverride = prose.endLine
+                        )
+                    }
+                }
+            }
 
             val outputs = mutableListOf<ChunkInput>()
             var buffer = mutableListOf<Line>()
@@ -249,5 +288,7 @@ class MarkdownChunker(
 
     companion object {
         private const val DEFAULT_MAX_TOKENS = 400
+        private const val SEMANTIC_SHIFT_THRESHOLD = 0.72
+        private const val MIN_TOKENS_BEFORE_SEMANTIC_SPLIT = 80
     }
 }

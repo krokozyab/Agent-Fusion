@@ -845,6 +845,8 @@ class RebuildContextTool(
             }
         }
         log.info("Database optimization completed")
+        // Rebuild the FTS index so BM25 search reflects the new data
+        ContextDatabase.refreshFtsIndex()
     }
 
     private fun buildSuccessMessage(result: com.orchestrator.context.bootstrap.BootstrapResult): String {

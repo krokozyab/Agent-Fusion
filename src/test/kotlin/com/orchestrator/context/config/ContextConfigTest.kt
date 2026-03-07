@@ -32,6 +32,7 @@ class ContextConfigTest {
         assertEquals(2, config.indexing.warnFileSizeMb)
         assertEquals(BinaryDetectionMode.ALL, config.indexing.binaryDetection)
         assertTrue(config.indexing.allowedExtensions.contains(".kt"))
+        assertTrue(config.indexing.allowedExtensions.contains(".go"))
         assertTrue(config.indexing.blockedExtensions.isEmpty())
 
         assertEquals("sentence-transformers/all-MiniLM-L6-v2", config.embedding.model)
@@ -42,6 +43,7 @@ class ContextConfigTest {
         assertEquals(400, config.chunking.markdown.maxTokens)
         assertTrue(config.chunking.python.splitByFunction)
         assertTrue(config.chunking.kotlin.preserveKdoc)
+        assertEquals(600, config.chunking.go.maxTokens)
         assertTrue(config.chunking.typescript.preserveJsdoc)
 
         assertEquals(12, config.query.defaultK)

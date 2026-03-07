@@ -5,13 +5,14 @@ import com.orchestrator.context.domain.ChunkKind
 import java.time.Instant
 
 /**
- * Heuristic Python chunker splitting files by module docstring, classes, and functions.
+ * Python chunker backed by structural parsing of class/function definitions plus docstrings.
  */
 class PythonChunker(
     private val maxTokens: Int = DEFAULT_MAX_TOKENS,
     private val overlapRatio: Double = DEFAULT_OVERLAP_RATIO,
     private val overlapPercent: Int = 15,
-    private val estimator: TokenEstimator = TokenEstimator
+    private val estimator: TokenEstimator = TokenEstimator,
+    private val parser: PythonAstParser = PythonAstParser()
 ) : Chunker {
 
     override val strategy: ChunkingStrategy = ChunkingStrategy(
@@ -19,72 +20,69 @@ class PythonChunker(
         displayName = "Python Structure",
         supportedLanguages = setOf("python", "py"),
         defaultMaxTokens = maxTokens,
-        description = "Splits Python modules by docstrings, classes, and functions with overlap."
+        description = "Splits Python modules by AST definitions and docstrings with overlap."
     )
 
     override fun chunk(content: String, filePath: String, language: String): List<Chunk> {
         if (content.isBlank()) return emptyList()
-        val rawLines = content.lines()
-        val lines = rawLines.mapIndexed { index, text -> Line(index + 1, text) }
+
+        val ast = parser.parse(content)
+        val lines = ast.lines.mapIndexed { index, text -> Line(index + 1, text) }
         val outputs = mutableListOf<ChunkInput>()
 
-        var cursor = 0
-        val moduleDoc = extractDocstring(lines, 0)
-        if (moduleDoc != null) {
-            outputs += ChunkInput(ChunkKind.DOCSTRING, moduleDoc.lines, "Module docstring")
-            cursor = moduleDoc.endIndex + 1
+        ast.moduleDocstring?.let { doc ->
+            outputs += ChunkInput(
+                kind = ChunkKind.DOCSTRING,
+                lines = linesInRange(lines, doc.startLine, doc.endLine),
+                label = "Module docstring"
+            )
         }
 
-        while (cursor < lines.size) {
-            val line = lines[cursor]
-            val trimmed = line.text.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                cursor++
-                continue
+        for (definition in ast.definitions) {
+            definition.docstring?.let { doc ->
+                outputs += ChunkInput(
+                    kind = ChunkKind.DOCSTRING,
+                    lines = linesInRange(lines, doc.startLine, doc.endLine),
+                    label = docLabel(definition.type, definition.name)
+                )
             }
 
-            val functionMatch = functionRegex.find(trimmed) ?: asyncFunctionRegex.find(trimmed)
-            val classMatch = classRegex.find(trimmed)
-            val definition = when {
-                functionMatch != null -> DefinitionType.FUNCTION to functionMatch.groupValues[1]
-                classMatch != null -> DefinitionType.CLASS to classMatch.groupValues[1]
-                else -> null
-            }
-
-            if (definition == null) {
-                cursor++
-                continue
-            }
-
-            val (type, name) = definition
-            val startIndex = findDefinitionStart(lines, cursor)
-            val indent = leadingSpaces(lines[startIndex].text)
-            val endIndex = findBlockEnd(lines, cursor + 1, indent)
-            val blockLines = lines.subList(startIndex, endIndex + 1)
-
-            val docstring = extractInnerDocstring(lines, cursor + 1, endIndex)
-            docstring?.let {
-                outputs += ChunkInput(ChunkKind.DOCSTRING, it.lines, docLabel(type, name))
-            }
-
+            val blockLines = linesInRange(lines, definition.startLine, definition.endLine)
+            if (blockLines.isEmpty()) continue
             val slices = splitWithOverlap(blockLines, maxTokens)
-            slices.forEachIndexed { part, slice ->
-                val label = codeLabel(type, name, part, slices.size)
-                outputs += ChunkInput(kindFor(type), slice, label)
-            }
-
-            cursor = when (type) {
-                DefinitionType.CLASS -> cursor + 1
-                DefinitionType.FUNCTION -> endIndex + 1
+            slices.forEachIndexed { index, slice ->
+                outputs += ChunkInput(
+                    kind = kindFor(definition.type),
+                    lines = slice,
+                    label = codeLabel(definition.type, definition.name, index, slices.size)
+                )
             }
         }
 
         val timestamp = Instant.now()
         val rootPath = ChunkPaths.path(ChunkKind.CODE_BLOCK, listOf(filePath))
-
         val baseChunks = mutableListOf<Chunk>()
 
-        // Root/module chunk
+        if (outputs.isEmpty()) {
+            // No definitions/docstrings found — store the full file as a single chunk.
+            return listOf(
+                Chunk(
+                    id = 0,
+                    fileId = 0,
+                    ordinal = 0,
+                    kind = ChunkKind.CODE_BLOCK,
+                    startLine = 1,
+                    endLine = lines.lastOrNull()?.number,
+                    tokenEstimate = estimator.estimate(content),
+                    content = content,
+                    summary = "Module root",
+                    createdAt = timestamp,
+                    chunkPath = rootPath
+                )
+            )
+        }
+
+        val rootLabel = "Module $filePath"
         baseChunks += Chunk(
             id = 0,
             fileId = 0,
@@ -92,17 +90,16 @@ class PythonChunker(
             kind = ChunkKind.CODE_BLOCK,
             startLine = 1,
             endLine = lines.lastOrNull()?.number,
-            tokenEstimate = estimator.estimate(content),
-            content = "Module $filePath",
+            tokenEstimate = estimator.estimate(rootLabel),
+            content = rootLabel,
             summary = "Module root",
             createdAt = timestamp,
             chunkPath = rootPath
         )
 
-        outputs.forEachIndexed { idx, input ->
+        outputs.forEach { input ->
             val text = input.lines.joinToString("\n") { it.text }
-            val startLine = input.lines.firstOrNull()?.number
-            val endLine = input.lines.lastOrNull()?.number
+            if (text.isBlank()) return@forEach
             val label = input.label ?: input.kind.name.lowercase()
             val path = "$rootPath/$label"
             baseChunks += Chunk(
@@ -110,8 +107,8 @@ class PythonChunker(
                 fileId = 0,
                 ordinal = baseChunks.size,
                 kind = input.kind,
-                startLine = startLine,
-                endLine = endLine,
+                startLine = input.lines.firstOrNull()?.number,
+                endLine = input.lines.lastOrNull()?.number,
                 tokenEstimate = estimator.estimate(text),
                 content = text,
                 summary = input.label,
@@ -128,6 +125,13 @@ class PythonChunker(
     }
 
     override fun estimateTokens(text: String): Int = estimator.estimate(text)
+
+    private fun linesInRange(lines: List<Line>, startLine: Int, endLine: Int): List<Line> {
+        if (lines.isEmpty()) return emptyList()
+        val startIndex = (startLine - 1).coerceIn(0, lines.lastIndex)
+        val endIndex = (endLine - 1).coerceIn(startIndex, lines.lastIndex)
+        return lines.subList(startIndex, endIndex + 1)
+    }
 
     private fun splitWithOverlap(lines: List<Line>, limit: Int): List<List<Line>> {
         if (lines.isEmpty()) return emptyList()
@@ -150,6 +154,7 @@ class PythonChunker(
                 }
             }
         }
+
         while (buffer.isNotEmpty()) {
             val tokens = estimator.estimate(buffer.joinToString("\n") { it.text })
             if (tokens > limit && buffer.size > 1) {
@@ -164,6 +169,7 @@ class PythonChunker(
                 break
             }
         }
+
         return result
     }
 
@@ -178,140 +184,49 @@ class PythonChunker(
         if (segment.isEmpty()) return emptyList()
         val tokensTarget = overlapTokens.toInt().coerceAtLeast(1)
         val selected = mutableListOf<Line>()
-        var idx = segment.size - 1
-        while (idx >= 0) {
-            selected.add(0, segment[idx])
+        var index = segment.lastIndex
+        while (index >= 0) {
+            selected.add(0, segment[index])
             val tokens = estimator.estimate(selected.joinToString("\n") { it.text })
             if (tokens >= tokensTarget) break
-            idx--
+            index--
         }
         return selected
     }
 
-    private fun extractDocstring(lines: List<Line>, startIndex: Int): Docstring? {
-        var idx = startIndex
-        while (idx < lines.size) {
-            val trimmed = lines[idx].text.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                idx++
-                continue
-            }
-            return parseDocstring(lines, idx)
-        }
-        return null
+    private fun docLabel(type: PythonAstParser.DefinitionType, name: String): String = when (type) {
+        PythonAstParser.DefinitionType.FUNCTION -> "Function $name docstring"
+        PythonAstParser.DefinitionType.CLASS -> "Class $name docstring"
     }
 
-    private fun extractInnerDocstring(lines: List<Line>, startIndex: Int, endIndex: Int): Docstring? {
-        var idx = startIndex
-        while (idx <= endIndex) {
-            val trimmed = lines[idx].text.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                idx++
-                continue
-            }
-            return parseDocstring(lines, idx)
-        }
-        return null
-    }
-
-    private fun parseDocstring(lines: List<Line>, index: Int): Docstring? {
-        val trimmed = lines[index].text.trim()
-        if (!trimmed.startsWith("\"\"\"") && !trimmed.startsWith("'''") ) return null
-        val delimiter = trimmed.take(3)
-        val docLines = mutableListOf<Line>()
-        docLines += lines[index]
-
-        if (trimmed.length >= 6 && trimmed.indexOf(delimiter, 3) != -1) {
-            return Docstring(docLines, index, index)
-        }
-
-        var i = index + 1
-        while (i < lines.size) {
-            docLines += lines[i]
-            val current = lines[i].text.trim()
-            if (current.contains(delimiter)) {
-                return Docstring(docLines, index, i)
-            }
-            i++
-        }
-        return Docstring(docLines, index, lines.size - 1)
-    }
-
-    private fun findDefinitionStart(lines: List<Line>, index: Int): Int {
-        var start = index
-        var i = index - 1
-        while (i >= 0) {
-            val trimmed = lines[i].text.trim()
-            if (trimmed.startsWith("@")) {
-                start = i
-                i--
-                continue
-            }
-            break
-        }
-        return start
-    }
-
-    private fun findBlockEnd(lines: List<Line>, start: Int, indent: Int): Int {
-        var last = start - 1
-        var i = start
-        while (i < lines.size) {
-            val text = lines[i].text
-            val trimmed = text.trim()
-            if (trimmed.isEmpty()) {
-                last = i
-                i++
-                continue
-            }
-            val currentIndent = leadingSpaces(text)
-            if (currentIndent <= indent && !trimmed.startsWith("#")) {
-                break
-            }
-            last = i
-            i++
-        }
-        return last.coerceAtLeast(start - 1)
-    }
-
-    private fun leadingSpaces(line: String): Int {
-        var count = 0
-        for (ch in line) {
-            if (ch == ' ') count++ else if (ch == '\t') count += 4 else break
-        }
-        return count
-    }
-
-    private fun docLabel(type: DefinitionType, name: String): String = when (type) {
-        DefinitionType.FUNCTION -> "Function $name docstring"
-        DefinitionType.CLASS -> "Class $name docstring"
-    }
-
-    private fun codeLabel(type: DefinitionType, name: String, index: Int, total: Int): String {
+    private fun codeLabel(
+        type: PythonAstParser.DefinitionType,
+        name: String,
+        index: Int,
+        total: Int
+    ): String {
         val base = when (type) {
-            DefinitionType.FUNCTION -> "Function $name"
-            DefinitionType.CLASS -> "Class $name"
+            PythonAstParser.DefinitionType.FUNCTION -> "Function $name"
+            PythonAstParser.DefinitionType.CLASS -> "Class $name"
         }
         return if (total > 1) "$base (part ${index + 1}/$total)" else base
     }
 
-    private fun kindFor(type: DefinitionType): ChunkKind = when (type) {
-        DefinitionType.FUNCTION -> ChunkKind.CODE_FUNCTION
-        DefinitionType.CLASS -> ChunkKind.CODE_CLASS
+    private fun kindFor(type: PythonAstParser.DefinitionType): ChunkKind = when (type) {
+        PythonAstParser.DefinitionType.FUNCTION -> ChunkKind.CODE_FUNCTION
+        PythonAstParser.DefinitionType.CLASS -> ChunkKind.CODE_CLASS
     }
-
-    private enum class DefinitionType { FUNCTION, CLASS }
 
     private data class Line(val number: Int, val text: String)
 
-    private data class Docstring(val lines: List<Line>, val startIndex: Int, val endIndex: Int)
-
-    private data class ChunkInput(val kind: ChunkKind, val lines: List<Line>, val label: String?)
+    private data class ChunkInput(
+        val kind: ChunkKind,
+        val lines: List<Line>,
+        val label: String?
+    )
 
     companion object {
         private const val DEFAULT_MAX_TOKENS = 600
         private const val DEFAULT_OVERLAP_RATIO = 0.15
-        private val functionRegex = Regex("^def\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(")
-        private val asyncFunctionRegex = Regex("^async\\s+def\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(")
-        private val classRegex = Regex("^class\\s+([A-Za-z_][A-Za-z0-9_]*)")
     }
 }

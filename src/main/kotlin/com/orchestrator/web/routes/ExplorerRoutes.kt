@@ -1,6 +1,7 @@
 package com.orchestrator.web.routes
 
 import com.orchestrator.mcp.tools.QueryContextTool
+import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.components.ResultCard
 import com.orchestrator.web.components.ResultsContainer
 import com.orchestrator.web.pages.ExplorerPage
@@ -77,7 +78,7 @@ fun Route.explorerRoutes() {
         
         // Execute query with error handling
         val startTime = System.currentTimeMillis()
-        val tool = QueryContextTool()
+        val tool = QueryContextTool(ContextModule.configuration())
         
         val result = try {
             tool.execute(

@@ -54,7 +54,11 @@
       "mcp__orchestrator__refresh_context",
       "Bash(test:*)",
       "mcp__orchestrator__get_context_stats",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(grep:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(do echo:*)",
+      "Bash(./gradlew dependencies:*)"
     ],
     "deny": [],
     "ask": []

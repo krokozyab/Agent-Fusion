@@ -85,6 +85,7 @@ data class IndexingConfig(
         ".kt",
         ".kts",
         ".java",
+        ".go",
         ".py",
         ".ts",
         ".tsx",
@@ -128,6 +129,7 @@ data class ChunkingConfig(
     val markdown: MarkdownChunkingConfig = MarkdownChunkingConfig(),
     val python: PythonChunkingConfig = PythonChunkingConfig(),
     val kotlin: KotlinChunkingConfig = KotlinChunkingConfig(),
+    val go: GoChunkingConfig = GoChunkingConfig(),
     val typescript: TypeScriptChunkingConfig = TypeScriptChunkingConfig()
 ) {
     data class MarkdownChunkingConfig(
@@ -150,6 +152,10 @@ data class ChunkingConfig(
         val preserveKdoc: Boolean = true
     )
 
+    data class GoChunkingConfig(
+        val maxTokens: Int = 600
+    )
+
     data class TypeScriptChunkingConfig(
         val maxTokens: Int = 600,
         val splitByExport: Boolean = true,
@@ -166,7 +172,26 @@ data class QueryConfig(
     val neighborWindow: Int = 1,
     val embeddingCacheSize: Int = 1000,
     val boosts: BoostConfig = BoostConfig(),
-    val idfEnabled: Boolean = true
+    val idfEnabled: Boolean = true,
+    val secondStageRerankEnabled: Boolean = false,
+    val secondStageTopN: Int = 80,
+    val secondStageBlendWeight: Double = 0.35,
+    val queryExpansionEnabled: Boolean = false,
+    val hydeEnabled: Boolean = false,
+    val maxExpansionTerms: Int = 8,
+    val synonyms: Map<String, List<String>> = defaultQuerySynonyms(),
+    val graph: GraphConfig = GraphConfig()
+)
+
+private fun defaultQuerySynonyms(): Map<String, List<String>> = mapOf(
+    "login" to listOf("authentication", "auth", "credentials", "token"),
+    "auth" to listOf("authentication", "login", "token", "credentials"),
+    "password" to listOf("credential", "secret", "auth"),
+    "rep" to listOf("report", "reporting"),
+    "db" to listOf("database", "sql", "query"),
+    "bug" to listOf("defect", "issue", "error", "failure"),
+    "fix" to listOf("patch", "resolve", "correct"),
+    "api" to listOf("endpoint", "http", "rest", "request", "response")
 )
 
 data class BoostConfig(
@@ -241,8 +266,18 @@ data class BoostConfig(
         "DOCUMENTATION" to 0.6,        // Penalize documentation chunks
         "TEXT_PARAGRAPH" to 0.7,       // Penalize text paragraphs
         "COMMENT" to 0.8,              // Light penalty for comments
+        "COMMIT_MESSAGE" to 0.85,      // Keep commit intent discoverable but below core code
         "MARKDOWN_SECTION" to 0.7      // Penalize markdown sections
     )
+)
+
+data class GraphConfig(
+    val enabled: Boolean = false,
+    val maxDepth: Int = 1,
+    val decayFactor: Double = 0.7,
+    val maxGraphResults: Int = 10,
+    val defaultLinkScore: Double = 0.8,
+    val minPropagatedScore: Double = 0.1
 )
 
 data class BudgetConfig(
@@ -264,6 +299,7 @@ data class ProviderConfig(
             "semantic" to ProviderConfig(weight = 0.6),
             "symbol" to ProviderConfig(weight = 0.3, indexAst = true),
             "full_text" to ProviderConfig(weight = 0.1),
+            "exact_match" to ProviderConfig(weight = 0.15),
             "git_history" to ProviderConfig(weight = 0.2, maxCommits = 100),
             "hybrid" to ProviderConfig(
                 weight = 0.5,
@@ -288,6 +324,7 @@ data class BootstrapConfig(
     val batchSize: Int = 128,
     val priorityExtensions: List<String> = listOf(
         ".kt",
+        ".go",
         ".py",
         ".ts",
         ".java",
