@@ -1,6 +1,7 @@
 package com.orchestrator.modules.context
 
 import com.orchestrator.context.config.ContextConfig
+import com.orchestrator.context.config.StorageConfig
 import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.ChunkKind
 import com.orchestrator.context.domain.TokenBudget
@@ -11,27 +12,41 @@ import com.orchestrator.domain.TaskId
 import com.orchestrator.domain.TaskStatus
 import com.orchestrator.domain.TaskType
 import kotlinx.coroutines.runBlocking
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.createTempDirectory
+import kotlin.io.path.deleteRecursively
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import java.nio.file.Path
 import java.time.Duration
 import java.time.Instant
 
+@OptIn(ExperimentalPathApi::class)
 class ContextMetricsCollectorTest {
 
     private val collector = ContextMetricsCollector()
+    private lateinit var tempDir: Path
 
     @BeforeTest
     fun setup() {
-        ContextDatabase.initialize(ContextConfig().storage)
+        tempDir = createTempDirectory("context-metrics-test")
+        ContextDatabase.initialize(
+            ContextConfig(
+                storage = StorageConfig(
+                    dbPath = tempDir.resolve("context-test.duckdb").toString()
+                )
+            ).storage
+        )
         clearMetrics()
     }
 
     @AfterTest
     fun teardown() {
         clearMetrics()
+        tempDir.deleteRecursively()
     }
 
     @Test

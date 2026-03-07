@@ -150,11 +150,6 @@ class BatchIndexer(
                             )
                         )
 
-                        // MEMORY MANAGEMENT: Force GC between files to prevent accumulation
-                        // Each file's embeddings, chunks, and ONNX tensors should be freed before indexing the next file
-                        if (result?.chunkCount ?: 0 > 20) {
-                            System.gc()
-                        }
                     }
                 }
             }

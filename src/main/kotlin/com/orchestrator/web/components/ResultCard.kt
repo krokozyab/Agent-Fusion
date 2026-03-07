@@ -1,5 +1,6 @@
 package com.orchestrator.web.components
 
+import java.util.Locale
 import kotlinx.html.*
 
 /**
@@ -29,7 +30,7 @@ object ResultCard {
                                onclick="event.preventDefault()">
                                 ${config.filePath}:${config.startLine}
                             </a>
-                            <span class="badge bg-info result-card__score">${String.format("%.2f", config.score)}</span>
+                            <span class="badge bg-info result-card__score">${String.format(Locale.US, "%.2f", config.score)}</span>
                         </div>
                         
                         <div class="mb-2">
@@ -48,6 +49,15 @@ object ResultCard {
                                     data-line-number="${config.startLine}"
                                     onclick="openFile('${config.filePath.replace("'", "\\'")}',${config.startLine})">
                                 📂 Open
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary"
+                                    data-content="${escapeHtml(config.snippet)}"
+                                    onclick="copyToClipboard(this)">
+                                📋 Copy
+                            </button>
+                            <button type="button" class="btn btn-outline-info"
+                                    data-related-chunk="${config.chunkId}">
+                                🔗 Related
                             </button>
                         </div>
                     </div>

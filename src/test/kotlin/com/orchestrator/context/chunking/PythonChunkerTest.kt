@@ -288,7 +288,7 @@ class PythonChunkerTest {
         val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal)
         }
     }
 
@@ -443,5 +443,29 @@ class PythonChunkerTest {
 
         val functionChunk = chunks.find { it.kind == ChunkKind.CODE_FUNCTION }
         assertTrue(functionChunk != null)
+    }
+
+    @Test
+    fun `multiline decorators and signatures are parsed structurally`() {
+        val code = """
+            @route(
+                "/users",
+                methods=["GET"],
+            )
+            async def list_users(
+                page: int = 1,
+                limit: int = 20,
+            ):
+                return {"page": page, "limit": limit}
+        """.trimIndent()
+
+        val chunker = PythonChunker()
+        val chunks = chunker.chunk(code, "test.py", "python").withoutRoot()
+        val functionChunk = chunks.firstOrNull { it.kind == ChunkKind.CODE_FUNCTION }
+
+        assertTrue(functionChunk != null)
+        assertTrue(functionChunk!!.content.contains("@route"))
+        assertTrue(functionChunk.content.contains("async def list_users"))
+        assertTrue(functionChunk.content.contains("limit: int = 20"))
     }
 }

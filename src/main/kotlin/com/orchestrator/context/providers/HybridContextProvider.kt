@@ -8,6 +8,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.nio.file.FileSystems
 import java.nio.file.PathMatcher
+import java.util.Locale
 import kotlin.math.max
 
 class HybridContextProvider(
@@ -72,7 +73,7 @@ class HybridContextProvider(
             val providerSnippets = results.firstOrNull { it.first == provider }?.second ?: emptyList()
             providerSnippets.forEachIndexed { index, snippet ->
                 val entry = aggregated.getOrPut(snippet.chunkId) {
-                    MutableEntry(snippet, mutableListOf(), snippet.score)
+                    MutableEntry(snippet, mutableListOf(), 0.0)
                 }
                 entry.providers += provider.type
                 val rank = index + 1
@@ -82,24 +83,20 @@ class HybridContextProvider(
         }
 
         val ordered = aggregated.values
-            .sortedByDescending { it.rrfScore }
             .map { entry ->
-                // Apply penalties to the original snippet score (not RRF score)
-                val penalizedSnippet = applyPenalties(entry.snippet)
+                // Use the fused RRF score as the base, then apply penalties on top.
+                val baseSnippet = entry.snippet.copy(score = entry.rrfScore.coerceIn(0.0, 1.0))
+                val penalizedSnippet = applyPenalties(baseSnippet)
 
                 val providerCount = entry.providers.distinct().size
-                // Merge RRF metadata with penalty metadata
                 val metadata = penalizedSnippet.metadata + mapOf(
                     "sources" to mergeSources(penalizedSnippet.metadata["sources"], entry.providers.map { it.name.lowercase() }),
-                    "rrf_score" to "%.4f".format(entry.rrfScore),
+                    "rrf_score" to "%.4f".format(Locale.US, entry.rrfScore),
                     "rrf_provider_count" to providerCount.toString(),
-                    "rrf_agreement" to "%.2f".format(providerCount.toDouble() / effectiveProviders.size.toDouble())
+                    "rrf_agreement" to "%.2f".format(Locale.US, providerCount.toDouble() / effectiveProviders.size.toDouble())
                 )
-                // Use the penalized score, not the RRF score
-                // RRF is only for ranking, not for the final score
                 penalizedSnippet.copy(metadata = metadata)
             }
-            // Re-sort by penalized scores to ensure penalties affect ranking
             .sortedByDescending { it.score }
 
         enforceBudget(ordered, budget)
@@ -153,11 +150,11 @@ class HybridContextProvider(
 
         // Add penalty info to metadata for transparency
         val updatedMetadata = snippet.metadata + mapOf(
-            "file_type_penalty" to "%.3f".format(fileTypePenalty),
-            "pattern_penalty" to "%.3f".format(patternPenalty),
-            "kind_boost" to "%.3f".format(kindBoost),
-            "combined_multiplier" to "%.3f".format(combinedMultiplier),
-            "original_score" to "%.4f".format(snippet.score)
+            "file_type_penalty" to "%.3f".format(Locale.US, fileTypePenalty),
+            "pattern_penalty" to "%.3f".format(Locale.US, patternPenalty),
+            "kind_boost" to "%.3f".format(Locale.US, kindBoost),
+            "combined_multiplier" to "%.3f".format(Locale.US, combinedMultiplier),
+            "original_score" to "%.4f".format(Locale.US, snippet.score)
         )
 
         return snippet.copy(

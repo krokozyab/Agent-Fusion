@@ -16,11 +16,12 @@ class ContextDataService(
     private val repository: ContextRepository = ContextRepository
 ) {
     /**
-     * Persist the given file state and associated artefacts in a single transaction.
+     * Persist the given file state and associated artefacts using batched transactions.
      * Returns the persisted snapshot (with generated identifiers populated).
+     * @param batchSize Number of chunks to persist in each transaction (default 128)
      */
-    fun syncFileArtifacts(fileState: FileState, chunks: List<ChunkArtifacts>): FileArtifacts =
-        repository.replaceFileArtifacts(fileState, chunks)
+    fun syncFileArtifacts(fileState: FileState, chunks: List<ChunkArtifacts>, batchSize: Int = 128): FileArtifacts =
+        repository.replaceFileArtifacts(fileState, chunks, batchSize)
 
     /** Load persisted artefacts for a file path, if available. */
     fun loadFileArtifacts(relativePath: String): FileArtifacts? =

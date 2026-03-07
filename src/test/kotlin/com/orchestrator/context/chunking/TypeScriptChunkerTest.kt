@@ -112,10 +112,14 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
+        val chunks = chunker.chunk(code, "test.ts", "typescript")
 
+        // No exports → single Module root chunk with full file content
         assertEquals(1, chunks.size)
         assertEquals(ChunkKind.CODE_BLOCK, chunks[0].kind)
+        assertEquals("Module root", chunks[0].summary)
+        assertTrue(chunks[0].content.contains("const value = 42"))
+        assertTrue(chunks[0].content.contains("function helper()"))
     }
 
     @Test
@@ -269,7 +273,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertEquals("Function fetchData", chunks[0].summary)
@@ -285,7 +289,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
         assertTrue(chunks[0].content.contains("<T>"))
@@ -339,7 +343,7 @@ class TypeScriptChunkerTest {
         val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         chunks.forEachIndexed { index, chunk ->
-            assertEquals(index, chunk.ordinal)
+            assertEquals(index + 1, chunk.ordinal)
         }
     }
 
@@ -410,7 +414,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(2, chunks.size)
     }
@@ -423,7 +427,7 @@ class TypeScriptChunkerTest {
         """.trimIndent()
 
         val chunker = TypeScriptChunker()
-        val chunks = chunker.chunk(code, "test.ts", "typescript")
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(2, chunks.size)
     }
@@ -470,5 +474,21 @@ class TypeScriptChunkerTest {
         val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
 
         assertEquals(1, chunks.size)
+    }
+
+    @Test
+    fun `modern satisfies syntax stays in one export chunk`() {
+        val code = """
+            export const featureFlags = {
+                aiRerank: true,
+                semanticTraversal: true
+            } satisfies Record<string, boolean>
+        """.trimIndent()
+
+        val chunker = TypeScriptChunker()
+        val chunks = chunker.chunk(code, "test.ts", "typescript").withoutRoot()
+
+        assertEquals(1, chunks.size)
+        assertTrue(chunks[0].content.contains("satisfies Record<string, boolean>"))
     }
 }

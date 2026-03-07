@@ -47,9 +47,9 @@ This becomes 2 chunks:
 ### PythonChunker (`.py` files)
 
 **What it does:**
-- Language-aware parsing – Uses regex to detect `def`, `async def`, `class`
+- AST-driven parsing – Builds a structural module tree for `def`, `async def`, `class`
 - Extracts docstrings – Module docstrings and function docstrings get separate chunks
-- Indentation-based block detection – Finds function/class bodies using indent levels
+- Indentation + lexical scanning – Resolves multi-line signatures and decorator stacks
 - Overlap support – Overlaps chunks by 15% to preserve context between splits
 - Decorator awareness – Includes decorators with function definitions
 
@@ -85,10 +85,10 @@ Becomes 2 chunks:
 ### TypeScriptChunker (`.ts, .tsx, .js, .jsx` files)
 
 **What it does:**
-- Export-centric – Detects `export` statements and groups them with context
+- AST-driven export parsing – Extracts top-level export declarations with lexical depth tracking
 - Preserves JSDoc – Comments above exports stay attached
 - Includes module imports – Each export chunk includes the file's import statements
-- Heuristic-based – Regex patterns (not full AST parsing)
+- Handles modern syntax – Supports async/default exports, template strings, nested literal blocks
 
 **Chunk types:**
 - `CODE_CLASS` – Exported class declaration
@@ -189,6 +189,29 @@ Becomes 3 chunks:
 - Kotlin idioms differ from Java – top-level functions are common
 - Data classes are structural – should include all fields
 - Extension functions are powerful – need clear labeling
+
+---
+
+### GoChunker (`.go` files)
+
+**What it does:**
+- Structural declaration parsing – Detects top-level `type`, `func`, `const`, `var`
+- Method awareness – Distinguishes receiver methods (`func (s *Service) Handle`) from plain functions
+- Header extraction – Captures `package` and `import` blocks as a header chunk
+- Comment attachment – Keeps leading `//` and `/* ... */` comments with the declaration
+
+**Chunk types:**
+- `CODE_HEADER` – Package/import prelude
+- `CODE_CLASS` – `type X struct`
+- `CODE_INTERFACE` – `type X interface`
+- `CODE_METHOD` – Receiver methods
+- `CODE_FUNCTION` – Top-level functions
+- `CODE_BLOCK` – `const`/`var` blocks and other type aliases
+
+**Why this matters:**
+- Go code is declaration-driven at file scope
+- Receiver methods are semantically different from utility functions
+- Package/import context is often required to understand interfaces and errors
 
 ---
 
@@ -316,12 +339,12 @@ If first paragraph was too long, it would split further by sentences.
 ## Chunking Strategy Comparison
 
 ### Advanced AST-Based Chunkers
-- **Java, Kotlin, C#** – True parsing with abstract syntax tree
+- **Java, Python, TypeScript, Kotlin, Go, C#** – Structure-aware parsing with AST/lexical tree extraction
 - **Benefit**: 100% accurate structure extraction
 - **Cost**: Parsing errors silently degrade to PlainText
 
 ### Heuristic Chunkers
-- **Python, TypeScript, YAML, JSON, SQL** – Regex + pattern matching
+- **YAML, JSON, SQL** – Regex + pattern matching
 - **Benefit**: Fast, no parsing errors, language-specific patterns
 - **Cost**: Edge cases might be missed
 
@@ -347,6 +370,7 @@ Each chunker has a **max tokens** setting (default per language):
 | Markdown | 400 | Docs are prose – larger chunks work |
 | Python | 600 | Functions are usually self-contained |
 | Java | 600 | Methods need context (signature + Javadoc) |
+| Go | 600 | Top-level declarations map cleanly to chunks |
 | TypeScript | 400 | Modules are smaller, export-heavy |
 | PlainText | 600 | Paragraphs vary – safe default |
 

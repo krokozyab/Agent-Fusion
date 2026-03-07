@@ -247,4 +247,40 @@ Final short paragraph."""
         assertEquals(1, chunks[0].startLine)
         assertEquals(3, chunks[0].endLine)
     }
+
+    @Test
+    fun `semantically related paragraphs can merge across blank lines`() {
+        val text = """
+            Token refresh handler validates authentication session credentials and access token expiration before retry.
+
+            Token refresh handler validates authentication session credentials and access token expiration before replay.
+        """.trimIndent()
+
+        val chunker = PdfChunker(maxTokens = 200)
+        val chunks = chunker.chunk(text, "semantic.pdf", "pdf").withoutRoot()
+
+        assertEquals(1, chunks.size)
+        assertTrue(chunks[0].content.contains("before retry"))
+        assertTrue(chunks[0].content.contains("before replay"))
+    }
+
+    @Test
+    fun `semantic shift splits long prose without blank lines`() {
+        val authSentences = List(10) {
+            "Authentication token refresh validates credentials and session expiration before retry."
+        }
+        val uiSentences = List(10) {
+            "Interface animation timing tunes layout transitions and spacing for dashboard cards."
+        }
+        val text = (authSentences + uiSentences).joinToString(" ")
+
+        val chunker = PdfChunker(maxTokens = 600)
+        val chunks = chunker.chunk(text, "semantic-shift.pdf", "pdf").withoutRoot()
+
+        assertTrue(chunks.size >= 2)
+        val hasAuthChunk = chunks.any { it.content.contains("Authentication token refresh") }
+        val hasUiChunk = chunks.any { it.content.contains("Interface animation timing") }
+        assertTrue(hasAuthChunk)
+        assertTrue(hasUiChunk)
+    }
 }

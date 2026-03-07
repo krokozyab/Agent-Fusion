@@ -18,8 +18,8 @@ class ContextProviderRegistryTest {
         val providerCount = ContextProviderRegistry.getProviderCount()
         assertTrue(providerCount > 0, "Registry should discover at least one provider")
 
-        // We expect 5 providers: semantic, symbol, full_text, git_history, hybrid
-        assertEquals(5, providerCount, "Should discover exactly 5 providers")
+        // We expect 6 providers: semantic, symbol, full_text, exact_match, git_history, hybrid
+        assertEquals(6, providerCount, "Should discover exactly 6 providers")
     }
 
     @Test
@@ -29,7 +29,7 @@ class ContextProviderRegistryTest {
 
         assertNotNull(providers)
         assertTrue(providers.isNotEmpty(), "Should have at least one provider")
-        assertEquals(5, providers.size, "Should have 5 providers")
+        assertEquals(6, providers.size, "Should have 6 providers")
     }
 
     @Test
@@ -113,11 +113,12 @@ class ContextProviderRegistryTest {
         val ids = ContextProviderRegistry.getProviderIds()
 
         assertNotNull(ids)
-        assertEquals(5, ids.size, "Should have 5 provider IDs")
+        assertEquals(6, ids.size, "Should have 6 provider IDs")
 
         assertTrue(ids.contains("semantic"), "Should contain 'semantic'")
         assertTrue(ids.contains("symbol"), "Should contain 'symbol'")
         assertTrue(ids.contains("full_text"), "Should contain 'full_text'")
+        assertTrue(ids.contains("exact_match"), "Should contain 'exact_match'")
         assertTrue(ids.contains("git_history"), "Should contain 'git_history'")
         assertTrue(ids.contains("hybrid"), "Should contain 'hybrid'")
     }
@@ -166,7 +167,7 @@ class ContextProviderRegistryTest {
         val results = (1..10).map {
             Thread {
                 val count = ContextProviderRegistry.getProviderCount()
-                assertEquals(5, count)
+                assertEquals(6, count)
             }
         }
 
@@ -174,7 +175,7 @@ class ContextProviderRegistryTest {
         results.forEach { it.join() }
 
         // Should still have same providers after concurrent access
-        assertEquals(5, ContextProviderRegistry.getProviderCount())
+        assertEquals(6, ContextProviderRegistry.getProviderCount())
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.orchestrator.context.config.ContextConfig
 import com.orchestrator.context.config.EmbeddingConfig
 import com.orchestrator.context.config.IndexingConfig
 import com.orchestrator.context.config.ProviderConfig
+import com.orchestrator.context.config.StorageConfig
 import com.orchestrator.context.config.WatcherConfig
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
@@ -47,6 +48,9 @@ class GetContextStatsToolTest {
     fun setup() {
         tempDir = createTempDirectory("context-stats")
         config = ContextConfig(
+            storage = StorageConfig(
+                dbPath = tempDir.resolve("context-stats.duckdb").toString()
+            ),
             watcher = WatcherConfig(watchPaths = listOf(tempDir.toString()), ignorePatterns = emptyList()),
             indexing = IndexingConfig(
                 allowedExtensions = listOf(".kt"),

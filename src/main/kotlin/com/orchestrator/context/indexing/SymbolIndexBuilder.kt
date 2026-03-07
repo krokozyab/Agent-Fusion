@@ -1,5 +1,6 @@
 package com.orchestrator.context.indexing
 
+import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.SymbolRecord
 import com.orchestrator.context.domain.SymbolType
 import com.orchestrator.context.storage.SymbolRepository
@@ -21,8 +22,20 @@ class SymbolIndexBuilder(
     private val clock: Clock = Clock.systemUTC()
 ) {
 
-    suspend fun indexFile(path: Path, fileId: Long, language: String): List<SymbolRecord> {
+    suspend fun indexFile(
+        path: Path,
+        fileId: Long,
+        language: String,
+        chunks: List<Chunk> = emptyList()
+    ): List<SymbolRecord> {
         require(Files.exists(path)) { "File does not exist: $path" }
+
+        // Skip symbol indexing for document file types — they contain prose, not code
+        val ext = path.fileName.toString().substringAfterLast('.', "").lowercase(Locale.US)
+        if (ext in DOCUMENT_EXTENSIONS) {
+            return emptyList()
+        }
+
         val code = Files.readString(path)
         if (code.isBlank()) {
             repository.replaceForFile(fileId, emptyList())
@@ -39,8 +52,39 @@ class SymbolIndexBuilder(
         }
 
         val timestamp = Instant.now(clock)
-        val normalised = extracted.map { it.copy(createdAt = timestamp) }
+        val withChunkIds = attachChunkIds(extracted, chunks)
+        val normalised = withChunkIds.map { it.copy(createdAt = timestamp) }
         return repository.replaceForFile(fileId, normalised)
+    }
+
+    private fun attachChunkIds(symbols: List<SymbolRecord>, chunks: List<Chunk>): List<SymbolRecord> {
+        if (symbols.isEmpty() || chunks.isEmpty()) return symbols
+        val lineAwareChunks = chunks.filter { it.startLine != null && it.endLine != null }
+        if (lineAwareChunks.isEmpty()) return symbols
+
+        return symbols.map { symbol ->
+            val start = symbol.startLine
+            val end = symbol.endLine ?: start
+            if (start == null || end == null) {
+                symbol
+            } else {
+                val matchingChunk = lineAwareChunks
+                    .filter { chunk ->
+                        val chunkStart = chunk.startLine ?: return@filter false
+                        val chunkEnd = chunk.endLine ?: return@filter false
+                        chunkStart <= start && chunkEnd >= end
+                    }
+                    .minWithOrNull(
+                        compareBy<Chunk> { (it.endLine ?: Int.MAX_VALUE) - (it.startLine ?: 0) }
+                            .thenBy { it.ordinal }
+                    )
+                if (matchingChunk != null) {
+                    symbol.copy(chunkId = matchingChunk.id)
+                } else {
+                    symbol
+                }
+            }
+        }
     }
 
     private fun extractKotlin(code: String, fileId: Long, language: String): List<SymbolRecord> {
@@ -84,7 +128,7 @@ class SymbolIndexBuilder(
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
                 classStack.addLast(name to indent)
-                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                val qualified = buildQualified(packageName, classStack.map { it.first }) ?: name
                 symbols += symbol(
                     fileId = fileId,
                     type = when (kind) {
@@ -208,7 +252,7 @@ class SymbolIndexBuilder(
                 val kind = match.groupValues[1]
                 val name = match.groupValues[2]
                 classStack.addLast(name to indent)
-                val qualified = buildQualified(packageName, classStack.map { it.first }, name) ?: name
+                val qualified = buildQualified(packageName, classStack.map { it.first }) ?: name
                 val type = when (kind) {
                     "interface" -> SymbolType.INTERFACE
                     "enum" -> SymbolType.ENUM
@@ -330,7 +374,7 @@ class SymbolIndexBuilder(
             pythonClassRegex.find(line)?.let { match ->
                 val name = match.groupValues[1]
                 classStack.addLast(name to indent)
-                val qualified = buildQualified(moduleQualified.takeIf { it.isNotBlank() }, classStack.map { it.first }, name)
+                val qualified = buildQualified(moduleQualified.takeIf { it.isNotBlank() }, classStack.map { it.first })
                 symbols += symbol(
                     fileId = fileId,
                     type = SymbolType.CLASS,
@@ -529,15 +573,17 @@ class SymbolIndexBuilder(
         createdAt = Instant.EPOCH
     )
 
-    private fun buildQualified(packageName: String?, classStack: Collection<String>, member: String): String? {
+    private fun buildQualified(packageName: String?, classStack: Collection<String>, member: String? = null): String? {
         val segments = mutableListOf<String>()
         packageName?.takeIf { it.isNotBlank() }?.let { segments += it }
         if (classStack.isNotEmpty()) segments += classStack
-        segments += member
+        member?.takeIf { it.isNotBlank() }?.let { segments += it }
         return segments.joinToString(".").takeIf { it.isNotBlank() }
     }
 
     companion object {
+        private val DOCUMENT_EXTENSIONS = setOf("doc", "docx", "pdf", "txt", "csv", "md", "rst")
+
         private val packageRegex = Regex("""^\s*package\s+([A-Za-z0-9_.]+)""")
         private val javaPackageRegex = Regex("""^\s*package\s+([A-Za-z0-9_.]+)\s*;""")
         private val importRegex = Regex("""^import\s+([A-Za-z0-9_.*]+)""")

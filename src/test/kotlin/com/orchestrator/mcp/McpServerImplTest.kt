@@ -118,6 +118,62 @@ class McpServerImplTest {
     }
 
     @Test
+    fun tool_call_query_context_accepts_string_encoded_parameters() {
+        val payload = """
+            {
+              "name":"query_context",
+              "params":{
+                "query":"REP-303",
+                "k":"10",
+                "providers":"[\"fulltext\"]"
+              }
+            }
+        """.trimIndent()
+
+        val conn = URL("$baseUrl/mcp/tools/call").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+        OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload) }
+
+        val code = conn.responseCode
+        val body = (if (code in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream))
+            .bufferedReader()
+            .use(BufferedReader::readText)
+
+        assertEquals(200, code, "Expected query_context call to succeed. Body: $body")
+        assertTrue(body.contains("\"ok\":true"), "Expected ok=true in response. Body: $body")
+    }
+
+    @Test
+    fun tool_call_query_context_accepts_legacy_field_aliases() {
+        val payload = """
+            {
+              "name":"query_context",
+              "params":{
+                "searchText":"REP-303",
+                "projectPath":"/Users/sergeyrudenko_1_2/PycharmProjects/jirat",
+                "maxUsageCount":20
+              }
+            }
+        """.trimIndent()
+
+        val conn = URL("$baseUrl/mcp/tools/call").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+        OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(payload) }
+
+        val code = conn.responseCode
+        val body = (if (code in 200..299) conn.inputStream else (conn.errorStream ?: conn.inputStream))
+            .bufferedReader()
+            .use(BufferedReader::readText)
+
+        assertEquals(200, code, "Expected legacy alias payload to succeed. Body: $body")
+        assertTrue(body.contains("\"ok\":true"), "Expected ok=true in response. Body: $body")
+    }
+
+    @Test
     fun resources_listing_and_fetch_should_work() {
         // List resources
         val listConn = URL("$baseUrl/mcp/resources").openConnection() as HttpURLConnection

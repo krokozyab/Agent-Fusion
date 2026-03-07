@@ -1,6 +1,8 @@
 package com.orchestrator.web.routes
 
 import com.orchestrator.domain.*
+import com.orchestrator.context.config.StorageConfig
+import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.storage.Database
 import com.orchestrator.storage.repositories.TaskRepository
 import com.orchestrator.web.WebServerConfig
@@ -15,15 +17,23 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.nio.file.Path
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.createTempDirectory
+import kotlin.io.path.deleteRecursively
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalPathApi::class)
 class HomeRoutesTest {
+    private lateinit var tempDir: Path
 
     @BeforeEach
     fun setup() {
+        tempDir = createTempDirectory("home-routes-test")
         Database.overrideForTests()
+        ContextDatabase.initialize(StorageConfig(dbPath = tempDir.resolve("context-test.duckdb").toString()))
         // Database initialization happens automatically on first access
         val conn = Database.getConnection()
 
@@ -46,6 +56,8 @@ class HomeRoutesTest {
             stmt.execute("DELETE FROM decisions")
         }
         conn.close()
+        ContextDatabase.shutdown()
+        tempDir.deleteRecursively()
     }
 
     @Test

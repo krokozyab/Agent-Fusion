@@ -11,6 +11,7 @@ import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.ResultSet
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class SymbolContextProviderTest {
@@ -187,12 +188,10 @@ class SymbolContextProviderTest {
         val scope = ContextScope()
         val budget = TokenBudget(maxTokens = 1000)
 
-        try {
+        val error = assertFailsWith<Exception> {
             provider.getContext(query, scope, budget)
-        } catch (e: Exception) {
-            // Expected to propagate
-            assertEquals("Database error", e.message)
         }
+        assertEquals("Database error", error.message)
     }
 
     @Test

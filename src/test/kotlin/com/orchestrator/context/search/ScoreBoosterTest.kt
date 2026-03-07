@@ -8,9 +8,18 @@ import kotlin.test.assertEquals
 
 class ScoreBoosterTest {
 
+    // Empty config with no penalties/boosts at all
+    private val emptyBoosts = BoostConfig(
+        pathPrefixes = emptyMap(),
+        languages = emptyMap(),
+        fileTypePenalties = emptyMap(),
+        filePatternPenalties = emptyMap(),
+        chunkKindBoosts = emptyMap()
+    )
+
     @Test
     fun `returns original snippets when no boosts configured`() {
-        val booster = ScoreBooster(BoostConfig(pathPrefixes = emptyMap(), languages = emptyMap()))
+        val booster = ScoreBooster(emptyBoosts)
         val snippets = listOf(createSnippet(score = 0.8))
 
         val result = booster.applyBoosts(snippets)
@@ -21,7 +30,7 @@ class ScoreBoosterTest {
     @Test
     fun `applies path boost when path matches prefix`() {
         val booster = ScoreBooster(
-            BoostConfig(pathPrefixes = mapOf("src/main" to 1.5), languages = emptyMap())
+            emptyBoosts.copy(pathPrefixes = mapOf("src/main" to 1.5))
         )
         val snippets = listOf(
             createSnippet(filePath = "/project/src/main/App.kt", score = 0.6)
@@ -35,7 +44,7 @@ class ScoreBoosterTest {
     @Test
     fun `applies language boost when language matches`() {
         val booster = ScoreBooster(
-            BoostConfig(pathPrefixes = emptyMap(), languages = mapOf("kotlin" to 1.2))
+            emptyBoosts.copy(languages = mapOf("kotlin" to 1.2))
         )
         val snippets = listOf(
             createSnippet(language = "kotlin", score = 0.5)
@@ -49,7 +58,7 @@ class ScoreBoosterTest {
     @Test
     fun `applies both path and language boosts`() {
         val booster = ScoreBooster(
-            BoostConfig(
+            emptyBoosts.copy(
                 pathPrefixes = mapOf("src/main" to 1.5),
                 languages = mapOf("kotlin" to 1.2)
             )
@@ -69,7 +78,7 @@ class ScoreBoosterTest {
     @Test
     fun `clamps boosted score to maximum 1_0`() {
         val booster = ScoreBooster(
-            BoostConfig(pathPrefixes = mapOf("src/main" to 2.0), languages = emptyMap())
+            emptyBoosts.copy(pathPrefixes = mapOf("src/main" to 2.0))
         )
         val snippets = listOf(
             createSnippet(filePath = "/project/src/main/App.kt", score = 0.8)
@@ -83,12 +92,11 @@ class ScoreBoosterTest {
     @Test
     fun `uses longest matching path prefix`() {
         val booster = ScoreBooster(
-            BoostConfig(
+            emptyBoosts.copy(
                 pathPrefixes = mapOf(
                     "src" to 1.1,
                     "src/main" to 1.5
-                ),
-                languages = emptyMap()
+                )
             )
         )
         val snippets = listOf(
@@ -103,7 +111,7 @@ class ScoreBoosterTest {
     @Test
     fun `no boost when path does not match`() {
         val booster = ScoreBooster(
-            BoostConfig(pathPrefixes = mapOf("src/main" to 1.5), languages = emptyMap())
+            emptyBoosts.copy(pathPrefixes = mapOf("src/main" to 1.5))
         )
         val snippets = listOf(
             createSnippet(filePath = "/project/vendor/lib.kt", score = 0.6)
@@ -117,7 +125,7 @@ class ScoreBoosterTest {
     @Test
     fun `no boost when language does not match`() {
         val booster = ScoreBooster(
-            BoostConfig(pathPrefixes = emptyMap(), languages = mapOf("kotlin" to 1.2))
+            emptyBoosts.copy(languages = mapOf("kotlin" to 1.2))
         )
         val snippets = listOf(
             createSnippet(language = "python", score = 0.5)
@@ -131,7 +139,7 @@ class ScoreBoosterTest {
     @Test
     fun `handles null language gracefully`() {
         val booster = ScoreBooster(
-            BoostConfig(pathPrefixes = emptyMap(), languages = mapOf("kotlin" to 1.2))
+            emptyBoosts.copy(languages = mapOf("kotlin" to 1.2))
         )
         val snippets = listOf(
             createSnippet(language = null, score = 0.5)

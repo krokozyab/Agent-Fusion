@@ -307,6 +307,7 @@ class Main {
             projectRoot = projectRoot,
             watchRoots = resolvedWatchRoots,
             embeddingBatchSize = config.context.embedding.batchSize,
+            persistBatchSize = config.context.bootstrap.batchSize,
             maxFileSizeMb = config.context.indexing.maxFileSizeMb,
             warnFileSizeMb = config.context.indexing.warnFileSizeMb,
             chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
@@ -315,7 +316,9 @@ class Main {
         val batchIndexer = BatchIndexer(fileIndexer)
         val incrementalIndexer = IncrementalIndexer(
             changeDetector = changeDetector,
-            batchIndexer = batchIndexer
+            batchIndexer = batchIndexer,
+            crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
+            gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
         )
 
         val reconciler = StartupReconciler(
@@ -401,6 +404,7 @@ class Main {
                 projectRoot = projectRoot,
                 watchRoots = resolvedWatchRoots,
                 embeddingBatchSize = config.context.embedding.batchSize,
+                persistBatchSize = config.context.bootstrap.batchSize,
                 maxFileSizeMb = config.context.indexing.maxFileSizeMb,
                 warnFileSizeMb = config.context.indexing.warnFileSizeMb,
                 chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
@@ -409,7 +413,9 @@ class Main {
             val batchIndexer = BatchIndexer(fileIndexer)
             val incrementalIndexer = IncrementalIndexer(
                 changeDetector = changeDetector,
-                batchIndexer = batchIndexer
+                batchIndexer = batchIndexer,
+                crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
+                gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
             )
 
             WatcherDaemon(

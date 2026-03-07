@@ -16,5 +16,6 @@ enum class ChunkKind {
     JSON_BLOCK,
     SQL_STATEMENT,
     DOCSTRING,
-    COMMENT
+    COMMENT,
+    COMMIT_MESSAGE
 }

@@ -9,16 +9,23 @@ import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.embedding.Embedder
 import com.orchestrator.context.embedding.LocalEmbedder
 import com.orchestrator.context.providers.ContextProvider
+import com.orchestrator.context.providers.ContextProviderType
 import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.providers.ResultOrganizer
+import com.orchestrator.context.search.LightweightCrossEncoderReranker
 import com.orchestrator.context.search.MmrReranker
 import com.orchestrator.context.search.NeighborExpander
+import com.orchestrator.context.search.QueryExpansionService
 import com.orchestrator.context.search.ScoreBooster
 import com.orchestrator.context.search.VectorSearchEngine
 import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.ContextRepository.ChunkWithFile
+import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.modules.context.QueryOptimizer
 import com.orchestrator.utils.Logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
@@ -64,6 +71,15 @@ class QueryContextTool(
     private val queryOptimizer: QueryOptimizer by lazy {
         QueryOptimizer(config.query, reranker)
     }
+    private val queryExpansionService: QueryExpansionService by lazy {
+        QueryExpansionService(
+            synonyms = config.query.synonyms,
+            maxExpansionTerms = config.query.maxExpansionTerms
+        )
+    }
+    private val secondStageReranker: LightweightCrossEncoderReranker by lazy {
+        LightweightCrossEncoderReranker()
+    }
     private val neighborExpander: NeighborExpander by lazy { NeighborExpander() }
     private val scoreBooster: ScoreBooster by lazy { ScoreBooster(config.query.boosts) }
 
@@ -87,7 +103,9 @@ class QueryContextTool(
     data class Params(
         val query: String = "",
         val chunkIds: List<Long>? = null,
+        val filePath: String? = null,
         val k: Int? = null,
+        val offset: Int? = null,
         val maxTokens: Int? = null,
         val paths: List<String>? = null,
         val languages: List<String>? = null,
@@ -113,6 +131,10 @@ class QueryContextTool(
         val prevChunkId: Long? = null,
         val nextChunkId: Long? = null,
         val childrenChunkIds: List<Long> = emptyList(),
+        val callsChunkIds: List<Long> = emptyList(),
+        val dependsOnChunkIds: List<Long> = emptyList(),
+        val modifiesChunkIds: List<Long> = emptyList(),
+        val modifiedByCommitChunkIds: List<Long> = emptyList(),
         val depth: Int? = null,
         val chunkPathSegments: List<String>? = null,
         val metadata: Map<String, String>
@@ -124,8 +146,16 @@ class QueryContextTool(
         val content: String? = null  // Hierarchical markdown output (Phase 3)
     )
 
+    private data class ProviderQueryResult(
+        val providerId: String,
+        val providerType: String,
+        val snippets: List<ContextSnippet>,
+        val durationMs: Long,
+        val error: String? = null
+    )
+
     fun execute(params: Params): Result {
-        if (params.chunkIds.isNullOrEmpty()) {
+        if (params.chunkIds.isNullOrEmpty() && params.filePath.isNullOrBlank()) {
             require(params.query.isNotBlank()) { "query cannot be blank" }
         }
 
@@ -134,8 +164,20 @@ class QueryContextTool(
             return fetchChunksByIds(params.chunkIds)
         }
 
+        // Direct lookup by file path
+        if (!params.filePath.isNullOrBlank()) {
+            return fetchChunksByFilePath(params.filePath)
+        }
+
         // Validate query quality and provide suggestions if likely to fail
         val queryWarnings = validateQueryQuality(params.query)
+        val queryExpansion = queryExpansionService.expand(
+            query = params.query,
+            synonymExpansionEnabled = config.query.queryExpansionEnabled,
+            hydeEnabled = config.query.hydeEnabled
+        )
+        val originalQuery = queryExpansion.originalQuery
+        val effectiveQuery = queryExpansion.effectiveQuery
 
         val k = params.k?.coerceAtLeast(1) ?: config.query.defaultK
         val maxTokens = params.maxTokens?.coerceAtLeast(100) ?: 4000
@@ -144,9 +186,12 @@ class QueryContextTool(
         val scope = buildScope(params)
 
         // Create TokenBudget
+        val reserveForPrompt = config.budget.reserveForPrompt
+            .coerceAtLeast(0)
+            .coerceAtMost(maxTokens / 2)
         val budget = TokenBudget(
             maxTokens = maxTokens,
-            reserveForPrompt = 0
+            reserveForPrompt = reserveForPrompt
         )
 
         // Get enabled providers
@@ -157,31 +202,37 @@ class QueryContextTool(
             return Result(hits = emptyList(), metadata = mapOf("warning" to "No enabled providers"))
         }
 
-        // Query all enabled providers
+        // Split providers: semantic gets HyDE-expanded query, lexical gets original query.
+        val semanticTypes = setOf(ContextProviderType.SEMANTIC, ContextProviderType.HYBRID)
+        val semanticProviders = providers.filter { it.type in semanticTypes }
+        val lexicalProviders = providers.filter { it.type !in semanticTypes }
+
+        // Query semantic providers with effectiveQuery (includes HyDE/synonyms),
+        // lexical providers with originalQuery (HyDE noise hurts keyword search).
+        val providerResults = buildList {
+            if (semanticProviders.isNotEmpty()) {
+                addAll(queryProviders(effectiveQuery, scope, budget, semanticProviders))
+            }
+            if (lexicalProviders.isNotEmpty()) {
+                addAll(queryProviders(originalQuery, scope, budget, lexicalProviders))
+            }
+        }
         val allSnippets = mutableListOf<ContextSnippet>()
-        val providerStats = mutableMapOf<String, Map<String, Any>>()
+        val providerStats = linkedMapOf<String, Map<String, Any>>()
 
-        for (provider in providers) {
-            try {
-                val startTime = System.currentTimeMillis()
-                val snippets = runBlocking {
-                    provider.getContext(params.query, scope, budget)
-                }
-                val durationMs = System.currentTimeMillis() - startTime
-
-                allSnippets.addAll(snippets)
-                providerStats[provider.id] = mapOf(
-                    "snippets" to snippets.size,
-                    "durationMs" to durationMs,
-                    "type" to provider.type.name
+        for (result in providerResults) {
+            allSnippets.addAll(result.snippets)
+            providerStats[result.providerId] = if (result.error == null) {
+                mapOf(
+                    "snippets" to result.snippets.size,
+                    "durationMs" to result.durationMs,
+                    "type" to result.providerType
                 )
-
-                log.debug("Provider {} returned {} snippets in {}ms", provider.id, snippets.size, durationMs)
-            } catch (e: Exception) {
-                log.warn("Provider {} failed: {}", provider.id, e.message)
-                providerStats[provider.id] = mapOf(
-                    "error" to (e.message ?: "Unknown error"),
-                    "type" to provider.type.name
+            } else {
+                mapOf(
+                    "error" to result.error,
+                    "type" to result.providerType,
+                    "durationMs" to result.durationMs
                 )
             }
         }
@@ -200,10 +251,17 @@ class QueryContextTool(
                 config.query.minScoreThreshold)
         }
 
-        // Apply MMR optimization if enabled
-        val optimizedSnippets = if (config.query.useOptimizerInTool && filteredSnippets.isNotEmpty()) {
-            applyMmrOptimization(params.query, filteredSnippets, budget)
+        // Apply MMR optimization if enabled (use originalQuery — HyDE pollutes MMR similarity)
+        val shouldRunMmr = config.query.useOptimizerInTool &&
+            filteredSnippets.isNotEmpty() &&
+            isMmrEligible(providers)
+        val optimizedSnippets = if (shouldRunMmr) {
+            applyMmrOptimization(originalQuery, filteredSnippets, budget)
         } else {
+            if (config.query.useOptimizerInTool && filteredSnippets.isNotEmpty() && !isMmrEligible(providers)) {
+                log.debug("Skipping MMR optimization for non-semantic provider set: {}",
+                    providers.joinToString(",") { it.id })
+            }
             filteredSnippets
         }
         
@@ -214,15 +272,28 @@ class QueryContextTool(
             optimizedSnippets
         }
 
+        // Optional second-stage reranking (use originalQuery — HyDE noise degrades reranking)
+        val secondStageSnippets = if (config.query.secondStageRerankEnabled && expandedSnippets.isNotEmpty()) {
+            secondStageReranker.rerank(
+                query = originalQuery,
+                snippets = expandedSnippets,
+                topN = config.query.secondStageTopN,
+                blendWeight = config.query.secondStageBlendWeight
+            )
+        } else {
+            expandedSnippets
+        }
+
         // Ensure highest-score-first ordering
-        val rankedSnippets = expandedSnippets.sortedWith(
+        val rankedSnippets = secondStageSnippets.sortedWith(
             compareByDescending<ContextSnippet> { it.score }
                 .thenBy { it.filePath }
                 .thenBy { it.chunkId }
         )
 
-        // Apply token budget and limit to k results
-        val finalSnippets = applyBudgetAndLimit(rankedSnippets, budget, k)
+        // Apply token budget and limit to k results (with offset for pagination)
+        val effectiveOffset = params.offset?.coerceAtLeast(0) ?: 0
+        val finalSnippets = applyBudgetAndLimit(rankedSnippets, budget, k, effectiveOffset)
 
         val (existingSnippets, purgedCount) = dropMissingFiles(finalSnippets)
         if (purgedCount > 0) {
@@ -248,6 +319,7 @@ class QueryContextTool(
             list.sortedWith(compareByDescending<Enriched> { it.snippet.score }.thenBy { it.snippet.chunkId })
         }
         val children = enriched.groupBy { it.parentId }.mapValues { entry -> entry.value.map { it.snippet.chunkId } }
+        val linkNeighborhood = fetchLinkNeighborhood(enriched.map { it.snippet.chunkId })
 
         val hits = enriched.map { enrichedSnippet ->
             val snippet = enrichedSnippet.snippet
@@ -262,6 +334,14 @@ class QueryContextTool(
             val pathSegments = snippet.chunkPath?.split("/")?.filter { it.isNotBlank() }
             val depth = snippet.chunkPath?.count { it == '/' }
             val childIds = children[snippet.chunkId] ?: emptyList()
+            val calls = linkNeighborhood.outgoingByType[snippet.chunkId]?.get(LINK_TYPE_CALLS).orEmpty()
+            val dependsOn = linkNeighborhood.outgoingByType[snippet.chunkId]?.get(LINK_TYPE_DEPENDS_ON).orEmpty()
+            val modifies = linkNeighborhood.outgoingByType[snippet.chunkId]?.get(LINK_TYPE_MODIFIES).orEmpty()
+            val modifiedByCommit = linkNeighborhood.incomingByType[snippet.chunkId]?.get(LINK_TYPE_MODIFIES).orEmpty()
+            if (calls.isNotEmpty()) meta["calls_chunk_ids"] = calls.joinToString(",")
+            if (dependsOn.isNotEmpty()) meta["depends_on_chunk_ids"] = dependsOn.joinToString(",")
+            if (modifies.isNotEmpty()) meta["modifies_chunk_ids"] = modifies.joinToString(",")
+            if (modifiedByCommit.isNotEmpty()) meta["modified_by_commit_chunk_ids"] = modifiedByCommit.joinToString(",")
             SnippetHit(
                 chunkId = snippet.chunkId,
                 score = snippet.score,
@@ -278,6 +358,10 @@ class QueryContextTool(
                 prevChunkId = prevId,
                 nextChunkId = nextId,
                 childrenChunkIds = childIds,
+                callsChunkIds = calls,
+                dependsOnChunkIds = dependsOn,
+                modifiesChunkIds = modifies,
+                modifiedByCommitChunkIds = modifiedByCommit,
                 depth = depth,
                 chunkPathSegments = pathSegments,
                 metadata = meta
@@ -291,6 +375,18 @@ class QueryContextTool(
             put("tokensUsed", tokensUsed)
             put("tokensRequested", budget.availableForSnippets)
             put("providers", providerStats)
+            put("originalQuery", queryExpansion.originalQuery)
+            put("effectiveQuery", effectiveQuery)
+            put("queryExpansionApplied", queryExpansion.originalQuery != effectiveQuery)
+            if (queryExpansion.synonymTerms.isNotEmpty()) {
+                put("expandedTerms", queryExpansion.synonymTerms)
+            }
+            if (!queryExpansion.hydeDocument.isNullOrBlank()) {
+                put("hydeDocument", queryExpansion.hydeDocument)
+            }
+            put("graphEdgesResolved", linkNeighborhood.edgeCount)
+            put("offset", effectiveOffset)
+            put("hasMore", effectiveOffset + hits.size < uniqueSnippets.size)
 
             // Add query warnings if query is likely to fail
             if (queryWarnings.isNotEmpty()) {
@@ -362,6 +458,10 @@ class QueryContextTool(
         val existing = ArrayList<ContextSnippet>(snippets.size)
         var purged = 0
         for (snippet in snippets) {
+            if (snippet.filePath.startsWith("git://") || snippet.filePath.startsWith("pr://")) {
+                existing.add(snippet)
+                continue
+            }
             val exists = runCatching { Files.exists(Path.of(snippet.filePath)) }.getOrElse { false }
             if (exists) {
                 existing.add(snippet)
@@ -390,8 +490,10 @@ class QueryContextTool(
 
         // If specific providers requested, filter to those
         if (requestedProviders != null && requestedProviders.isNotEmpty()) {
-            val requested = requestedProviders.map { it.lowercase() }.toSet()
-            return allProviders.filter { it.id.lowercase() in requested }
+            val requested = requestedProviders
+                .map { canonicalProviderId(it) }
+                .toSet()
+            return allProviders.filter { canonicalProviderId(it.id) in requested }
         }
 
         // Otherwise, use all enabled providers from config
@@ -405,51 +507,123 @@ class QueryContextTool(
         }
     }
 
+    private fun canonicalProviderId(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]"), "")
+
+    private fun isMmrEligible(providers: List<ContextProvider>): Boolean =
+        providers.any { it.type == ContextProviderType.SEMANTIC || it.type == ContextProviderType.HYBRID }
+
+    private fun queryProviders(
+        query: String,
+        scope: ContextScope,
+        budget: TokenBudget,
+        providers: List<ContextProvider>
+    ): List<ProviderQueryResult> = runBlocking {
+        providers.map { provider ->
+            async(Dispatchers.IO) {
+                val startTime = System.currentTimeMillis()
+                try {
+                    val snippets = provider.getContext(query, scope, budget)
+                    val durationMs = System.currentTimeMillis() - startTime
+                    log.debug("Provider {} returned {} snippets in {}ms", provider.id, snippets.size, durationMs)
+                    ProviderQueryResult(
+                        providerId = provider.id,
+                        providerType = provider.type.name,
+                        snippets = snippets,
+                        durationMs = durationMs
+                    )
+                } catch (e: Exception) {
+                    val durationMs = System.currentTimeMillis() - startTime
+                    val errorMessage = e.message ?: "Unknown error"
+                    log.warn("Provider {} failed: {}", provider.id, errorMessage)
+                    ProviderQueryResult(
+                        providerId = provider.id,
+                        providerType = provider.type.name,
+                        snippets = emptyList(),
+                        durationMs = durationMs,
+                        error = errorMessage
+                    )
+                }
+            }
+        }.awaitAll()
+    }
+
     private fun deduplicateSnippets(snippets: List<ContextSnippet>): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
 
-        val sorted = snippets.sortedWith(
-            compareByDescending<ContextSnippet> { it.score }
-                .thenBy { it.filePath }
-                .thenBy { it.chunkId }
+        // Weighted fusion-aware aggregation.
+        // Each provider's score contribution is multiplied by the provider's
+        // configured weight so that e.g. semantic (weight=0.6) outranks
+        // full_text (weight=0.1) when they return the same chunk.
+        // Final fused score = weighted_mean(scores) × agreement_multiplier.
+        data class WeightedScore(val score: Double, val weight: Double)
+        data class Accumulator(
+            var bestSnippet: ContextSnippet,
+            val sources: MutableSet<String>,
+            val weightedScores: MutableList<WeightedScore>
         )
 
-        val unique = linkedMapOf<Pair<Long, String>, ContextSnippet>()
+        val grouped = linkedMapOf<Pair<Long, String>, Accumulator>()
 
-        for (snippet in sorted) {
+        for (snippet in snippets) {
             val key = snippet.chunkId to snippet.filePath
-            val existing = unique[key]
+            val existing = grouped[key]
+            val providerSources = snippet.metadata["sources"]
+                ?.split(',')?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet()
+                ?: emptySet()
+            val providerId = snippet.metadata["provider"] ?: snippet.metadata["sources"]?.split(',')?.firstOrNull()?.trim() ?: ""
+            val weight = config.providers[providerId]?.weight ?: 1.0
 
             if (existing != null) {
-                // Merge sources metadata if duplicate
-                val mergedSources = mergeSources(existing.metadata["sources"], snippet.metadata["sources"])
-                val updated = existing.copy(
-                    metadata = existing.metadata + mapOf(
-                        "sources" to mergedSources,
-                        "source_count" to mergedSources.split(',').distinct().size.toString()
-                    )
-                )
-                unique[key] = updated
+                existing.sources.addAll(providerSources)
+                existing.weightedScores += WeightedScore(snippet.score, weight)
+                if (snippet.score > existing.bestSnippet.score) {
+                    existing.bestSnippet = snippet
+                }
             } else {
-                unique[key] = snippet
+                grouped[key] = Accumulator(
+                    bestSnippet = snippet,
+                    sources = providerSources.toMutableSet(),
+                    weightedScores = mutableListOf(WeightedScore(snippet.score, weight))
+                )
             }
         }
 
-        return unique.values.toList()
+        return grouped.values.map { acc ->
+            val mergedSources = acc.sources.joinToString(",")
+            val providerCount = acc.sources.size
+            // Weighted mean: sum(score_i * weight_i) / sum(weight_i)
+            val totalWeight = acc.weightedScores.sumOf { it.weight }
+            val weightedMean = if (totalWeight > 0) acc.weightedScores.sumOf { it.score * it.weight } / totalWeight else 0.0
+            val agreementMultiplier = 1.0 + (providerCount - 1) * 0.15
+            val fusedScore = (weightedMean * agreementMultiplier).coerceAtMost(1.0)
+            acc.bestSnippet.copy(
+                score = fusedScore,
+                metadata = acc.bestSnippet.metadata + mapOf(
+                    "sources" to mergedSources,
+                    "source_count" to providerCount.toString(),
+                    "agreement_multiplier" to "%.2f".format(java.util.Locale.US, agreementMultiplier),
+                    "weighted_mean" to "%.4f".format(java.util.Locale.US, weightedMean),
+                    "fused_score" to "%.4f".format(java.util.Locale.US, fusedScore)
+                )
+            )
+        }.sortedByDescending { it.score }
     }
 
     private fun applyBudgetAndLimit(
         snippets: List<ContextSnippet>,
         budget: TokenBudget,
-        limit: Int
+        limit: Int,
+        offset: Int = 0
     ): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
 
+        val offsetSnippets = snippets.drop(offset.coerceAtLeast(0))
         val result = mutableListOf<ContextSnippet>()
         var tokensUsed = 0
         val tokenBudget = budget.availableForSnippets.coerceAtLeast(0)
 
-        for (snippet in snippets) {
+        for (snippet in offsetSnippets) {
             if (result.size >= limit) break
 
             val tokens = estimateTokens(snippet)
@@ -557,40 +731,36 @@ class QueryContextTool(
     }
     
     private fun getOrEmbedVector(snippet: ContextSnippet): FloatArray {
-        // Try to get vector from metadata (for semantic results)
-        snippet.metadata["embedding_vector"]?.let { vectorStr ->
-            try {
-                return parseVectorString(vectorStr)
-            } catch (e: Exception) {
-                log.debug("Failed to parse embedding vector from metadata: {}", e.message)
-            }
-        }
-        
-        // Check cache
+        // Check in-memory cache first
         val cacheKey = "${snippet.chunkId}:${snippet.text.hashCode()}"
         synchronized(embeddingCache) {
             embeddingCache[cacheKey]?.let { return it }
         }
-        
-        // Embed the text
-        val vector = runBlocking {
-            embedder.embed(snippet.text)
+
+        // Try to look up the stored embedding by embedding_id or chunk_id
+        // This avoids the expensive runtime re-embedding that was the #1 latency source.
+        val embeddingId = snippet.metadata["embedding_id"]?.toLongOrNull()
+        if (embeddingId != null && embeddingId > 0) {
+            try {
+                val embedding = com.orchestrator.context.storage.EmbeddingRepository
+                    .findByChunkId(snippet.chunkId, config.embedding.model)
+                if (embedding != null) {
+                    val vector = embedding.vector.toFloatArray()
+                    synchronized(embeddingCache) { embeddingCache[cacheKey] = vector }
+                    return vector
+                }
+            } catch (e: Exception) {
+                log.debug("Failed to look up stored embedding for chunk {}: {}", snippet.chunkId, e.message)
+            }
         }
-        
-        // Cache it
-        synchronized(embeddingCache) {
-            embeddingCache[cacheKey] = vector
-        }
-        
-        return vector
-    }
-    
-    private fun parseVectorString(vectorStr: String): FloatArray {
-        // Handle JSON array format: "[0.1, 0.2, 0.3]"
-        val cleaned = vectorStr.trim().removeSurrounding("[", "]")
-        return cleaned.split(",")
-            .map { it.trim().toFloat() }
-            .toFloatArray()
+
+        // No stored vector found — return a zero vector instead of re-embedding.
+        // A zero vector has 0 dot-product with everything, so MMR treats this snippet
+        // as having no similarity to others (pure relevance ranking for this item).
+        val dim = config.embedding.dimension
+        val zeroVector = FloatArray(dim)
+        synchronized(embeddingCache) { embeddingCache[cacheKey] = zeroVector }
+        return zeroVector
     }
     
     private fun applyNeighborExpansion(snippets: List<ContextSnippet>): List<ContextSnippet> {
@@ -620,6 +790,74 @@ class QueryContextTool(
     
     private fun estimateTokens(snippet: ContextSnippet): Int =
         max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
+
+    private data class LinkNeighborhood(
+        val outgoingByType: Map<Long, Map<String, List<Long>>>,
+        val incomingByType: Map<Long, Map<String, List<Long>>>,
+        val edgeCount: Int
+    )
+
+    private fun fetchLinkNeighborhood(chunkIds: List<Long>): LinkNeighborhood {
+        if (chunkIds.isEmpty()) {
+            return LinkNeighborhood(
+                outgoingByType = emptyMap(),
+                incomingByType = emptyMap(),
+                edgeCount = 0
+            )
+        }
+
+        val idSet = chunkIds.toSet()
+        val outgoing = mutableMapOf<Long, MutableMap<String, MutableSet<Long>>>()
+        val incoming = mutableMapOf<Long, MutableMap<String, MutableSet<Long>>>()
+        var edgeCount = 0
+
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        val sql = """
+            SELECT source_chunk_id, target_chunk_id, link_type
+            FROM links
+            WHERE (source_chunk_id IN ($placeholders) OR target_chunk_id IN ($placeholders))
+              AND target_chunk_id IS NOT NULL
+        """.trimIndent()
+
+        ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                var idx = 1
+                chunkIds.forEach { ps.setLong(idx++, it) }
+                chunkIds.forEach { ps.setLong(idx++, it) }
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        val source = rs.getLong("source_chunk_id")
+                        val target = rs.getLong("target_chunk_id").takeIf { !rs.wasNull() } ?: continue
+                        val type = rs.getString("link_type")?.trim().orEmpty()
+                        if (type.isBlank()) continue
+
+                        edgeCount++
+
+                        if (source in idSet) {
+                            val typeMap = outgoing.getOrPut(source) { mutableMapOf() }
+                            typeMap.getOrPut(type) { linkedSetOf() }.add(target)
+                        }
+
+                        if (target in idSet) {
+                            val typeMap = incoming.getOrPut(target) { mutableMapOf() }
+                            typeMap.getOrPut(type) { linkedSetOf() }.add(source)
+                        }
+                    }
+                }
+            }
+        }
+
+        fun freeze(input: Map<Long, MutableMap<String, MutableSet<Long>>>): Map<Long, Map<String, List<Long>>> =
+            input.mapValues { (_, byType) ->
+                byType.mapValues { (_, ids) -> ids.toList() }
+            }
+
+        return LinkNeighborhood(
+            outgoingByType = freeze(outgoing),
+            incomingByType = freeze(incoming),
+            edgeCount = edgeCount
+        )
+    }
 
     /**
      * Validates query quality and returns warnings if likely to produce poor results.
@@ -681,6 +919,7 @@ class QueryContextTool(
 
         val tokensUsed = chunks.sumOf { it.chunk.tokenEstimate ?: max(1, it.chunk.content.length / 4) }
         val byParent = chunks.groupBy { it.chunk.parentChunkId }
+        val linkNeighborhood = fetchLinkNeighborhood(chunks.map { it.chunk.id })
 
         val hits = chunks.map { chunkWithFile ->
             val chunk = chunkWithFile.chunk
@@ -690,9 +929,21 @@ class QueryContextTool(
                 chunkWithFile.relativePath?.let { put("relativePath", it) }
                 chunk.chunkPath?.let { put("chunk_path", it) }
                 chunk.parentChunkId?.let { put("parent_chunk_id", it.toString()) }
+                val calls = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_CALLS).orEmpty()
+                val dependsOn = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_DEPENDS_ON).orEmpty()
+                val modifies = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+                val modifiedByCommit = linkNeighborhood.incomingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+                if (calls.isNotEmpty()) put("calls_chunk_ids", calls.joinToString(","))
+                if (dependsOn.isNotEmpty()) put("depends_on_chunk_ids", dependsOn.joinToString(","))
+                if (modifies.isNotEmpty()) put("modifies_chunk_ids", modifies.joinToString(","))
+                if (modifiedByCommit.isNotEmpty()) put("modified_by_commit_chunk_ids", modifiedByCommit.joinToString(","))
             }
             val siblings = byParent[chunk.parentChunkId].orEmpty().map { it.chunk.id }.filter { it != chunk.id }
             val pathSegments = chunk.chunkPath?.split("/")?.filter { it.isNotBlank() }
+            val calls = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_CALLS).orEmpty()
+            val dependsOn = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_DEPENDS_ON).orEmpty()
+            val modifies = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+            val modifiedByCommit = linkNeighborhood.incomingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
             SnippetHit(
                 chunkId = chunk.id,
                 score = 1.0,
@@ -708,6 +959,11 @@ class QueryContextTool(
                 siblingChunkIds = siblings,
                 prevChunkId = null,
                 nextChunkId = null,
+                childrenChunkIds = emptyList(),
+                callsChunkIds = calls,
+                dependsOnChunkIds = dependsOn,
+                modifiesChunkIds = modifies,
+                modifiedByCommitChunkIds = modifiedByCommit,
                 chunkPathSegments = pathSegments,
                 metadata = meta
             )
@@ -718,14 +974,101 @@ class QueryContextTool(
             "returnedHits" to hits.size,
             "tokensUsed" to tokensUsed,
             "tokensRequested" to tokensUsed,
-            "providers" to emptyMap<String, Any>()
+            "providers" to emptyMap<String, Any>(),
+            "graphEdgesResolved" to linkNeighborhood.edgeCount
         )
 
         return Result(hits = hits, metadata = metadata, content = null)
     }
 
+    private fun fetchChunksByFilePath(filePath: String): Result {
+        val chunks = ContextRepository.getChunksByFilePath(filePath)
+        if (chunks.isEmpty()) {
+            return Result(
+                hits = emptyList(),
+                metadata = mapOf(
+                    "totalHits" to 0,
+                    "returnedHits" to 0,
+                    "tokensUsed" to 0,
+                    "tokensRequested" to 0,
+                    "providers" to emptyMap<String, Any>(),
+                    "filePath" to filePath,
+                    "warning" to "No file found matching path: $filePath"
+                ),
+                content = null
+            )
+        }
+
+        val tokensUsed = chunks.sumOf { it.chunk.tokenEstimate ?: max(1, it.chunk.content.length / 4) }
+        val byParent = chunks.groupBy { it.chunk.parentChunkId }
+        val linkNeighborhood = fetchLinkNeighborhood(chunks.map { it.chunk.id })
+
+        val hits = chunks.map { chunkWithFile ->
+            val chunk = chunkWithFile.chunk
+            val meta = buildMap<String, String> {
+                put("fileId", chunk.fileId.toString())
+                put("tokens", (chunk.tokenEstimate ?: max(1, chunk.content.length / 4)).toString())
+                chunkWithFile.relativePath?.let { put("relativePath", it) }
+                chunk.chunkPath?.let { put("chunk_path", it) }
+                chunk.parentChunkId?.let { put("parent_chunk_id", it.toString()) }
+                val calls = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_CALLS).orEmpty()
+                val dependsOn = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_DEPENDS_ON).orEmpty()
+                val modifies = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+                val modifiedByCommit = linkNeighborhood.incomingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+                if (calls.isNotEmpty()) put("calls_chunk_ids", calls.joinToString(","))
+                if (dependsOn.isNotEmpty()) put("depends_on_chunk_ids", dependsOn.joinToString(","))
+                if (modifies.isNotEmpty()) put("modifies_chunk_ids", modifies.joinToString(","))
+                if (modifiedByCommit.isNotEmpty()) put("modified_by_commit_chunk_ids", modifiedByCommit.joinToString(","))
+            }
+            val siblings = byParent[chunk.parentChunkId].orEmpty().map { it.chunk.id }.filter { it != chunk.id }
+            val pathSegments = chunk.chunkPath?.split("/")?.filter { it.isNotBlank() }
+            val calls = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_CALLS).orEmpty()
+            val dependsOn = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_DEPENDS_ON).orEmpty()
+            val modifies = linkNeighborhood.outgoingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+            val modifiedByCommit = linkNeighborhood.incomingByType[chunk.id]?.get(LINK_TYPE_MODIFIES).orEmpty()
+            SnippetHit(
+                chunkId = chunk.id,
+                score = 1.0,
+                filePath = chunkWithFile.filePath,
+                label = chunk.summary,
+                kind = chunk.kind.name,
+                text = chunk.content,
+                language = chunkWithFile.language,
+                startLine = chunk.startLine,
+                endLine = chunk.endLine,
+                chunkPath = chunk.chunkPath,
+                parentChunkId = chunk.parentChunkId,
+                siblingChunkIds = siblings,
+                prevChunkId = null,
+                nextChunkId = null,
+                childrenChunkIds = emptyList(),
+                callsChunkIds = calls,
+                dependsOnChunkIds = dependsOn,
+                modifiesChunkIds = modifies,
+                modifiedByCommitChunkIds = modifiedByCommit,
+                chunkPathSegments = pathSegments,
+                metadata = meta
+            )
+        }
+
+        val metadata = mapOf(
+            "totalHits" to hits.size,
+            "returnedHits" to hits.size,
+            "tokensUsed" to tokensUsed,
+            "tokensRequested" to tokensUsed,
+            "providers" to emptyMap<String, Any>(),
+            "filePath" to filePath,
+            "graphEdgesResolved" to linkNeighborhood.edgeCount
+        )
+
+        return Result(hits = hits, metadata = metadata, content = null)
+    }
 
     companion object {
+        private const val LINK_TYPE_CALLS = "CALLS"
+        private const val LINK_TYPE_DEPENDS_ON = "DEPENDS_ON"
+        private const val LINK_TYPE_MODIFIES = "MODIFIES"
+
         const val JSON_SCHEMA: String = """
         {
           "${'$'}schema": "http://json-schema.org/draft-07/schema#",
@@ -735,7 +1078,9 @@ class QueryContextTool(
           "properties": {
             "query": {"type": "string", "minLength": 0},
             "chunkIds": {"type": ["array", "null"], "items": {"type": "number"}},
+            "filePath": {"type": ["string", "null"], "description": "Return all chunks for a specific file path (absolute, relative, or partial suffix)"},
             "k": {"type": ["integer", "null"], "minimum": 1},
+            "offset": {"type": ["integer", "null"], "minimum": 0, "description": "Skip this many results before returning (for pagination)"},
             "maxTokens": {"type": ["integer", "null"], "minimum": 100},
             "paths": {"type": ["array", "null"], "items": {"type": "string"}},
             "languages": {"type": ["array", "null"], "items": {"type": "string"}},

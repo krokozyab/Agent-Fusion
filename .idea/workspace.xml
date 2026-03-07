@@ -4,10 +4,103 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="-- relative path in query fixed --">
-      <change afterPath="$PROJECT_DIR$/docs/sample_convetsation.txt" afterDir="false" />
+    <list default="true" id="a311fd16-b815-4625-b5d6-34dffc167448" name="Changes" comment="That payload was failing because it didn’t match the original query_context schema (query/k/paths/providers).&#10;  I added compatibility so your fields now work as aliases:&#10;&#10;  - searchText -&gt; query&#10;  - projectPath -&gt; paths: [projectPath]&#10;  - maxUsageCount -&gt; k&#10;&#10;  Updated in:&#10;&#10;  - McpServerImpl.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt)&#10;  - QueryContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt)&#10;&#10;  Also added regression tests:&#10;&#10;  - McpServerImplTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/McpServerImplTest.kt)&#10;  - QueryContextToolTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/tools/QueryContextToolTest.kt)&#10;&#10;  ./gradlew test --tests com.orchestrator.mcp.McpServerImplTest passes.&#10;&#10;  Next step: restart the orchestrator server and retry exactly your payload.&#10;  If &lt;tool_use_error&gt;Sibling tool call errored&lt;/tool_use_error&gt; still appears, run only a single tool call (no batched/sibling calls) to see the direct tool error.">
+      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-iosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-tvosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-client-watchosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-iosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-tvosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-core-watchosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-server-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-appleTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-linuxTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-macosTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeMain.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeMain.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeTest.cinteropLibraries.json" beforeDir="false" afterPath="$PROJECT_DIR$/.kotlin/metadata/kotlinTransformedCInteropMetadataLibraries/.kotlin-sdk-test-nativeTest.cinteropLibraries.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/CHUNKING_STRATEGIES.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/CHUNKING_STRATEGIES.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/fusionagent_config_docs.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/fusionagent_config_docs.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/fusionagent.toml" beforeDir="false" afterPath="$PROJECT_DIR$/fusionagent.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/ContextRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/ChunkerRegistry.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/ChunkerRegistry.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/MarkdownChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/MarkdownChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PdfChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PdfChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PythonChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/PythonChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/TypeScriptChunker.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/chunking/TypeScriptChunker.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfig.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfigLoader.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/config/ContextConfigLoader.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/domain/ChunkKind.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/domain/ChunkKind.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/FileIndexer.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/SymbolIndexBuilder.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/indexing/SymbolIndexBuilder.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/ContextProviderType.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/ContextProviderType.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/FullTextContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/HybridContextProvider.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/providers/HybridContextProvider.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/search/ScoreBooster.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/search/ScoreBooster.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/context/storage/ContextDatabase.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/modules/context/ContextRetrievalModule.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/modules/context/ContextRetrievalModule.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/modules/context/QueryOptimizer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/modules/context/QueryOptimizer.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/routes/ExplorerRoutes.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/com/orchestrator/web/routes/ExplorerRoutes.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/META-INF/services/com.orchestrator.context.providers.ContextProvider" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/META-INF/services/com.orchestrator.context.providers.ContextProvider" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/ChunkerRegistryTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/ChunkerRegistryTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/MarkdownChunkerTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/MarkdownChunkerTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/PdfChunkerTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/PdfChunkerTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/PythonChunkerTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/PythonChunkerTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/TypeScriptChunkerTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/chunking/TypeScriptChunkerTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/config/ContextConfigLoaderTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/config/ContextConfigLoaderTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/config/ContextConfigTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/config/ContextConfigTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/config/QueryConfigTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/config/QueryConfigTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/ContextProviderRegistryTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/ContextProviderRegistryTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/FullTextIdfTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/FullTextIdfTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/HybridContextProviderTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/providers/HybridContextProviderTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/search/ScoreBoosterTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/context/search/ScoreBoosterTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/mcp/tools/QueryContextToolTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/mcp/tools/QueryContextToolTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/modules/context/ContextRetrievalModuleTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/kotlin/com/orchestrator/modules/context/ContextRetrievalModuleTest.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,7 +162,10 @@
     &quot;repository&quot;: &quot;codex_to_claude&quot;
   }
 }</component>
-  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.7+6/Contents/Home" gradleVersion="8.14" />
+  <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="true" />
+  </component>
+  <component name="GradleScriptDefinitionsStorage" workingDir="$PROJECT_DIR$" gradleHome="$USER_HOME$/.gradle/wrapper/dists/gradle-8.14-bin/38aieal9i53h9rfe7vjup95b9/gradle-8.14" javaHome="$USER_HOME$/.sdkman/candidates/java/current" gradleVersion="8.14" />
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
   &quot;isMigrated&quot;: true
@@ -88,45 +184,49 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.AgentRegistryTest.executor": "Run",
-    "Gradle.AgentSelectorTest.executor": "Run",
-    "Gradle.Build codex_to_claude.executor": "Run",
-    "Gradle.ConsensusModuleTest.executor": "Run",
-    "Gradle.ConsensusWorkflowTest.executor": "Run",
-    "Gradle.ContextModuleTest.executor": "Run",
-    "Gradle.DirectiveParserTest.executor": "Run",
-    "Gradle.GetTaskStatusToolTest.executor": "Run",
-    "Gradle.McpServerImplTest.executor": "Run",
-    "Gradle.ProposalRepositoryTest.executor": "Run",
-    "Gradle.RoutingModuleTest.executor": "Run",
-    "Gradle.StrategyPickerTest.executor": "Run",
-    "Gradle.TaskClassifierTest.executor": "Run",
-    "Gradle.TaskRepositoryTest.executor": "Run",
-    "Gradle.TokenEstimatorTest.executor": "Run",
-    "Gradle.VotingStrategyTest.executor": "Run",
-    "Gradle.WorkflowExecutorTest.executor": "Run",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "imp",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sergeyrudenko/projects/codex_to_claude/devdoc",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
-    "settings.editor.selected.configurable": "aws.codewhisperer",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.AgentRegistryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.AgentSelectorTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Build codex_to_claude.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ConsensusModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ConsensusWorkflowTest.executor&quot;: &quot;Debug&quot;,
+    &quot;Gradle.ContextModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.DirectiveParserTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.GetTaskStatusToolTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.McpServerImplTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.ProposalRepositoryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.RoutingModuleTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.StrategyPickerTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TaskClassifierTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TaskRepositoryTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.TokenEstimatorTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.VotingStrategyTest.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.WorkflowExecutorTest.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.migrated.go.modules.settings&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;imp&quot;,
+    &quot;go.import.settings.migrated&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/sergeyrudenko_1_2/projects/codex_to_claude&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon&quot;: &quot;&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.gradle&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/devdoc" />
@@ -297,11 +397,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Gradle.ConsensusWorkflowTest" />
         <item itemvalue="Gradle.WorkflowExecutorTest" />
         <item itemvalue="Gradle.TaskClassifierTest" />
         <item itemvalue="Gradle.McpServerImplTest" />
         <item itemvalue="Gradle.GetTaskStatusToolTest" />
-        <item itemvalue="Gradle.ConsensusWorkflowTest" />
       </list>
     </recent_temporary>
   </component>
@@ -332,46 +432,13 @@
       <workItem from="1763415495574" duration="38106000" />
       <workItem from="1763490114629" duration="27765000" />
       <workItem from="1763652739075" duration="88099000" />
-    </task>
-    <task id="LOCAL-00151" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762859642281</created>
-      <option name="number" value="00151" />
-      <option name="presentableId" value="LOCAL-00151" />
-      <option name="project" value="LOCAL" />
-      <updated>1762859642281</updated>
-    </task>
-    <task id="LOCAL-00152" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762874860024</created>
-      <option name="number" value="00152" />
-      <option name="presentableId" value="LOCAL-00152" />
-      <option name="project" value="LOCAL" />
-      <updated>1762874860024</updated>
-    </task>
-    <task id="LOCAL-00153" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762878770249</created>
-      <option name="number" value="00153" />
-      <option name="presentableId" value="LOCAL-00153" />
-      <option name="project" value="LOCAL" />
-      <updated>1762878770249</updated>
-    </task>
-    <task id="LOCAL-00154" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762880638874</created>
-      <option name="number" value="00154" />
-      <option name="presentableId" value="LOCAL-00154" />
-      <option name="project" value="LOCAL" />
-      <updated>1762880638874</updated>
-    </task>
-    <task id="LOCAL-00155" summary="-- readme --">
-      <option name="closed" value="true" />
-      <created>1762886073085</created>
-      <option name="number" value="00155" />
-      <option name="presentableId" value="LOCAL-00155" />
-      <option name="project" value="LOCAL" />
-      <updated>1762886073085</updated>
+      <workItem from="1764854596366" duration="636000" />
+      <workItem from="1764894507780" duration="13677000" />
+      <workItem from="1765345281260" duration="596000" />
+      <workItem from="1765381553531" duration="236000" />
+      <workItem from="1765432680589" duration="598000" />
+      <workItem from="1765543733341" duration="24815000" />
+      <workItem from="1771777811259" duration="59427000" />
     </task>
     <task id="LOCAL-00156" summary="-- readme --">
       <option name="closed" value="true" />
@@ -725,7 +792,47 @@
       <option name="project" value="LOCAL" />
       <updated>1763928858422</updated>
     </task>
-    <option name="localTasksCounter" value="200" />
+    <task id="LOCAL-00200" summary="-- relative path in query fixed --">
+      <option name="closed" value="true" />
+      <created>1763965870013</created>
+      <option name="number" value="00200" />
+      <option name="presentableId" value="LOCAL-00200" />
+      <option name="project" value="LOCAL" />
+      <updated>1763965870013</updated>
+    </task>
+    <task id="LOCAL-00201" summary="-- word chunker fix --">
+      <option name="closed" value="true" />
+      <created>1771905339804</created>
+      <option name="number" value="00201" />
+      <option name="presentableId" value="LOCAL-00201" />
+      <option name="project" value="LOCAL" />
+      <updated>1771905339804</updated>
+    </task>
+    <task id="LOCAL-00202" summary="The failing test situation is fixed, and I kept behavior changes targeted to test/regression causes.&#10;&#10;  What I fixed&#10;&#10;  1. Verified and kept the prior functional fixes that addressed main failure roots:&#10;&#10;  - chunking/overlap and ordinal regressions (OverlapProcessor.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/chunking/&#10;    OverlapProcessor.kt), TypeScriptChunker.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/chunking/&#10;    TypeScriptChunker.kt), PlainTextChunker.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/chunking/&#10;    PlainTextChunker.kt))&#10;  - SQL column selection mismatches (ContextRepository.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/&#10;    ContextRepository.kt), GitHistoryContextProvider.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/providers/&#10;    GitHistoryContextProvider.kt))&#10;  - locale-stable numeric formatting (HybridContextProvider.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/providers/&#10;    HybridContextProvider.kt), ResultCard.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt))&#10;  - symbol qualified-name normalization (SymbolIndexBuilder.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/indexing/&#10;    SymbolIndexBuilder.kt))&#10;  - test DB isolation for lock/flakiness (RebuildContextToolTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/tools/&#10;    RebuildContextToolTest.kt), HomeRoutesTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/web/routes/HomeRoutesTest.kt))&#10;&#10;  2. Fixed one remaining test-discovery bug:&#10;&#10;  - SymbolContextProviderTest.handles database errors gracefully was effectively skipped because it returned a value via try/catch expression body.&#10;  - Replaced with assertFailsWith so JUnit executes it correctly (SymbolContextProviderTest.kt:184 (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/&#10;    com/orchestrator/context/providers/SymbolContextProviderTest.kt:184)).&#10;&#10;  Validation&#10;&#10;  1. ./gradlew cleanTest test → BUILD SUCCESSFUL (full execution).&#10;  2. ./gradlew test --tests com.orchestrator.context.providers.SymbolContextProviderTest → BUILD SUCCESSFUL.&#10;  3. ./gradlew test → BUILD SUCCESSFUL (full suite after final patch).&#10;&#10;  Only non-blocking output left is Gradle deprecation warnings.">
+      <option name="closed" value="true" />
+      <created>1771907190322</created>
+      <option name="number" value="00202" />
+      <option name="presentableId" value="LOCAL-00202" />
+      <option name="project" value="LOCAL" />
+      <updated>1771907190322</updated>
+    </task>
+    <task id="LOCAL-00203" summary="1. Fixed cache correctness in QueryOptimizer by keying cache on query + budget + candidate-result signature (not just query text).&#10;     QueryOptimizer.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/modules/context/QueryOptimizer.kt:23)&#10;  2. Removed GlobalScope in refresh tool, replaced with instance CoroutineScope(SupervisorJob + Dispatchers.Default), and paused watchers for the full async refresh&#10;     execution.&#10;     RefreshContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt:37)&#10;     RefreshContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt:343)&#10;  3. Removed GlobalScope in rebuild tool similarly, added visibility safety for async job state (@Volatile), and ensured LocalEmbedder is closed in runBootstrap finally&#10;     block.&#10;     RebuildContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:44)&#10;     RebuildContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:74)&#10;     RebuildContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:820)&#10;  4. Added tests to prove cache separation for different budgets and different candidate result sets.&#10;     QueryOptimizerTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/modules/context/QueryOptimizerTest.kt:55)">
+      <option name="closed" value="true" />
+      <created>1771908423145</created>
+      <option name="number" value="00203" />
+      <option name="presentableId" value="LOCAL-00203" />
+      <option name="project" value="LOCAL" />
+      <updated>1771908423146</updated>
+    </task>
+    <task id="LOCAL-00204" summary="That payload was failing because it didn’t match the original query_context schema (query/k/paths/providers).&#10;  I added compatibility so your fields now work as aliases:&#10;&#10;  - searchText -&gt; query&#10;  - projectPath -&gt; paths: [projectPath]&#10;  - maxUsageCount -&gt; k&#10;&#10;  Updated in:&#10;&#10;  - McpServerImpl.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt)&#10;  - QueryContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt)&#10;&#10;  Also added regression tests:&#10;&#10;  - McpServerImplTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/McpServerImplTest.kt)&#10;  - QueryContextToolTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/tools/QueryContextToolTest.kt)&#10;&#10;  ./gradlew test --tests com.orchestrator.mcp.McpServerImplTest passes.&#10;&#10;  Next step: restart the orchestrator server and retry exactly your payload.&#10;  If &lt;tool_use_error&gt;Sibling tool call errored&lt;/tool_use_error&gt; still appears, run only a single tool call (no batched/sibling calls) to see the direct tool error.">
+      <option name="closed" value="true" />
+      <created>1771923528513</created>
+      <option name="number" value="00204" />
+      <option name="presentableId" value="LOCAL-00204" />
+      <option name="project" value="LOCAL" />
+      <updated>1771923528513</updated>
+    </task>
+    <option name="localTasksCounter" value="205" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -772,10 +879,6 @@
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
     <option name="CHECK_NEW_TODO" value="false" />
-    <MESSAGE value="-- Task 2: Implement MMR Integration in QueryContextTool --" />
-    <MESSAGE value="-- Task 3: Implement Neighbor Expansion --" />
-    <MESSAGE value="-- Task 4: Implement Path/Language Boosts --" />
-    <MESSAGE value="-- Task 5: Implement Minimal IDF for Full-Text --" />
     <MESSAGE value="-- new model --" />
     <MESSAGE value="-- - Fix query_context results staying stale after file deletions by filtering out snippets whose files no longer exist; scoped searches now surface only live&#10;       files.&#10;     - Watcher now performs periodic implicit-deletion sweeps (configurable via context.watcher.deletion_sweep_interval_ms) so the context DB stays in sync without&#10;       manual rebuilds.&#10;     - Rebuild workflow clears/recreates the DuckDB schema inside a single transaction, eliminating the “cannot commit – no transaction is active” failures during&#10;       full context rebuilds. --" />
     <MESSAGE value="-- spinner --" />
@@ -797,7 +900,15 @@
     <MESSAGE value="-- hierarchy final traversal --" />
     <MESSAGE value="-- Changes Made&#10;   &#10;     1. QueryContextTool.kt (src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt:27-47)&#10;   &#10;     Before:&#10;     - &quot;Use short, specific keywords (like grep/find commands)&quot;&#10;     - &quot;2-5 words&quot;&#10;   &#10;     After:&#10;     - &quot;Use domain-specific descriptive phrases (5-10 words) with concrete terms&quot;&#10;     - Mentions the semantic model (sentence-transformers/all-MiniLM-L6-v2)&#10;     - Better examples showing descriptive queries&#10;   &#10;     2. McpServerImpl.kt (src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt:2364+)&#10;   &#10;     Updated sections:&#10;   &#10;     1. Main CRITICAL guidance (line 2368):&#10;       - Changed from: &quot;Use SHORT keywords (2-5 words)&quot;&#10;       - Changed to: &quot;Use domain-specific descriptive phrases (5-10 words) with concrete technical terms&quot;&#10;       - Added explanation about semantic model understanding meaning&#10;     2. Good Query Examples (line 2420):&#10;       - Extended all examples from 3-4 words to 5-8 words&#10;       - Example: &quot;authentication JWT token&quot; → &quot;authentication JWT token validation implementation&quot;&#10;     3. Query Formulation Section (line 2448):&#10;       - New formula emphasizing domain terms + technical concepts + implementation details&#10;       - Explicitly mentions optimal length: 5-10 words&#10;       - Notes that semantic model understands meaning and context&#10;     4. Comparison Table (line 2465):&#10;       - All &quot;Good Query&quot; examples now use 5-8 word descriptive phrases&#10;       - Example: &quot;TaskRepository class&quot; → &quot;TaskRepository database access implementation&quot;&#10;     5. User Phrase Mapping (line 2408):&#10;       - Updated all suggested queries to be more descriptive&#10;       - Example: &quot;feature implementation&quot; → &quot;feature implementation core logic flow&quot;&#10;   &#10;     Rationale&#10;   &#10;     The changes reflect that:&#10;     - Semantic search with sentence-transformers benefits from richer context, not just keywords&#10;     - Domain-specific vocabulary provides better signals than generic grep-like terms&#10;     - 5-10 words is optimal for semantic understanding while staying focused&#10;     - Question words and abstract meta-queries still fail (kept those warnings)&#10;     - Concrete technical terms work better than vague concepts&#10;   &#10;     The tool will now guide users to write queries like:&#10;     - ✅ &quot;PGP encryption FTP adapter file transfer configuration&quot;&#10;     - ✅ &quot;consensus workflow voting mechanism implementation&quot;&#10;   &#10;     Instead of:&#10;     - ❌ &quot;PGP encryption&quot; (too short, lacks context)&#10;     - ❌ &quot;how does PGP encryption work in FTP?&quot; (question format)&#10;   &#10;     This better leverages the semantic search capabilities while still avoiding natural language questions that fail! --" />
     <MESSAGE value="-- relative path in query fixed --" />
-    <option name="LAST_COMMIT_MESSAGE" value="-- relative path in query fixed --" />
+    <MESSAGE value="-- word chunker fix --" />
+    <MESSAGE value="The failing test situation is fixed, and I kept behavior changes targeted to test/regression causes.&#10;&#10;  What I fixed&#10;&#10;  1. Verified and kept the prior functional fixes that addressed main failure roots:&#10;&#10;  - chunking/overlap and ordinal regressions (OverlapProcessor.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/chunking/&#10;    OverlapProcessor.kt), TypeScriptChunker.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/chunking/&#10;    TypeScriptChunker.kt), PlainTextChunker.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/chunking/&#10;    PlainTextChunker.kt))&#10;  - SQL column selection mismatches (ContextRepository.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/&#10;    ContextRepository.kt), GitHistoryContextProvider.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/providers/&#10;    GitHistoryContextProvider.kt))&#10;  - locale-stable numeric formatting (HybridContextProvider.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/providers/&#10;    HybridContextProvider.kt), ResultCard.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/web/components/ResultCard.kt))&#10;  - symbol qualified-name normalization (SymbolIndexBuilder.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/context/indexing/&#10;    SymbolIndexBuilder.kt))&#10;  - test DB isolation for lock/flakiness (RebuildContextToolTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/tools/&#10;    RebuildContextToolTest.kt), HomeRoutesTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/web/routes/HomeRoutesTest.kt))&#10;&#10;  2. Fixed one remaining test-discovery bug:&#10;&#10;  - SymbolContextProviderTest.handles database errors gracefully was effectively skipped because it returned a value via try/catch expression body.&#10;  - Replaced with assertFailsWith so JUnit executes it correctly (SymbolContextProviderTest.kt:184 (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/&#10;    com/orchestrator/context/providers/SymbolContextProviderTest.kt:184)).&#10;&#10;  Validation&#10;&#10;  1. ./gradlew cleanTest test → BUILD SUCCESSFUL (full execution).&#10;  2. ./gradlew test --tests com.orchestrator.context.providers.SymbolContextProviderTest → BUILD SUCCESSFUL.&#10;  3. ./gradlew test → BUILD SUCCESSFUL (full suite after final patch).&#10;&#10;  Only non-blocking output left is Gradle deprecation warnings." />
+    <MESSAGE value="1. Fixed cache correctness in QueryOptimizer by keying cache on query + budget + candidate-result signature (not just query text).&#10;     QueryOptimizer.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/modules/context/QueryOptimizer.kt:23)&#10;  2. Removed GlobalScope in refresh tool, replaced with instance CoroutineScope(SupervisorJob + Dispatchers.Default), and paused watchers for the full async refresh&#10;     execution.&#10;     RefreshContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt:37)&#10;     RefreshContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RefreshContextTool.kt:343)&#10;  3. Removed GlobalScope in rebuild tool similarly, added visibility safety for async job state (@Volatile), and ensured LocalEmbedder is closed in runBootstrap finally&#10;     block.&#10;     RebuildContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:44)&#10;     RebuildContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:74)&#10;     RebuildContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/RebuildContextTool.kt:820)&#10;  4. Added tests to prove cache separation for different budgets and different candidate result sets.&#10;     QueryOptimizerTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/modules/context/QueryOptimizerTest.kt:55)" />
+    <MESSAGE value="That payload was failing because it didn’t match the original query_context schema (query/k/paths/providers).&#10;  I added compatibility so your fields now work as aliases:&#10;&#10;  - searchText -&gt; query&#10;  - projectPath -&gt; paths: [projectPath]&#10;  - maxUsageCount -&gt; k&#10;&#10;  Updated in:&#10;&#10;  - McpServerImpl.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt)&#10;  - QueryContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt)&#10;&#10;  Also added regression tests:&#10;&#10;  - McpServerImplTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/McpServerImplTest.kt)&#10;  - QueryContextToolTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/tools/QueryContextToolTest.kt)&#10;&#10;  ./gradlew test --tests com.orchestrator.mcp.McpServerImplTest passes.&#10;&#10;  Next step: restart the orchestrator server and retry exactly your payload.&#10;  If &lt;tool_use_error&gt;Sibling tool call errored&lt;/tool_use_error&gt; still appears, run only a single tool call (no batched/sibling calls) to see the direct tool error." />
+    <option name="LAST_COMMIT_MESSAGE" value="That payload was failing because it didn’t match the original query_context schema (query/k/paths/providers).&#10;  I added compatibility so your fields now work as aliases:&#10;&#10;  - searchText -&gt; query&#10;  - projectPath -&gt; paths: [projectPath]&#10;  - maxUsageCount -&gt; k&#10;&#10;  Updated in:&#10;&#10;  - McpServerImpl.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/McpServerImpl.kt)&#10;  - QueryContextTool.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/main/kotlin/com/orchestrator/mcp/tools/QueryContextTool.kt)&#10;&#10;  Also added regression tests:&#10;&#10;  - McpServerImplTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/McpServerImplTest.kt)&#10;  - QueryContextToolTest.kt (/Users/sergeyrudenko_1_2/projects/codex_to_claude/src/test/kotlin/com/orchestrator/mcp/tools/QueryContextToolTest.kt)&#10;&#10;  ./gradlew test --tests com.orchestrator.mcp.McpServerImplTest passes.&#10;&#10;  Next step: restart the orchestrator server and retry exactly your payload.&#10;  If &lt;tool_use_error&gt;Sibling tool call errored&lt;/tool_use_error&gt; still appears, run only a single tool call (no batched/sibling calls) to see the direct tool error." />
+  </component>
+  <component name="VgoProject">
+    <integration-enabled>false</integration-enabled>
+    <settings-migrated>true</settings-migrated>
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

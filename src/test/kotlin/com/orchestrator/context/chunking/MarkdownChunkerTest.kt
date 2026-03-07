@@ -344,4 +344,26 @@ class MarkdownChunkerTest {
         assertTrue(chunks.isNotEmpty())
         assertEquals("Test", chunks[0].summary)
     }
+
+    @Test
+    fun `semantic split separates long single line prose by topic`() {
+        val authSentences = List(10) {
+            "Authentication token refresh validates credentials and session expiration before retry."
+        }
+        val uiSentences = List(10) {
+            "Interface animation timing tunes layout transitions and spacing for dashboard cards."
+        }
+        val markdown = "# Notes\n${(authSentences + uiSentences).joinToString(" ")}"
+
+        val chunker = MarkdownChunker(maxTokens = 80)
+        val chunks = chunker.chunk(markdown, "docs/semantic.md", "markdown").withoutRoot()
+            .filter { it.kind == ChunkKind.MARKDOWN_SECTION }
+
+        assertTrue(chunks.size >= 2)
+        val authChunk = chunks.firstOrNull { it.content.contains("Authentication token refresh") }
+        val uiChunk = chunks.firstOrNull { it.content.contains("Interface animation timing") }
+        assertTrue(authChunk != null)
+        assertTrue(uiChunk != null)
+        assertTrue(authChunk!!.ordinal != uiChunk!!.ordinal)
+    }
 }

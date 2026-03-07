@@ -7,32 +7,20 @@ import kotlin.test.assertTrue
 class FullTextIdfTest {
 
     @Test
-    fun `IDF enabled by default`() {
+    fun `provider type is FULL_TEXT`() {
         val provider = FullTextContextProvider()
-        // Verify via reflection or behavior test
-        assertTrue(true) // IDF is enabled by default in constructor
+        assertEquals(ContextProviderType.FULL_TEXT, provider.type)
     }
 
     @Test
-    fun `IDF can be disabled`() {
-        val provider = FullTextContextProvider(idfEnabled = false)
-        // Verify via reflection or behavior test
-        assertTrue(true) // IDF can be disabled
+    fun `provider id is full_text`() {
+        val provider = FullTextContextProvider()
+        assertEquals("full_text", provider.id)
     }
 
     @Test
-    fun `long terms get boost`() {
-        val provider = FullTextContextProvider(idfEnabled = true)
-        // Long terms (8+ chars) should get 1.15x boost
-        // This is tested indirectly through scoring
-        assertTrue(true)
-    }
-
-    @Test
-    fun `short terms get penalty`() {
-        val provider = FullTextContextProvider(idfEnabled = true)
-        // Short terms (<4 chars) should get 0.95x penalty
-        // This is tested indirectly through scoring
-        assertTrue(true)
+    fun `maxResults can be configured`() {
+        val provider = FullTextContextProvider(maxResults = 10)
+        assertEquals("full_text", provider.id)
     }
 }

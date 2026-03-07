@@ -12,7 +12,7 @@ private data class ParagraphInfo(
 
 class PlainTextChunker(
     private val maxTokens: Int = 600,
-    private val overlapPercent: Int = 15
+    private val overlapPercent: Int = 0
 ) : Chunker {
 
     private val sentenceSplitRegex = Regex("(?<=[.!?])\\s+")
@@ -73,7 +73,7 @@ class PlainTextChunker(
         chunks += Chunk(
             id = 0,
             fileId = 0,
-            ordinal = ordinal++,
+            ordinal = ordinal,
             kind = ChunkKind.PARAGRAPH,
             startLine = 1,
             endLine = lines.size,
@@ -83,6 +83,7 @@ class PlainTextChunker(
             createdAt = createdAt,
             chunkPath = rootPath
         )
+        ordinal += 1
 
         for (paragraphInfo in paragraphs) {
             val tokens = estimateTokens(paragraphInfo.text)
@@ -111,7 +112,11 @@ class PlainTextChunker(
             }
         }
 
-        return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
+        return OverlapProcessor.addOverlap(
+            chunks,
+            overlapPercent,
+            ::estimateTokens
+        ) { it.summary != "Document root" }
     }
     
     override fun estimateTokens(text: String): Int = text.length / 4

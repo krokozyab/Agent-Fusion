@@ -7,6 +7,7 @@ enum class ContextProviderType {
     SEMANTIC,
     SYMBOL,
     FULL_TEXT,
+    EXACT_MATCH,
     HYBRID,
     GIT_HISTORY,
     NEO4J

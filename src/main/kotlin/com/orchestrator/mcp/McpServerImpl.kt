@@ -1361,6 +1361,12 @@ class McpServerImpl(
                         put("nextChunkId", JsonPrimitive(hit.nextChunkId))
                     }
                     put("childrenChunkIds", buildJsonArray { hit.childrenChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("callsChunkIds", buildJsonArray { hit.callsChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("dependsOnChunkIds", buildJsonArray { hit.dependsOnChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("modifiesChunkIds", buildJsonArray { hit.modifiesChunkIds.forEach { add(JsonPrimitive(it)) } })
+                    put("modifiedByCommitChunkIds", buildJsonArray {
+                        hit.modifiedByCommitChunkIds.forEach { add(JsonPrimitive(it)) }
+                    })
                     if (hit.depth == null) {
                         put("depth", JsonNull)
                     } else {
@@ -2420,11 +2426,13 @@ class McpServerImpl(
 
                 ## 🔀 Traversal via chunkIds (no search needed)
                 - `chunkIds`: fetch chunks directly (query can be empty when using chunkIds)
-                - Response navigation fields: `parentChunkId`, `childrenChunkIds`, `siblingChunkIds`, `prevChunkId`, `nextChunkId`, `depth`, `chunkPath`
+                - Response navigation fields: `parentChunkId`, `childrenChunkIds`, `siblingChunkIds`, `prevChunkId`, `nextChunkId`, `callsChunkIds`, `dependsOnChunkIds`, `modifiesChunkIds`, `modifiedByCommitChunkIds`, `depth`, `chunkPath`
                 - Patterns:
                   - Fetch method → follow `parentChunkId` to its class
                   - List class members → use `childrenChunkIds`
                   - Walk file sequentially → use `prevChunkId` / `nextChunkId`
+                  - Follow cross-file usage → use `callsChunkIds` / `dependsOnChunkIds`
+                  - Explain "why changed" → start from `modifiedByCommitChunkIds`
                   - Context depth → use `depth` (slash count of `chunk_path`)
 
                 ## 💬 User Phrases That Trigger This Tool
@@ -3200,16 +3208,31 @@ class McpServerImpl(
 
     private fun mapQueryContextParams(el: JsonElement): QueryContextTool.Params {
         val o = el.asObj()
+        val query = o.str("query") ?: o.str("searchText") ?: ""
+        val chunkIds = o.listLongFlexible("chunkIds")
+        val filePath = o.str("filePath") ?: o.str("file_path") ?: o.str("file")
+        val k = o.intFlexible("k") ?: o.intFlexible("maxUsageCount")
+        val offset = o.intFlexible("offset")
+        val maxTokens = o.intFlexible("maxTokens")
+        val paths = o.listStrFlexible("paths")
+            ?: o.str("projectPath")?.takeIf { it.isNotBlank() }?.let { listOf(it) }
+        val languages = o.listStrFlexible("languages")
+        val kinds = o.listStrFlexible("kinds")
+        val excludePatterns = o.listStrFlexible("excludePatterns")
+        val providers = o.listStrFlexible("providers")
+
         return QueryContextTool.Params(
-            query = o.str("query") ?: "",
-            chunkIds = o.listLong("chunkIds"),
-            k = o.int("k"),
-            maxTokens = o.int("maxTokens"),
-            paths = o.listStr("paths"),
-            languages = o.listStr("languages"),
-            kinds = o.listStr("kinds"),
-            excludePatterns = o.listStr("excludePatterns"),
-            providers = o.listStr("providers")
+            query = query,
+            chunkIds = chunkIds,
+            filePath = filePath,
+            k = k,
+            offset = offset,
+            maxTokens = maxTokens,
+            paths = paths,
+            languages = languages,
+            kinds = kinds,
+            excludePatterns = excludePatterns,
+            providers = providers
         )
     }
 
@@ -3249,6 +3272,37 @@ class McpServerImpl(
     private fun JsonObject.listLong(key: String): List<Long>? = array(key)?.mapNotNull {
         (it as? JsonPrimitive)?.content?.toLongOrNull()
     }
+
+    private fun JsonObject.intFlexible(key: String): Int? {
+        val primitive = prim(key) ?: return null
+        return primitive.intOrNull ?: primitive.content.trim().toIntOrNull()
+    }
+
+    private fun JsonObject.listStrFlexible(key: String): List<String>? {
+        array(key)?.let { arr ->
+            return arr.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim() }.filter { it.isNotEmpty() }
+        }
+
+        val primitive = prim(key) ?: return null
+        val raw = primitive.content.trim()
+        if (raw.isEmpty()) return emptyList()
+
+        if (raw.startsWith("[") && raw.endsWith("]")) {
+            val parsedArray = runCatching { json.parseToJsonElement(raw) as? JsonArray }.getOrNull()
+            if (parsedArray != null) {
+                return parsedArray.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim() }.filter { it.isNotEmpty() }
+            }
+        }
+
+        if (raw.contains(",")) {
+            return raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        }
+
+        return listOf(raw)
+    }
+
+    private fun JsonObject.listLongFlexible(key: String): List<Long>? =
+        listStrFlexible(key)?.mapNotNull { it.toLongOrNull() }
     private fun JsonObject.mapStr(key: String): Map<String, String>? = obj(key)?.entries?.associate { (k, v) ->
         k to ((v as? JsonPrimitive)?.content ?: v.toString())
     }

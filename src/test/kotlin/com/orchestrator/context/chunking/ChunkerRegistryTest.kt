@@ -29,6 +29,13 @@ class ChunkerRegistryTest {
     }
 
     @Test
+    fun `returns GoChunker for go files`() {
+        val chunker = registry.getChunker(Paths.get("main.go"))
+        assertNotNull(chunker)
+        assertTrue(chunker is Chunker)
+    }
+
+    @Test
     fun `returns YamlChunker for yaml files`() {
         val chunker = registry.getChunker(Paths.get("config.yaml"))
         assertNotNull(chunker)
@@ -82,6 +89,7 @@ class ChunkerRegistryTest {
         assertTrue(extensions.contains("java"))
         assertTrue(extensions.contains("cs"))
         assertTrue(extensions.contains("kt"))
+        assertTrue(extensions.contains("go"))
         assertTrue(extensions.contains("yaml"))
         assertTrue(extensions.contains("yml"))
         assertTrue(extensions.contains("sql"))
@@ -91,6 +99,7 @@ class ChunkerRegistryTest {
     fun `isSupported returns true for supported files`() {
         assertTrue(registry.isSupported(Paths.get("Test.java")))
         assertTrue(registry.isSupported(Paths.get("Test.kt")))
+        assertTrue(registry.isSupported(Paths.get("main.go")))
         assertTrue(registry.isSupported(Paths.get("config.yaml")))
         assertTrue(registry.isSupported(Paths.get("manual.docx")))
         assertTrue(registry.isSupported(Paths.get("reference.pdf")))

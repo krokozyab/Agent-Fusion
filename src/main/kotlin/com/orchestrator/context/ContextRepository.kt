@@ -48,7 +48,7 @@ object ContextRepository {
 
     // region Public API
 
-    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>): FileArtifacts =
+    fun replaceFileArtifacts(fileState: FileState, chunkArtifacts: List<ChunkArtifacts>, batchSize: Int = 128): FileArtifacts =
         writeLock.withLock {
             // Phase 1: Delete old artifacts using separate transactions for each deletion step
             // This approach isolates each deletion operation, preventing a single FK constraint error
@@ -169,47 +169,68 @@ object ContextRepository {
                 }
             }
 
-            // Phase 2: Insert new artifacts in separate transaction
-            // This ensures that even if Phase 1 partially succeeds, Phase 2 can still proceed
-            ContextDatabase.transaction { conn ->
-                val persistedFile = upsertFileState(conn, fileState)
+            // Phase 2: Insert new artifacts in batched transactions
+            // This ensures that progress is committed incrementally, preventing data loss on crashes
+            val persistedFile = ContextDatabase.transaction { conn ->
+                upsertFileState(conn, fileState)
+            }
 
-                val assigned = chunkArtifacts.map { artifact ->
+            // Assign IDs to all chunks upfront (but don't persist yet)
+            val assigned = ContextDatabase.withConnection { conn ->
+                chunkArtifacts.map { artifact ->
                     val chunkId = nextId(conn, "chunks_seq")
                     val chunkWithIds = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id)
                     chunkId to artifact.copy(chunk = chunkWithIds)
                 }
+            }
 
-                val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
-                    artifact.chunk.chunkPath?.let { it to chunkId }
-                }.toMap()
+            val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
+                artifact.chunk.chunkPath?.let { it to chunkId }
+            }.toMap()
 
-                val withParents = assigned.map { (chunkId, artifact) ->
-                    val parentPath = artifact.chunk.chunkPath?.let { path ->
-                        val idx = path.lastIndexOf('/')
-                        if (idx > 0) path.substring(0, idx) else null
-                    }
-                    val parentId = parentPath?.let { pathToId[it] }
-                    val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
-                    chunkId to artifact.copy(chunk = chunkWithParent)
+            val withParents = assigned.map { (chunkId, artifact) ->
+                val parentPath = artifact.chunk.chunkPath?.let { path ->
+                    val idx = path.lastIndexOf('/')
+                    if (idx > 0) path.substring(0, idx) else null
+                }
+                val parentId = parentPath?.let { pathToId[it] }
+                val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
+                chunkId to artifact.copy(chunk = chunkWithParent)
+            }
+
+            // Insert all chunks in a single transaction.
+            // DuckDB is an OLAP database with heavy per-transaction overhead;
+            // many small transactions are orders of magnitude slower than one bulk insert.
+            val totalChunks = withParents.size
+            if (totalChunks > 128) {
+                log.info("Persisting {} chunks in a single transaction", totalChunks)
+            }
+
+            val persistedChunks = ContextDatabase.transaction { conn ->
+                val chunks = withParents.map { it.second.chunk }
+                val embeddingRows = withParents.flatMap { (chunkId, artifact) ->
+                    artifact.embeddings.map { chunkId to it }
+                }
+                val linkRows = withParents.flatMap { (chunkId, artifact) ->
+                    artifact.links.map { Triple(chunkId, persistedFile.id, it) }
                 }
 
-                val persistedChunks = ArrayList<ChunkArtifacts>(withParents.size)
-                withParents.forEach { (chunkId, artifact) ->
-                    insertChunk(conn, artifact.chunk)
-                    val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
-                    val links = insertLinks(conn, chunkId, persistedFile.id, artifact.links)
-                    persistedChunks.add(
-                        ChunkArtifacts(
-                            chunk = artifact.chunk,
-                            embeddings = embeddings,
-                            links = links
-                        )
+                insertChunksBatch(conn, chunks)
+                val persistedEmbeddings = insertEmbeddingsBatch(conn, embeddingRows)
+                val persistedLinks = insertLinksBatch(conn, linkRows)
+
+                val embeddingsByChunk = persistedEmbeddings.groupBy { it.chunkId }
+                val linksByChunk = persistedLinks.groupBy { it.sourceChunkId }
+                withParents.map { (chunkId, artifact) ->
+                    ChunkArtifacts(
+                        chunk = artifact.chunk,
+                        embeddings = embeddingsByChunk[chunkId] ?: emptyList(),
+                        links = linksByChunk[chunkId] ?: emptyList()
                     )
                 }
-
-                FileArtifacts(persistedFile, persistedChunks)
             }
+
+            FileArtifacts(persistedFile, persistedChunks)
         }
 
     fun fetchFileArtifactsByPath(path: String): FileArtifacts? = ContextDatabase.withConnection { conn ->
@@ -241,6 +262,8 @@ object ContextRepository {
                        c.start_line,
                        c.end_line,
                        c.token_count,
+                       c.chunk_path,
+                       c.parent_chunk_id,
                        c.content,
                        c.summary,
                        c.created_at,
@@ -507,6 +530,111 @@ object ContextRepository {
     }
 
 
+    private fun insertChunksBatch(conn: Connection, chunks: List<Chunk>) {
+        if (chunks.isEmpty()) return
+        val sql = """
+            INSERT INTO chunks (
+                chunk_id, file_id, ordinal, kind, start_line, end_line,
+                token_count, chunk_path, parent_chunk_id, content, summary, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        conn.prepareStatement(sql).use { ps ->
+            var pending = 0
+            chunks.forEach { chunk ->
+                val path = chunk.chunkPath ?: chunk.summary ?: "${chunk.kind.name}:${chunk.ordinal}"
+                var idx = 1
+                ps.setLong(idx++, chunk.id)
+                ps.setLong(idx++, chunk.fileId)
+                ps.setInt(idx++, chunk.ordinal)
+                ps.setString(idx++, chunk.kind.name)
+                if (chunk.startLine != null) ps.setInt(idx++, chunk.startLine) else ps.setNull(idx++, java.sql.Types.INTEGER)
+                if (chunk.endLine != null) ps.setInt(idx++, chunk.endLine) else ps.setNull(idx++, java.sql.Types.INTEGER)
+                if (chunk.tokenEstimate != null) ps.setInt(idx++, chunk.tokenEstimate) else ps.setNull(idx++, java.sql.Types.INTEGER)
+                ps.setString(idx++, path)
+                if (chunk.parentChunkId != null) ps.setLong(idx++, chunk.parentChunkId) else ps.setNull(idx++, java.sql.Types.BIGINT)
+                ps.setString(idx++, chunk.content)
+                ps.setString(idx++, chunk.summary)
+                ps.setTimestamp(idx, Timestamp.from(chunk.createdAt))
+                ps.addBatch()
+                pending++
+                if (pending >= WRITE_BATCH_SIZE) { ps.executeBatch(); pending = 0 }
+            }
+            if (pending > 0) ps.executeBatch()
+        }
+    }
+
+    private fun insertEmbeddingsBatch(conn: Connection, rows: List<Pair<Long, Embedding>>): List<Embedding> {
+        if (rows.isEmpty()) return emptyList()
+        val persisted = ArrayList<Embedding>(rows.size)
+        val sql = """
+            INSERT INTO embeddings (
+                embedding_id, chunk_id, model, dimensions, vector, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        val withIds = rows.map { (chunkId, embedding) ->
+            val id = if (embedding.id > 0) embedding.id else nextId(conn, "embeddings_seq")
+            Triple(id, chunkId, embedding)
+        }
+        conn.prepareStatement(sql).use { ps ->
+            var pending = 0
+            withIds.forEach { (id, chunkId, embedding) ->
+                var idx = 1
+                ps.setLong(idx++, id)
+                ps.setLong(idx++, chunkId)
+                ps.setString(idx++, embedding.model)
+                ps.setInt(idx++, embedding.dimensions)
+                ps.setString(idx++, serializeVector(embedding.vector))
+                ps.setTimestamp(idx, Timestamp.from(embedding.createdAt))
+                ps.addBatch()
+                pending++
+                persisted.add(embedding.copy(id = id, chunkId = chunkId))
+                if (pending >= WRITE_BATCH_SIZE) { ps.executeBatch(); pending = 0 }
+            }
+            if (pending > 0) ps.executeBatch()
+        }
+        return persisted
+    }
+
+    private fun insertLinksBatch(conn: Connection, rows: List<Triple<Long, Long, Link>>): List<Link> {
+        if (rows.isEmpty()) return emptyList()
+        val persisted = ArrayList<Link>(rows.size)
+        val sql = """
+            INSERT INTO links (
+                link_id, source_chunk_id, target_file_id, target_chunk_id,
+                link_type, label, score, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        val withIds = rows.map { (sourceChunkId, fileId, link) ->
+            val id = if (link.id > 0) link.id else nextId(conn, "links_seq")
+            val targetFile = if (link.targetFileId > 0) link.targetFileId else fileId
+            Pair(Pair(id, Triple(sourceChunkId, targetFile, link)), link.copy(id = id, sourceChunkId = sourceChunkId, targetFileId = targetFile))
+        }
+        conn.prepareStatement(sql).use { ps ->
+            var pending = 0
+            withIds.forEach { (meta, persistedLink) ->
+                val (id, linkData) = meta
+                val (sourceChunkId, targetFile, link) = linkData
+                var idx = 1
+                ps.setLong(idx++, id)
+                ps.setLong(idx++, sourceChunkId)
+                ps.setLong(idx++, targetFile)
+                if (link.targetChunkId != null && link.targetChunkId > 0) ps.setLong(idx++, link.targetChunkId)
+                else ps.setNull(idx++, java.sql.Types.BIGINT)
+                ps.setString(idx++, link.type)
+                ps.setString(idx++, link.label)
+                if (link.score != null) ps.setDouble(idx++, link.score)
+                else ps.setNull(idx++, java.sql.Types.DOUBLE)
+                ps.setTimestamp(idx, Timestamp.from(link.createdAt))
+                ps.addBatch()
+                pending++
+                persisted.add(persistedLink)
+                if (pending >= WRITE_BATCH_SIZE) { ps.executeBatch(); pending = 0 }
+            }
+            if (pending > 0) ps.executeBatch()
+        }
+        return persisted
+    }
+
     private fun insertChunk(conn: Connection, chunk: Chunk) {
         val sql = """
             INSERT INTO chunks (
@@ -664,6 +792,164 @@ object ContextRepository {
                                 filePath = rs.getString("abs_path"),
                                 relativePath = rs.getString("rel_path"),
                                 language = rs.getString("language")
+                            )
+                        )
+                    }
+                    results
+                }
+            }
+        }
+    }
+
+    fun getChunksByFilePath(path: String): List<ChunkWithFile> {
+        if (path.isBlank()) return emptyList()
+        return ContextDatabase.withConnection { conn ->
+            val fileState = getFileStateByPath(conn, path)
+                ?: getFileStateByRelPath(conn, path)
+                ?: getFileStateByPathSuffix(conn, path)
+                ?: return@withConnection emptyList()
+            getChunksByFileId(conn, fileState.id)
+        }
+    }
+
+    private fun getFileStateByPathSuffix(conn: Connection, suffix: String): FileState? {
+        val normalized = suffix.removePrefix("/")
+        val sql = "SELECT * FROM file_state WHERE abs_path LIKE ? OR rel_path LIKE ? LIMIT 1"
+        conn.prepareStatement(sql).use { ps ->
+            ps.setString(1, "%/$normalized")
+            ps.setString(2, "%/$normalized")
+            ps.executeQuery().use { rs ->
+                return if (rs.next()) rs.toFileState() else null
+            }
+        }
+    }
+
+    data class LinkedChunk(
+        val chunkId: Long,
+        val sourceChunkId: Long,
+        val linkType: String,
+        val linkScore: Double,
+        val depth: Int
+    )
+
+    /**
+     * 1-hop link lookup: finds chunks directly linked to/from the given chunk IDs.
+     * Returns both outbound (source→target) and inbound (target→source) links.
+     */
+    fun getLinkedChunkIds(chunkIds: List<Long>, defaultLinkScore: Double = 0.8): List<LinkedChunk> {
+        if (chunkIds.isEmpty()) return emptyList()
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        val sql = """
+            SELECT target_chunk_id AS chunk_id, source_chunk_id, link_type,
+                   COALESCE(score, ?) AS link_score, 1 AS depth
+            FROM links
+            WHERE source_chunk_id IN ($placeholders) AND target_chunk_id IS NOT NULL
+            UNION
+            SELECT source_chunk_id AS chunk_id, target_chunk_id AS source_chunk_id, link_type,
+                   COALESCE(score, ?) AS link_score, 1 AS depth
+            FROM links
+            WHERE target_chunk_id IN ($placeholders)
+        """.trimIndent()
+        return ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                var idx = 1
+                ps.setDouble(idx++, defaultLinkScore)
+                chunkIds.forEach { ps.setLong(idx++, it) }
+                ps.setDouble(idx++, defaultLinkScore)
+                chunkIds.forEach { ps.setLong(idx++, it) }
+                ps.executeQuery().use { rs ->
+                    val results = ArrayList<LinkedChunk>()
+                    while (rs.next()) {
+                        results.add(
+                            LinkedChunk(
+                                chunkId = rs.getLong("chunk_id"),
+                                sourceChunkId = rs.getLong("source_chunk_id"),
+                                linkType = rs.getString("link_type"),
+                                linkScore = rs.getDouble("link_score"),
+                                depth = rs.getInt("depth")
+                            )
+                        )
+                    }
+                    results
+                }
+            }
+        }
+    }
+
+    /**
+     * Multi-hop graph traversal using a recursive CTE.
+     * Walks links up to [maxDepth] hops with cumulative score decay.
+     * Seeds are excluded from results.
+     */
+    fun traverseGraph(
+        seedChunkIds: List<Long>,
+        maxDepth: Int,
+        defaultLinkScore: Double = 0.8,
+        maxResults: Int = 50
+    ): List<LinkedChunk> {
+        if (seedChunkIds.isEmpty() || maxDepth < 1) return emptyList()
+        val seedSet = seedChunkIds.joinToString(",") { "?" }
+        // DuckDB supports WITH RECURSIVE
+        // Track seed_id so downstream can look up the original seed's score
+        val sql = """
+            WITH RECURSIVE graph_walk AS (
+                -- Base case: 1-hop from seeds (outbound)
+                SELECT l.target_chunk_id AS chunk_id,
+                       l.source_chunk_id AS seed_id,
+                       l.source_chunk_id AS prev_id,
+                       l.link_type,
+                       COALESCE(l.score, ?) AS link_score,
+                       1 AS depth
+                FROM links l
+                WHERE l.source_chunk_id IN ($seedSet)
+                  AND l.target_chunk_id IS NOT NULL
+
+                UNION ALL
+
+                -- Recursive case: follow links from discovered chunks
+                SELECT l.target_chunk_id AS chunk_id,
+                       gw.seed_id,
+                       gw.chunk_id AS prev_id,
+                       l.link_type,
+                       gw.link_score * COALESCE(l.score, ?) AS link_score,
+                       gw.depth + 1 AS depth
+                FROM graph_walk gw
+                JOIN links l ON l.source_chunk_id = gw.chunk_id
+                WHERE gw.depth < ?
+                  AND l.target_chunk_id IS NOT NULL
+                  AND l.target_chunk_id != gw.prev_id
+            )
+            SELECT chunk_id, seed_id AS source_chunk_id, link_type, link_score, depth
+            FROM graph_walk
+            WHERE chunk_id NOT IN ($seedSet)
+            ORDER BY link_score DESC
+            LIMIT ?
+        """.trimIndent()
+        return ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                var idx = 1
+                // defaultLinkScore for base case COALESCE
+                ps.setDouble(idx++, defaultLinkScore)
+                // seed IDs for base case WHERE
+                seedChunkIds.forEach { ps.setLong(idx++, it) }
+                // defaultLinkScore for recursive case COALESCE
+                ps.setDouble(idx++, defaultLinkScore)
+                // maxDepth for recursive depth guard
+                ps.setInt(idx++, maxDepth)
+                // seed IDs for exclusion in final WHERE
+                seedChunkIds.forEach { ps.setLong(idx++, it) }
+                // LIMIT
+                ps.setInt(idx++, maxResults)
+                ps.executeQuery().use { rs ->
+                    val results = ArrayList<LinkedChunk>()
+                    while (rs.next()) {
+                        results.add(
+                            LinkedChunk(
+                                chunkId = rs.getLong("chunk_id"),
+                                sourceChunkId = rs.getLong("source_chunk_id"),
+                                linkType = rs.getString("link_type"),
+                                linkScore = rs.getDouble("link_score"),
+                                depth = rs.getInt("depth")
                             )
                         )
                     }
@@ -1489,4 +1775,6 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
     }
 
     // endregion
+
+    private const val WRITE_BATCH_SIZE = 256
 }

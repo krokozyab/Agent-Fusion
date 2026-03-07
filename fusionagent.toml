@@ -92,7 +92,7 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    "."
+    "/Users/sergeyrudenko_1_2/PycharmProjects/jirat"
 ]
 
 # Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.
@@ -150,8 +150,10 @@ use_contextignore = true      # Also respects .contextignore (default: true) .co
 # ==============================================================================
 
 [context.indexing]
+# Синхронизируем размер батча для инкрементальных апдейтов
+batch_size = 1024
 allowed_extensions = [
-    ".kt", ".kts", ".java", ".py", ".ts", ".tsx", ".js", ".jsx",
+    ".kt", ".kts", ".java", ".go", ".py", ".ts", ".tsx", ".js", ".jsx",
     ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
 ]
 
@@ -203,7 +205,7 @@ skip_patterns = [
 # Default: 5MB (skips most binary/compiled files automatically)
 # Increase for large documents (10-50MB for PDFs, documents)
 # Set very high (500+) if you want to index everything
-max_file_size_mb = 50
+max_file_size_mb = 200
 
 # Warn when files exceed this size (during indexing)
 # Set to 0 to disable warnings
@@ -248,12 +250,12 @@ binary_threshold = 30
 #   - "sentence-transformers/all-mpnet-base-v2" (768-dim, 438MB, slower, better quality)
 #   - "sentence-transformers/paraphrase-MiniLM-L6-v2" (384-dim, lightweight, paraphrase-aware)
 #   - Custom ONNX models: use model_path to specify local file
-model = "sentence-transformers/all-MiniLM-L6-v2"
+#model = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Optional: Path to custom ONNX model file
 # If specified, overrides the default bundled model
 # Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
- model_path = "/Users/sergeyrudenko/Downloads/model.onnx"
+ model_path = "/Users/sergeyrudenko_1_2/Downloads/model.onnx"
 
 # Embedding dimension (must match your model's output)
 # Default: 384 (matches all-MiniLM-L6-v2)
@@ -263,7 +265,7 @@ model = "sentence-transformers/all-MiniLM-L6-v2"
 # Batch size for embedding generation
 # Higher values = faster (more GPU utilization) but more memory
 # Lower values = slower but less memory
-batch_size = 16
+batch_size = 128
 
 # Normalize embeddings to unit length (recommended for cosine similarity)
 # Required for MMR reranking and semantic search
@@ -278,9 +280,11 @@ cache_enabled = true
 
 # Example: Using a larger, higher-quality model
 # [context.embedding]
-# model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
-#model = /Users/sergeyrudenko/Downloads/model.onnx
+model = "sentence-transformers/baai-bge-base-en-v1.5-onnx"
+#model = "/Users/sergeyrudenko/Downloads/model.onnx"
+
 dimension = 768
+
 # batch_size = 64  # Reduce for larger model
 # normalize = true
 # cache_enabled = false  # Disable if memory-constrained
@@ -294,7 +298,7 @@ overlap_enabled = true
 overlap_percent = 15  # 0-50; when disabled, overlap is skipped
 
 [context.chunking.markdown]
-max_tokens = 400
+max_tokens = 1000
 split_by_headings = true
 preserve_code_blocks = true
 
@@ -315,6 +319,9 @@ max_tokens = 600
 split_by_export = true
 preserve_jsdoc = true
 
+[context.chunking.go]
+max_tokens = 600
+
 # ------------------------------------------------------------------------------
 # [context.query] - Query and retrieval settings
 # ------------------------------------------------------------------------------
@@ -324,7 +331,7 @@ preserve_jsdoc = true
 # - Lower values (5-7): Focused, high-quality results for targeted searches
 # - Higher values (12-15): More comprehensive coverage for broad searches
 # Default: 12 (balanced for most use cases)
-default_k = 6
+default_k = 12
 
 # mmr_lambda: Maximal Marginal Relevance tradeoff (0.0 = max diversity, 1.0 = max relevance)
 # - 0.0: Return diverse results (some low-relevance items for diversity)
@@ -342,6 +349,40 @@ min_score_threshold = 0.3
 # rerank_enabled: Apply MMR re-ranking to improve result diversity
 # Should generally be true unless you only want relevance-based ranking
 rerank_enabled = true
+
+# use_optimizer_in_tool: Run QueryOptimizer (MMR + caching) inside query_context tool
+# Disabled by default: SemanticContextProvider already does its own MMR internally.
+# Enabling this triggers runtime re-embedding for non-semantic snippets, which is slow.
+use_optimizer_in_tool = false
+
+# neighbor_window: Number of neighboring chunks to fetch around each hit (0 = disabled)
+# Set to 0 for faster queries; set to 1-2 for richer context at the cost of latency.
+neighbor_window = 0
+
+# second_stage_rerank_enabled: Optional second-stage reranker (cross-encoder style)
+# Evaluates query+chunk jointly for top-N candidates to improve precision.
+second_stage_rerank_enabled = false
+
+# second_stage_top_n: Number of top candidates eligible for second-stage rerank
+second_stage_top_n = 80
+
+# second_stage_blend_weight: Blend of second-stage score with base score (0.0-1.0)
+second_stage_blend_weight = 0.35
+
+# query_expansion_enabled: Expand query with configured synonyms
+query_expansion_enabled = false
+
+# hyde_enabled: Append local HyDE-style pseudo-answer text to query before retrieval
+hyde_enabled = false
+
+# max_expansion_terms: Maximum synonym terms appended when expansion is enabled
+max_expansion_terms = 8
+
+# Optional synonym map used by query expansion.
+# Keys are normalized to lowercase; values are expansion terms.
+[context.query.synonyms]
+# login = ["authentication", "auth", "token", "credentials"]
+# db = ["database", "sql", "query"]
 
 # ==============================================================================
 # [context.query.boosts] - Scoring adjustments for search results
@@ -391,6 +432,22 @@ MARKDOWN_SECTION = 0.7      # Penalize markdown sections
 DOCSTRING = 0.7             # Penalize docstrings
 
 # ------------------------------------------------------------------------------
+# [context.query.graph] - Graph link expansion
+# ------------------------------------------------------------------------------
+# When enabled, high-scoring chunks pull in their linked neighbors (CALLS,
+# DEPENDS_ON, MODIFIES) from the links table with propagated scores.
+# No reindexing needed — reads existing link data produced during indexing.
+# ------------------------------------------------------------------------------
+
+[context.query.graph]
+enabled = true             # Set to true to activate graph-aware expansion
+max_depth = 2               # 1 = single-hop, 2-3 for multi-hop traversal
+decay_factor = 0.7          # Score multiplier per hop (0.0-1.0)
+max_graph_results = 10      # Cap on graph-propagated snippets added
+default_link_score = 0.8    # Used when a link has no explicit score
+min_propagated_score = 0.1  # Floor — links scoring below this are dropped
+
+# ------------------------------------------------------------------------------
 # [context.budget] - Token budget management
 # ------------------------------------------------------------------------------
 
@@ -435,9 +492,16 @@ index_ast = true
 # max_commits: How far back in history to search (more = slower but more context)
 # Weight: Usually low (0.1-0.3) - supplementary context
 [context.providers.git_history]
-enabled = true
+enabled = false
 weight = 0.2
 max_commits = 100
+
+# Exact match search: Literal string pattern matching (preserves special chars)
+# Best for: Finding specific identifiers, UUIDs, ticket IDs, exact patterns
+# Disabled by default: high noise for general queries; enable for literal-search use cases
+[context.providers.exact_match]
+enabled = false
+weight = 0.15
 
 # Hybrid: Combines multiple providers for comprehensive search
 # Weights here are relative for ranking within hybrid results
@@ -446,7 +510,7 @@ max_commits = 100
 #   - "weighted": Use provider weights directly
 #   - "cascade": Try each provider in order, stop when results found
 [context.providers.hybrid]
-enabled = true
+enabled = false
 weight = 0.5
 combines = ["semantic", "full_text", "symbol", "git_history"]
 fusion_strategy = "rrf"
@@ -501,14 +565,14 @@ enabled = true
 # Higher = faster (use more CPU cores) but more memory
 # Typical: number of CPU cores minus 1
 # Default: 7
-parallel_workers = 7
+parallel_workers = 9
 
 # Number of files to process in each batch before committing
 # Higher = faster but more memory, riskier (more loss on crash)
 # Lower = safer but slower
 # Typical range: 32-256
 # Default: 128
-batch_size = 128
+batch_size = 1024
 
 # File extensions to prioritize (process first)
 # Useful to get search results quickly for most important files

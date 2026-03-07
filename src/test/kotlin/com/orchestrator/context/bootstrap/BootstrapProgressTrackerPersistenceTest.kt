@@ -1,7 +1,10 @@
 package com.orchestrator.context.bootstrap
 
+import com.orchestrator.context.config.StorageConfig
 import com.orchestrator.context.storage.ContextDatabase
 import java.nio.file.Path
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -10,13 +13,19 @@ import kotlin.test.assertTrue
  * Tests that verify BootstrapProgressTracker persists state across restarts
  * and doesn't unnecessarily drop data on initialization.
  */
+@OptIn(ExperimentalPathApi::class)
 class BootstrapProgressTrackerPersistenceTest {
+
+    private fun testStorageConfig(prefix: String): StorageConfig {
+        val dbPath = createTempDirectory(prefix).resolve("context-test.duckdb").toString()
+        return StorageConfig(dbPath = dbPath)
+    }
 
     @Test
     fun `progress persists across tracker recreations`() {
         // Clean slate
         ContextDatabase.shutdown()
-        ContextDatabase.initialize(com.orchestrator.context.config.StorageConfig())
+        ContextDatabase.initialize(testStorageConfig("bootstrap-progress"))
 
         // Create first tracker and add some progress
         val tracker1 = BootstrapProgressTracker()
@@ -55,6 +64,8 @@ class BootstrapProgressTrackerPersistenceTest {
 
     @Test
     fun `reset clears all progress`() {
+        ContextDatabase.shutdown()
+        ContextDatabase.initialize(testStorageConfig("bootstrap-reset"))
         val tracker = BootstrapProgressTracker()
         val files = listOf(
             Path.of("/test/file1.kt"),
@@ -80,6 +91,8 @@ class BootstrapProgressTrackerPersistenceTest {
 
     @Test
     fun `empty table on first init`() {
+        ContextDatabase.shutdown()
+        ContextDatabase.initialize(testStorageConfig("bootstrap-empty"))
         // Create tracker and explicitly reset to ensure clean state
         val tracker = BootstrapProgressTracker()
         tracker.reset()
