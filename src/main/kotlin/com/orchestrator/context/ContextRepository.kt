@@ -207,20 +207,27 @@ object ContextRepository {
             }
 
             val persistedChunks = ContextDatabase.transaction { conn ->
-                val result = ArrayList<ChunkArtifacts>(totalChunks)
-                withParents.forEach { (chunkId, artifact) ->
-                    insertChunk(conn, artifact.chunk)
-                    val embeddings = insertEmbeddings(conn, chunkId, artifact.embeddings)
-                    val links = insertLinks(conn, chunkId, persistedFile.id, artifact.links)
-                    result.add(
-                        ChunkArtifacts(
-                            chunk = artifact.chunk,
-                            embeddings = embeddings,
-                            links = links
-                        )
+                val chunks = withParents.map { it.second.chunk }
+                val embeddingRows = withParents.flatMap { (chunkId, artifact) ->
+                    artifact.embeddings.map { chunkId to it }
+                }
+                val linkRows = withParents.flatMap { (chunkId, artifact) ->
+                    artifact.links.map { Triple(chunkId, persistedFile.id, it) }
+                }
+
+                insertChunksBatch(conn, chunks)
+                val persistedEmbeddings = insertEmbeddingsBatch(conn, embeddingRows)
+                val persistedLinks = insertLinksBatch(conn, linkRows)
+
+                val embeddingsByChunk = persistedEmbeddings.groupBy { it.chunkId }
+                val linksByChunk = persistedLinks.groupBy { it.sourceChunkId }
+                withParents.map { (chunkId, artifact) ->
+                    ChunkArtifacts(
+                        chunk = artifact.chunk,
+                        embeddings = embeddingsByChunk[chunkId] ?: emptyList(),
+                        links = linksByChunk[chunkId] ?: emptyList()
                     )
                 }
-                result
             }
 
             FileArtifacts(persistedFile, persistedChunks)
@@ -522,6 +529,111 @@ object ContextRepository {
         return state
     }
 
+
+    private fun insertChunksBatch(conn: Connection, chunks: List<Chunk>) {
+        if (chunks.isEmpty()) return
+        val sql = """
+            INSERT INTO chunks (
+                chunk_id, file_id, ordinal, kind, start_line, end_line,
+                token_count, chunk_path, parent_chunk_id, content, summary, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        conn.prepareStatement(sql).use { ps ->
+            var pending = 0
+            chunks.forEach { chunk ->
+                val path = chunk.chunkPath ?: chunk.summary ?: "${chunk.kind.name}:${chunk.ordinal}"
+                var idx = 1
+                ps.setLong(idx++, chunk.id)
+                ps.setLong(idx++, chunk.fileId)
+                ps.setInt(idx++, chunk.ordinal)
+                ps.setString(idx++, chunk.kind.name)
+                if (chunk.startLine != null) ps.setInt(idx++, chunk.startLine) else ps.setNull(idx++, java.sql.Types.INTEGER)
+                if (chunk.endLine != null) ps.setInt(idx++, chunk.endLine) else ps.setNull(idx++, java.sql.Types.INTEGER)
+                if (chunk.tokenEstimate != null) ps.setInt(idx++, chunk.tokenEstimate) else ps.setNull(idx++, java.sql.Types.INTEGER)
+                ps.setString(idx++, path)
+                if (chunk.parentChunkId != null) ps.setLong(idx++, chunk.parentChunkId) else ps.setNull(idx++, java.sql.Types.BIGINT)
+                ps.setString(idx++, chunk.content)
+                ps.setString(idx++, chunk.summary)
+                ps.setTimestamp(idx, Timestamp.from(chunk.createdAt))
+                ps.addBatch()
+                pending++
+                if (pending >= WRITE_BATCH_SIZE) { ps.executeBatch(); pending = 0 }
+            }
+            if (pending > 0) ps.executeBatch()
+        }
+    }
+
+    private fun insertEmbeddingsBatch(conn: Connection, rows: List<Pair<Long, Embedding>>): List<Embedding> {
+        if (rows.isEmpty()) return emptyList()
+        val persisted = ArrayList<Embedding>(rows.size)
+        val sql = """
+            INSERT INTO embeddings (
+                embedding_id, chunk_id, model, dimensions, vector, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        val withIds = rows.map { (chunkId, embedding) ->
+            val id = if (embedding.id > 0) embedding.id else nextId(conn, "embeddings_seq")
+            Triple(id, chunkId, embedding)
+        }
+        conn.prepareStatement(sql).use { ps ->
+            var pending = 0
+            withIds.forEach { (id, chunkId, embedding) ->
+                var idx = 1
+                ps.setLong(idx++, id)
+                ps.setLong(idx++, chunkId)
+                ps.setString(idx++, embedding.model)
+                ps.setInt(idx++, embedding.dimensions)
+                ps.setString(idx++, serializeVector(embedding.vector))
+                ps.setTimestamp(idx, Timestamp.from(embedding.createdAt))
+                ps.addBatch()
+                pending++
+                persisted.add(embedding.copy(id = id, chunkId = chunkId))
+                if (pending >= WRITE_BATCH_SIZE) { ps.executeBatch(); pending = 0 }
+            }
+            if (pending > 0) ps.executeBatch()
+        }
+        return persisted
+    }
+
+    private fun insertLinksBatch(conn: Connection, rows: List<Triple<Long, Long, Link>>): List<Link> {
+        if (rows.isEmpty()) return emptyList()
+        val persisted = ArrayList<Link>(rows.size)
+        val sql = """
+            INSERT INTO links (
+                link_id, source_chunk_id, target_file_id, target_chunk_id,
+                link_type, label, score, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """.trimIndent()
+        val withIds = rows.map { (sourceChunkId, fileId, link) ->
+            val id = if (link.id > 0) link.id else nextId(conn, "links_seq")
+            val targetFile = if (link.targetFileId > 0) link.targetFileId else fileId
+            Pair(Pair(id, Triple(sourceChunkId, targetFile, link)), link.copy(id = id, sourceChunkId = sourceChunkId, targetFileId = targetFile))
+        }
+        conn.prepareStatement(sql).use { ps ->
+            var pending = 0
+            withIds.forEach { (meta, persistedLink) ->
+                val (id, linkData) = meta
+                val (sourceChunkId, targetFile, link) = linkData
+                var idx = 1
+                ps.setLong(idx++, id)
+                ps.setLong(idx++, sourceChunkId)
+                ps.setLong(idx++, targetFile)
+                if (link.targetChunkId != null && link.targetChunkId > 0) ps.setLong(idx++, link.targetChunkId)
+                else ps.setNull(idx++, java.sql.Types.BIGINT)
+                ps.setString(idx++, link.type)
+                ps.setString(idx++, link.label)
+                if (link.score != null) ps.setDouble(idx++, link.score)
+                else ps.setNull(idx++, java.sql.Types.DOUBLE)
+                ps.setTimestamp(idx, Timestamp.from(link.createdAt))
+                ps.addBatch()
+                pending++
+                persisted.add(persistedLink)
+                if (pending >= WRITE_BATCH_SIZE) { ps.executeBatch(); pending = 0 }
+            }
+            if (pending > 0) ps.executeBatch()
+        }
+        return persisted
+    }
 
     private fun insertChunk(conn: Connection, chunk: Chunk) {
         val sql = """
@@ -1663,4 +1775,6 @@ private fun restoreArtifacts(artifacts: FileArtifacts) {
     }
 
     // endregion
+
+    private const val WRITE_BATCH_SIZE = 256
 }

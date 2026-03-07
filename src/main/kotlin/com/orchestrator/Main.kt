@@ -316,7 +316,9 @@ class Main {
         val batchIndexer = BatchIndexer(fileIndexer)
         val incrementalIndexer = IncrementalIndexer(
             changeDetector = changeDetector,
-            batchIndexer = batchIndexer
+            batchIndexer = batchIndexer,
+            crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
+            gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
         )
 
         val reconciler = StartupReconciler(
@@ -411,7 +413,9 @@ class Main {
             val batchIndexer = BatchIndexer(fileIndexer)
             val incrementalIndexer = IncrementalIndexer(
                 changeDetector = changeDetector,
-                batchIndexer = batchIndexer
+                batchIndexer = batchIndexer,
+                crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
+                gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
             )
 
             WatcherDaemon(

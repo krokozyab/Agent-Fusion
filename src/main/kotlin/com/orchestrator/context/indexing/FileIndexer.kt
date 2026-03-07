@@ -27,6 +27,8 @@ import kotlin.math.min
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
  * Index a single file by chunking its content, generating embeddings, and persisting the artefacts.
@@ -42,12 +44,9 @@ class FileIndexer(
     private val chunkerRegistry: ChunkerRegistry = ConfigurableChunkerRegistry(),
     private val tokenEstimator: TokenEstimator = TokenEstimator,
     private val symbolIndexBuilder: SymbolIndexBuilder = SymbolIndexBuilder(),
-    private val crossFileLinkBuilder: CrossFileLinkBuilder = CrossFileLinkBuilder(),
-    private val gitIntentLinkBuilder: GitIntentLinkBuilder = GitIntentLinkBuilder(),
-    private val semanticGraphEnabled: Boolean = true,
-    private val gitIntentEdgesEnabled: Boolean = true,
     private val readCharset: Charset = StandardCharsets.UTF_8,
     private val embeddingBatchSize: Int = 32,
+    private val maxConcurrentEmbeddingBatches: Int = 4,
     private val persistBatchSize: Int = 128,
     private val maxFileSizeMb: Int = 5,
     private val warnFileSizeMb: Int = 2
@@ -61,6 +60,7 @@ class FileIndexer(
     }
 
     private val log = Logger.logger("com.orchestrator.context.indexing.FileIndexer")
+    private val embeddingSemaphore = Semaphore(maxConcurrentEmbeddingBatches)
     private val projectRoot: Path = projectRoot.toAbsolutePath().normalize()
     private val allRoots: List<Path> = if (watchRoots.isNotEmpty()) {
         (listOf(projectRoot) + watchRoots).map { it.toAbsolutePath().normalize() }.distinct()
@@ -184,42 +184,17 @@ class FileIndexer(
                 }
             }
 
-            if (semanticGraphEnabled && persistedArtifacts.file.id > 0) {
-                try {
-                    crossFileLinkBuilder.rebuildForFile(persistedArtifacts.file.id)
-                } catch (e: Exception) {
-                    log.warn("Failed to build cross-file links for {}: {}", relativePath, e.message)
-                }
-            }
-
-            if (gitIntentEdgesEnabled && persistedArtifacts.file.id > 0) {
-                try {
-                    gitIntentLinkBuilder.rebuildForFile(persistedArtifacts.file.id)
-                } catch (e: Exception) {
-                    log.warn("Failed to build git intent links for {}: {}", relativePath, e.message)
-                }
-            }
-
             val embeddingCount = embeddings.size
             val chunkCount = persistedArtifacts.chunks.size
-            val largeFile = normalizedChunks.size > 20
 
-            // Create result object and immediately allow large data structures to be freed
-            val result = IndexResult(
+            IndexResult(
                 success = true,
                 relativePath = relativePath,
                 chunkCount = chunkCount,
                 embeddingCount = if (persistedArtifacts.chunks.isEmpty()) 0 else embeddingCount,
-                error = null
+                error = null,
+                fileId = persistedArtifacts.file.id
             )
-
-            // MEMORY CLEANUP: Force GC after file is persisted to free embeddings, chunks, and ONNX tensors
-            // This is critical for large files (PDFs with many chunks) to prevent memory accumulation
-            if (largeFile) {
-                System.gc()
-            }
-
-            result
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
             val message = throwable.message ?: throwable::class.simpleName ?: "Unknown indexing error"
@@ -315,17 +290,11 @@ class FileIndexer(
                 log.info("Processing embedding batch {}/{} ({} chunks) for file: {}", batchNumber, totalBatches, batch.size, filePath)
             }
 
-            val batchResult = embedder.embedBatch(batch)
+            val batchResult = embeddingSemaphore.withPermit { embedder.embedBatch(batch) }
             if (batchResult.size != batch.size) {
                 throw IllegalStateException("Embedder returned ${batchResult.size} vectors for batch of size ${batch.size}")
             }
             results.addAll(batchResult)
-
-            // AGGRESSIVE GC: Force memory cleanup between batches to prevent accumulation
-            // This is critical for large files (PDFs) to avoid OOM errors
-            // ONNX inference creates large intermediate tensors that should be freed immediately
-            System.gc()
-
             index = end
         }
 
@@ -375,5 +344,6 @@ data class IndexResult(
     val relativePath: String,
     val chunkCount: Int,
     val embeddingCount: Int,
-    val error: String?
+    val error: String?,
+    val fileId: Long? = null
 )

@@ -58,7 +58,8 @@
       "Bash(grep:*)",
       "Bash(./gradlew clean:*)",
       "Bash(do echo:*)",
-      "Bash(./gradlew dependencies:*)"
+      "Bash(./gradlew dependencies:*)",
+      "Bash(./gradlew compileTestKotlin:*)"
     ],
     "deny": [],
     "ask": []

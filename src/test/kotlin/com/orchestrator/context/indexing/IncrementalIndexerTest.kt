@@ -112,7 +112,7 @@ class IncrementalIndexerTest {
             )
         } returns batchResult
 
-        val incremental = IncrementalIndexer(changeDetector, batchIndexer, dataService, fixedClock)
+        val incremental = IncrementalIndexer(changeDetector, batchIndexer, dataService, clock = fixedClock)
 
         val result = incremental.updateAsync(
             paths = listOf(Path.of("/repo/src/New.kt"), Path.of("/repo/src/Modified.kt")),

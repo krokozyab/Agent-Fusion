@@ -150,6 +150,8 @@ use_contextignore = true      # Also respects .contextignore (default: true) .co
 # ==============================================================================
 
 [context.indexing]
+# Синхронизируем размер батча для инкрементальных апдейтов
+batch_size = 1024
 allowed_extensions = [
     ".kt", ".kts", ".java", ".go", ".py", ".ts", ".tsx", ".js", ".jsx",
     ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
@@ -263,7 +265,7 @@ binary_threshold = 30
 # Batch size for embedding generation
 # Higher values = faster (more GPU utilization) but more memory
 # Lower values = slower but less memory
-batch_size = 32
+batch_size = 128
 
 # Normalize embeddings to unit length (recommended for cosine similarity)
 # Required for MMR reranking and semantic search
@@ -563,14 +565,14 @@ enabled = true
 # Higher = faster (use more CPU cores) but more memory
 # Typical: number of CPU cores minus 1
 # Default: 7
-parallel_workers = 7
+parallel_workers = 9
 
 # Number of files to process in each batch before committing
 # Higher = faster but more memory, riskier (more loss on crash)
 # Lower = safer but slower
 # Typical range: 32-256
 # Default: 128
-batch_size = 128
+batch_size = 1024
 
 # File extensions to prioritize (process first)
 # Useful to get search results quickly for most important files

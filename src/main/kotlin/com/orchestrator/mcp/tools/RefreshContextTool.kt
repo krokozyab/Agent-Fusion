@@ -79,7 +79,9 @@ class RefreshContextTool(
             // Create incremental indexer
             IncrementalIndexer(
                 changeDetector = changeDetector,
-                batchIndexer = batchIndexer
+                batchIndexer = batchIndexer,
+                crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
+                gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
             )
         }
     }

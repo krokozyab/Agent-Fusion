@@ -17,6 +17,8 @@ class IncrementalIndexer(
     private val changeDetector: ChangeDetector,
     private val batchIndexer: BatchIndexer,
     private val dataService: ContextDataService = ContextDataService(),
+    private val crossFileLinkBuilder: CrossFileLinkBuilder? = null,
+    private val gitIntentLinkBuilder: GitIntentLinkBuilder? = null,
     private val clock: Clock = Clock.systemUTC()
 ) {
 
@@ -69,6 +71,26 @@ class IncrementalIndexer(
             candidates.isEmpty() -> null
             parallelism != null -> batchIndexer.indexFilesAsync(candidates, parallelism, onProgress)
             else -> batchIndexer.indexFilesAsync(candidates, onProgress = onProgress)
+        }
+
+        val indexedFileIds = batchResult?.successes
+            ?.mapNotNull { it.fileId }
+            ?.distinct()
+            .orEmpty()
+
+        if (indexedFileIds.isNotEmpty()) {
+            crossFileLinkBuilder?.let { builder ->
+                indexedFileIds.forEach { fileId ->
+                    runCatching { builder.rebuildForFile(fileId) }
+                        .onFailure { log.warn("Failed to build cross-file links for fileId={}: {}", fileId, it.message) }
+                }
+            }
+            gitIntentLinkBuilder?.let { builder ->
+                indexedFileIds.forEach { fileId ->
+                    runCatching { builder.rebuildForFile(fileId) }
+                        .onFailure { log.warn("Failed to build git intent links for fileId={}: {}", fileId, it.message) }
+                }
+            }
         }
 
         val deletionResults = changeSet.deletedFiles.map { deleted ->
