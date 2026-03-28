@@ -1,6 +1,7 @@
 package com.orchestrator.config
 
 import com.akuleshov7.ktoml.Toml
+import com.akuleshov7.ktoml.TomlInputConfig
 import com.orchestrator.web.WebServerConfig
 import com.typesafe.config.ConfigFactory
 import com.typesafe.config.Config as TypesafeConfig
@@ -24,6 +25,7 @@ import java.nio.file.Path
  */
 object ConfigLoader {
     private val envVarRegex = Regex("\\$\\{([A-Za-z_][A-Za-z0-9_]*)}")
+    private val toml = Toml(inputConfig = TomlInputConfig(ignoreUnknownNames = true))
 
     @Serializable
     private data class AgentsRoot(
@@ -260,17 +262,20 @@ object ConfigLoader {
 
         return try {
             val content = file.readText()
-            val webRoot: WebRoot = Toml.decodeFromString(WebRoot.serializer(), content)
-            val webToml = webRoot.web ?: return null
-
             val defaults = WebServerConfig()
-            val host = webToml.host?.expandEnv(env) ?: defaults.host
-            val port = webToml.port ?: defaults.port
-            val staticPath = webToml.staticPath?.expandEnv(env) ?: defaults.staticPath
-            val autoLaunchBrowser = webToml.autoLaunchBrowser ?: defaults.autoLaunchBrowser
 
-            val corsEnabled = webToml.cors?.enabled ?: defaults.corsEnabled
-            val corsAllowedOrigins = webToml.cors?.allowedOrigins?.map { it.expandEnv(env) }
+            // Parse [web] section manually to avoid ktoml failures on unrelated
+            // sections that contain special characters in keys (e.g. glob patterns).
+            val webSection = extractSection(content, "web") ?: return null
+            val host = extractTomlValue("host", webSection)?.expandEnv(env) ?: defaults.host
+            val port = extractTomlValue("port", webSection)?.toIntOrNull() ?: defaults.port
+            val staticPath = extractTomlValue("staticPath", webSection)?.expandEnv(env) ?: defaults.staticPath
+            val autoLaunchBrowser = extractTomlValue("autoLaunchBrowser", webSection)?.toBooleanStrictOrNull() ?: defaults.autoLaunchBrowser
+
+            // Parse [web.cors] sub-section
+            val corsSection = extractSection(content, "web.cors")
+            val corsEnabled = corsSection?.let { extractTomlValue("enabled", it)?.toBooleanStrictOrNull() } ?: defaults.corsEnabled
+            val corsAllowedOrigins = corsSection?.let { extractTomlArray("allowedOrigins", it)?.map { v -> v.expandEnv(env) } }
 
             WebServerConfig(
                 host = host,
@@ -281,9 +286,51 @@ object ConfigLoader {
                 autoLaunchBrowser = autoLaunchBrowser
             )
         } catch (e: Exception) {
-            // Return null if parsing fails
+            System.err.println("Warning: Failed to parse [web] config from TOML: ${e.message}")
+            e.printStackTrace(System.err)
             null
         }
+    }
+
+    /**
+     * Extract the body of a TOML section by header name.
+     * Returns all lines between the header and the next section header, or null if not found.
+     */
+    private fun extractSection(content: String, sectionName: String): String? {
+        val escapedName = Regex.escape(sectionName)
+        val sectionRegex = Regex("^\\[$escapedName\\]\\s*$", RegexOption.MULTILINE)
+        val match = sectionRegex.find(content) ?: return null
+
+        val headerLineEnd = content.indexOf('\n', match.range.first)
+        val contentStart = if (headerLineEnd == -1) content.length else headerLineEnd + 1
+
+        val lines = content.substring(contentStart).split('\n')
+        val sectionLines = mutableListOf<String>()
+
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) break
+            if (trimmed.isNotEmpty() && !trimmed.startsWith('#')) {
+                sectionLines.add(line)
+            }
+        }
+
+        return sectionLines.joinToString("\n").ifEmpty { null }
+    }
+
+    /**
+     * Extract a TOML array value (e.g. allowedOrigins = ["a", "b"]) as a list of strings.
+     */
+    private fun extractTomlArray(key: String, content: String): List<String>? {
+        val raw = extractTomlValue(key, content) ?: return null
+        // Handle inline array: ["val1", "val2"]
+        if (raw.startsWith('[') && raw.endsWith(']')) {
+            return raw.substring(1, raw.length - 1)
+                .split(',')
+                .map { it.trim().removeSurrounding("\"").removeSurrounding("'") }
+                .filter { it.isNotEmpty() }
+        }
+        return null
     }
 
     /**
@@ -299,7 +346,7 @@ object ConfigLoader {
         }
         val content = file.readText()
         val root: AgentsRoot = try {
-            Toml.decodeFromString(AgentsRoot.serializer(), content)
+            toml.decodeFromString(AgentsRoot.serializer(), content)
         } catch (e: Exception) {
             // Fallback: support nested tables like [agents.<id>] per example file
             val nested = parseNestedAgents(content)
@@ -420,7 +467,7 @@ object ConfigLoader {
             val body = buffer.toString().trim()
             if (body.isNotEmpty()) {
                 val agent = try {
-                    Toml.decodeFromString(AgentToml.serializer(), body)
+                    toml.decodeFromString(AgentToml.serializer(), body)
                 } catch (_: Exception) {
                     null
                 }

@@ -96,6 +96,27 @@ class ProjectConfigValidatorTest {
     }
 
     @Test
+    fun `validate should reject shallow home paths but allow project subdirectories`() {
+        // /home itself is dangerous
+        val homeRoot = ContextConfig(watcher = com.orchestrator.context.config.WatcherConfig(watchPaths = listOf("/home")))
+        val homeRootResult = validator.validate(homeRoot)
+        assertTrue(!homeRootResult.isValid)
+        assertTrue(homeRootResult.errors.any { it.contains("Dangerous path detected") })
+
+        // /home/username is too broad
+        val homeUser = ContextConfig(watcher = com.orchestrator.context.config.WatcherConfig(watchPaths = listOf("/home/username")))
+        val homeUserResult = validator.validate(homeUser)
+        assertTrue(!homeUserResult.isValid)
+        assertTrue(homeUserResult.errors.any { it.contains("too broad") })
+
+        // /home/username/project should be allowed (only fails because path doesn't exist, not because it's dangerous)
+        val homeProject = ContextConfig(watcher = com.orchestrator.context.config.WatcherConfig(watchPaths = listOf("/home/username/project")))
+        val homeProjectResult = validator.validate(homeProject)
+        assertTrue(homeProjectResult.errors.none { it.contains("Dangerous path detected") || it.contains("too broad") },
+            "Path /home/username/project should not be flagged as dangerous, but got: ${homeProjectResult.errors}")
+    }
+
+    @Test
     fun `validate should reject invalid extensions`() {
         val config = ContextConfig(
             indexing = com.orchestrator.context.config.IndexingConfig(
