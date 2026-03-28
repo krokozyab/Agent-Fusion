@@ -130,9 +130,12 @@ class ProjectConfigValidator {
             }
         }
 
-        // Validation 2: No dangerous paths (/, /etc, /sys, /bin, /usr, /var, /tmp, /home)
-        // Note: Exclude safe subdirectories like /var/folders (macOS temp), /tmp/junit, etc.
-        val dangerousPaths = listOf("/", "/etc", "/sys", "/bin", "/usr", "/home", "/root")
+        // Validation 2: No dangerous paths (/, /etc, /sys, /bin, /usr, /var, /tmp)
+        // Paths like /home and /usr are only dangerous at shallow depth — /home/user/project is fine.
+        val alwaysDangerousPaths = listOf("/", "/etc", "/sys", "/bin", "/proc", "/dev")
+        // These are dangerous as exact match or one level deep (e.g. /home, /home/username)
+        // but safe at depth >= 2 (e.g. /home/username/project)
+        val shallowDangerousPaths = listOf("/home", "/usr", "/root", "/var")
         val dangerousVarPaths = listOf("/var/log", "/var/lib", "/var/spool", "/var/run")
 
         config.watcher.watchPaths.forEach { pathString ->
@@ -141,9 +144,26 @@ class ProjectConfigValidator {
             }
             val normalized = Path.of(pathString).normalize().toString()
 
-            // Check exact matches and dangerous subdirectories
-            if (dangerousPaths.any { dangerous -> normalized == dangerous || normalized.startsWith("$dangerous/") }) {
+            // Check always-dangerous paths (any depth)
+            if (alwaysDangerousPaths.any { dangerous -> normalized == dangerous || normalized.startsWith("$dangerous/") }) {
                 errors.add("Dangerous path detected: $pathString (matches system directory)")
+            }
+
+            // Check shallow-dangerous paths: block the root and one level deep only
+            // e.g. block /home and /home/username, but allow /home/username/project
+            for (dangerous in shallowDangerousPaths) {
+                if (normalized == dangerous) {
+                    errors.add("Dangerous path detected: $pathString (matches system directory)")
+                    break
+                }
+                if (normalized.startsWith("$dangerous/")) {
+                    val relative = normalized.removePrefix("$dangerous/")
+                    // If relative has no further '/', it's only one level deep (e.g. /home/username)
+                    if (!relative.contains('/')) {
+                        errors.add("Dangerous path detected: $pathString (too broad — use a subdirectory like $normalized/project)")
+                        break
+                    }
+                }
             }
 
             // Check specific dangerous /var subdirectories but allow /var/folders, /var/tmp, etc.
