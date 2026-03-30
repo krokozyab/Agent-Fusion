@@ -14,6 +14,7 @@ import com.orchestrator.context.providers.ContextProviderRegistry
 import com.orchestrator.context.providers.ResultOrganizer
 import com.orchestrator.context.search.LightweightCrossEncoderReranker
 import com.orchestrator.context.search.MmrReranker
+import com.orchestrator.context.search.ReciprocalRankFusion
 import com.orchestrator.context.search.NeighborExpander
 import com.orchestrator.context.search.QueryExpansionService
 import com.orchestrator.context.search.ScoreBooster
@@ -548,66 +549,31 @@ class QueryContextTool(
         }.awaitAll()
     }
 
+    /**
+     * Deduplicate and fuse snippets from multiple providers using Reciprocal Rank Fusion.
+     * RRF operates in rank-space, eliminating score-scale incompatibility between providers.
+     */
     private fun deduplicateSnippets(snippets: List<ContextSnippet>): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
 
-        // Weighted fusion-aware aggregation.
-        // Each provider's score contribution is multiplied by the provider's
-        // configured weight so that e.g. semantic (weight=0.6) outranks
-        // full_text (weight=0.1) when they return the same chunk.
-        // Final fused score = weighted_mean(scores) × agreement_multiplier.
-        data class WeightedScore(val score: Double, val weight: Double)
-        data class Accumulator(
-            var bestSnippet: ContextSnippet,
-            val sources: MutableSet<String>,
-            val weightedScores: MutableList<WeightedScore>
-        )
-
-        val grouped = linkedMapOf<Pair<Long, String>, Accumulator>()
-
+        // Group snippets by provider to build per-provider ranked lists
+        val byProvider = linkedMapOf<String, MutableList<ContextSnippet>>()
         for (snippet in snippets) {
-            val key = snippet.chunkId to snippet.filePath
-            val existing = grouped[key]
-            val providerSources = snippet.metadata["sources"]
-                ?.split(',')?.map { it.trim() }?.filter { it.isNotBlank() }?.toSet()
-                ?: emptySet()
-            val providerId = snippet.metadata["provider"] ?: snippet.metadata["sources"]?.split(',')?.firstOrNull()?.trim() ?: ""
-            val weight = config.providers[providerId]?.weight ?: 1.0
-
-            if (existing != null) {
-                existing.sources.addAll(providerSources)
-                existing.weightedScores += WeightedScore(snippet.score, weight)
-                if (snippet.score > existing.bestSnippet.score) {
-                    existing.bestSnippet = snippet
-                }
-            } else {
-                grouped[key] = Accumulator(
-                    bestSnippet = snippet,
-                    sources = providerSources.toMutableSet(),
-                    weightedScores = mutableListOf(WeightedScore(snippet.score, weight))
-                )
-            }
+            val providerId = snippet.metadata["provider"]
+                ?: snippet.metadata["sources"]?.split(',')?.firstOrNull()?.trim()
+                ?: "unknown"
+            byProvider.getOrPut(providerId) { mutableListOf() } += snippet
         }
 
-        return grouped.values.map { acc ->
-            val mergedSources = acc.sources.joinToString(",")
-            val providerCount = acc.sources.size
-            // Weighted mean: sum(score_i * weight_i) / sum(weight_i)
-            val totalWeight = acc.weightedScores.sumOf { it.weight }
-            val weightedMean = if (totalWeight > 0) acc.weightedScores.sumOf { it.score * it.weight } / totalWeight else 0.0
-            val agreementMultiplier = 1.0 + (providerCount - 1) * 0.15
-            val fusedScore = (weightedMean * agreementMultiplier).coerceAtMost(1.0)
-            acc.bestSnippet.copy(
-                score = fusedScore,
-                metadata = acc.bestSnippet.metadata + mapOf(
-                    "sources" to mergedSources,
-                    "source_count" to providerCount.toString(),
-                    "agreement_multiplier" to "%.2f".format(java.util.Locale.US, agreementMultiplier),
-                    "weighted_mean" to "%.4f".format(java.util.Locale.US, weightedMean),
-                    "fused_score" to "%.4f".format(java.util.Locale.US, fusedScore)
-                )
+        val rankedLists = byProvider.map { (providerId, providerSnippets) ->
+            ReciprocalRankFusion.RankedList(
+                providerId = providerId,
+                weight = config.providers[providerId]?.weight ?: 1.0,
+                snippets = providerSnippets.sortedByDescending { it.score }
             )
-        }.sortedByDescending { it.score }
+        }
+
+        return ReciprocalRankFusion.fuse(rankedLists, k = config.query.rrfK)
     }
 
     private fun applyBudgetAndLimit(
@@ -628,7 +594,7 @@ class QueryContextTool(
 
             val tokens = estimateTokens(snippet)
             if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) {
-                break
+                continue // skip oversized snippet, try smaller ones below
             }
 
             tokensUsed += tokens

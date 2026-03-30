@@ -59,7 +59,9 @@
       "Bash(./gradlew clean:*)",
       "Bash(do echo:*)",
       "Bash(./gradlew dependencies:*)",
-      "Bash(./gradlew compileTestKotlin:*)"
+      "Bash(./gradlew compileTestKotlin:*)",
+      "Bash(jar tf:*)",
+      "Bash(jar xf:*)"
     ],
     "deny": [],
     "ask": []

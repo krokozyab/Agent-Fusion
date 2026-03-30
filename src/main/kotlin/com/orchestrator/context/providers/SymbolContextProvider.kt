@@ -120,7 +120,26 @@ class SymbolContextProvider(
         snakeRegex.findAll(query).forEach { tokens += it.value }
         callRegex.findAll(query).forEach { tokens += it.groupValues[1] }
 
+        // Fallback: for natural-language queries with no code identifiers,
+        // extract meaningful words for LIKE-based symbol search
+        if (tokens.isEmpty()) {
+            query.split(Regex("\\s+"))
+                .map { it.trim().lowercase(Locale.US) }
+                .filter { it.length >= 3 && it !in STOP_WORDS }
+                .forEach { tokens += it }
+        }
+
         return tokens.toList()
+    }
+
+    companion object {
+        private val STOP_WORDS = setOf(
+            "the", "a", "an", "is", "are", "was", "were", "in", "on", "at",
+            "to", "for", "of", "with", "by", "from", "how", "what", "where",
+            "when", "why", "which", "that", "this", "and", "or", "not", "but",
+            "does", "has", "have", "can", "will", "all", "any", "some", "get",
+            "set", "use", "using", "used", "about", "into", "than", "then"
+        )
     }
 
     private data class SqlBundle(val sql: String, val params: List<String>)

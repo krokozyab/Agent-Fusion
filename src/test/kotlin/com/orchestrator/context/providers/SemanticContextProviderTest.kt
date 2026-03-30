@@ -2,7 +2,6 @@ package com.orchestrator.context.providers
 
 import com.orchestrator.context.domain.*
 import com.orchestrator.context.embedding.Embedder
-import com.orchestrator.context.search.MmrReranker
 import com.orchestrator.context.search.SearchResult
 import com.orchestrator.context.search.VectorSearchEngine
 import com.orchestrator.context.storage.ContextDatabase
@@ -21,15 +20,13 @@ class SemanticContextProviderTest {
 
     private lateinit var embedder: Embedder
     private lateinit var searchEngine: VectorSearchEngine
-    private lateinit var reranker: MmrReranker
     private lateinit var provider: SemanticContextProvider
 
     @BeforeEach
     fun setUp() {
         embedder = mockk()
         searchEngine = mockk()
-        reranker = mockk()
-        provider = SemanticContextProvider(embedder, searchEngine, reranker)
+        provider = SemanticContextProvider(embedder, searchEngine)
 
         // Mock ContextDatabase for database operations
         mockkObject(ContextDatabase)
@@ -88,7 +85,6 @@ class SemanticContextProviderTest {
         coEvery { embedder.embed(query) } returns queryVector
         every { embedder.getModel() } returns "test-model"
         every { searchEngine.search(any(), any(), any(), any(), any()) } returns searchResults
-        every { reranker.rerank(any(), any(), any()) } returns searchResults
 
         // Mock database operations for fetchFileMetadata
         val mockConnection = mockk<Connection>(relaxed = true)

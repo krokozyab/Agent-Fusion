@@ -13,7 +13,6 @@ class QueryConfigTest {
         assertEquals(1, config.neighborWindow)
         assertEquals(0.5, config.mmrLambda)
         assertEquals(1000, config.embeddingCacheSize)
-        assertEquals(true, config.idfEnabled)
         assertEquals(false, config.secondStageRerankEnabled)
         assertEquals(false, config.queryExpansionEnabled)
         assertEquals(false, config.hydeEnabled)
@@ -52,12 +51,6 @@ class QueryConfigTest {
     fun `can disable optimizer in tool`() {
         val config = QueryConfig(useOptimizerInTool = false)
         assertEquals(false, config.useOptimizerInTool)
-    }
-
-    @Test
-    fun `can disable IDF scoring`() {
-        val config = QueryConfig(idfEnabled = false)
-        assertEquals(false, config.idfEnabled)
     }
 
     @Test

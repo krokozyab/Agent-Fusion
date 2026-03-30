@@ -41,7 +41,7 @@ transport = "HTTP"  # HTTP or GRPC
 
 [web]
 host = "0.0.0.0"
-port = 8081
+port = 8082
 staticPath = "static"
 
 [web.cors]
@@ -154,7 +154,7 @@ use_contextignore = true      # Also respects .contextignore (default: true) .co
 batch_size = 1024
 allowed_extensions = [
     ".kt", ".kts", ".java", ".go", ".py", ".ts", ".tsx", ".js", ".jsx",
-    ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
+    ".json", ".md", ".markdown", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
 ]
 
 # SKIP_PATTERNS: Exclude specific files AFTER extension filtering
@@ -332,6 +332,12 @@ max_tokens = 600
 # - Higher values (12-15): More comprehensive coverage for broad searches
 # Default: 12 (balanced for most use cases)
 default_k = 12
+
+# Semantic search candidate pool size (higher = better recall, more compute)
+semantic_candidate_limit = 256
+
+# RRF smoothing constant for multi-provider fusion (standard: 60)
+rrf_k = 60
 
 # mmr_lambda: Maximal Marginal Relevance tradeoff (0.0 = max diversity, 1.0 = max relevance)
 # - 0.0: Return diverse results (some low-relevance items for diversity)
