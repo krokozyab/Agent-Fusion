@@ -128,6 +128,7 @@ class McpServerImpl(
     private val queryContextTool by lazy { QueryContextTool(contextConfig) }
     private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
     private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
+    private val getImpactRadiusTool by lazy { GetImpactRadiusTool() }
     private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
     private val rebuildContextTool by lazy { RebuildContextTool(contextConfig) }
     private val getRebuildStatusTool by lazy { GetRebuildStatusTool(contextConfig) }
@@ -975,6 +976,7 @@ class McpServerImpl(
             }
             "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
             "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
+            "get_impact_radius" -> getImpactRadiusTool.execute(mapGetImpactRadiusParams(params))
             "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
             "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
             "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
@@ -994,6 +996,7 @@ class McpServerImpl(
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
         is QueryContextTool.Result -> queryContextResultToJson(result)
         is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
+        is GetImpactRadiusTool.Result -> getImpactRadiusResultToJson(result)
         is RefreshContextTool.Result -> refreshContextResultToJson(result)
         is RebuildContextTool.Result -> rebuildContextResultToJson(result)
         is GetRebuildStatusTool.Result -> getRebuildStatusResultToJson(result)
@@ -1380,6 +1383,35 @@ class McpServerImpl(
             }
         })
         put("metadata", anyToJsonElement(result.metadata))
+    }
+
+    private fun getImpactRadiusResultToJson(result: GetImpactRadiusTool.Result): JsonObject = buildJsonObject {
+        put("seedCount", JsonPrimitive(result.seedCount))
+        put("impactCount", JsonPrimitive(result.impactCount))
+        put("testCount", JsonPrimitive(result.testCount))
+        put("droppedDueToBudget", JsonPrimitive(result.droppedDueToBudget))
+        put("tokensUsed", JsonPrimitive(result.tokensUsed))
+        put("chunks", buildJsonArray {
+            result.chunks.forEach { c ->
+                add(buildJsonObject {
+                    put("chunkId", JsonPrimitive(c.chunkId))
+                    put("filePath", JsonPrimitive(c.filePath))
+                    if (c.relativePath == null) put("relativePath", JsonNull) else put("relativePath", JsonPrimitive(c.relativePath))
+                    if (c.language == null) put("language", JsonNull) else put("language", JsonPrimitive(c.language))
+                    if (c.startLine == null) put("startLine", JsonNull) else put("startLine", JsonPrimitive(c.startLine))
+                    if (c.endLine == null) put("endLine", JsonNull) else put("endLine", JsonPrimitive(c.endLine))
+                    if (c.label == null) put("label", JsonNull) else put("label", JsonPrimitive(c.label))
+                    put("kind", JsonPrimitive(c.kind))
+                    put("text", JsonPrimitive(c.text))
+                    put("tokenEstimate", JsonPrimitive(c.tokenEstimate))
+                    put("role", JsonPrimitive(c.role))
+                    if (c.depth == null) put("depth", JsonNull) else put("depth", JsonPrimitive(c.depth))
+                    if (c.linkType == null) put("linkType", JsonNull) else put("linkType", JsonPrimitive(c.linkType))
+                    if (c.propagatedScore == null) put("propagatedScore", JsonNull) else put("propagatedScore", JsonPrimitive(c.propagatedScore))
+                    put("droppedFromBudget", JsonPrimitive(c.droppedFromBudget))
+                })
+            }
+        })
     }
 
     private fun getContextStatsResultToJson(result: GetContextStatsTool.Result): JsonObject = buildJsonObject {
@@ -2674,6 +2706,48 @@ class McpServerImpl(
             jsonSchema = GetContextStatsTool.JSON_SCHEMA
         ),
         ToolEntry(
+            name = "get_impact_radius",
+            description = """
+                Graph-based impact analysis for code changes. Given a set of changed files (or specific
+                line ranges), walks the code graph BACKWARDS to find everything that might be affected:
+                transitive callers/dependents plus the tests that cover the changed symbols.
+
+                Unlike query_context, this tool performs NO semantic search — results are a
+                deterministic graph traversal with predictable recall. Use it for review, pre-merge
+                safety checks, and refactor planning where you must not miss affected sites.
+
+                ## Use When
+                - Reviewing a diff or pull request and need to see the blast radius
+                - Before a refactor: "what calls this?" across many hops
+                - Planning a safe fix: "what tests will exercise these lines?"
+                - Pre-merge: collecting callers + tests under a token budget
+                - Answering "is it safe to change X?" with graph evidence instead of guesses
+
+                ## Parameters
+                - paths (optional): list of file paths; whole-file impact for each
+                - changes (optional): list of {path, startLine, endLine}; line-range precision
+                - maxDepth (optional, default 2): max hops for caller/dependency traversal
+                - includeTests (optional, default true): also return chunks linked via COVERS
+                - tokenBudget (optional, default 8000): cap on total returned token estimate
+                - maxImpactResults (optional, default 200): cap on impact chunks traversed
+                - maxTestResults (optional, default 100): cap on test chunks traversed
+
+                ## Returns
+                - seedCount / impactCount / testCount: sizes of each bucket
+                - droppedDueToBudget: chunks trimmed to fit tokenBudget (returned without body)
+                - tokensUsed: actual token total of included bodies
+                - chunks: list of { chunkId, filePath, kind, startLine, endLine, text, role, depth,
+                  linkType, propagatedScore, droppedFromBudget } where role ∈ {seed, impact, test}
+
+                ## Notes
+                - Requires the code graph to be populated (indexed via CrossFileLinkBuilder).
+                - COVERS edges only exist when test files have been indexed.
+                - Seeds are always included in full (bypass the token budget); only impact/test
+                  chunks get trimmed when the budget is exhausted.
+            """.trimIndent(),
+            jsonSchema = GetImpactRadiusTool.JSON_SCHEMA
+        ),
+        ToolEntry(
             name = "refresh_context",
             description = """
                 Manually trigger re-indexing of files to update the context database. Supports both
@@ -3240,6 +3314,29 @@ class McpServerImpl(
         val o = el.asObj()
         return GetContextStatsTool.Params(
             recentLimit = o.int("recentLimit") ?: 10
+        )
+    }
+
+    private fun mapGetImpactRadiusParams(el: JsonElement): GetImpactRadiusTool.Params {
+        val o = el.asObj()
+        val changesArray = o.array("changes").orEmpty()
+        val changes = changesArray.mapNotNull { elem ->
+            val co = elem as? JsonObject ?: return@mapNotNull null
+            val path = co.str("path") ?: return@mapNotNull null
+            GetImpactRadiusTool.ChangeInput(
+                path = path,
+                startLine = co.int("startLine"),
+                endLine = co.int("endLine")
+            )
+        }
+        return GetImpactRadiusTool.Params(
+            paths = o.listStr("paths").orEmpty(),
+            changes = changes,
+            maxDepth = o.int("maxDepth") ?: 2,
+            includeTests = o.bool("includeTests") ?: true,
+            tokenBudget = o.int("tokenBudget") ?: 8_000,
+            maxImpactResults = o.int("maxImpactResults") ?: 200,
+            maxTestResults = o.int("maxTestResults") ?: 100
         )
     }
 
