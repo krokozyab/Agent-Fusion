@@ -959,6 +959,103 @@ object ContextRepository {
         }
     }
 
+    /**
+     * Reverse multi-hop graph traversal: walks `target_chunk_id → source_chunk_id`
+     * to answer "who depends on / calls / covers these chunks".
+     *
+     * Mirrors [traverseGraph] but follows links inbound. Optionally restricts to
+     * a specific set of `link_type` values (e.g. {"CALLS","DEPENDS_ON","MODIFIES"}
+     * for impact radius, {"COVERS"} for test coverage).
+     *
+     * Seeds are excluded from results.
+     */
+    fun traverseGraphReverse(
+        seedChunkIds: List<Long>,
+        maxDepth: Int,
+        defaultLinkScore: Double = 0.8,
+        maxResults: Int = 50,
+        linkTypes: Set<String>? = null
+    ): List<LinkedChunk> {
+        if (seedChunkIds.isEmpty() || maxDepth < 1) return emptyList()
+        val seedSet = seedChunkIds.joinToString(",") { "?" }
+        val typeFilterBase: String
+        val typeFilterRec: String
+        if (linkTypes.isNullOrEmpty()) {
+            typeFilterBase = ""
+            typeFilterRec = ""
+        } else {
+            val typePlaceholders = linkTypes.joinToString(",") { "?" }
+            typeFilterBase = " AND l.link_type IN ($typePlaceholders)"
+            typeFilterRec = " AND l.link_type IN ($typePlaceholders)"
+        }
+        val sql = """
+            WITH RECURSIVE graph_walk AS (
+                -- Base case: 1-hop inbound from seeds
+                SELECT l.source_chunk_id AS chunk_id,
+                       l.target_chunk_id AS seed_id,
+                       l.target_chunk_id AS prev_id,
+                       l.link_type,
+                       COALESCE(l.score, ?) AS link_score,
+                       1 AS depth
+                FROM links l
+                WHERE l.target_chunk_id IN ($seedSet)
+                  AND l.source_chunk_id IS NOT NULL$typeFilterBase
+
+                UNION ALL
+
+                -- Recursive case: keep following inbound links
+                SELECT l.source_chunk_id AS chunk_id,
+                       gw.seed_id,
+                       gw.chunk_id AS prev_id,
+                       l.link_type,
+                       gw.link_score * COALESCE(l.score, ?) AS link_score,
+                       gw.depth + 1 AS depth
+                FROM graph_walk gw
+                JOIN links l ON l.target_chunk_id = gw.chunk_id
+                WHERE gw.depth < ?
+                  AND l.source_chunk_id IS NOT NULL
+                  AND l.source_chunk_id != gw.prev_id$typeFilterRec
+            )
+            SELECT chunk_id, seed_id AS source_chunk_id, link_type, link_score, depth
+            FROM graph_walk
+            WHERE chunk_id NOT IN ($seedSet)
+            ORDER BY link_score DESC
+            LIMIT ?
+        """.trimIndent()
+        return ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                var idx = 1
+                ps.setDouble(idx++, defaultLinkScore)
+                seedChunkIds.forEach { ps.setLong(idx++, it) }
+                if (!linkTypes.isNullOrEmpty()) {
+                    linkTypes.forEach { ps.setString(idx++, it) }
+                }
+                ps.setDouble(idx++, defaultLinkScore)
+                ps.setInt(idx++, maxDepth)
+                if (!linkTypes.isNullOrEmpty()) {
+                    linkTypes.forEach { ps.setString(idx++, it) }
+                }
+                seedChunkIds.forEach { ps.setLong(idx++, it) }
+                ps.setInt(idx++, maxResults)
+                ps.executeQuery().use { rs ->
+                    val results = ArrayList<LinkedChunk>()
+                    while (rs.next()) {
+                        results.add(
+                            LinkedChunk(
+                                chunkId = rs.getLong("chunk_id"),
+                                sourceChunkId = rs.getLong("source_chunk_id"),
+                                linkType = rs.getString("link_type"),
+                                linkScore = rs.getDouble("link_score"),
+                                depth = rs.getInt("depth")
+                            )
+                        )
+                    }
+                    results
+                }
+            }
+        }
+    }
+
     private fun getChunksByFileId(conn: Connection, fileId: Long): List<ChunkWithFile> {
         val sql = """
             SELECT c.*, f.rel_path, f.abs_path, f.language
