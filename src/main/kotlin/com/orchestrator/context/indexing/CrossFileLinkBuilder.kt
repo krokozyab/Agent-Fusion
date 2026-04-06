@@ -13,6 +13,9 @@ import java.util.Locale
  * Generated link types:
  * - CALLS: source chunk invokes a symbol defined in another file
  * - DEPENDS_ON: source chunk imports or references a symbol from another file
+ * - COVERS: source chunk lives in a test file and references the target symbol
+ *           (mirrors CALLS edges originating from test files; enables impact-radius
+ *           queries to surface "which tests cover this code")
  */
 class CrossFileLinkBuilder(
     private val maxLinksPerChunk: Int = 10,
@@ -28,6 +31,9 @@ class CrossFileLinkBuilder(
                 val sourceChunks = loadSourceChunks(conn, fileId)
                 deleteExistingLinks(conn, fileId)
                 if (sourceChunks.isEmpty()) return@transaction
+
+                val sourceRelPath = loadFileRelPath(conn, fileId)
+                val isTestFile = sourceRelPath != null && looksLikeTestFile(sourceRelPath)
 
                 val imports = loadImportSymbols(conn, fileId)
                 val callTokensByChunk = sourceChunks.associate { chunk ->
@@ -113,6 +119,20 @@ class CrossFileLinkBuilder(
                         )
                         if (links.add(link)) {
                             linked++
+                        }
+                        // Mirror CALLS into COVERS when the source file is a test.
+                        // Lets impact-radius queries surface the tests that exercise a symbol.
+                        if (isTestFile) {
+                            links.add(
+                                LinkRow(
+                                    sourceChunkId = chunk.chunkId,
+                                    targetFileId = target.fileId,
+                                    targetChunkId = target.chunkId,
+                                    type = LINK_TYPE_COVERS,
+                                    label = token,
+                                    score = 0.95
+                                )
+                            )
                         }
                     }
                 }
@@ -235,15 +255,22 @@ class CrossFileLinkBuilder(
         val sql = """
             DELETE FROM links
             WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ?)
-              AND link_type IN (?, ?)
+              AND link_type IN (?, ?, ?)
         """.trimIndent()
         conn.prepareStatement(sql).use { ps ->
             ps.setLong(1, fileId)
             ps.setString(2, LINK_TYPE_CALLS)
             ps.setString(3, LINK_TYPE_DEPENDS_ON)
+            ps.setString(4, LINK_TYPE_COVERS)
             ps.executeUpdate()
         }
     }
+
+    private fun loadFileRelPath(conn: Connection, fileId: Long): String? =
+        conn.prepareStatement("SELECT rel_path FROM file_state WHERE file_id = ?").use { ps ->
+            ps.setLong(1, fileId)
+            ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+        }
 
     private fun insertLinks(conn: Connection, links: List<LinkRow>) {
         if (links.isEmpty()) return
@@ -403,6 +430,22 @@ class CrossFileLinkBuilder(
     companion object {
         private const val LINK_TYPE_CALLS = "CALLS"
         private const val LINK_TYPE_DEPENDS_ON = "DEPENDS_ON"
+        private const val LINK_TYPE_COVERS = "COVERS"
+
+        private val testDirSegments = listOf(
+            "/test/", "/tests/", "/__tests__/", "/spec/", "/specs/"
+        )
+        private val testFileNameRegex = Regex(
+            """(?i)(^test_.*|.*_test|.*tests?|.*\.test|.*\.spec)\.(kt|kts|java|py|go|rs|ts|tsx|js|jsx|mjs|cjs|rb|cs|swift|scala|php)$"""
+        )
+
+        /** True if the given relative path looks like a test source (by directory or filename). */
+        fun looksLikeTestFile(relPath: String): Boolean {
+            val normalized = "/" + relPath.replace('\\', '/').trimStart('/')
+            if (testDirSegments.any { normalized.contains(it, ignoreCase = true) }) return true
+            val name = normalized.substringAfterLast('/')
+            return testFileNameRegex.matches(name)
+        }
 
         private val callRegex = Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\s*\(""")
         private val declarationPrefixes = setOf("fun", "def", "function", "class", "interface", "enum", "object")
