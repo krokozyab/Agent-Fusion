@@ -91,14 +91,17 @@ class MarkdownChunker(
 
         val baseChunks = mutableListOf<Chunk>()
 
-        // Document root chunk to anchor hierarchy
+        // Document root chunk to anchor hierarchy. Coerce to a valid range so that
+        // degenerate inputs (empty prepared list, upstream chunkers returning 0/negative
+        // line numbers) never blow up the Chunk invariants downstream.
+        val rootEnd = (prepared.lastOrNull()?.third?.second ?: 1).coerceAtLeast(1)
         baseChunks += Chunk(
             id = 0,
             fileId = 0,
             ordinal = 0,
             kind = ChunkKind.MARKDOWN_SECTION,
             startLine = 1,
-            endLine = prepared.lastOrNull()?.third?.second ?: 1,
+            endLine = rootEnd,
             tokenEstimate = estimator.estimate(content),
             content = "Document $filePath",
             summary = "Document root",
@@ -107,11 +110,18 @@ class MarkdownChunker(
         )
 
         prepared.forEach { (input, text, span) ->
-            val start = span.first
-            val end = span.second
-            if (start == null || end == null) {
+            val rawStart = span.first
+            val rawEnd = span.second
+            if (rawStart == null || rawEnd == null) {
                 return@forEach
             }
+            // Defensive sanitisation: Chunk requires 1 <= startLine <= endLine.
+            // SemanticProseChunker / override paths have been observed to produce
+            // reversed or zero-based ranges on unusual inputs (e.g. Confluence-exported
+            // markdown with CRLF front matter). Clamp rather than crash so the file
+            // still gets indexed.
+            val start = rawStart.coerceAtLeast(1)
+            val end = rawEnd.coerceAtLeast(start)
             val label = input.label ?: input.kind.name.lowercase()
             val path = "$rootPath/$label"
             baseChunks += Chunk(
