@@ -4,7 +4,10 @@ import com.orchestrator.context.config.BoostConfig
 import com.orchestrator.context.domain.ContextScope
 import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.TokenBudget
+import com.orchestrator.utils.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.nio.file.FileSystems
 import java.nio.file.PathMatcher
@@ -45,6 +48,8 @@ class HybridContextProvider(
 
     enum class FailureStrategy { SKIP, FAIL }
 
+    private val log = Logger.logger<HybridContextProvider>()
+
     override val id: String = "hybrid"
     override val type: ContextProviderType = ContextProviderType.HYBRID
 
@@ -55,17 +60,19 @@ class HybridContextProvider(
     ): List<ContextSnippet> = coroutineScope {
         val results = effectiveProviders.map { provider ->
             async {
-                runCatching {
+                try {
                     provider to provider.getContext(query, scope, budget)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    if (failureStrategy == FailureStrategy.FAIL) throw e
+                    // SKIP strategy: don't fail the whole query, but never swallow silently —
+                    // a degraded provider must be visible in the logs.
+                    log.warn("Hybrid provider {} failed and was skipped: {}", provider.type, e.message)
+                    null
                 }
             }
-        }.mapNotNull { deferred ->
-            val outcome = deferred.await()
-            outcome.getOrElse { error ->
-                if (failureStrategy == FailureStrategy.FAIL) throw error
-                null
-            }
-        }
+        }.awaitAll().filterNotNull()
 
         val aggregated = linkedMapOf<Long, MutableEntry>()
 

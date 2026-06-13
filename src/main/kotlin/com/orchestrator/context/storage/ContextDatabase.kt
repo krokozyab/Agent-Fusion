@@ -152,10 +152,17 @@ object ContextDatabase {
 
     /**
      * Apply the schema definition (idempotent). Intended for bootstrapping and migrations.
+     *
+     * Must hold connectionLock: applyStatements toggles autoCommit and commits on the single shared
+     * connection. Without the lock, a concurrent transaction { } (running with autoCommit=false on
+     * the same connection) would have its work committed and its autoCommit flag flipped by this
+     * thread, corrupting that transaction.
      */
     fun executeSchema(statements: List<String>) {
         val conn = getConnection()
-        applyStatements(conn, statements)
+        connectionLock.withLock {
+            applyStatements(conn, statements)
+        }
     }
 
     /** Shutdown and release the JDBC connection. */

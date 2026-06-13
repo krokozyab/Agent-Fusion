@@ -48,6 +48,31 @@ class ContextDatabaseTest {
     }
 
     @Test
+    fun `executeSchema applies statements and leaves the connection usable`(@TempDir tempDir: Path) {
+        val dbPath = tempDir.resolve("context.duckdb").toString()
+        ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
+
+        // executeSchema now runs under connectionLock; verify it applies DDL and restores the
+        // connection to a usable auto-commit state afterwards (no leaked autoCommit=false).
+        ContextDatabase.executeSchema(
+            listOf("CREATE TABLE IF NOT EXISTS schema_probe (id INTEGER PRIMARY KEY)")
+        )
+
+        ContextDatabase.withConnection { conn ->
+            assertTrue(conn.autoCommit, "autoCommit must be restored after executeSchema")
+            conn.createStatement().use { it.execute("INSERT INTO schema_probe (id) VALUES (1)") }
+            conn.prepareStatement("SELECT COUNT(*) FROM schema_probe").use { ps ->
+                ps.executeQuery().use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(1, rs.getInt(1))
+                }
+            }
+        }
+
+        ContextDatabase.shutdown()
+    }
+
+    @Test
     fun `transaction commits and rolls back`(@TempDir tempDir: Path) {
         val dbPath = tempDir.resolve("context.duckdb").toString()
         ContextDatabase.initialize(StorageConfig(dbPath = dbPath))

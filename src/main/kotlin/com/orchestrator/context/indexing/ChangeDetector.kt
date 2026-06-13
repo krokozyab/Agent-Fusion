@@ -92,6 +92,25 @@ class ChangeDetector(
                 continue
             }
 
+            // Fast path: if an indexed file's size and mtime are unchanged, treat it as unchanged
+            // WITHOUT hashing. This avoids re-reading and hashing every byte of every file on a full
+            // rescan; the hash is computed only when size or mtime actually differ.
+            if (previousState != null && !previousState.isDeleted) {
+                val stat = statSafely(absolutePath)
+                if (stat != null &&
+                    stat.first == previousState.sizeBytes &&
+                    stat.second == previousState.modifiedTimeNs
+                ) {
+                    unchangedFiles += FileChange(
+                        path = absolutePath,
+                        relativePath = relativePath,
+                        metadata = metadataFromState(previousState),
+                        previousState = previousState
+                    )
+                    continue
+                }
+            }
+
             val metadata = extractMetadataSafely(absolutePath) ?: continue
             val change = FileChange(
                 path = absolutePath,
@@ -147,6 +166,22 @@ class ChangeDetector(
             metadata.sizeBytes != state.sizeBytes ||
             metadata.modifiedTimeNs != state.modifiedTimeNs
     }
+
+    private fun statSafely(path: Path): Pair<Long, Long>? = try {
+        metadataExtractor.statSizeAndMtime(path)
+    } catch (ioe: IOException) {
+        log.debug("Failed to stat {}: {}", path, ioe.message)
+        null
+    }
+
+    /** Reconstruct a FileMetadata from a persisted state for the unchanged fast path (no hashing). */
+    private fun metadataFromState(state: FileState): FileMetadata = FileMetadata(
+        sizeBytes = state.sizeBytes,
+        modifiedTimeNs = state.modifiedTimeNs,
+        contentHash = state.contentHash ?: "",
+        language = state.language,
+        mimeType = null
+    )
 
     private fun extractMetadataSafely(path: Path): FileMetadata? {
         return try {

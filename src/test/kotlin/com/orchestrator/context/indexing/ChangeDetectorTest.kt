@@ -40,6 +40,38 @@ class ChangeDetectorTest {
     }
 
     @Test
+    fun `detectChanges treats matching size and mtime as unchanged without hashing`() {
+        val path = projectRoot.resolve("src/Stable.kt")
+        Files.createDirectories(path.parent)
+        Files.writeString(path, "fun stable() = 1")
+
+        // Seed state with the file's REAL size+mtime but a deliberately WRONG content hash. If the
+        // detector hashed the file, it would see the mismatch and report "modified". The size+mtime
+        // fast path must classify it as unchanged without ever computing the hash.
+        val (size, mtime) = FileMetadataExtractor.statSizeAndMtime(path)
+        FileStateRepository.insert(
+            FileState(
+                id = 0,
+                relativePath = "src/Stable.kt",
+                absolutePath = path.toAbsolutePath().normalize().toString(),
+                contentHash = "deadbeef-not-the-real-hash",
+                sizeBytes = size,
+                modifiedTimeNs = mtime,
+                language = "kotlin",
+                kind = null,
+                fingerprint = null,
+                indexedAt = Instant.now(),
+                isDeleted = false
+            )
+        )
+
+        val changeSet = detector.detectChanges(listOf(path))
+
+        assertEquals(listOf("src/Stable.kt"), changeSet.unchangedFiles.map { it.relativePath })
+        assertTrue(changeSet.modifiedFiles.isEmpty(), "matching size+mtime must not be re-hashed/modified")
+    }
+
+    @Test
     fun `detectChanges classifies new modified unchanged files`() {
         // Existing file already indexed
         val existingPath = projectRoot.resolve("src/Existing.kt")
