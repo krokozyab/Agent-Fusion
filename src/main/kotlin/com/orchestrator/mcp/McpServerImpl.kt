@@ -830,7 +830,10 @@ class McpServerImpl(
                     // embeddings, DB I/O). Run them on the IO dispatcher so a long tool call does
                     // not block the request dispatcher thread and starve concurrent tool calls.
                     val result = withContext(Dispatchers.IO) {
-                        executeTool(entry.name, request.arguments ?: JsonNull)
+                        // Default to an empty object, not JsonNull: tools with no required params
+                        // (get_pending_tasks, get_context_stats) are legitimately called without
+                        // arguments, and the param mappers expect a JSON object.
+                        executeTool(entry.name, request.arguments ?: JsonObject(emptyMap()))
                     }
                     val payload = toolResultToJson(result)
                     val structured = when (payload) {
