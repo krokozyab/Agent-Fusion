@@ -59,11 +59,10 @@ object ConsensusModule {
      */
     fun decide(
         taskId: TaskId,
-        strategyOrder: List<ConsensusStrategyType> = listOf(
-            ConsensusStrategyType.VOTING,
-            ConsensusStrategyType.REASONING_QUALITY,
-            ConsensusStrategyType.CUSTOM
-        ),
+        // VOTING is the actual consensus mechanism (majority + threshold + tie rules). The other
+        // strategies are selectors that ALWAYS pick a winner, so including them by default made
+        // consensus impossible to fail. Callers can still request a quality/cost fallback explicitly.
+        strategyOrder: List<ConsensusStrategyType> = listOf(ConsensusStrategyType.VOTING),
         waitFor: Duration = Duration.ZERO
     ): ConsensusOutcome {
         // 1) Collect proposals (allow waiting for new arrivals if requested)
@@ -89,17 +88,16 @@ object ConsensusModule {
             return ConsensusOutcome(decision.id, decisionToConsensusResult(decision), listOf("<none>"), 0)
         }
 
-        // 2) Determine strategies to try
+        // 2) Determine strategies to try — only the requested ones, in order. We must NOT
+        // silently append every registered strategy: doing so meant an always-agreeing selector
+        // (ReasoningQuality) ran after VOTING and made its threshold/tie rules decorative.
         val strategies: List<ConsensusStrategy> = buildList {
             val reg = Registry.all()
             val seen = mutableSetOf<ConsensusStrategyType>()
-            // Add requested order first
             for (t in strategyOrder) {
                 val s = reg[t]
                 if (s != null && seen.add(s.type)) add(s)
             }
-            // Ensure all others remain available at the end
-            for ((_, s) in reg) if (seen.add(s.type)) add(s)
         }
 
         // 3) Execute strategies in order with robust error handling
@@ -111,11 +109,11 @@ object ConsensusModule {
             val result = try {
                 strategy.evaluate(proposals)
             } catch (t: Throwable) {
-                log.log(Level.WARNING, "Consensus strategy ${'$'}label failed: ${'$'}{t.message}", t)
+                log.log(Level.WARNING, "Consensus strategy $label failed: ${t.message}", t)
                 ConsensusResult(
                     agreed = false,
                     winningProposal = null,
-                    reasoning = "Strategy ${'$'}label threw: ${'$'}{t.message}",
+                    reasoning = "Strategy $label threw: ${t.message}",
                     details = mapOf("exception" to (t::class.simpleName ?: "Throwable"))
                 )
             }

@@ -5,6 +5,7 @@ import com.orchestrator.modules.context.ContextModule
 import com.orchestrator.web.components.ResultCard
 import com.orchestrator.web.components.ResultsContainer
 import com.orchestrator.web.pages.ExplorerPage
+import com.orchestrator.web.utils.WebSecurity
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -162,15 +163,17 @@ fun Route.explorerRoutes() {
             HttpStatusCode.BadRequest,
             mapOf("error" to "Missing path parameter", "hint" to "Provide a valid file path")
         )
-        
-        val file = java.io.File(path)
-        if (!file.exists() || !file.isFile) {
-            return@get call.respond(
+
+        // Restrict reads to indexed project roots. Canonicalization defeats `../`
+        // traversal and symlink escape, so arbitrary host files cannot be read.
+        val allowedRoots = ContextModule.configuration().watcher.watchPaths
+            .map { if (it == "auto") System.getProperty("user.dir") else it }
+        val file = WebSecurity.resolveWithinRoots(path, allowedRoots)
+            ?: return@get call.respond(
                 HttpStatusCode.NotFound,
-                mapOf("error" to "File not found: $path", "hint" to "The file may have been moved or deleted")
+                mapOf("error" to "File not found or not accessible", "hint" to "Only files within indexed project roots can be viewed")
             )
-        }
-        
+
         try {
             val content = file.readText()
             call.respond(mapOf("content" to content, "path" to path))

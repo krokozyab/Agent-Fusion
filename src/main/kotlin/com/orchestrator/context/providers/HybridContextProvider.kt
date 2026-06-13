@@ -82,10 +82,17 @@ class HybridContextProvider(
             }
         }
 
+        // Raw RRF scores are tiny (max ~1/(k+1) per provider, e.g. ~0.016 at k=60) and would be
+        // wiped out by the downstream minScore threshold (default 0.3). Normalize by the maximum
+        // so the top hit maps to 1.0 while preserving relative ordering — matching ReciprocalRankFusion.
+        val maxRrf = aggregated.values.maxOfOrNull { it.rrfScore } ?: 0.0
+        if (maxRrf <= 0.0) return@coroutineScope emptyList()
+
         val ordered = aggregated.values
             .map { entry ->
-                // Use the fused RRF score as the base, then apply penalties on top.
-                val baseSnippet = entry.snippet.copy(score = entry.rrfScore.coerceIn(0.0, 1.0))
+                // Use the normalized fused RRF score as the base, then apply penalties on top.
+                val normalizedScore = (entry.rrfScore / maxRrf).coerceIn(0.0, 1.0)
+                val baseSnippet = entry.snippet.copy(score = normalizedScore)
                 val penalizedSnippet = applyPenalties(baseSnippet)
 
                 val providerCount = entry.providers.distinct().size

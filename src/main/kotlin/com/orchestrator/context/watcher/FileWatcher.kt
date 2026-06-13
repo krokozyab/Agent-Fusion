@@ -68,10 +68,14 @@ class FileWatcher(
     private val recursive = true
     private val sensitivityModifiers: Array<WatchEvent.Modifier> = loadSensitivityModifiers()
 
+    // SUSPEND (not DROP_OLDEST): back-pressure the debouncer collector when the indexing consumer
+    // is slow rather than silently dropping events. There is exactly one collector
+    // (UnifiedFileWatcher), so a full buffer suspends only the debouncer->_events bridge coroutine,
+    // never the WatchService poll loop. Dropping here lost edits during bursts until restart.
     private val _events = MutableSharedFlow<FileWatchEvent>(
         replay = 0,
         extraBufferCapacity = 256,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+        onBufferOverflow = BufferOverflow.SUSPEND
     )
     val events: SharedFlow<FileWatchEvent> = _events.asSharedFlow()
 

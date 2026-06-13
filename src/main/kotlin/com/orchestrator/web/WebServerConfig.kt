@@ -11,7 +11,10 @@ import com.typesafe.config.ConfigFactory
  * substitution (e.g. `${?WEB_HOST}`).
  */
 data class WebServerConfig(
-    val host: String = "0.0.0.0",
+    // Bind to loopback by default: the dashboard has no authentication and exposes
+    // file content and destructive operations. Binding to 0.0.0.0 would expose it to
+    // the whole LAN. Override explicitly via `web.host` if remote access is intended.
+    val host: String = "127.0.0.1",
     val port: Int = 8081,
     val staticPath: String = "static",
     val corsEnabled: Boolean = true,

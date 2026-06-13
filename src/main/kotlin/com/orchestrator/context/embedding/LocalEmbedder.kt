@@ -49,6 +49,10 @@ class LocalEmbedder(
     private var session: OrtSession? = null
     private var environment: OrtEnvironment? = null
 
+    // BERT WordPiece tokenizer matching the model's training vocabulary. Immutable
+    // after construction, safe to share across coroutines.
+    private val tokenizer = BertTokenizer(maxSequenceLength = 512)
+
     private suspend fun ensureInitialized() = mutex.withLock {
         if (session == null) {
             val path = modelPath ?: getDefaultModelPath()
@@ -146,26 +150,7 @@ class LocalEmbedder(
         return result
     }
 
-    private fun tokenize(text: String): IntArray {
-        // Fast hash-based tokenization optimized for performance
-        val vocabSize = 30522
-        val reservedOffset = 1000
-        val availableRange = vocabSize - reservedOffset
-        val maxTokenPayload = 510  // 512 - 2 (for [CLS] and [SEP])
-
-        val tokens = text.lowercase()
-            .split(Regex("\\s+"))
-            .filter { it.isNotEmpty() }
-            .map { token ->
-                val hash = token.hashCode()
-                val positive = hash and Int.MAX_VALUE
-                reservedOffset + (positive % availableRange)
-            }
-            .take(maxTokenPayload)
-
-        // [CLS] = 101, [SEP] = 102
-        return intArrayOf(101) + tokens.toIntArray() + intArrayOf(102)
-    }
+    private fun tokenize(text: String): IntArray = tokenizer.tokenize(text)
 
     private fun normalizeVector(vector: FloatArray): FloatArray {
         val norm = sqrt(vector.sumOf { (it * it).toDouble() }).toFloat()

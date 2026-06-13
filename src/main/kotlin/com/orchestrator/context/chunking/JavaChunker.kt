@@ -13,9 +13,17 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
     private val parser = JavaParser()
     
     override fun chunk(content: String, filePath: String): List<Chunk> {
+        if (content.isBlank()) return emptyList()
+
         val result = parser.parse(content)
-        if (!result.isSuccessful) return emptyList()
-        
+        if (!result.isSuccessful || result.result.isEmpty) {
+            // Parse failed (new language features, partially-valid source, parser thread races):
+            // fall back to a single whole-file chunk instead of dropping the file entirely.
+            // Otherwise file_state would be persisted with zero chunks and the file would be
+            // invisible to search — same silent-loss failure mode as a DB error.
+            return fallbackWholeFileChunks(content, filePath)
+        }
+
         val cu = result.result.get()
         val packageName = cu.packageDeclaration.map { it.nameAsString }.orElse(null)
         val chunks = mutableListOf<Chunk>()
@@ -179,6 +187,23 @@ class JavaChunker(private val maxTokens: Int = 600, private val overlapPercent: 
     }
 
     private fun estimateTokens(text: String): Int = text.length / 4
+
+    /**
+     * Whole-file fallback used when the Java parser cannot parse [content]. Splits into
+     * line-windowed chunks so even an unparseable file remains searchable.
+     */
+    private fun fallbackWholeFileChunks(content: String, filePath: String): List<Chunk> {
+        return splitIfNeeded(
+            text = content,
+            kind = ChunkKind.CODE_BLOCK,
+            label = "file:$filePath",
+            ordinal = 0,
+            startLine = 1,
+            endLine = content.count { it == '\n' } + 1,
+            packageName = null,
+            parentPath = null
+        )
+    }
 
     private fun buildPath(kind: ChunkKind, packageName: String?, parentPath: String?, label: String): String {
         return if (parentPath != null) {

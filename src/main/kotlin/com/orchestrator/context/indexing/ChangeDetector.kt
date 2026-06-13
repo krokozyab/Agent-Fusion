@@ -113,6 +113,11 @@ class ChangeDetector(
         if (detectImplicitDeletions) {
             for ((absolutePath, state) in indexedStates) {
                 if (seenDeleted.contains(absolutePath)) continue
+                // Virtual entries (e.g. git://commit/<hash>, pr://...) have no filesystem
+                // presence. Files.exists() is always false for them, so without this guard the
+                // sweep would delete the entire git-intent graph on every run (StartupReconciler
+                // and the 60s deletion sweep), which then gets rebuilt and deleted again in a loop.
+                if (isVirtualPath(absolutePath)) continue
                 val resolvedPath = Path.of(absolutePath)
                 if (!Files.exists(resolvedPath)) {
                     deletedFiles += DeletedFile(state.relativePath, absolutePath, state)
@@ -171,6 +176,12 @@ class ChangeDetector(
         }
         return resolved
     }
+
+    /**
+     * True if [absolutePath] is a virtual (non-filesystem) entry such as a git:// commit node
+     * or pr:// reference. These carry a URI scheme ("://") that never appears in a real OS path.
+     */
+    private fun isVirtualPath(absolutePath: String): Boolean = absolutePath.contains("://")
 
     private fun findMatchingRoot(absolutePath: Path): Path? {
         val normalized = absolutePath.toAbsolutePath().normalize()

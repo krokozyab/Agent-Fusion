@@ -82,14 +82,20 @@ class SubmitInputTool {
             metadata = p.metadata ?: emptyMap()
         )
 
-        // Update task status to IN_PROGRESS (resume after input) and updatedAt
+        // Atomically move the task to IN_PROGRESS (resume after input) and refresh updatedAt.
+        // CAS guard prevents reactivating a task that moved to a terminal state concurrently;
+        // the read-then-check above only catches the serialized case.
         val now = Instant.now()
-        val updated = if (task.status == TaskStatus.IN_PROGRESS) {
-            task.copy(updatedAt = now)
-        } else {
-            task.copy(status = TaskStatus.IN_PROGRESS, updatedAt = now)
+        val moved = TaskRepository.updateStatus(
+            id = taskId,
+            newStatus = TaskStatus.IN_PROGRESS,
+            expectedOldStatuses = setOf(TaskStatus.WAITING_INPUT, TaskStatus.IN_PROGRESS)
+        )
+        if (!moved) {
+            throw IllegalStateException(
+                "Task '${task.id.value}' is no longer accepting input (status changed concurrently)"
+            )
         }
-        TaskRepository.update(updated)
 
         // Calculate proposal status for consensus tasks
         val proposalStatus = if (task.routing.name == "CONSENSUS" && task.assigneeIds.size > 1) {
@@ -100,11 +106,11 @@ class SubmitInputTool {
             taskId = taskId.value,
             proposalId = proposal.id.value,
             inputType = itype.name,
-            taskStatus = updated.status.name,
+            taskStatus = TaskStatus.IN_PROGRESS.name,
             message = if (task.status == TaskStatus.IN_PROGRESS) {
-                "Input accepted and task status remains ${updated.status.name}"
+                "Input accepted and task status remains ${TaskStatus.IN_PROGRESS.name}"
             } else {
-                "Input accepted and task status updated to ${updated.status.name}"
+                "Input accepted and task status updated to ${TaskStatus.IN_PROGRESS.name}"
             },
             proposalStatus = proposalStatus
         )

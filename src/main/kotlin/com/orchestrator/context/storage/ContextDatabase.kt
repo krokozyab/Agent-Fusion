@@ -25,6 +25,10 @@ object ContextDatabase {
     private val log = Logger.logger("com.orchestrator.context.storage.ContextDatabase")
 
     private val initialized = AtomicBoolean(false)
+
+    // True when the FTS index no longer reflects the chunks table (set by incremental indexing,
+    // cleared by a rebuild). See markFtsStale / ensureFtsFresh.
+    private val ftsDirty = AtomicBoolean(false)
     private val guard = ReentrantLock()
     private val connectionLock = ReentrantLock()
 
@@ -361,6 +365,28 @@ object ContextDatabase {
         val conn = getConnection()
         connectionLock.withLock {
             ensureFtsIndex(conn)
+        }
+        ftsDirty.set(false)
+    }
+
+    /**
+     * DuckDB's FTS index is a materialized snapshot with no incremental update API, so any chunk
+     * insert/delete leaves it stale. Incremental indexing (the file watcher) marks it stale here
+     * instead of rebuilding per file, and [ensureFtsFresh] rebuilds lazily before the next
+     * full-text query. Without this, watcher-added chunks were invisible to BM25 search until a
+     * manual rebuild.
+     */
+    fun markFtsStale() {
+        ftsDirty.set(true)
+    }
+
+    /** Rebuild the FTS index if it has been marked stale since the last rebuild. */
+    fun ensureFtsFresh() {
+        if (ftsDirty.compareAndSet(true, false)) {
+            val conn = getConnection()
+            connectionLock.withLock {
+                ensureFtsIndex(conn)
+            }
         }
     }
 

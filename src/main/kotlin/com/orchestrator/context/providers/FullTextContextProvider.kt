@@ -53,6 +53,10 @@ class FullTextContextProvider(
     // ── BM25 path (DuckDB FTS extension) ───────────────────────────────
 
     private fun queryBm25(query: String, scope: ContextScope): List<ContextSnippet> {
+        // Rebuild the FTS index if incremental indexing left it stale, so watcher-added chunks
+        // are searchable without waiting for a manual rebuild (DuckDB FTS has no incremental update).
+        ContextDatabase.ensureFtsFresh()
+
         val scopeConditions = mutableListOf<String>()
         val scopeParams = mutableListOf<Any>()
         buildScopeConditions(scope, scopeConditions, scopeParams)

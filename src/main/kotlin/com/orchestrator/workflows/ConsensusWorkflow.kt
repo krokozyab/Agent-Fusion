@@ -34,10 +34,11 @@ class ConsensusWorkflow(
     /** Optional extra wait for late proposals before running consensus */
     private val waitForAdditionalProposals: Duration = Duration.ZERO,
     /** Preferred strategy order to try in ConsensusModule */
+    // VOTING only: a genuine majority/threshold consensus that can legitimately fail to agree.
+    // The other strategies are always-pick-a-winner selectors; include them explicitly only when
+    // a guaranteed-decision fallback is desired.
     private val strategyOrder: List<com.orchestrator.modules.consensus.strategies.ConsensusStrategyType> = listOf(
-        com.orchestrator.modules.consensus.strategies.ConsensusStrategyType.VOTING,
-        com.orchestrator.modules.consensus.strategies.ConsensusStrategyType.REASONING_QUALITY,
-        com.orchestrator.modules.consensus.strategies.ConsensusStrategyType.CUSTOM
+        com.orchestrator.modules.consensus.strategies.ConsensusStrategyType.VOTING
     ),
     /**
      * Pluggable proposal producer: given a task and an agent, generate a proposal and submit it.
@@ -172,6 +173,15 @@ class ConsensusWorkflow(
             content = resultContent,
             tokens = resultTokens
         )
+
+        // Consensus can legitimately fail (tie or below threshold). Do not report success in that
+        // case — the Decision is still persisted for audit, but the workflow must surface failure.
+        if (!outcome.result.agreed) {
+            return createFailure(
+                runtime,
+                "Consensus not reached: ${outcome.result.reasoning} (decisionId=${outcome.decisionId.value})"
+            )
+        }
 
         return createSuccess(
             runtime = runtime,

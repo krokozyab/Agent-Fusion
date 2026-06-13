@@ -233,6 +233,54 @@ class CompleteTaskToolTest {
     }
 
     @Test
+    fun concurrent_completes_only_one_wins() {
+        // Two concurrent complete_task calls on the same IN_PROGRESS task: the CAS guard must let
+        // exactly one win. Without it, both read IN_PROGRESS and both "complete", double-counting.
+        val now = Instant.now()
+        val task = Task(
+            id = TaskId("task-concurrent"),
+            title = "Concurrent",
+            description = "Test",
+            type = TaskType.IMPLEMENTATION,
+            status = TaskStatus.IN_PROGRESS,
+            routing = RoutingStrategy.SOLO,
+            assigneeIds = setOf(AgentId("claude-code")),
+            dependencies = emptySet(),
+            complexity = 3,
+            risk = 2,
+            createdAt = now,
+            updatedAt = now
+        )
+        TaskRepository.insert(task)
+
+        val tool = CompleteTaskTool()
+        val successes = java.util.concurrent.atomic.AtomicInteger(0)
+        val failures = java.util.concurrent.atomic.AtomicInteger(0)
+        val start = java.util.concurrent.CountDownLatch(1)
+
+        val threads = (1..2).map {
+            Thread {
+                start.await()
+                try {
+                    tool.execute(CompleteTaskTool.Params(taskId = task.id.value, completedBy = "claude-code"))
+                    successes.incrementAndGet()
+                } catch (t: Throwable) {
+                    failures.incrementAndGet()
+                }
+            }.also { it.start() }
+        }
+        start.countDown()
+        threads.forEach { it.join(10_000) }
+
+        assertEquals(1, successes.get(), "exactly one concurrent complete must succeed")
+        assertEquals(1, failures.get(), "the losing concurrent complete must fail")
+
+        // The task ends COMPLETED exactly once.
+        val finalTask = TaskRepository.findById(task.id)
+        assertEquals(TaskStatus.COMPLETED, finalTask?.status)
+    }
+
+    @Test
     fun throws_when_proposal_not_found() {
         val now = Instant.now()
         val task = Task(

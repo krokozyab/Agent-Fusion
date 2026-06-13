@@ -5,6 +5,7 @@ import com.orchestrator.domain.TaskStatus
 import com.orchestrator.storage.repositories.MetricsRepository
 import com.orchestrator.storage.repositories.TaskRepository
 import com.orchestrator.web.pages.HomePage
+import com.orchestrator.web.utils.WebSecurity
 import io.ktor.http.ContentType
 import io.ktor.server.application.call
 import io.ktor.server.response.respondText
@@ -256,10 +257,13 @@ private fun renderActivityFragment(activities: List<HomePage.ActivityItem>): Str
             HomePage.ActivityType.METRIC_RECORDED -> "📊"
         }
 
+        // Activity title/description/href originate from user-controlled task data
+        // (e.g. MCP create_task) and must be HTML-escaped to prevent stored XSS.
+        val safeTitle = WebSecurity.escapeHtml(activity.title)
         val titleHtml = if (activity.href != null) {
-            """<a href="${activity.href}" class="activity-item__title" hx-boost="true">${activity.title}</a>"""
+            """<a href="${WebSecurity.escapeHtml(activity.href)}" class="activity-item__title" hx-boost="true">$safeTitle</a>"""
         } else {
-            """<div class="activity-item__title">${activity.title}</div>"""
+            """<div class="activity-item__title">$safeTitle</div>"""
         }
 
         """
@@ -269,7 +273,7 @@ private fun renderActivityFragment(activities: List<HomePage.ActivityItem>): Str
             </div>
             <div class="activity-item__content">
                 $titleHtml
-                <div class="activity-item__description text-muted">${activity.description}</div>
+                <div class="activity-item__description text-muted">${WebSecurity.escapeHtml(activity.description)}</div>
             </div>
             <div class="activity-item__time text-muted text-sm">${formatRelativeTime(activity.timestamp)}</div>
         </li>

@@ -168,11 +168,12 @@ class RebuildContextToolTest {
         val file = tempDir.resolve("Test.kt")
         file.writeText("fun main() = Unit")
 
+        // paths = null => full rebuild, which drops and recreates all tables.
         val tool = RebuildContextTool(config)
         val result = tool.execute(RebuildContextTool.Params(
             confirm = true,
             async = false,
-            paths = listOf(tempDir.toString())
+            paths = null
         ))
 
         assertEquals("sync", result.mode)
@@ -210,6 +211,96 @@ class RebuildContextToolTest {
         assertNull(result.totalFiles)
         assertNull(result.completedAt)
         assertTrue(result.message!!.contains("Background rebuild started"))
+    }
+
+    @Test
+    fun `partial rebuild clears only files under the requested path`() {
+        val subDir = tempDir.resolve("sub")
+        java.nio.file.Files.createDirectories(subDir)
+
+        // The preserved file must exist on disk so reconciliation doesn't drop it.
+        val outsideFile = tempDir.resolve("Outside.kt")
+        outsideFile.writeText("fun outside() = Unit")
+
+        val staleUnderSub = subDir.resolve("Stale.kt").toAbsolutePath().normalize().toString()
+        val outsideSub = outsideFile.toAbsolutePath().normalize().toString()
+
+        // Seed two fully-formed indexed files: one under the rebuild path, one outside.
+        ContextDatabase.withConnection { conn ->
+            conn.createStatement().use { st ->
+                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted) VALUES (1, 'sub/Stale.kt', '$staleUnderSub', 'h1', 100, 1000000, 'kotlin', 'source', 'fp1', CURRENT_TIMESTAMP, FALSE)")
+                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted) VALUES (2, 'Outside.kt', '$outsideSub', 'h2', 100, 1000000, 'kotlin', 'source', 'fp2', CURRENT_TIMESTAMP, FALSE)")
+            }
+        }
+
+        // Rebuild only the empty sub directory: clears Stale.kt, leaves Outside.kt.
+        val tool = RebuildContextTool(config)
+        val result = tool.execute(RebuildContextTool.Params(
+            confirm = true,
+            async = false,
+            paths = listOf(subDir.toString())
+        ))
+
+        assertTrue(result.status in listOf("completed", "completed_with_errors"))
+
+        ContextDatabase.withConnection { conn ->
+            val staleCount = conn.createStatement()
+                .executeQuery("SELECT COUNT(*) FROM file_state WHERE abs_path = '$staleUnderSub'")
+                .let { it.next(); it.getInt(1) }
+            assertEquals(0, staleCount, "File under the rebuilt path must be cleared")
+
+            val outsideCount = conn.createStatement()
+                .executeQuery("SELECT COUNT(*) FROM file_state WHERE abs_path = '$outsideSub'")
+                .let { it.next(); it.getInt(1) }
+            assertEquals(1, outsideCount, "File outside the rebuilt path must be preserved (partial rebuild)")
+        }
+    }
+
+    @Test
+    fun `partial rebuild does not drop tables`() {
+        val subDir = tempDir.resolve("sub")
+        java.nio.file.Files.createDirectories(subDir)
+
+        // The preserved file must exist on disk so reconciliation doesn't drop it.
+        val keepFileOnDisk = tempDir.resolve("Keep.kt")
+        keepFileOnDisk.writeText("fun keep() = Unit")
+        val outside = keepFileOnDisk.toAbsolutePath().normalize().toString()
+
+        // Seed unrelated data outside the rebuild scope across multiple tables.
+        ContextDatabase.withConnection { conn ->
+            conn.createStatement().use { st ->
+                st.executeUpdate("INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, language, kind, fingerprint, indexed_at, is_deleted) VALUES (10, 'Keep.kt', '$outside', 'h10', 100, 1000000, 'kotlin', 'source', 'fp10', CURRENT_TIMESTAMP, FALSE)")
+                st.executeUpdate("INSERT INTO chunks (chunk_id, file_id, ordinal, kind, start_line, end_line, content, created_at) VALUES (10, 10, 0, 'function', 1, 10, 'keep', CURRENT_TIMESTAMP)")
+                st.executeUpdate("INSERT INTO usage_metrics (metric_id, snippets_returned, total_tokens, retrieval_latency_ms, created_at) VALUES (10, 5, 100, 50, CURRENT_TIMESTAMP)")
+            }
+        }
+
+        val tool = RebuildContextTool(config)
+        val result = tool.execute(RebuildContextTool.Params(
+            confirm = true,
+            async = false,
+            paths = listOf(subDir.toString())
+        ))
+
+        assertTrue(result.status in listOf("completed", "completed_with_errors"))
+
+        // Tables must still exist with the unrelated rows intact (no DROP happened).
+        ContextDatabase.withConnection { conn ->
+            val keepFile = conn.createStatement()
+                .executeQuery("SELECT COUNT(*) FROM file_state WHERE abs_path = '$outside'")
+                .let { it.next(); it.getInt(1) }
+            assertEquals(1, keepFile, "Unrelated file_state row must survive a partial rebuild")
+
+            val keepChunk = conn.createStatement()
+                .executeQuery("SELECT COUNT(*) FROM chunks WHERE chunk_id = 10")
+                .let { it.next(); it.getInt(1) }
+            assertEquals(1, keepChunk, "Unrelated chunk must survive a partial rebuild")
+
+            val keepMetric = conn.createStatement()
+                .executeQuery("SELECT COUNT(*) FROM usage_metrics WHERE metric_id = 10")
+                .let { it.next(); it.getInt(1) }
+            assertEquals(1, keepMetric, "Unrelated usage_metrics row must survive a partial rebuild")
+        }
     }
 
     @Test
@@ -357,11 +448,12 @@ class RebuildContextToolTest {
         val file = tempDir.resolve("Test.kt")
         file.writeText("fun main() = Unit")
 
+        // paths = null => full rebuild, which clears every table.
         val tool = RebuildContextTool(config)
         val result = tool.execute(RebuildContextTool.Params(
             confirm = true,
             async = false,
-            paths = listOf(tempDir.toString())
+            paths = null
         ))
 
         assertTrue(result.status in listOf("completed", "completed_with_errors"))

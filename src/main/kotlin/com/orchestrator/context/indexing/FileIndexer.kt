@@ -18,7 +18,6 @@ import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.sql.SQLException
 import java.time.Instant
 import java.util.Locale
 import kotlin.coroutines.coroutineContext
@@ -158,16 +157,12 @@ class FileIndexer(
                 isDeleted = false
             )
 
-            val persistedArtifacts = try {
-                dataService.syncFileArtifacts(fileState, chunkArtifacts, persistBatchSize)
-            } catch (sql: SQLException) {
-                log.warn(
-                    "Falling back to metadata-only index for {} after database error: {}",
-                    relativePath,
-                    sql.message
-                )
-                dataService.syncFileArtifacts(fileState, emptyList(), persistBatchSize)
-            }
+            // Persist file_state and chunks atomically (see ContextRepository.replaceFileArtifacts).
+            // On a database error we must NOT fall back to a metadata-only write: persisting
+            // file_state with zero chunks would make ChangeDetector treat the file as unchanged,
+            // so it would silently vanish from search and never be retried. Let the error
+            // propagate so this file is reported as failed and re-indexed on the next pass.
+            val persistedArtifacts = dataService.syncFileArtifacts(fileState, chunkArtifacts, persistBatchSize)
 
             // Index symbols for code files if language detection succeeded
             if (languageHint != null && persistedArtifacts.file.id > 0) {

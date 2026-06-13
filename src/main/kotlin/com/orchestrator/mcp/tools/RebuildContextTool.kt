@@ -377,8 +377,14 @@ class RebuildContextTool(
         )
 
         // Phase 3: Destructive phase
-        log.info("Destructive phase: clearing existing context data")
-        clearContextData()
+        val partial = !params.paths.isNullOrEmpty()
+        if (partial) {
+            log.info("Destructive phase: clearing context data only for {} requested paths", paths.size)
+            clearContextDataForPaths(paths)
+        } else {
+            log.info("Destructive phase: clearing all existing context data (full rebuild)")
+            clearContextData()
+        }
         onProgress?.invoke(
             BootstrapProgress(
                 totalFiles = 0,
@@ -488,7 +494,12 @@ class RebuildContextTool(
                     // Phase 3: Destructive phase
                     log.info("Async rebuild (job={}): Destructive phase", jobId)
                     job.phase = "destructive"
-                    clearContextData()
+                    if (!params.paths.isNullOrEmpty()) {
+                        log.info("Async rebuild (job={}): partial clear for {} paths", jobId, paths.size)
+                        clearContextDataForPaths(paths)
+                    } else {
+                        clearContextData()
+                    }
 
                     // Phase 4: Rebuild phase
                     log.info("Async rebuild (job={}): Rebuild phase", jobId)
@@ -703,6 +714,49 @@ class RebuildContextTool(
         }
 
         log.info("Context data cleared and schema recreated successfully")
+    }
+
+    /**
+     * Partial clear: removes artifacts only for indexed files located under the
+     * requested [targetPaths], leaving the rest of the index (and the schema)
+     * intact. This is what a paths-scoped rebuild must do — dropping all tables
+     * here would destroy the entire index, contradicting the tool contract.
+     *
+     * Virtual entries (e.g. git:// commit nodes) live outside the filesystem and
+     * never match a real path prefix, so they are naturally left untouched.
+     */
+    private fun clearContextDataForPaths(targetPaths: List<Path>) {
+        // Ensure the schema exists before we touch it (a partial rebuild assumes a
+        // prior index, but initialize() is idempotent and cheap).
+        val storageConfig = com.orchestrator.context.config.StorageConfig(
+            dbPath = config.storage.dbPath
+        )
+        ContextDatabase.initialize(storageConfig)
+
+        val normalizedRoots = targetPaths.map { it.toAbsolutePath().normalize() }
+        val allFiles = com.orchestrator.context.ContextRepository.listAllFiles()
+
+        val toDelete = allFiles.filter { file ->
+            val abs = runCatching { Paths.get(file.absolutePath).toAbsolutePath().normalize() }.getOrNull()
+                ?: return@filter false
+            normalizedRoots.any { root -> abs == root || abs.startsWith(root) }
+        }
+
+        log.info("Partial clear: {} of {} indexed files fall under requested paths", toDelete.size, allFiles.size)
+
+        var deleted = 0
+        var failed = 0
+        for (file in toDelete) {
+            try {
+                com.orchestrator.context.ContextRepository.deleteFileArtifactsByAbsPath(file.absolutePath)
+                deleted++
+            } catch (e: Exception) {
+                failed++
+                log.warn("Failed to clear artifacts for {}: {}", file.absolutePath, e.message)
+            }
+        }
+
+        log.info("Partial clear completed: {} files cleared, {} failed", deleted, failed)
     }
 
     private suspend fun runBootstrap(

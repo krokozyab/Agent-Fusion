@@ -6,6 +6,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Base interface for all events in the system.
@@ -47,16 +48,28 @@ class EventBus(
     val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
     val bufferSize: Int = Channel.UNLIMITED
 ) {
+    // CopyOnWriteArrayList: publish iterates these lists concurrently with subscribe/unsubscribe
+    // (add/remove). A plain ArrayList would throw ConcurrentModificationException, and since
+    // publish is called from workflow checkpoints, that exception would crash task execution.
     @PublishedApi
-    internal val channels = ConcurrentHashMap<Class<*>, MutableList<Channel<Event>>>()
+    internal val channels = ConcurrentHashMap<Class<*>, CopyOnWriteArrayList<Channel<Event>>>()
 
     /**
-     * Publish an event to all subscribers. Non-blocking.
+     * Publish an event to all subscribers. Non-blocking and never throws to the caller.
+     *
+     * Delivery is polymorphic: a published event reaches subscribers registered for its concrete
+     * class AND for any supertype/interface (e.g. `on<SystemEvent>` receives a `TaskCreated`).
+     * Previously publish looked up only the concrete class while subscribe registered by the
+     * subscribed type, so supertype subscriptions silently received nothing.
      */
     fun publish(event: Event) {
         val eventClass = event::class.java
-        channels[eventClass]?.forEach { channel ->
-            channel.trySend(event)
+        channels.forEach { (registeredClass, channelList) ->
+            if (registeredClass.isAssignableFrom(eventClass)) {
+                channelList.forEach { channel ->
+                    runCatching { channel.trySend(event) }
+                }
+            }
         }
     }
 
@@ -67,7 +80,7 @@ class EventBus(
         val channel = Channel<Event>(bufferSize)
         val eventClass = T::class.java
         
-        channels.computeIfAbsent(eventClass) { mutableListOf() }.add(channel)
+        channels.computeIfAbsent(eventClass) { CopyOnWriteArrayList() }.add(channel)
         
         return channel.receiveAsFlow()
             .filterIsInstance<T>()

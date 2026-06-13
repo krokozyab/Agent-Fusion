@@ -57,10 +57,12 @@ import io.modelcontextprotocol.kotlin.sdk.shared.AbstractTransport
 import io.modelcontextprotocol.kotlin.sdk.shared.McpJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -599,6 +601,12 @@ class McpServerImpl(
         private val requestTimeoutMs: Long
     ) : AbstractTransport() {
 
+        companion object {
+            // Cap the per-session event buffer so a session that never attaches an SSE stream
+            // cannot grow without bound.
+            private const val MAX_PENDING_EVENTS = 1000
+        }
+
         sealed interface PostResult {
             data class Json(val response: JSONRPCResponse) : PostResult
             object Accepted : PostResult
@@ -626,15 +634,20 @@ class McpServerImpl(
                 val deferred = pendingResponses.remove(message.id)
                 if (deferred != null) {
                     deferred.complete(message)
-                    return
+                } else {
+                    // No waiter: the request already timed out (or the id is unknown). Drop the
+                    // late response — buffering it in pendingEvents would leak memory forever, as
+                    // a response has no SSE consumer.
+                    log.warn("Dropping late/orphan JSON-RPC response for id={} (request no longer pending)", message.id)
                 }
+                return
             }
 
             var shouldDispatch = false
             sendMutex.withLock {
                 val currentSession = sseSession
                 if (currentSession == null) {
-                    pendingEvents.add(message)
+                    bufferPendingEvent(message)
                 } else {
                     shouldDispatch = true
                 }
@@ -643,6 +656,16 @@ class McpServerImpl(
             if (shouldDispatch) {
                 dispatchToSse(message)
             }
+        }
+
+        // Must be called while holding sendMutex. Bounds the buffer so a session that never
+        // attaches an SSE stream cannot accumulate events without limit.
+        private fun bufferPendingEvent(message: JSONRPCMessage) {
+            if (pendingEvents.size >= MAX_PENDING_EVENTS) {
+                pendingEvents.removeAt(0)
+                log.warn("pendingEvents buffer full ({}); dropping oldest event", MAX_PENDING_EVENTS)
+            }
+            pendingEvents.add(message)
         }
 
         override suspend fun close() {
@@ -726,7 +749,7 @@ class McpServerImpl(
         private suspend fun dispatchToSse(message: JSONRPCMessage) {
             val session = sendMutex.withLock { sseSession }
             if (session == null) {
-                sendMutex.withLock { pendingEvents.add(message) }
+                sendMutex.withLock { bufferPendingEvent(message) }
                 return
             }
 
@@ -738,7 +761,7 @@ class McpServerImpl(
                 sendMutex.withLock {
                     if (sseSession === session) {
                         sseSession = null
-                        pendingEvents.add(message)
+                        bufferPendingEvent(message)
                     }
                 }
                 throw t
@@ -778,7 +801,12 @@ class McpServerImpl(
                 inputSchema = inputSchema
             ) { request ->
                 runCatching {
-                    val result = executeTool(entry.name, request.arguments ?: JsonNull)
+                    // Tools are synchronous and several use runBlocking internally (indexing,
+                    // embeddings, DB I/O). Run them on the IO dispatcher so a long tool call does
+                    // not block the request dispatcher thread and starve concurrent tool calls.
+                    val result = withContext(Dispatchers.IO) {
+                        executeTool(entry.name, request.arguments ?: JsonNull)
+                    }
                     val payload = toolResultToJson(result)
                     val structured = when (payload) {
                         is JsonObject -> payload

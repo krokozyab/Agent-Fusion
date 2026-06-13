@@ -89,6 +89,34 @@ class GetRebuildStatusToolTest {
     }
 
     @Test
+    fun `can poll an async refresh_context job`() = runBlocking {
+        // Regression: refresh_context async jobs were stored in a separate registry and
+        // get_rebuild_status only looked at rebuild jobs, so refresh jobs were never pollable.
+        val file = tempDir.resolve("Test.kt")
+        file.writeText("fun main() = Unit")
+
+        val refreshTool = RefreshContextTool(config)
+        val refreshResult = refreshTool.execute(RefreshContextTool.Params(
+            async = true,
+            paths = listOf(tempDir.toString())
+        ))
+        val jobId = refreshResult.jobId!!
+
+        val statusTool = GetRebuildStatusTool(config)
+        val result = statusTool.execute(GetRebuildStatusTool.Params(jobId = jobId, includeLogs = false))
+
+        assertEquals(jobId, result.jobId)
+        assertTrue(
+            result.status in listOf("running", "completed", "completed_with_errors", "failed"),
+            "Refresh job must be found, not 'not_found' (got '${result.status}')"
+        )
+        assertNotNull(result.timing.startedAt)
+
+        delay(2000) // let the background refresh settle before teardown
+        RefreshContextTool.clearCompletedJobs()
+    }
+
+    @Test
     fun `returns running status for active job`() = runBlocking {
         val file = tempDir.resolve("Test.kt")
         file.writeText("fun main() = Unit")

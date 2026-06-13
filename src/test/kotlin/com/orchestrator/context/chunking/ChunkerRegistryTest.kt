@@ -3,9 +3,66 @@ package com.orchestrator.context.chunking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.nio.file.Paths
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class ChunkerRegistryTest {
     private val registry = ConfigurableChunkerRegistry()
+
+    @Test
+    fun `java and yaml chunkers are thread-safe under concurrent use`() {
+        // JavaParser and SnakeYAML are not thread-safe; the adapter must isolate per-thread.
+        // A shared instance would race and yield inconsistent/empty chunk counts.
+        val javaChunker = registry.getChunker(Paths.get("Sample.java"))
+        val yamlChunker = registry.getChunker(Paths.get("config.yaml"))
+
+        val javaCode = """
+            package com.example;
+            public class Sample {
+                public int add(int a, int b) { return a + b; }
+                public int sub(int a, int b) { return a - b; }
+            }
+        """.trimIndent()
+        val yaml = "name: test\nvalues:\n  - one\n  - two\nnested:\n  key: value\n"
+
+        // Single-threaded baselines.
+        val javaBaseline = javaChunker.chunk(javaCode, "Sample.java", "java").size
+        val yamlBaseline = yamlChunker.chunk(yaml, "config.yaml", "yaml").size
+        assertTrue(javaBaseline > 0)
+        assertTrue(yamlBaseline > 0)
+
+        val threads = 8
+        val iterations = 50
+        val pool = Executors.newFixedThreadPool(threads)
+        val start = CountDownLatch(1)
+        val javaCounts = ConcurrentLinkedQueue<Int>()
+        val yamlCounts = ConcurrentLinkedQueue<Int>()
+        val errors = ConcurrentLinkedQueue<Throwable>()
+
+        repeat(threads) {
+            pool.submit {
+                try {
+                    start.await()
+                    repeat(iterations) {
+                        javaCounts += javaChunker.chunk(javaCode, "Sample.java", "java").size
+                        yamlCounts += yamlChunker.chunk(yaml, "config.yaml", "yaml").size
+                    }
+                } catch (t: Throwable) {
+                    errors += t
+                }
+            }
+        }
+        start.countDown()
+        pool.shutdown()
+        assertTrue(pool.awaitTermination(60, TimeUnit.SECONDS), "Concurrent chunking timed out")
+
+        assertTrue(errors.isEmpty(), "Concurrent chunking threw: ${errors.firstOrNull()}")
+        assertEquals(threads * iterations, javaCounts.size)
+        assertTrue(javaCounts.all { it == javaBaseline }, "Java chunk counts diverged under concurrency: ${javaCounts.distinct()}")
+        assertTrue(yamlCounts.all { it == yamlBaseline }, "YAML chunk counts diverged under concurrency: ${yamlCounts.distinct()}")
+    }
 
     @Test
     fun `returns JavaChunker for java files`() {

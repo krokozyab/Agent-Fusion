@@ -329,7 +329,27 @@ class CompleteTaskTool {
                 logger.warn("Failed to calculate conversation tokens for task ${taskId.value}: ${e.message}")
             }
 
-            // 6) Mark task as complete (LAST operation for safety)
+            // 6) Mark task as complete (LAST operation for safety).
+            // Atomically claim the transition with a compare-and-set guard: the read-then-validate
+            // above only catches a serialized double-complete, not two concurrent complete_task
+            // calls that both read IN_PROGRESS. CAS ensures exactly one wins (the loser's whole
+            // transaction rolls back, so metrics/decision are not double-counted).
+            val claimed = TaskRepository.updateStatus(
+                id = taskId,
+                newStatus = TaskStatus.COMPLETED,
+                expectedOldStatuses = setOf(
+                    TaskStatus.PENDING,
+                    TaskStatus.IN_PROGRESS,
+                    TaskStatus.WAITING_INPUT,
+                    TaskStatus.FAILED
+                )
+            )
+            if (!claimed) {
+                throw IllegalStateException(
+                    "Task ${p.taskId} could not be completed: it is already COMPLETED or was completed concurrently."
+                )
+            }
+
             val completed = existing.copy(
                 status = TaskStatus.COMPLETED,
                 updatedAt = now,

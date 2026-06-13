@@ -289,6 +289,17 @@ class OrchestrationEngine(
 
             try {
                 publishEvent(OrchestrationEvent.WorkflowStarted(task.id, task.routing))
+
+                // Move the task back to IN_PROGRESS before resuming. A resumed task is typically
+                // in WAITING_INPUT, and WAITING_INPUT -> COMPLETED/WAITING_INPUT are invalid
+                // transitions — without this step a successful resume would be rejected by the
+                // state machine and the task wrongly marked FAILED.
+                if (runtime.currentStatus != TaskStatus.IN_PROGRESS &&
+                    StateMachine.isValidTransition(runtime.currentStatus, TaskStatus.IN_PROGRESS)
+                ) {
+                    transitionState(runtime, TaskStatus.IN_PROGRESS)
+                }
+
                 val step = workflow.resume(runtime, checkpointId)
 
                 when (step) {

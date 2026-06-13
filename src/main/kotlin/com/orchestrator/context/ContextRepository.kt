@@ -169,44 +169,40 @@ object ContextRepository {
                 }
             }
 
-            // Phase 2: Insert new artifacts in batched transactions
-            // This ensures that progress is committed incrementally, preventing data loss on crashes
-            val persistedFile = ContextDatabase.transaction { conn ->
-                upsertFileState(conn, fileState)
-            }
-
-            // Assign IDs to all chunks upfront (but don't persist yet)
-            val assigned = ContextDatabase.withConnection { conn ->
-                chunkArtifacts.map { artifact ->
-                    val chunkId = nextId(conn, "chunks_seq")
-                    val chunkWithIds = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id)
-                    chunkId to artifact.copy(chunk = chunkWithIds)
-                }
-            }
-
-            val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
-                artifact.chunk.chunkPath?.let { it to chunkId }
-            }.toMap()
-
-            val withParents = assigned.map { (chunkId, artifact) ->
-                val parentPath = artifact.chunk.chunkPath?.let { path ->
-                    val idx = path.lastIndexOf('/')
-                    if (idx > 0) path.substring(0, idx) else null
-                }
-                val parentId = parentPath?.let { pathToId[it] }
-                val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
-                chunkId to artifact.copy(chunk = chunkWithParent)
-            }
-
-            // Insert all chunks in a single transaction.
-            // DuckDB is an OLAP database with heavy per-transaction overhead;
-            // many small transactions are orders of magnitude slower than one bulk insert.
-            val totalChunks = withParents.size
+            // Phase 2: Upsert file_state AND insert all chunks atomically in ONE transaction.
+            // Critical invariant: file_state.content_hash must never be committed unless the
+            // matching chunks are committed too. If they were committed separately and the chunk
+            // insert failed, file_state would carry the new hash with zero chunks, ChangeDetector
+            // would treat the file as unchanged, and it would silently disappear from search.
+            val totalChunks = chunkArtifacts.size
             if (totalChunks > 128) {
                 log.info("Persisting {} chunks in a single transaction", totalChunks)
             }
 
-            val persistedChunks = ContextDatabase.transaction { conn ->
+            ContextDatabase.transaction { conn ->
+                val persistedFile = upsertFileState(conn, fileState)
+
+                // Assign chunk IDs on the same connection so the whole unit is atomic.
+                val assigned = chunkArtifacts.map { artifact ->
+                    val chunkId = nextId(conn, "chunks_seq")
+                    val chunkWithIds = artifact.chunk.copy(id = chunkId, fileId = persistedFile.id)
+                    chunkId to artifact.copy(chunk = chunkWithIds)
+                }
+
+                val pathToId = assigned.mapNotNull { (chunkId, artifact) ->
+                    artifact.chunk.chunkPath?.let { it to chunkId }
+                }.toMap()
+
+                val withParents = assigned.map { (chunkId, artifact) ->
+                    val parentPath = artifact.chunk.chunkPath?.let { path ->
+                        val idx = path.lastIndexOf('/')
+                        if (idx > 0) path.substring(0, idx) else null
+                    }
+                    val parentId = parentPath?.let { pathToId[it] }
+                    val chunkWithParent = artifact.chunk.copy(parentChunkId = parentId)
+                    chunkId to artifact.copy(chunk = chunkWithParent)
+                }
+
                 val chunks = withParents.map { it.second.chunk }
                 val embeddingRows = withParents.flatMap { (chunkId, artifact) ->
                     artifact.embeddings.map { chunkId to it }
@@ -221,16 +217,16 @@ object ContextRepository {
 
                 val embeddingsByChunk = persistedEmbeddings.groupBy { it.chunkId }
                 val linksByChunk = persistedLinks.groupBy { it.sourceChunkId }
-                withParents.map { (chunkId, artifact) ->
+                val persistedChunks = withParents.map { (chunkId, artifact) ->
                     ChunkArtifacts(
                         chunk = artifact.chunk,
                         embeddings = embeddingsByChunk[chunkId] ?: emptyList(),
                         links = linksByChunk[chunkId] ?: emptyList()
                     )
                 }
-            }
 
-            FileArtifacts(persistedFile, persistedChunks)
+                FileArtifacts(persistedFile, persistedChunks)
+            }
         }
 
     fun fetchFileArtifactsByPath(path: String): FileArtifacts? = ContextDatabase.withConnection { conn ->

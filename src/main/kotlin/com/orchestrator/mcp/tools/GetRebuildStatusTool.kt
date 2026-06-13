@@ -77,28 +77,38 @@ class GetRebuildStatusTool(
     fun execute(params: Params): Result {
         log.debug("Getting status for job: {}", params.jobId)
 
-        // Get job from RebuildContextTool
+        // Job ids are shared between rebuild_context and refresh_context. Check both registries
+        // so that async refresh jobs (which promise getJobStatus in their description) are
+        // actually pollable — previously only rebuild jobs were found.
         val rebuildTool = RebuildContextTool(config)
         val jobStatus = rebuildTool.getJobStatus(params.jobId)
-
-        if (jobStatus == null) {
-            // Job not found
-            return Result(
-                jobId = params.jobId,
-                status = "not_found",
-                phase = "unknown",
-                progress = null,
-                timing = Timing(
-                    startedAt = Instant.now(),
-                    completedAt = null,
-                    durationMs = null,
-                    estimatedRemainingMs = null
-                ),
-                error = "Job ID not found. It may have been completed and removed, or never existed.",
-                logs = if (params.includeLogs) emptyList() else null
-            )
+        if (jobStatus != null) {
+            return mapRebuildStatus(params, jobStatus)
         }
 
+        val refreshStatus = RefreshContextTool(config).getJobStatus(params.jobId)
+        if (refreshStatus != null) {
+            return mapRefreshStatus(params, refreshStatus)
+        }
+
+        // Job not found in either registry.
+        return Result(
+            jobId = params.jobId,
+            status = "not_found",
+            phase = "unknown",
+            progress = null,
+            timing = Timing(
+                startedAt = Instant.now(),
+                completedAt = null,
+                durationMs = null,
+                estimatedRemainingMs = null
+            ),
+            error = "Job ID not found. It may have been completed and removed, or never existed.",
+            logs = if (params.includeLogs) emptyList() else null
+        )
+    }
+
+    private fun mapRebuildStatus(params: Params, jobStatus: RebuildContextTool.Result): Result {
         // Calculate progress
         val progress = if (jobStatus.totalFiles != null && jobStatus.totalFiles > 0) {
             val processedFiles = jobStatus.processedFiles ?: 0
@@ -162,6 +172,44 @@ class GetRebuildStatusTool(
             timing = timing,
             error = if (statusStr == "failed") jobStatus.message else null,
             logs = logs
+        )
+    }
+
+    private fun mapRefreshStatus(params: Params, refresh: RefreshContextTool.Result): Result {
+        // refresh_context has no phase machine; derive counts from the incremental update result.
+        val progress = if (refresh.status != "running") {
+            val successful = (refresh.newFiles ?: 0) + (refresh.modifiedFiles ?: 0)
+            val processed = successful + (refresh.deletedFiles ?: 0) + (refresh.unchangedFiles ?: 0)
+            val failed = (refresh.indexingFailures ?: 0) + (refresh.deletionFailures ?: 0)
+            val total = processed + failed
+            Progress(
+                totalFiles = total,
+                processedFiles = processed,
+                successfulFiles = successful,
+                failedFiles = failed,
+                percentComplete = 100
+            )
+        } else {
+            null
+        }
+
+        val now = Instant.now()
+        val durationMs = refresh.durationMs ?: (now.toEpochMilli() - refresh.startedAt.toEpochMilli())
+
+        return Result(
+            jobId = params.jobId,
+            status = refresh.status,
+            phase = if (refresh.status == "running") "refreshing" else refresh.status,
+            progress = progress,
+            timing = Timing(
+                startedAt = refresh.startedAt,
+                completedAt = refresh.completedAt,
+                durationMs = durationMs,
+                estimatedRemainingMs = null
+            ),
+            error = if (refresh.status == "failed") refresh.message else null,
+            // refresh jobs do not keep a phase-by-phase log; expose an empty list when requested.
+            logs = if (params.includeLogs) emptyList() else null
         )
     }
 

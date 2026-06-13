@@ -85,6 +85,45 @@ class ChangeDetectorTest {
         assertTrue(changeSet.unchangedFiles.isEmpty())
     }
 
+    @Test
+    fun `detectChanges does not delete virtual git nodes that have no filesystem presence`() {
+        // A real file that is genuinely gone — must still be detected as deleted.
+        val deletePath = projectRoot.resolve("dir/Removed.kt")
+        Files.createDirectories(deletePath.parent)
+        Files.writeString(deletePath, "fun removed() = 0")
+        insertFileState(deletePath)
+        Files.delete(deletePath)
+
+        // Virtual git-intent nodes — never on disk; the sweep must leave them alone.
+        insertVirtualFileState("git://commit/abc123")
+        insertVirtualFileState("pr://42")
+
+        val changeSet = detector.detectChanges(emptyList())
+
+        val deletedPaths = changeSet.deletedFiles.map { it.absolutePath }
+        assertTrue(deletedPaths.contains(deletePath.toAbsolutePath().normalize().toString()),
+            "Genuinely removed file must be flagged deleted")
+        assertTrue(deletedPaths.none { it.contains("://") },
+            "Virtual git/pr nodes must never be flagged for deletion, got: $deletedPaths")
+    }
+
+    private fun insertVirtualFileState(virtualPath: String) {
+        val state = FileState(
+            id = 0,
+            relativePath = virtualPath,
+            absolutePath = virtualPath,
+            contentHash = "virtual-hash",
+            sizeBytes = 0,
+            modifiedTimeNs = 0,
+            language = null,
+            kind = "git_commit",
+            fingerprint = null,
+            indexedAt = Instant.now(),
+            isDeleted = false
+        )
+        FileStateRepository.insert(state)
+    }
+
     private fun insertFileState(path: Path) {
         val metadata = FileMetadataExtractor.extractMetadata(path)
         val relativePath = projectRoot.relativize(path.toAbsolutePath().normalize()).toString()

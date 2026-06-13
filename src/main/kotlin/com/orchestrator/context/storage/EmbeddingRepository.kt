@@ -18,6 +18,66 @@ object EmbeddingRepository {
         val language: String?
     )
 
+    /**
+     * Lightweight row used for the scoring pass of semantic search. Carries only what is needed
+     * to compute similarity and apply filters — crucially NOT the chunk content/summary, which
+     * would otherwise pull every chunk's full text into memory on every query. Full chunk content
+     * is hydrated separately for just the top-k results.
+     */
+    data class ScoringRow(
+        val embeddingId: Long,
+        val chunkId: Long,
+        val dimensions: Int,
+        val vector: List<Float>,
+        val absPath: String,
+        val language: String?,
+        val kind: com.orchestrator.context.domain.ChunkKind,
+        val chunkPath: String?
+    )
+
+    fun fetchScoringRows(model: String? = null): List<ScoringRow> =
+        ContextDatabase.withConnection { conn ->
+            val sql = buildString {
+                append(
+                    """
+                    SELECT
+                        e.embedding_id,
+                        e.chunk_id,
+                        e.dimensions,
+                        e.vector,
+                        c.kind,
+                        c.chunk_path,
+                        f.abs_path,
+                        f.language
+                    FROM embeddings e
+                    INNER JOIN chunks c ON e.chunk_id = c.chunk_id
+                    INNER JOIN file_state f ON c.file_id = f.file_id
+                    """.trimIndent()
+                )
+                if (model != null) append(" WHERE e.model = ?")
+            }
+
+            conn.prepareStatement(sql).use { ps ->
+                if (model != null) ps.setString(1, model)
+                ps.executeQuery().use { rs ->
+                    val results = ArrayList<ScoringRow>()
+                    while (rs.next()) {
+                        results += ScoringRow(
+                            embeddingId = rs.getLong("embedding_id"),
+                            chunkId = rs.getLong("chunk_id"),
+                            dimensions = rs.getInt("dimensions"),
+                            vector = deserializeVector(rs.getString("vector")),
+                            absPath = rs.getString("abs_path"),
+                            language = rs.getString("language"),
+                            kind = com.orchestrator.context.domain.ChunkKind.valueOf(rs.getString("kind")),
+                            chunkPath = rs.getString("chunk_path")
+                        )
+                    }
+                    results
+                }
+            }
+        }
+
     fun insert(embedding: Embedding): Embedding = ContextDatabase.transaction { conn ->
         val id = if (embedding.id > 0) embedding.id else nextId(conn)
         conn.prepareStatement(
