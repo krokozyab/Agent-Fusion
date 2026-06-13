@@ -139,6 +139,11 @@ class FullTextContextProvider(
         buildScopeConditions(scope, conditions, params)
         val where = conditions.joinToString(" AND ")
 
+        // Bound the result set: without a LIMIT a common keyword (e.g. "test") would pull every
+        // matching chunk's full content into memory. Fetch a headroom multiple of maxResults so the
+        // downstream token-budget filtering still has candidates to choose from. The limit is an
+        // internal Int, safe to inline.
+        val fetchLimit = (maxResults * FETCH_HEADROOM).coerceAtMost(MAX_FETCH_LIMIT)
         val sql = """
             SELECT c.chunk_id, c.file_id, c.kind, c.content, c.summary,
                    c.token_count, c.chunk_path, c.parent_chunk_id,
@@ -146,6 +151,7 @@ class FullTextContextProvider(
             FROM chunks c
             JOIN file_state f ON f.file_id = c.file_id
             WHERE $where
+            LIMIT $fetchLimit
         """.trimIndent()
 
         val candidates = mutableListOf<ContextSnippet>()
@@ -276,6 +282,11 @@ class FullTextContextProvider(
     }
 
     companion object {
+        // Fetch this many times maxResults so the downstream token-budget filter has headroom,
+        // while still bounding how much is materialized for a broad keyword.
+        private const val FETCH_HEADROOM = 10
+        private const val MAX_FETCH_LIMIT = 2000
+
         private val STOPWORDS = setOf(
             "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
             "has", "in", "is", "it", "of", "on", "or", "that", "the", "to", "was", "will", "with"

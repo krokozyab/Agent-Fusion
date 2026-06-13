@@ -77,7 +77,10 @@ class RebuildContextTool(
         @Volatile var processedFiles: Int = 0,
         @Volatile var successfulFiles: Int = 0,
         @Volatile var failedFiles: Int = 0,
-        @Volatile var error: String? = null
+        @Volatile var error: String? = null,
+        // Set once when the job reaches a terminal state, so reported duration/completedAt are
+        // stable across polls (previously recomputed with Instant.now() on every getJobStatus call).
+        @Volatile var completedAt: Instant? = null
     )
 
     enum class JobStatus {
@@ -524,6 +527,7 @@ class RebuildContextTool(
                     job.phase = "post-rebuild"
                     optimizeDatabase()
 
+                    job.completedAt = Instant.now()
                     job.status = JobStatus.COMPLETED
                     job.phase = "completed"
                     onProgress?.invoke(
@@ -546,6 +550,7 @@ class RebuildContextTool(
                 } catch (e: Exception) {
                     val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
                     job.error = errorMessage
+                    job.completedAt = Instant.now()
                     job.status = JobStatus.FAILED
                     job.phase = "failed"
                     log.error("Async rebuild failed (job={}): {}", jobId, errorMessage, e)
@@ -940,9 +945,9 @@ class RebuildContextTool(
                 processedFiles = job.processedFiles,
                 successfulFiles = job.successfulFiles,
                 failedFiles = job.failedFiles,
-                durationMs = Instant.now().toEpochMilli() - job.startedAt.toEpochMilli(),
+                durationMs = (job.completedAt ?: Instant.now()).toEpochMilli() - job.startedAt.toEpochMilli(),
                 startedAt = job.startedAt,
-                completedAt = Instant.now(),
+                completedAt = job.completedAt ?: Instant.now(),
                 message = "Rebuild completed: ${job.successfulFiles}/${job.totalFiles} files indexed successfully",
                 validationErrors = null
             )
@@ -955,9 +960,9 @@ class RebuildContextTool(
                 processedFiles = if (job.processedFiles > 0) job.processedFiles else null,
                 successfulFiles = if (job.successfulFiles > 0) job.successfulFiles else null,
                 failedFiles = if (job.failedFiles > 0) job.failedFiles else null,
-                durationMs = null,
+                durationMs = job.completedAt?.let { it.toEpochMilli() - job.startedAt.toEpochMilli() },
                 startedAt = job.startedAt,
-                completedAt = Instant.now(),
+                completedAt = job.completedAt,
                 message = "Rebuild failed: ${job.error}",
                 validationErrors = null
             )

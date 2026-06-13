@@ -3132,6 +3132,7 @@ class McpServerImpl(
         return CompleteTaskTool.Params(
             taskId = o.reqStr("taskId"),
             resultSummary = o.str("resultSummary"),
+            completedBy = o.str("completedBy"),
             decision = decision,
             tokenMetrics = tokenMetrics,
             artifacts = artifacts,
@@ -3322,6 +3323,7 @@ class McpServerImpl(
         val kinds = o.listStrFlexible("kinds")
         val excludePatterns = o.listStrFlexible("excludePatterns")
         val providers = o.listStrFlexible("providers")
+        val format = o.str("format")
 
         return QueryContextTool.Params(
             query = query,
@@ -3334,7 +3336,8 @@ class McpServerImpl(
             languages = languages,
             kinds = kinds,
             excludePatterns = excludePatterns,
-            providers = providers
+            providers = providers,
+            format = format
         )
     }
 

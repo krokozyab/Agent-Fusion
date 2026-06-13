@@ -72,6 +72,24 @@ class ChangeDetectorTest {
     }
 
     @Test
+    fun `detectChanges with force reindexes unchanged files`() {
+        val path = projectRoot.resolve("src/Force.kt")
+        Files.createDirectories(path.parent)
+        Files.writeString(path, "fun force() = 1")
+        insertFileState(path) // baseline matches disk exactly → normally "unchanged"
+
+        // Without force: unchanged.
+        val normal = detector.detectChanges(listOf(path), force = false)
+        assertEquals(listOf("src/Force.kt"), normal.unchangedFiles.map { it.relativePath })
+        assertTrue(normal.modifiedFiles.isEmpty())
+
+        // With force: the same file is re-indexed (classified modified) even though it didn't change.
+        val forced = detector.detectChanges(listOf(path), force = true)
+        assertEquals(listOf("src/Force.kt"), forced.modifiedFiles.map { it.relativePath })
+        assertTrue(forced.unchangedFiles.isEmpty())
+    }
+
+    @Test
     fun `detectChanges classifies new modified unchanged files`() {
         // Existing file already indexed
         val existingPath = projectRoot.resolve("src/Existing.kt")

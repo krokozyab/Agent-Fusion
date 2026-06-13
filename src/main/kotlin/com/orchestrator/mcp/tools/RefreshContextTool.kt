@@ -279,7 +279,8 @@ class RefreshContextTool(
                 indexer.updateAsync(
                     paths = discoveredFiles,
                     parallelism = params.parallelism,
-                    onProgress = onProgress
+                    onProgress = onProgress,
+                    force = params.force
                 )
             }
 
@@ -368,7 +369,8 @@ class RefreshContextTool(
                     } else {
                         indexer.updateAsync(
                             paths = discoveredFiles,
-                            parallelism = params.parallelism
+                            parallelism = params.parallelism,
+                            force = params.force
                         )
                     }
 

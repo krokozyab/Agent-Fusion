@@ -39,9 +39,10 @@ class IncrementalIndexer(
         paths: List<Path>,
         parallelism: Int? = null,
         onProgress: ((BatchProgress) -> Unit)? = null,
-        detectImplicitDeletions: Boolean = false
+        detectImplicitDeletions: Boolean = false,
+        force: Boolean = false
     ): UpdateResult = runBlocking {
-        updateAsync(paths, parallelism, onProgress, detectImplicitDeletions)
+        updateAsync(paths, parallelism, onProgress, detectImplicitDeletions, force)
     }
 
     /**
@@ -62,10 +63,11 @@ class IncrementalIndexer(
         paths: List<Path>,
         parallelism: Int? = null,
         onProgress: ((BatchProgress) -> Unit)? = null,
-        detectImplicitDeletions: Boolean = false
+        detectImplicitDeletions: Boolean = false,
+        force: Boolean = false
     ): UpdateResult {
         val startedAt = Instant.now(clock)
-        val changeSet = changeDetector.detectChanges(paths, detectImplicitDeletions)
+        val changeSet = changeDetector.detectChanges(paths, detectImplicitDeletions, force)
 
         val candidates = (changeSet.newFiles + changeSet.modifiedFiles).map { it.path }
         val batchResult = when {

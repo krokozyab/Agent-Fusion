@@ -43,7 +43,11 @@ class ChangeDetector(
      *                                changed/modified files from the watcher (incremental updates). Set to true
      *                                when calling with a complete directory scan (bootstrap/full rescan).
      */
-    fun detectChanges(paths: List<Path>, detectImplicitDeletions: Boolean = true): ChangeSet {
+    fun detectChanges(
+        paths: List<Path>,
+        detectImplicitDeletions: Boolean = true,
+        force: Boolean = false
+    ): ChangeSet {
         val indexedStates = repository.listAllFiles().filter { it.isActive }.associateBy { it.absolutePath }
         val newFiles = mutableListOf<FileChange>()
         val modifiedFiles = mutableListOf<FileChange>()
@@ -94,8 +98,9 @@ class ChangeDetector(
 
             // Fast path: if an indexed file's size and mtime are unchanged, treat it as unchanged
             // WITHOUT hashing. This avoids re-reading and hashing every byte of every file on a full
-            // rescan; the hash is computed only when size or mtime actually differ.
-            if (previousState != null && !previousState.isDeleted) {
+            // rescan; the hash is computed only when size or mtime actually differ. Skipped under
+            // force, which re-indexes every file regardless of whether it changed.
+            if (!force && previousState != null && !previousState.isDeleted) {
                 val stat = statSafely(absolutePath)
                 if (stat != null &&
                     stat.first == previousState.sizeBytes &&
@@ -121,6 +126,7 @@ class ChangeDetector(
 
             when {
                 previousState == null || previousState.isDeleted -> newFiles += change
+                force -> modifiedFiles += change
                 hasChanged(metadata, previousState) -> modifiedFiles += change
                 else -> unchangedFiles += change
             }
