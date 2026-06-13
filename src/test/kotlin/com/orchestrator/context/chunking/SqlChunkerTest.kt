@@ -36,6 +36,32 @@ class SqlChunkerTest {
     }
 
     @Test
+    fun `assigns real source line numbers to statements`() {
+        // Statements are contiguous slices of the file, so each chunk must carry its true
+        // 1-based line span (not a fabricated 1..1) so DiffResolver can map diffs to chunks.
+        val sql = """
+            CREATE TABLE users (id INT);
+
+            INSERT INTO users VALUES (1, 'Alice');
+            SELECT *
+            FROM users;
+        """.trimIndent()
+
+        val chunks = SqlChunker().chunk(sql, "schema.sql")
+
+        assertEquals(3, chunks.size)
+        // line 1
+        assertEquals(1, chunks[0].startLine)
+        assertEquals(1, chunks[0].endLine)
+        // line 3 (after the blank line 2)
+        assertEquals(3, chunks[1].startLine)
+        assertEquals(3, chunks[1].endLine)
+        // lines 4-5 (multi-line SELECT)
+        assertEquals(4, chunks[2].startLine)
+        assertEquals(5, chunks[2].endLine)
+    }
+
+    @Test
     fun `chunks multiple statements`() {
         val sql = """
             CREATE TABLE users (id INT);

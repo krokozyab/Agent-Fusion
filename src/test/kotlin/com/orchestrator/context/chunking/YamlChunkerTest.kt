@@ -4,6 +4,7 @@ import com.orchestrator.context.domain.ChunkKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class YamlChunkerTest {
@@ -13,6 +14,24 @@ class YamlChunkerTest {
         val chunker = YamlChunker()
         val chunks = chunker.chunk("", "test.yaml")
         assertTrue(chunks.isEmpty())
+    }
+
+    @Test
+    fun `line ranges are null because positions are lost on re-emission`() {
+        // SnakeYAML.load() drops source positions and the chunker re-emits text, so line numbers
+        // here would be fictional. Null keeps them out of DiffResolver's line-range matching.
+        val yaml = """
+            name: MyApp
+            version: 1.0.0
+        """.trimIndent()
+
+        val chunks = YamlChunker().chunk(yaml, "config.yaml")
+
+        assertTrue(chunks.isNotEmpty())
+        chunks.forEach { chunk ->
+            assertNull(chunk.startLine, "YAML chunks must not fabricate startLine")
+            assertNull(chunk.endLine, "YAML chunks must not fabricate endLine")
+        }
     }
 
     @Test
