@@ -199,10 +199,11 @@ class Main {
               - [agents.<id>]           - AI agent configurations
               - [context]               - Code context system settings
 
-            Environment Variables:
+            Environment Variables (override the corresponding fusionagent.toml values):
               SERVER_HOST               Orchestrator server host (default: 127.0.0.1)
               SERVER_PORT               Orchestrator server port (default: 3000)
-              WEB_HOST                  Web dashboard host (default: 0.0.0.0)
+              SERVER_TRANSPORT          Orchestrator transport: HTTP or GRPC (default: HTTP)
+              WEB_HOST                  Web dashboard host (default: 127.0.0.1)
               WEB_PORT                  Web dashboard port (default: 8081)
         """.trimIndent())
     }

@@ -35,18 +35,21 @@ transport = "HTTP"  # HTTP or GRPC
 # ------------------------------------------------------------------------------
 # Configure the embedded web dashboard server that provides a UI for the orchestrator.
 # This server hosts the web interface for monitoring agents and tasks.
-# Default: host = "0.0.0.0", port = 8081
-# Override with environment variables: WEB_HOST, WEB_PORT, WEB_CORS_ENABLED, etc.
+# Default: host = "127.0.0.1", port = 8081
+# Override with environment variables: WEB_HOST, WEB_PORT.
+# SECURITY: the dashboard has no authentication and exposes file content plus destructive
+# operations. Keep host on loopback (127.0.0.1). Only set 0.0.0.0 if you intentionally want to
+# expose it to the LAN and have added access controls in front of it.
 # ------------------------------------------------------------------------------
 
 [web]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 8082
 staticPath = "static"
 
 [web.cors]
 enabled = true
-allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
+allowedOrigins = ["http://localhost:8082", "http://127.0.0.1:8082"]
 
 # ------------------------------------------------------------------------------
 # [context] - Context system configuration

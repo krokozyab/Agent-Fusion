@@ -42,7 +42,10 @@ enum class Transport { HTTP, GRPC }
 
 data class ServerConfig(
     val host: String = "127.0.0.1",
-    val port: Int = 8080,
+    // 3000 is the documented default (help text, fusionagent.toml, CLAUDE.md). The previous 8080
+    // silently disagreed with every other source, so a missing config bound a different port than
+    // advertised.
+    val port: Int = 3000,
     val transport: Transport = Transport.HTTP
 ) {
     fun validate(): ServerConfig {
