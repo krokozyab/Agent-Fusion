@@ -7,7 +7,33 @@ import org.junit.jupiter.api.Test
 class KotlinChunkerTest {
     
     private val chunker = KotlinChunker()
-    
+
+    @Test
+    fun `braces inside strings and comments do not truncate a function block`() {
+        // The closing brace inside the string and the comment must NOT end the function early;
+        // the function body (including the return) must stay in one chunk.
+        val code = """
+            package com.example
+
+            class Sample {
+                fun greet(): String {
+                    val msg = "a closing brace } lives here"
+                    // another } in a comment
+                    return msg + " end-marker"
+                }
+            }
+        """.trimIndent()
+
+        val chunks = chunker.chunk(code, "Sample.kt")
+
+        val fnChunk = chunks.firstOrNull { it.content.contains("fun greet") }
+        assertNotNull(fnChunk, "function chunk should exist")
+        assertTrue(
+            fnChunk!!.content.contains("end-marker"),
+            "function body must not be truncated at a brace inside a string/comment: ${fnChunk.content}"
+        )
+    }
+
     @Test
     fun `chunks simple class`() {
         val code = """

@@ -11,6 +11,29 @@ class MarkdownChunkerTest {
     private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Document root" }
 
     @Test
+    fun `unclosed code fence is not dropped`() {
+        // File ends inside a ``` block. The fenced content must still be indexed; previously
+        // everything from the opening fence to EOF was silently lost.
+        val content = """
+            # Title
+
+            Some intro text.
+
+            ```kotlin
+            fun important() = 42
+            val secret = "do not lose me"
+        """.trimIndent()
+
+        val chunker = MarkdownChunker()
+        val chunks = chunker.chunk(content, "doc.md", "markdown")
+
+        assertTrue(
+            chunks.any { it.content.contains("do not lose me") },
+            "Content inside an unclosed code fence must be preserved, got: ${chunks.map { it.content }}"
+        )
+    }
+
+    @Test
     fun `all produced chunks satisfy 1 less than or equal to startLine less than or equal to endLine`() {
         // Regression: real Confluence-exported markdown blew up with
         // "startLine must be >= 1 and <= endLine" on SemanticProseChunker output.

@@ -14,7 +14,9 @@ import com.orchestrator.context.domain.FileState
 import com.orchestrator.context.embedding.Embedder
 import com.orchestrator.utils.Logger
 import java.io.IOException
+import java.nio.ByteBuffer
 import java.nio.charset.Charset
+import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
@@ -208,10 +210,25 @@ class FileIndexer(
         when {
             WordDocumentExtractor.supports(extension) -> WordDocumentExtractor.extract(path, extension)
             extension == "pdf" -> PdfDocumentExtractor.extract(path)
-            else -> Files.readString(path, readCharset)
+            else -> decodeTextFile(path)
         }
     } catch (ioe: IOException) {
         throw IOException("Failed to read file: $path (${ioe.message})", ioe)
+    }
+
+    /**
+     * Decode a text file leniently: malformed/unmappable bytes are replaced (U+FFFD) instead of
+     * throwing, so a non-UTF-8 file (e.g. Latin-1/CP1251) gets indexed best-effort rather than
+     * failing on every scan forever. A leading byte-order mark is stripped so it doesn't break
+     * downstream parsers (headings, package declarations, etc.).
+     */
+    private fun decodeTextFile(path: Path): String {
+        val bytes = Files.readAllBytes(path)
+        val decoder = readCharset.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+        val text = decoder.decode(ByteBuffer.wrap(bytes)).toString()
+        return if (text.isNotEmpty() && text[0] == '﻿') text.substring(1) else text
     }
 
     private fun normalizeChunks(chunks: List<Chunk>, chunker: Chunker): List<Chunk> {

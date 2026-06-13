@@ -86,6 +86,13 @@ class ChunkerRegistryTest {
     }
 
     @Test
+    fun `registers both md and markdown extensions`() {
+        assertTrue(registry.isSupported(Paths.get("README.md")))
+        assertTrue(registry.isSupported(Paths.get("README.markdown")),
+            ".markdown extension must be recognised, not fall through to plain text")
+    }
+
+    @Test
     fun `returns GoChunker for go files`() {
         val chunker = registry.getChunker(Paths.get("main.go"))
         assertNotNull(chunker)

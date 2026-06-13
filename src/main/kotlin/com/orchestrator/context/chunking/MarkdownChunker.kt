@@ -71,6 +71,13 @@ class MarkdownChunker(
             lineNumber++
         }
 
+        // An unclosed code fence (file ends inside a ``` block) must still be emitted; otherwise
+        // everything from the opening fence to EOF would be silently dropped from the index.
+        activeFence?.let {
+            chunkInputs += it.toChunkInput()
+            activeFence = null
+        }
+
         flushSection()
 
         val prepared = chunkInputs

@@ -203,38 +203,87 @@ class KotlinChunker(private val maxTokens: Int = 600, private val overlapPercent
         val blockLines = mutableListOf<String>()
         var braceCount = 0
         var inBlock = false
+
+        // Lexer state that persists across lines (block comments and triple-quoted strings span
+        // multiple lines). Braces are only counted in real code state, so '}' inside a string or
+        // comment no longer prematurely ends the block and '{' inside them no longer inflates it.
+        var inBlockComment = false
+        var inString = false      // regular "..."
+        var inRawString = false   // triple-quoted """..."""
+
         var i = startLine
-        
         while (i < lines.size) {
             val line = lines[i]
             blockLines.add(line)
-            
-            for (char in line) {
-                when (char) {
-                    '{' -> {
-                        braceCount++
-                        inBlock = true
+
+            var inLineComment = false
+            var inChar = false
+            var j = 0
+            while (j < line.length) {
+                val c = line[j]
+                val next = if (j + 1 < line.length) line[j + 1] else ' '
+                when {
+                    inLineComment -> { j = line.length }
+                    inBlockComment -> {
+                        if (c == '*' && next == '/') { inBlockComment = false; j += 2 } else j++
                     }
-                    '}' -> {
+                    inRawString -> {
+                        if (c == '"' && next == '"' && line.getOrNull(j + 2) == '"') { inRawString = false; j += 3 } else j++
+                    }
+                    inString -> {
+                        when {
+                            c == '\\' -> j += 2          // skip escaped char
+                            c == '"' -> { inString = false; j++ }
+                            else -> j++
+                        }
+                    }
+                    inChar -> {
+                        when {
+                            c == '\\' -> j += 2
+                            c == '\'' -> { inChar = false; j++ }
+                            else -> j++
+                        }
+                    }
+                    // Real code state.
+                    c == '/' && next == '/' -> { inLineComment = true; j += 2 }
+                    c == '/' && next == '*' -> { inBlockComment = true; j += 2 }
+                    c == '"' && next == '"' && line.getOrNull(j + 2) == '"' -> { inRawString = true; j += 3 }
+                    c == '"' -> { inString = true; j++ }
+                    c == '\'' -> { inChar = true; j++ }
+                    c == '{' -> { braceCount++; inBlock = true; j++ }
+                    c == '}' -> {
                         braceCount--
                         if (inBlock && braceCount == 0) {
                             return Pair(blockLines.joinToString("\n"), i)
                         }
+                        j++
                     }
+                    else -> j++
                 }
             }
-            
-            // Handle single-line declarations without braces
-            if (!inBlock && (line.contains("=") || line.trim().endsWith(")"))) {
-                if (!line.trim().endsWith(",") && !line.trim().endsWith("(")) {
+
+            // Single-line / expression-body declaration without an opening brace. Don't terminate
+            // if the line ends with a continuation operator (e.g. `fun f() =` continued below),
+            // which previously truncated multi-line expression bodies.
+            if (!inBlock && !inString && !inRawString && !inBlockComment) {
+                val trimmed = line.trim()
+                val continues = trimmed.isEmpty() ||
+                    trimmed.endsWith(",") || trimmed.endsWith("(") ||
+                    CONTINUATION_SUFFIXES.any { trimmed.endsWith(it) }
+                if (!continues && (line.contains("=") || trimmed.endsWith(")"))) {
                     return Pair(blockLines.joinToString("\n"), i)
                 }
             }
-            
+
             i++
         }
-        
+
         return Pair(blockLines.joinToString("\n"), i - 1)
+    }
+
+    private companion object {
+        // Trailing tokens that indicate a declaration's expression body continues on the next line.
+        val CONTINUATION_SUFFIXES = listOf("=", ".", "+", "-", "*", "/", "&&", "||", "->", "?", ":")
     }
     
     private fun splitIfNeeded(text: String, kind: ChunkKind, label: String, ordinal: Int, startLine: Int, endLine: Int, pkg: String?, parentPath: String?): List<Chunk> {
