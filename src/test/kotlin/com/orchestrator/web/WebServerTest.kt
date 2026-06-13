@@ -74,15 +74,29 @@ class WebServerTest {
 
     @Test
     fun `status pages handle not found and errors`() = testApplication {
+        // The synthetic /__internal/error route is gated behind this flag (not exposed in prod).
+        System.setProperty("web.enableTestEndpoints", "true")
+        try {
+            application { configureWebApplication(WebServerConfig()) }
+
+            val notFound = client.get("/does-not-exist")
+            assertEquals(HttpStatusCode.NotFound, notFound.status)
+            assertTrue(notFound.bodyAsText().contains("Not Found", ignoreCase = true))
+
+            val internal = client.get("/__internal/error")
+            assertEquals(HttpStatusCode.InternalServerError, internal.status)
+            assertTrue(internal.bodyAsText().contains("Internal Server Error", ignoreCase = true))
+        } finally {
+            System.clearProperty("web.enableTestEndpoints")
+        }
+    }
+
+    @Test
+    fun `synthetic error endpoint is not registered by default`() = testApplication {
         application { configureWebApplication(WebServerConfig()) }
 
-        val notFound = client.get("/does-not-exist")
-        assertEquals(HttpStatusCode.NotFound, notFound.status)
-        assertTrue(notFound.bodyAsText().contains("Not Found", ignoreCase = true))
-
         val internal = client.get("/__internal/error")
-        assertEquals(HttpStatusCode.InternalServerError, internal.status)
-        assertTrue(internal.bodyAsText().contains("Internal Server Error", ignoreCase = true))
+        assertEquals(HttpStatusCode.NotFound, internal.status)
     }
 
     @Test

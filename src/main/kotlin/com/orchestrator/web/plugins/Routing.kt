@@ -54,9 +54,14 @@ internal fun Application.configureRouting(config: WebServerConfig) {
         // Server-Sent Events routes
         sseRoutes()
 
-        // Internal error endpoint for testing
-        get("/__internal/error") {
-            error("Synthetic failure for monitoring tests.")
+        // Synthetic failure endpoint used only to exercise StatusPages in tests. Never registered
+        // in production: an always-500 route is needless attack surface (log spam, stack-trace
+        // leakage, trivial error-path DoS) on an unauthenticated dashboard. Opt in via the
+        // `web.enableTestEndpoints` system property.
+        if (System.getProperty("web.enableTestEndpoints") == "true") {
+            get("/__internal/error") {
+                error("Synthetic failure for monitoring tests.")
+            }
         }
     }
 }
