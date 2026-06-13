@@ -48,6 +48,36 @@ class ContextDatabaseTest {
     }
 
     @Test
+    fun `creates symbols indexes to keep cross-file link building from degrading`(@TempDir tempDir: Path) {
+        val dbPath = tempDir.resolve("context.duckdb").toString()
+        ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
+
+        val expected = setOf(
+            "idx_symbols_name_lower",
+            "idx_symbols_qname_lower",
+            "idx_symbols_file",
+            "idx_symbols_chunk"
+        )
+        val found = mutableSetOf<String>()
+        ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(
+                "SELECT index_name FROM duckdb_indexes() WHERE table_name = 'symbols'"
+            ).use { ps ->
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) found += rs.getString(1)
+                }
+            }
+        }
+
+        assertTrue(
+            found.containsAll(expected),
+            "expected symbol indexes $expected to exist, found $found"
+        )
+
+        ContextDatabase.shutdown()
+    }
+
+    @Test
     fun `executeSchema applies statements and leaves the connection usable`(@TempDir tempDir: Path) {
         val dbPath = tempDir.resolve("context.duckdb").toString()
         ContextDatabase.initialize(StorageConfig(dbPath = dbPath))

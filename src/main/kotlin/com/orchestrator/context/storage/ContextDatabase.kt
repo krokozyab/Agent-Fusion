@@ -338,6 +338,35 @@ object ContextDatabase {
         )
         applyStatements(conn, statements)
         ensureFtsIndex(conn)
+        ensureSymbolIndexes(conn)
+    }
+
+    /**
+     * Indexes on the symbols table.
+     *
+     * Cross-file link building queries `symbols` once per indexed file, filtering by
+     * `LOWER(name)`/`LOWER(qualified_name)` (CrossFileLinkBuilder.loadTargetSymbols). With no index
+     * each call did a full scan, so a batch of N files over a corpus of S symbols cost O(N·S) —
+     * indexing got progressively slower as S grew. The predicates use LOWER(), so we index those
+     * expressions; file_id/chunk_id indexes accelerate the per-file delete/lookup paths.
+     *
+     * Created fault-tolerantly (outside the schema transaction, each wrapped in runCatching): if a
+     * given DuckDB build rejects an expression index we simply lose the speedup rather than aborting
+     * the whole schema bootstrap.
+     */
+    private fun ensureSymbolIndexes(conn: Connection) {
+        val indexStatements = listOf(
+            "CREATE INDEX IF NOT EXISTS idx_symbols_name_lower ON symbols(LOWER(name))",
+            "CREATE INDEX IF NOT EXISTS idx_symbols_qname_lower ON symbols(LOWER(qualified_name))",
+            "CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)",
+            "CREATE INDEX IF NOT EXISTS idx_symbols_chunk ON symbols(chunk_id)"
+        )
+        conn.createStatement().use { st ->
+            indexStatements.forEach { sql ->
+                runCatching { st.execute(sql) }
+                    .onFailure { log.warn("Failed to create symbol index ({}): {}", sql, it.message) }
+            }
+        }
     }
 
     /**
