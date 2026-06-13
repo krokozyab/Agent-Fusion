@@ -221,6 +221,30 @@ class IndexRoutesTest {
     }
 
     @Test
+    fun `POST rebuild with X-Requested-With header is accepted`() = testApplication {
+        application {
+            install(SSE)
+            IndexOperationsService.install(this, stubOperations)
+            val appConfig = ConfigLoader.ApplicationConfig(
+                orchestrator = OrchestratorConfig(),
+                web = WebServerConfig(),
+                agents = emptyList(),
+                context = contextConfig
+            )
+            attributes.put(ApplicationConfigKey, appConfig)
+
+            configureRouting(WebServerConfig())
+        }
+
+        // The real dashboard button is a fetch() that sets X-Requested-With (not HTMX).
+        val response = client.post("/index/rebuild") {
+            header("X-Requested-With", "fetch")
+        }
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals(1, stubOperations.rebuildCalls.get())
+    }
+
+    @Test
     fun `POST rebuild without HX-Request header is refused`() = testApplication {
         application {
             install(SSE)

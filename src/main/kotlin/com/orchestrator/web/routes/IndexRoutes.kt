@@ -37,11 +37,14 @@ fun Route.indexRoutes(
         // CSRF: a page the user happens to visit could otherwise POST here and wipe the index.
         // 1) Reject cross-origin POSTs — browsers attach an Origin header on cross-origin requests;
         //    a mismatch with the request's own Host means the call did not come from the dashboard.
-        // 2) Require the HX-Request marker that the real (HTMX) Rebuild button sends. A bare
-        //    attacker <form> auto-post cannot set a custom header cross-origin without a CORS
-        //    preflight (which the dashboard does not grant), so it is refused here.
+        // 2) Require a custom request header that the dashboard's own JS sets (X-Requested-With from
+        //    the fetch-based action buttons, or HX-Request from HTMX). A bare attacker <form>
+        //    auto-post cannot set a custom header cross-origin without a CORS preflight (which the
+        //    dashboard does not grant), so it is refused here.
+        val fromDashboardJs = call.request.headers["HX-Request"] == "true" ||
+            call.request.headers["X-Requested-With"] != null
         if (isCrossOrigin(call.request.headers["Origin"], call.request.headers["Host"]) ||
-            call.request.headers["HX-Request"] != "true"
+            !fromDashboardJs
         ) {
             call.respondText(
                 "Rebuild must be triggered from the dashboard.",
