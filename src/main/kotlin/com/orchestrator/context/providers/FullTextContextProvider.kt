@@ -105,19 +105,20 @@ class FullTextContextProvider(
     }
 
     /**
-     * Normalize raw BM25 scores (which are unbounded positive values) into [0, 1].
-     * Uses min-max normalization: score' = (s - min) / (max - min).
+     * Normalize raw BM25 scores (which are unbounded positive values) into (0, 1].
+     *
+     * Divide by the max rather than min-max: min-max always maps the lowest-scoring result to
+     * exactly 0, which the downstream score threshold (~0.3) then discards — so the worst hit on
+     * every page was silently dropped regardless of how good it actually was. Scaling by the max
+     * preserves relative magnitude and keeps the lowest result positive.
      */
     private fun normalizeBm25(snippets: List<ContextSnippet>): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
-        if (snippets.size == 1) return listOf(snippets[0].copy(score = 1.0))
         val maxScore = snippets.maxOf { it.score }
-        val minScore = snippets.minOf { it.score }
-        val range = maxScore - minScore
-        if (range <= 0.0) return snippets.map { it.copy(score = 1.0) }
+        if (maxScore <= 0.0) return snippets.map { it.copy(score = 1.0) }
         return snippets.map { s ->
             s.copy(
-                score = ((s.score - minScore) / range).coerceIn(0.0, 1.0),
+                score = (s.score / maxScore).coerceIn(0.0, 1.0),
                 metadata = s.metadata + ("raw_bm25" to "%.4f".format(Locale.US, s.score))
             )
         }

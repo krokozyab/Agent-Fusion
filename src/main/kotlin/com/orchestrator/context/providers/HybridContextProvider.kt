@@ -218,28 +218,26 @@ class HybridContextProvider(
         val normalizedPath = path.replace('\\', '/').removePrefix("/")
         val normalizedPattern = pattern.replace('\\', '/')
 
-        // Convert glob pattern to regex
-        var regex = normalizedPattern
+        // A leading "**/" means "zero or more path segments" → optional prefix, so "**/foo" matches
+        // both "foo" and "bar/foo". Decide this on the raw pattern BEFORE escaping. The old code
+        // inspected the escaped regex and did substring(3) assuming the prefix was ".*/" (3 chars);
+        // for patterns like "**.log" that chopped the backslash off "\." and left a bare "." that
+        // matched any character (so "**.log" wrongly matched e.g. "catalog").
+        val anchorPrefix: String
+        val core: String
+        if (normalizedPattern.startsWith("**/")) {
+            anchorPrefix = "^(.*/)?"
+            core = normalizedPattern.removePrefix("**/")
+        } else {
+            anchorPrefix = "^"
+            core = normalizedPattern
+        }
+
+        val regex = anchorPrefix + core
             .replace(".", "\\.")  // Escape dots
             .replace("**", "###DOUBLESTAR###")  // Temporarily replace **
             .replace("*", "[^/]*")  // * matches anything except /
-            .replace("###DOUBLESTAR###", ".*")  // ** matches anything including /
-
-        // Handle anchoring carefully
-        // If pattern starts with **, make the .* optional (match zero or more path segments)
-        if (regex.startsWith(".*")) {
-            // Pattern like **/foo should match both "foo" and "bar/foo"
-            // Make the leading .* match zero or more characters followed by optional /
-            regex = "^(.*/)?" + regex.substring(3)  // Remove the .* and add optional prefix
-        } else {
-            // Pattern doesn't start with **, anchor to start
-            regex = "^$regex"
-        }
-
-        // Anchor to end
-        if (!regex.endsWith("$")) {
-            regex = "$regex$"
-        }
+            .replace("###DOUBLESTAR###", ".*") + "$"  // ** matches anything including /
 
         return try {
             Regex(regex).matches(normalizedPath)

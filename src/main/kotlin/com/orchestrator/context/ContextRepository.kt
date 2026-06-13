@@ -283,7 +283,10 @@ object ContextRepository {
             }
             if (scope.excludePatterns.isNotEmpty()) {
                 scope.excludePatterns.forEach {
-                    append(" AND f.abs_path NOT LIKE ?")
+                    // ESCAPE '\' is required: globToLike backslash-escapes literal % and _ so they
+                    // are not treated as LIKE wildcards, but DuckDB only honours that escape when
+                    // the clause declares it. Without it the escaping was inert.
+                    append(" AND f.abs_path NOT LIKE ? ESCAPE '\\'")
                 }
             }
             append(" ORDER BY f.abs_path, c.ordinal")

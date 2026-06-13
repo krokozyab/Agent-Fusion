@@ -116,13 +116,22 @@ class LocalEmbedder(
             "token_type_ids" to tokenTypeIdsTensor
         )
 
-        val results = sess.run(inputs)
-        val output = results[0].value as Array<Array<FloatArray>>
-        
-        inputIdsTensor.close()
-        attentionMaskTensor.close()
-        tokenTypeIdsTensor.close()
-        results.close()
+        // try/finally: the input tensors and the run result hold native (off-heap) memory. If
+        // sess.run threw, the previous code skipped the close() calls and leaked that memory on
+        // every failed batch. Always release them.
+        val output = try {
+            val results = sess.run(inputs)
+            try {
+                @Suppress("UNCHECKED_CAST")
+                results[0].value as Array<Array<FloatArray>>
+            } finally {
+                results.close()
+            }
+        } finally {
+            inputIdsTensor.close()
+            attentionMaskTensor.close()
+            tokenTypeIdsTensor.close()
+        }
 
         return output.mapIndexed { i, sequence -> meanPooling(sequence, attentionMask[i]) }
     }

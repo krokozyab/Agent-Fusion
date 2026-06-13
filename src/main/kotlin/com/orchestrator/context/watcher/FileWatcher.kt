@@ -296,17 +296,19 @@ class FileWatcher(
     }
 
     override fun close() {
-        if (!running.getAndSet(false)) {
-            runCatching { watchService.close() }
-            return
-        }
+        val wasRunning = running.getAndSet(false)
         runCatching { watchService.close() }
+        // The debouncer + its bridge coroutine are created in the constructor, so they exist even
+        // when the watcher was never start()ed. Always tear them down — the previous early-return
+        // for the "not running" case leaked debouncerJob and the debouncer's channel.
         watcherJob?.cancel()
         watcherJob = null
         debouncerJob.cancel()
         debouncer.close()
-        registeredDirectories.clear()
-        keyRoots.clear()
+        if (wasRunning) {
+            registeredDirectories.clear()
+            keyRoots.clear()
+        }
     }
 
     private fun Path.isExistingDirectory(): Boolean =
