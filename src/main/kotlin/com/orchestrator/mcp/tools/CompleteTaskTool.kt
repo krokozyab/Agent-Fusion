@@ -88,8 +88,8 @@ class CompleteTaskTool {
         val taskId = TaskId(p.taskId)
         val warnings = mutableListOf<String>()
 
-        // Wrap entire operation in transaction for atomicity
-        Transaction.transaction { conn ->
+        // Wrap entire operation in transaction for atomicity.
+        val result = Transaction.transaction { conn ->
             val now = Instant.now()
 
             // 1) Fetch existing task and validate
@@ -357,19 +357,6 @@ class CompleteTaskTool {
             )
             TaskRepository.update(completed)
 
-            // 7) Publish task update event for SSE broadcasting to connected clients
-            try {
-                runBlocking {
-                    EventBus.global.publish(SystemEvent.TaskUpdated(
-                        taskId = completed.id,
-                        timestamp = now
-                    ))
-                }
-            } catch (e: Exception) {
-                logger.warn("Failed to publish task update event for ${completed.id.value}: ${e.message}")
-                warnings.add("Failed to publish task update event: ${e.message}")
-            }
-
             Result(
                 taskId = completed.id.value,
                 status = completed.status.name,
@@ -379,6 +366,14 @@ class CompleteTaskTool {
                 warnings = warnings
             )
         }
+
+        // Publish the update only AFTER the transaction has committed. Emitting inside the
+        // transaction (as before) meant a subsequent rollback would still have notified SSE
+        // subscribers of a completion that never persisted. publish() is non-blocking and never
+        // throws to the caller, so no nested runBlocking / try-catch is needed.
+        EventBus.global.publish(SystemEvent.TaskUpdated(taskId = taskId, timestamp = Instant.now()))
+
+        result
     }
 
     companion object {
