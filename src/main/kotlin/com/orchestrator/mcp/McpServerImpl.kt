@@ -62,7 +62,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -91,6 +93,30 @@ import java.util.concurrent.atomic.AtomicLong
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger(McpServerImpl::class.java)
+
+/**
+ * Propagates the current MCP session id across coroutine thread switches by mirroring it into a
+ * ThreadLocal on every thread the coroutine runs on. The tool handler runs after suspend hops
+ * through the SDK, so a plain ThreadLocal set before the call would be lost on resumption.
+ */
+private class SessionIdContext(
+    private val holder: ThreadLocal<String?>,
+    private val sessionId: String?
+) : ThreadContextElement<String?> {
+    companion object Key : CoroutineContext.Key<SessionIdContext>
+
+    override val key: CoroutineContext.Key<*> get() = Key
+
+    override fun updateThreadContext(context: CoroutineContext): String? {
+        val previous = holder.get()
+        holder.set(sessionId)
+        return previous
+    }
+
+    override fun restoreThreadContext(context: CoroutineContext, oldState: String?) {
+        holder.set(oldState)
+    }
+}
 
 /**
  * Minimal MCP server implementation using Ktor (HTTP transport).
@@ -394,7 +420,10 @@ class McpServerImpl(
             respond(HttpStatusCode.NotFound, errorBody("session_not_found", "Unknown session '$sessionId'"))
             return
         }
-        transport.handlePostMessage(this)
+        // Make the session id resolvable during message handling on the legacy SSE transport too.
+        withContext(SessionIdContext(currentSessionId, sessionId)) {
+            transport.handlePostMessage(this@handleSsePost)
+        }
     }
 
     private suspend fun ApplicationCall.handleStreamableGet(sessionId: String) {
@@ -421,21 +450,20 @@ class McpServerImpl(
             return
         }
 
-        // Set current session for agent resolution
-        currentSessionId.set(sessionId)
-        try {
-            when (val result = session.handleMessage(message)) {
-                is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(sessionId, result.response)
-                StreamableHttpServerTransport.PostResult.Accepted -> {
-                    response.header(STREAMABLE_SESSION_HEADER, sessionId)
-                    respond(HttpStatusCode.Accepted)
-                }
-                is StreamableHttpServerTransport.PostResult.Error -> {
-                    respond(result.status, errorBody(result.code, result.message))
-                }
+        // Propagate session id through the coroutine context so the tool handler — which runs
+        // after suspend hops through the SDK — can resolve the agent even if it resumes on another thread.
+        val result = withContext(SessionIdContext(currentSessionId, sessionId)) {
+            session.handleMessage(message)
+        }
+        when (result) {
+            is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(sessionId, result.response)
+            StreamableHttpServerTransport.PostResult.Accepted -> {
+                response.header(STREAMABLE_SESSION_HEADER, sessionId)
+                respond(HttpStatusCode.Accepted)
             }
-        } finally {
-            currentSessionId.remove()
+            is StreamableHttpServerTransport.PostResult.Error -> {
+                respond(result.status, errorBody(result.code, result.message))
+            }
         }
     }
 
@@ -462,25 +490,22 @@ class McpServerImpl(
             log.debug("Session ${session.sessionId} associated with agent ${agentId.value}")
         }
 
-        // Set current session for agent resolution during handshake
-        currentSessionId.set(session.sessionId)
-        try {
-            val result = session.handleMessage(message)
-            when (result) {
-                is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
-                StreamableHttpServerTransport.PostResult.Accepted -> {
-                    response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
-                    respond(HttpStatusCode.Accepted)
-                }
-                is StreamableHttpServerTransport.PostResult.Error -> {
-                    // Tear down the session on failure so clients can retry cleanly
-                    streamableSessions.remove(session.sessionId)
-                    sessionToAgent.remove(session.sessionId)
-                    respond(result.status, errorBody(result.code, result.message))
-                }
+        // Propagate session id through the coroutine context (see handleStreamablePost).
+        val result = withContext(SessionIdContext(currentSessionId, session.sessionId)) {
+            session.handleMessage(message)
+        }
+        when (result) {
+            is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
+            StreamableHttpServerTransport.PostResult.Accepted -> {
+                response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
+                respond(HttpStatusCode.Accepted)
             }
-        } finally {
-            currentSessionId.remove()
+            is StreamableHttpServerTransport.PostResult.Error -> {
+                // Tear down the session on failure so clients can retry cleanly
+                streamableSessions.remove(session.sessionId)
+                sessionToAgent.remove(session.sessionId)
+                respond(result.status, errorBody(result.code, result.message))
+            }
         }
     }
 
