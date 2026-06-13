@@ -11,6 +11,8 @@ import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -30,7 +32,8 @@ fun Route.homeRoutes(clock: Clock = Clock.systemUTC()) {
      * - Live HTMX updates
      */
     get("/") {
-        val config = buildHomePageConfig(clock)
+        // buildHomePageConfig issues blocking JDBC queries; keep it off the Netty event-loop.
+        val config = withContext(Dispatchers.IO) { buildHomePageConfig(clock) }
         val html = HomePage.render(config)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -43,7 +46,7 @@ fun Route.homeRoutes(clock: Clock = Clock.systemUTC()) {
      * Returns only the stats grid portion for live updates
      */
     get("/api/stats") {
-        val stats = fetchSystemStats()
+        val stats = withContext(Dispatchers.IO) { fetchSystemStats() }
         val html = renderStatsFragment(stats)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -56,7 +59,7 @@ fun Route.homeRoutes(clock: Clock = Clock.systemUTC()) {
      * Returns only the activity feed portion for live updates
      */
     get("/api/activity") {
-        val activities = fetchRecentActivities(clock, limit = 10)
+        val activities = withContext(Dispatchers.IO) { fetchRecentActivities(clock, limit = 10) }
         val html = renderActivityFragment(activities)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")

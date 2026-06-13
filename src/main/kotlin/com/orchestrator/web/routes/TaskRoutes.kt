@@ -22,6 +22,8 @@ import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.Instant
 
@@ -131,7 +133,7 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
      */
     get("/tasks") {
         val defaultParams = TaskQueryParams()
-        val (tasks, _) = queryTasks(defaultParams)
+        val (tasks, _) = withContext(Dispatchers.IO) { queryTasks(defaultParams) }
         val gridData = buildTasksGridData(tasks, clock, defaultParams.pageSize)
         val html = TasksPage.render(gridData)
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -170,7 +172,7 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
             return@get
         }
 
-        val (tasks, totalCount) = queryTasks(params)
+        val (tasks, totalCount) = withContext(Dispatchers.IO) { queryTasks(params) }
         val gridData = buildTasksGridData(tasks, clock, params.pageSize)
         val html = renderTasksGridFragment(gridData)
 
@@ -187,14 +189,15 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
             return@get
         }
 
-        val task = TaskRepository.findById(id)
-        if (task == null) {
+        val data = withContext(Dispatchers.IO) {
+            val t = TaskRepository.findById(id) ?: return@withContext null
+            Triple(t, ProposalRepository.findByTask(id), DecisionRepository.findByTask(id))
+        }
+        if (data == null) {
             call.respondText("Task not found", status = HttpStatusCode.NotFound)
             return@get
         }
-
-        val proposals = ProposalRepository.findByTask(id)
-        val decision = DecisionRepository.findByTask(id)
+        val (task, proposals, decision) = data
 
         val config = TaskDetailPage.Config(
             task = task,
@@ -214,14 +217,15 @@ fun Route.taskRoutes(clock: Clock = Clock.systemUTC()) {
             return@get
         }
 
-        val task = TaskRepository.findById(id)
-        if (task == null) {
+        val data = withContext(Dispatchers.IO) {
+            val t = TaskRepository.findById(id) ?: return@withContext null
+            Triple(t, ProposalRepository.findByTask(id), DecisionRepository.findByTask(id))
+        }
+        if (data == null) {
             call.respondText("Task not found", status = HttpStatusCode.NotFound)
             return@get
         }
-
-        val proposals = ProposalRepository.findByTask(id)
-        val decision = DecisionRepository.findByTask(id)
+        val (task, proposals, decision) = data
 
         val html = renderTaskModal(task, proposals, decision)
         call.respondText(html, io.ktor.http.ContentType.Text.Html)
