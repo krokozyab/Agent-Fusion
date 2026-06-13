@@ -42,7 +42,10 @@ class WatcherDaemon(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val batchWindowMillis: Long = DEFAULT_BATCH_WINDOW_MS,
     private val onUpdate: ((UpdateResult) -> Unit)? = null,
-    private val onError: ((Throwable) -> Unit)? = null
+    private val onError: ((Throwable) -> Unit)? = null,
+    // Test seam: lets tests inject a fake FileWatcher. Defaults to a real one.
+    private val fileWatcherFactory: (CoroutineScope, List<Path>, WatcherConfig, CoroutineDispatcher) -> FileWatcher =
+        { s, roots, cfg, disp -> FileWatcher(s, roots, cfg, disp) }
 ) : Closeable {
 
     private val log = Logger.logger("com.orchestrator.context.watcher.WatcherDaemon")
@@ -80,7 +83,6 @@ class WatcherDaemon(
     )
 
     private var fileWatcher: FileWatcher? = null
-    private var unifiedFileWatcher: UnifiedFileWatcher? = null
     private var watcherJob: Job? = null
     private var flushJob: Job? = null
     private var deletionSweepJob: Job? = null
@@ -147,7 +149,7 @@ class WatcherDaemon(
         }
 
         val watcher = runCatching {
-            FileWatcher(scope, watchRoots, watcherConfig, dispatcher)
+            fileWatcherFactory(scope, watchRoots, watcherConfig, dispatcher)
         }.getOrElse { throwable ->
             running.set(false)
             log.error("Failed to initialize file watcher: {}", throwable.message, throwable)
@@ -156,16 +158,15 @@ class WatcherDaemon(
         }
 
         fileWatcher = watcher
-        
-        val unified = UnifiedFileWatcher.create(
-            scope = scope,
-            fileWatcher = watcher,
-            incrementalIndexer = incrementalIndexer,
-            config = contextConfig,
-            pathValidator = pathValidator
-        )
-        unifiedFileWatcher = unified
-        unified.start()
+
+        // Route events through this daemon's own coalescing batch pipeline (handleEvent -> enqueue
+        // -> flushPending -> processBatch) so a burst of changes triggers a single batched
+        // updateAsync, not one full-table-scan-per-file. Previously events went through
+        // UnifiedFileWatcher, which indexed one path at a time and left this batching dead.
+        watcher.start()
+        watcherJob = scope.launch(dispatcher) {
+            watcher.events.collect { event -> handleEvent(event) }
+        }
 
         if (deletionSweepIntervalMs > 0) {
             deletionSweepJob = scope.launch(dispatcher) {
@@ -337,8 +338,7 @@ class WatcherDaemon(
             }
         }
 
-        runCatching { unifiedFileWatcher?.close() }
-        unifiedFileWatcher = null
+        runCatching { fileWatcher?.close() }
         fileWatcher = null
         deletionSweepJob?.cancel()
         deletionSweepJob = null

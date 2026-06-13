@@ -29,7 +29,7 @@ class WatcherDaemonTest {
     // TODO: These are integration tests that require real filesystem operations and conflict with runTest.
     // They should be moved to a separate integration test suite that runs without the test scheduler.
 
-    // @Test
+    @Test
     fun `daemon batches events before triggering incremental indexer`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val eventFlow = MutableSharedFlow<FileWatchEvent>(extraBufferCapacity = 16)
@@ -57,11 +57,12 @@ class WatcherDaemonTest {
             incrementalIndexer = incrementalIndexer,
             contextConfig = contextConfig,
             dispatcher = dispatcher,
-            batchWindowMillis = 100
+            batchWindowMillis = 100,
+            fileWatcherFactory = { _, _, _, _ -> fileWatcher }
         )
 
-        daemon.start()
-        // Don't call advanceUntilIdle() here - the unified watcher has an infinite event collector
+        daemon.start(skipStartupScan = true)
+        // Don't call advanceUntilIdle() here - the event collector runs until daemon.stop()
 
         val path = tempDir.resolve("sample.kt")
         val event = FileWatchEvent(FileWatchEvent.Kind.CREATED, path, tempDir, isDirectory = false, timestamp = Instant.EPOCH)
@@ -87,7 +88,7 @@ class WatcherDaemonTest {
         }
     }
 
-    // @Test
+    @Test
     fun `daemon ignores paths rejected by validator`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val eventFlow = MutableSharedFlow<FileWatchEvent>(extraBufferCapacity = 16)
@@ -115,11 +116,12 @@ class WatcherDaemonTest {
             incrementalIndexer = incrementalIndexer,
             contextConfig = contextConfig,
             dispatcher = dispatcher,
-            batchWindowMillis = 100
+            batchWindowMillis = 100,
+            fileWatcherFactory = { _, _, _, _ -> fileWatcher }
         )
 
-        daemon.start()
-        // Don't call advanceUntilIdle() here - the unified watcher has an infinite event collector
+        daemon.start(skipStartupScan = true)
+        // Don't call advanceUntilIdle() here - the event collector runs until daemon.stop()
 
         val invalidPath = tempDir.resolve("image.png")
         eventFlow.emit(
@@ -141,7 +143,7 @@ class WatcherDaemonTest {
         }
     }
 
-    // @Test
+    @Test
     fun `daemon flushes pending paths on stop`() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val eventFlow = MutableSharedFlow<FileWatchEvent>(extraBufferCapacity = 16)
@@ -169,18 +171,24 @@ class WatcherDaemonTest {
             incrementalIndexer = incrementalIndexer,
             contextConfig = contextConfig,
             dispatcher = dispatcher,
-            batchWindowMillis = 1_000
+            batchWindowMillis = 1_000,
+            fileWatcherFactory = { _, _, _, _ -> fileWatcher }
         )
 
-        daemon.start()
-        // Don't call advanceUntilIdle() here - the unified watcher has an infinite event collector
+        daemon.start(skipStartupScan = true)
+        // Let the event collector subscribe before we emit (SharedFlow has no replay, so an emit
+        // with no active subscriber would be dropped).
+        testScheduler.runCurrent()
 
         val path = tempDir.resolve("queued.kt")
         eventFlow.emit(
             FileWatchEvent(FileWatchEvent.Kind.MODIFIED, path, tempDir, isDirectory = false, timestamp = Instant.EPOCH)
         )
+        // Let the collector enqueue the event into pendingPaths WITHOUT advancing past the 1s batch
+        // window, so the flush has not auto-fired yet — stop() must be the one that flushes it.
+        testScheduler.runCurrent()
 
-        // Must stop daemon before checking - it cancels infinite event collector
+        // Must stop daemon before checking - it cancels the event collector
         daemon.stop()
 
         coVerify(exactly = 1) {

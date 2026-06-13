@@ -29,6 +29,24 @@ class SymlinkHandlerTest {
     }
 
     @Test
+    fun `shouldFollow is idempotent for the same symlink`(@TempDir tempDir: Path) {
+        assumeTrue(canCreateSymlink(tempDir))
+
+        val root = tempDir.resolve("project").also { Files.createDirectories(it) }
+        Files.writeString(root.resolve("target.txt"), "hello")
+        val link = root.resolve("alias.txt")
+        Files.createSymbolicLink(link, Path.of("target.txt"))
+
+        val handler = SymlinkHandler(listOf(root), IndexingConfig(followSymlinks = true))
+
+        // Regression: a persistent visited-set previously made the second call return false, so an
+        // edited symlinked file was never re-indexed. Repeated checks must keep returning true.
+        assertTrue(handler.shouldFollow(link))
+        assertTrue(handler.shouldFollow(link), "symlink must remain follow-able on repeated checks")
+        assertTrue(handler.shouldFollow(link))
+    }
+
+    @Test
     fun `disabled follow prevents traversal`(@TempDir tempDir: Path) {
         assumeTrue(canCreateSymlink(tempDir))
 
