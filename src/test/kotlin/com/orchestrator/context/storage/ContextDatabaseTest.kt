@@ -48,16 +48,15 @@ class ContextDatabaseTest {
     }
 
     @Test
-    fun `creates symbols indexes to keep cross-file link building from degrading`(@TempDir tempDir: Path) {
+    fun `keeps equality symbol indexes and drops the unused LOWER expression indexes`(@TempDir tempDir: Path) {
         val dbPath = tempDir.resolve("context.duckdb").toString()
         ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
 
-        val expected = setOf(
-            "idx_symbols_name_lower",
-            "idx_symbols_qname_lower",
-            "idx_symbols_file",
-            "idx_symbols_chunk"
-        )
+        // file_id/chunk_id are queried by equality (Index Scan); kept.
+        val expected = setOf("idx_symbols_file", "idx_symbols_chunk")
+        // LOWER(...) expression indexes are unused for the IN-list query (DuckDB seq-scans); dropped.
+        val unwanted = setOf("idx_symbols_name_lower", "idx_symbols_qname_lower")
+
         val found = mutableSetOf<String>()
         ContextDatabase.withConnection { conn ->
             conn.prepareStatement(
@@ -71,7 +70,11 @@ class ContextDatabaseTest {
 
         assertTrue(
             found.containsAll(expected),
-            "expected symbol indexes $expected to exist, found $found"
+            "expected equality symbol indexes $expected to exist, found $found"
+        )
+        assertTrue(
+            found.none { it in unwanted },
+            "LOWER expression indexes $unwanted must not exist, found $found"
         )
 
         ContextDatabase.shutdown()

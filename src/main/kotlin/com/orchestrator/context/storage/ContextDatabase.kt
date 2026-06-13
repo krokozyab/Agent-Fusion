@@ -344,27 +344,31 @@ object ContextDatabase {
     /**
      * Indexes on the symbols table.
      *
-     * Cross-file link building queries `symbols` once per indexed file, filtering by
-     * `LOWER(name)`/`LOWER(qualified_name)` (CrossFileLinkBuilder.loadTargetSymbols). With no index
-     * each call did a full scan, so a batch of N files over a corpus of S symbols cost O(N·S) —
-     * indexing got progressively slower as S grew. The predicates use LOWER(), so we index those
-     * expressions; file_id/chunk_id indexes accelerate the per-file delete/lookup paths.
+     * Only the `file_id`/`chunk_id` indexes are kept: those columns are queried by equality
+     * (per-file delete/lookup), which DuckDB serves with an Index Scan (verified via EXPLAIN).
      *
-     * Created fault-tolerantly (outside the schema transaction, each wrapped in runCatching): if a
-     * given DuckDB build rejects an expression index we simply lose the speedup rather than aborting
-     * the whole schema bootstrap.
+     * The earlier `LOWER(name)`/`LOWER(qualified_name)` expression indexes were dropped. Cross-file
+     * link building filters with `LOWER(...) IN (...)`, and DuckDB does NOT use an ART index for
+     * IN-lists — EXPLAIN shows a sequential scan with or without them, so they bought no speedup on
+     * the real query while making the write-heavy indexing path ~3x slower. The O(N·S) cost is now
+     * removed at the source instead: CrossFileLinkBuilder.loadTargetSymbolsBatch scans `symbols` once
+     * per batch rather than once per file. We DROP the obsolete indexes so existing databases shed
+     * them on next startup.
+     *
+     * Created fault-tolerantly (outside the schema transaction, each wrapped in runCatching): a
+     * DuckDB build that rejects a statement loses the index rather than aborting schema bootstrap.
      */
     private fun ensureSymbolIndexes(conn: Connection) {
         val indexStatements = listOf(
-            "CREATE INDEX IF NOT EXISTS idx_symbols_name_lower ON symbols(LOWER(name))",
-            "CREATE INDEX IF NOT EXISTS idx_symbols_qname_lower ON symbols(LOWER(qualified_name))",
+            "DROP INDEX IF EXISTS idx_symbols_name_lower",
+            "DROP INDEX IF EXISTS idx_symbols_qname_lower",
             "CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)",
             "CREATE INDEX IF NOT EXISTS idx_symbols_chunk ON symbols(chunk_id)"
         )
         conn.createStatement().use { st ->
             indexStatements.forEach { sql ->
                 runCatching { st.execute(sql) }
-                    .onFailure { log.warn("Failed to create symbol index ({}): {}", sql, it.message) }
+                    .onFailure { log.warn("Failed to apply symbol index statement ({}): {}", sql, it.message) }
             }
         }
     }
