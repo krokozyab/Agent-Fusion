@@ -66,6 +66,9 @@ abstract class BaseWorkflowExecutor(
                     data = mapOf("attempt" to attempt.toString())
                 )
                 return block(attempt)
+            } catch (e: CancellationException) {
+                // Cancellation is not a retryable failure — propagate it to honour structured concurrency.
+                throw e
             } catch (e: Exception) {
                 lastException = e
                 if (attempt < maxAttempts) {

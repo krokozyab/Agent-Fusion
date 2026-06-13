@@ -5,6 +5,7 @@ import com.orchestrator.core.EventBus
 import com.orchestrator.domain.*
 import com.orchestrator.modules.metrics.TokenTracker
 import com.orchestrator.storage.repositories.MessageRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 /**
@@ -74,6 +75,8 @@ class SoloWorkflow(
             }
 
             createSuccess(runtime, output)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             val error = e.message ?: e.toString()
             createFailure(runtime, error, isRetryable = false)

@@ -13,6 +13,44 @@ import java.time.Instant
 class WorkflowExecutorTest {
 
     @Test
+    fun `InMemoryWorkflowStateStore is safe under concurrent tasks`() {
+        // A single store is shared across all tasks of a workflow type. Concurrent setState /
+        // addCheckpoint from different tasks must not corrupt the backing collections.
+        val store = InMemoryWorkflowStateStore()
+        val taskCount = 16
+        val perTask = 50
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(8)
+        val start = java.util.concurrent.CountDownLatch(1)
+        val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+
+        val threads = (0 until taskCount).map { t ->
+            val taskId = TaskId("task-$t")
+            pool.submit {
+                try {
+                    start.await()
+                    repeat(perTask) { i ->
+                        store.setState(taskId, WorkflowState.RUNNING)
+                        store.addCheckpoint(
+                            Checkpoint(id = "$t-$i", taskId = taskId, state = WorkflowState.RUNNING)
+                        )
+                    }
+                } catch (th: Throwable) {
+                    errors += th
+                }
+            }
+        }
+        start.countDown()
+        threads.forEach { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+        pool.shutdown()
+
+        assertTrue(errors.isEmpty(), "concurrent store access threw: ${errors.firstOrNull()}")
+        (0 until taskCount).forEach { t ->
+            assertEquals(perTask, store.getCheckpoints(TaskId("task-$t")).size,
+                "every checkpoint for task-$t must be retained")
+        }
+    }
+
+    @Test
     fun `WorkflowResult success is true only when status is COMPLETED`() {
         val taskId = TaskId("t-1")
         val completed = WorkflowResult(

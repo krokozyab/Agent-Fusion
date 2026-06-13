@@ -102,6 +102,13 @@ class ConsensusWorkflow(
                         withTimeout(perAgentTimeoutMs) {
                             proposalProducer(runtime.task, agent)
                         }
+                    } catch (e: TimeoutCancellationException) {
+                        // Per-agent timeout: this agent simply didn't deliver in time.
+                        log("Agent ${agent.id.value} proposal timed out")
+                        null
+                    } catch (e: CancellationException) {
+                        // Parent scope cancelled — propagate, don't treat as a failed agent.
+                        throw e
                     } catch (e: Exception) {
                         log("Agent ${agent.id.value} proposal failed: ${e.message}")
                         null
@@ -137,6 +144,8 @@ class ConsensusWorkflow(
                 strategyOrder = strategyOrder,
                 waitFor = waitForAdditionalProposals
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             return createFailure(runtime, "Consensus decision failed: ${e.message}")
         }
