@@ -2,6 +2,7 @@ package com.orchestrator.context.storage
 
 import com.orchestrator.context.config.StorageConfig
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -45,6 +46,36 @@ class ContextDatabaseTest {
         }
 
         ContextDatabase.shutdown()
+    }
+
+    @Test
+    fun `failed FTS rebuild keeps the index stale so a later query retries`(@TempDir tempDir: Path) {
+        val dbPath = tempDir.resolve("context.duckdb").toString()
+        ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
+        try {
+            // Force the build to fail. Without re-marking stale, dirty (cleared by ensureFtsFresh's
+            // CAS) would stay false and the index would be stuck on LIKE forever.
+            ContextDatabase.ftsBuildOverride = { false }
+            ContextDatabase.markFtsStale()
+            assertTrue(ContextDatabase.isFtsDirty(), "precondition: marked stale")
+
+            ContextDatabase.ensureFtsFresh()
+            assertTrue(
+                ContextDatabase.isFtsDirty(),
+                "a failed rebuild must leave the index stale so the next query retries"
+            )
+
+            // Now the build succeeds: the retried ensureFtsFresh clears the stale flag.
+            ContextDatabase.ftsBuildOverride = { true }
+            ContextDatabase.ensureFtsFresh()
+            assertFalse(
+                ContextDatabase.isFtsDirty(),
+                "a successful rebuild must clear the stale flag"
+            )
+        } finally {
+            ContextDatabase.ftsBuildOverride = null
+            ContextDatabase.shutdown()
+        }
     }
 
     @Test

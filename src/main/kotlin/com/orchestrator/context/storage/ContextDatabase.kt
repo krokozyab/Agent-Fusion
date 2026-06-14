@@ -32,6 +32,17 @@ object ContextDatabase {
     private val guard = ReentrantLock()
     private val connectionLock = ReentrantLock()
 
+    // How many times ensureFtsIndex retries the full build before giving up to LIKE fallback.
+    private const val FTS_BUILD_ATTEMPTS = 2
+
+    // Test seam: when non-null, ensureFtsIndex returns its result instead of running the real build,
+    // so tests can exercise the success/failure (stale-retry) paths deterministically. Null in prod.
+    @Volatile
+    internal var ftsBuildOverride: (() -> Boolean)? = null
+
+    /** Test-only view of the FTS stale flag. */
+    internal fun isFtsDirty(): Boolean = ftsDirty.get()
+
     @Volatile
     private var connection: Connection? = null
 
@@ -377,24 +388,46 @@ object ContextDatabase {
      * Create the DuckDB FTS index on the chunks table (content + summary).
      * Idempotent: drops and recreates so the index reflects current data.
      */
-    private fun ensureFtsIndex(conn: Connection) {
-        try {
-            conn.createStatement().use { st ->
-                st.execute("INSTALL fts")
-                st.execute("LOAD fts")
+    /**
+     * (Re)build the DuckDB FTS index on chunks(content, summary).
+     *
+     * Returns true on success, false if the build failed — callers keep the index marked stale on
+     * failure so a later query retries instead of being stuck on the LIKE fallback for good.
+     *
+     * Each DDL step runs on a fresh statement, and the whole build is retried once: DuckDB has been
+     * seen to invalidate the statement handle mid-build ("Statement was closed"), and a single retry
+     * recovers from that transient case rather than dropping full-text search to LIKE permanently.
+     */
+    private fun ensureFtsIndex(conn: Connection): Boolean {
+        ftsBuildOverride?.let { return it() } // test seam; null in production
+
+        repeat(FTS_BUILD_ATTEMPTS) { attempt ->
+            try {
+                runFtsStatement(conn, "INSTALL fts")
+                runFtsStatement(conn, "LOAD fts")
                 // Drop previous index if it exists, then recreate.
-                // DuckDB's PRAGMA create_fts_index is idempotent only if we drop first.
-                runCatching {
-                    st.execute("PRAGMA drop_fts_index('chunks')")
-                }
-                st.execute(
+                // DuckDB's PRAGMA create_fts_index is idempotent only if we drop first; a missing
+                // index makes the drop fail, which is expected, hence runCatching.
+                runCatching { runFtsStatement(conn, "PRAGMA drop_fts_index('chunks')") }
+                runFtsStatement(
+                    conn,
                     "PRAGMA create_fts_index('chunks', 'chunk_id', 'content', 'summary', overwrite = 1)"
                 )
+                log.info("DuckDB FTS index created on chunks(content, summary)")
+                return true
+            } catch (e: Exception) {
+                if (attempt == FTS_BUILD_ATTEMPTS - 1) {
+                    log.warn("Failed to create FTS index (falling back to LIKE search): {}", e.message)
+                } else {
+                    log.warn("FTS index build attempt {} failed ({}); retrying", attempt + 1, e.message)
+                }
             }
-            log.info("DuckDB FTS index created on chunks(content, summary)")
-        } catch (e: Exception) {
-            log.warn("Failed to create FTS index (falling back to LIKE search): {}", e.message)
         }
+        return false
+    }
+
+    private fun runFtsStatement(conn: Connection, sql: String) {
+        conn.createStatement().use { st -> st.execute(sql) }
     }
 
     /**
@@ -403,10 +436,9 @@ object ContextDatabase {
      */
     fun refreshFtsIndex() {
         val conn = getConnection()
-        connectionLock.withLock {
-            ensureFtsIndex(conn)
-        }
-        ftsDirty.set(false)
+        val built = connectionLock.withLock { ensureFtsIndex(conn) }
+        // Keep the index marked stale when the build failed, so the next query retries it.
+        ftsDirty.set(!built)
     }
 
     /**
@@ -424,8 +456,12 @@ object ContextDatabase {
     fun ensureFtsFresh() {
         if (ftsDirty.compareAndSet(true, false)) {
             val conn = getConnection()
-            connectionLock.withLock {
-                ensureFtsIndex(conn)
+            val built = connectionLock.withLock { ensureFtsIndex(conn) }
+            // Re-mark stale on failure: dirty was cleared by the CAS above, so without this a failed
+            // rebuild would leave the index unbuilt and never retried — search stuck on LIKE until the
+            // next markFtsStale. Re-setting dirty makes the next full-text query try again.
+            if (!built) {
+                ftsDirty.set(true)
             }
         }
     }
