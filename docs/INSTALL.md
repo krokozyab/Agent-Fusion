@@ -15,7 +15,7 @@ java -version
 
 Download the latest release from GitHub:
 
-1. Go to [Releases](https://github.com/krokozyab/claude-codex-orchestrator/releases)
+1. Go to [Releases](https://github.com/krokozyab/Agent-Fusion/releases)
 2. Download `release.zip` from the latest release
 3. Save it to your preferred location
 
@@ -43,7 +43,18 @@ watch_paths = [
 ```
 Other options you can configure later
 
-### 4. Start the Orchestrator
+### 4. (Optional) Embedding Model
+
+Semantic search uses a local ONNX embedding model. The default model
+(`all-MiniLM-L6-v2`, 384-dimensional) **and its vocabulary are bundled inside the JAR** —
+nothing to download, it works out of the box.
+
+To use a larger, higher-quality model (e.g. `baai-bge-base-en-v1.5`, 768-dimensional) at the
+cost of slower indexing, see [`docs/other_model.md`](other_model.md). Note for macOS users:
+do not place a custom model in `~/Downloads`, `~/Desktop`, or `~/Documents` — those folders are
+privacy-protected and model load will fail with `ORT_FAIL ... system error number 1`.
+
+### 5. Start the Orchestrator
 
 **Mac/Linux:**
 ```bash
@@ -53,7 +64,7 @@ Other options you can configure later
 Or double-click `start.sh` in Finder
 
 
-### 5. Verify It's Running
+### 6. Verify It's Running
 
 You will see index process started in terminal
 ater it finishes index all files it automatically open
