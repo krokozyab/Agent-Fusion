@@ -14,11 +14,12 @@ import com.orchestrator.context.domain.FileState
 import com.orchestrator.context.embedding.Embedder
 import com.orchestrator.utils.Logger
 import java.io.IOException
+import java.nio.ByteBuffer
 import java.nio.charset.Charset
+import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.sql.SQLException
 import java.time.Instant
 import java.util.Locale
 import kotlin.coroutines.coroutineContext
@@ -158,16 +159,12 @@ class FileIndexer(
                 isDeleted = false
             )
 
-            val persistedArtifacts = try {
-                dataService.syncFileArtifacts(fileState, chunkArtifacts, persistBatchSize)
-            } catch (sql: SQLException) {
-                log.warn(
-                    "Falling back to metadata-only index for {} after database error: {}",
-                    relativePath,
-                    sql.message
-                )
-                dataService.syncFileArtifacts(fileState, emptyList(), persistBatchSize)
-            }
+            // Persist file_state and chunks atomically (see ContextRepository.replaceFileArtifacts).
+            // On a database error we must NOT fall back to a metadata-only write: persisting
+            // file_state with zero chunks would make ChangeDetector treat the file as unchanged,
+            // so it would silently vanish from search and never be retried. Let the error
+            // propagate so this file is reported as failed and re-indexed on the next pass.
+            val persistedArtifacts = dataService.syncFileArtifacts(fileState, chunkArtifacts, persistBatchSize)
 
             // Index symbols for code files if language detection succeeded
             if (languageHint != null && persistedArtifacts.file.id > 0) {
@@ -213,10 +210,25 @@ class FileIndexer(
         when {
             WordDocumentExtractor.supports(extension) -> WordDocumentExtractor.extract(path, extension)
             extension == "pdf" -> PdfDocumentExtractor.extract(path)
-            else -> Files.readString(path, readCharset)
+            else -> decodeTextFile(path)
         }
     } catch (ioe: IOException) {
         throw IOException("Failed to read file: $path (${ioe.message})", ioe)
+    }
+
+    /**
+     * Decode a text file leniently: malformed/unmappable bytes are replaced (U+FFFD) instead of
+     * throwing, so a non-UTF-8 file (e.g. Latin-1/CP1251) gets indexed best-effort rather than
+     * failing on every scan forever. A leading byte-order mark is stripped so it doesn't break
+     * downstream parsers (headings, package declarations, etc.).
+     */
+    private fun decodeTextFile(path: Path): String {
+        val bytes = Files.readAllBytes(path)
+        val decoder = readCharset.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+        val text = decoder.decode(ByteBuffer.wrap(bytes)).toString()
+        return if (text.isNotEmpty() && text[0] == '﻿') text.substring(1) else text
     }
 
     private fun normalizeChunks(chunks: List<Chunk>, chunker: Chunker): List<Chunk> {

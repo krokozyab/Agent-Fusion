@@ -4,7 +4,10 @@ import com.orchestrator.context.config.BoostConfig
 import com.orchestrator.context.domain.ContextScope
 import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.TokenBudget
+import com.orchestrator.utils.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.nio.file.FileSystems
 import java.nio.file.PathMatcher
@@ -45,6 +48,8 @@ class HybridContextProvider(
 
     enum class FailureStrategy { SKIP, FAIL }
 
+    private val log = Logger.logger<HybridContextProvider>()
+
     override val id: String = "hybrid"
     override val type: ContextProviderType = ContextProviderType.HYBRID
 
@@ -55,17 +60,19 @@ class HybridContextProvider(
     ): List<ContextSnippet> = coroutineScope {
         val results = effectiveProviders.map { provider ->
             async {
-                runCatching {
+                try {
                     provider to provider.getContext(query, scope, budget)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    if (failureStrategy == FailureStrategy.FAIL) throw e
+                    // SKIP strategy: don't fail the whole query, but never swallow silently —
+                    // a degraded provider must be visible in the logs.
+                    log.warn("Hybrid provider {} failed and was skipped: {}", provider.type, e.message)
+                    null
                 }
             }
-        }.mapNotNull { deferred ->
-            val outcome = deferred.await()
-            outcome.getOrElse { error ->
-                if (failureStrategy == FailureStrategy.FAIL) throw error
-                null
-            }
-        }
+        }.awaitAll().filterNotNull()
 
         val aggregated = linkedMapOf<Long, MutableEntry>()
 
@@ -82,10 +89,17 @@ class HybridContextProvider(
             }
         }
 
+        // Raw RRF scores are tiny (max ~1/(k+1) per provider, e.g. ~0.016 at k=60) and would be
+        // wiped out by the downstream minScore threshold (default 0.3). Normalize by the maximum
+        // so the top hit maps to 1.0 while preserving relative ordering — matching ReciprocalRankFusion.
+        val maxRrf = aggregated.values.maxOfOrNull { it.rrfScore } ?: 0.0
+        if (maxRrf <= 0.0) return@coroutineScope emptyList()
+
         val ordered = aggregated.values
             .map { entry ->
-                // Use the fused RRF score as the base, then apply penalties on top.
-                val baseSnippet = entry.snippet.copy(score = entry.rrfScore.coerceIn(0.0, 1.0))
+                // Use the normalized fused RRF score as the base, then apply penalties on top.
+                val normalizedScore = (entry.rrfScore / maxRrf).coerceIn(0.0, 1.0)
+                val baseSnippet = entry.snippet.copy(score = normalizedScore)
                 val penalizedSnippet = applyPenalties(baseSnippet)
 
                 val providerCount = entry.providers.distinct().size
@@ -204,28 +218,26 @@ class HybridContextProvider(
         val normalizedPath = path.replace('\\', '/').removePrefix("/")
         val normalizedPattern = pattern.replace('\\', '/')
 
-        // Convert glob pattern to regex
-        var regex = normalizedPattern
+        // A leading "**/" means "zero or more path segments" → optional prefix, so "**/foo" matches
+        // both "foo" and "bar/foo". Decide this on the raw pattern BEFORE escaping. The old code
+        // inspected the escaped regex and did substring(3) assuming the prefix was ".*/" (3 chars);
+        // for patterns like "**.log" that chopped the backslash off "\." and left a bare "." that
+        // matched any character (so "**.log" wrongly matched e.g. "catalog").
+        val anchorPrefix: String
+        val core: String
+        if (normalizedPattern.startsWith("**/")) {
+            anchorPrefix = "^(.*/)?"
+            core = normalizedPattern.removePrefix("**/")
+        } else {
+            anchorPrefix = "^"
+            core = normalizedPattern
+        }
+
+        val regex = anchorPrefix + core
             .replace(".", "\\.")  // Escape dots
             .replace("**", "###DOUBLESTAR###")  // Temporarily replace **
             .replace("*", "[^/]*")  // * matches anything except /
-            .replace("###DOUBLESTAR###", ".*")  // ** matches anything including /
-
-        // Handle anchoring carefully
-        // If pattern starts with **, make the .* optional (match zero or more path segments)
-        if (regex.startsWith(".*")) {
-            // Pattern like **/foo should match both "foo" and "bar/foo"
-            // Make the leading .* match zero or more characters followed by optional /
-            regex = "^(.*/)?" + regex.substring(3)  // Remove the .* and add optional prefix
-        } else {
-            // Pattern doesn't start with **, anchor to start
-            regex = "^$regex"
-        }
-
-        // Anchor to end
-        if (!regex.endsWith("$")) {
-            regex = "$regex$"
-        }
+            .replace("###DOUBLESTAR###", ".*") + "$"  // ** matches anything including /
 
         return try {
             Regex(regex).matches(normalizedPath)

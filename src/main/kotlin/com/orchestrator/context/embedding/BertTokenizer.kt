@@ -1,16 +1,24 @@
 package com.orchestrator.context.embedding
 
-import kotlin.math.min
+import java.text.Normalizer
+import com.orchestrator.utils.Logger
 
 /**
- * BERT-compatible tokenizer that implements proper tokenization for sentence transformer models.
- * Supports both basic BERT and WordPiece tokenization.
+ * BERT-compatible WordPiece tokenizer for sentence-transformer models
+ * (all-MiniLM-L6-v2 uses the bert-base-uncased vocabulary).
+ *
+ * The vocabulary is loaded from the bundled `/models/vocab.txt` resource (30522
+ * tokens, one per line, line index == token id). This must match the vocabulary
+ * the ONNX model was trained with — a mismatched or stub vocabulary produces
+ * out-of-distribution token ids and destroys semantic search quality.
  */
 class BertTokenizer(
-    private val vocabulary: Map<String, Int> = defaultBertVocabulary,
+    private val vocabulary: Map<String, Int> = defaultVocabulary,
     private val maxSequenceLength: Int = 512
 ) {
     companion object {
+        private val log = Logger.logger("com.orchestrator.context.embedding.BertTokenizer")
+
         // Standard BERT special tokens
         const val CLS_TOKEN = "[CLS]"
         const val SEP_TOKEN = "[SEP]"
@@ -25,184 +33,184 @@ class BertTokenizer(
         const val PAD_ID = 0
         const val MASK_ID = 103
 
-        // Create default BERT vocabulary (common tokens)
-        val defaultBertVocabulary: Map<String, Int> by lazy {
-            mapOf(
-                PAD_TOKEN to PAD_ID,
-                "[unused1]" to 1,
-                "[unused2]" to 2,
-                CLS_TOKEN to CLS_ID,
-                UNK_TOKEN to UNK_ID,
-                MASK_TOKEN to MASK_ID,
-                SEP_TOKEN to SEP_ID
-            ).also { vocab ->
-                // Add common tokens and sub-token prefixes
-                var id = 1000
-                for (word in listOf(
-                    "the", "a", "of", "to", "and", "in", "is", "for", "it", "on",
-                    "as", "was", "be", "by", "with", "at", "from", "this", "that", "or",
-                    "an", "are", "but", "have", "has", "had", "do", "does", "did", "will",
-                    "would", "should", "could", "may", "might", "must", "can", "##ing",
-                    "##ed", "##er", "##ly", "##tion", "##ity", "##ment", "##able"
-                )) {
-                    if (!vocab.containsKey(word) && id < 30522) {
-                        vocab as MutableMap
-                        vocab[word] = id
-                        id++
-                    }
+        // WordPiece never splits a single "word" longer than this; it becomes [UNK].
+        private const val MAX_INPUT_CHARS_PER_WORD = 100
+
+        private const val VOCAB_RESOURCE = "/models/vocab.txt"
+
+        /**
+         * The real bert-base-uncased vocabulary, loaded once from the bundled
+         * resource. Falls back to a minimal stub only if the resource is missing
+         * (so unit tests without the file still construct), logging loudly.
+         */
+        val defaultVocabulary: Map<String, Int> by lazy { loadVocabularyFromResource() }
+
+        private fun loadVocabularyFromResource(): Map<String, Int> {
+            val stream = BertTokenizer::class.java.getResourceAsStream(VOCAB_RESOURCE)
+            if (stream == null) {
+                log.error(
+                    "Vocabulary resource $VOCAB_RESOURCE not found; falling back to stub vocabulary. " +
+                        "Semantic embeddings will be degraded — bundle the model's vocab.txt."
+                )
+                return stubVocabulary
+            }
+            val vocab = HashMap<String, Int>(32_768)
+            stream.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                lines.forEachIndexed { index, line ->
+                    // vocab.txt has exactly one token per line; the line index is the id.
+                    val token = line.trim('\n', '\r')
+                    if (token.isNotEmpty()) vocab[token] = index
                 }
             }
+            log.info("Loaded BERT vocabulary: ${vocab.size} tokens from $VOCAB_RESOURCE")
+            return vocab
         }
+
+        /** Minimal fallback used only when the vocab resource is unavailable. */
+        private val stubVocabulary: Map<String, Int> = mapOf(
+            PAD_TOKEN to PAD_ID,
+            UNK_TOKEN to UNK_ID,
+            CLS_TOKEN to CLS_ID,
+            SEP_TOKEN to SEP_ID,
+            MASK_TOKEN to MASK_ID
+        )
     }
 
     /**
-     * Tokenize text into BERT token IDs
-     * Returns: [CLS] + tokens + [SEP]
+     * Tokenize text into BERT token IDs: [CLS] + wordpiece tokens + [SEP],
+     * truncated to [maxSequenceLength].
      */
     fun tokenize(text: String): IntArray {
-        val tokens = mutableListOf<Int>()
-        
-        // Add [CLS] token
+        val tokens = ArrayList<Int>(minOf(text.length, maxSequenceLength) + 2)
         tokens.add(CLS_ID)
-        
-        // Tokenize the text
+
         val basicTokens = basicTokenize(text)
         val wordpieceTokens = wordpieceTokenize(basicTokens)
-        
-        // Add tokens up to max sequence length - 1 (reserve space for [SEP])
-        for (token in wordpieceTokens.take(maxSequenceLength - 2)) {
+
+        for (token in wordpieceTokens) {
+            if (tokens.size >= maxSequenceLength - 1) break // reserve space for [SEP]
             tokens.add(token)
         }
-        
-        // Add [SEP] token
+
         tokens.add(SEP_ID)
-        
         return tokens.toIntArray()
     }
 
     /**
-     * Basic tokenization: lowercase, whitespace, punctuation splitting
+     * Basic tokenization mirroring bert-base-uncased: lowercase, strip accents,
+     * split on whitespace and punctuation, isolate CJK characters.
      */
     private fun basicTokenize(text: String): List<String> {
         val tokens = mutableListOf<String>()
-        var current = StringBuilder()
-        
-        val cleaned = text.lowercase().trim()
-        
-        for (char in cleaned) {
-            when {
-                char.isWhitespace() -> {
-                    if (current.isNotEmpty()) {
-                        tokens.add(current.toString())
-                        current = StringBuilder()
-                    }
-                }
-                isPunctuation(char) || isControl(char) -> {
-                    if (current.isNotEmpty()) {
-                        tokens.add(current.toString())
-                        current = StringBuilder()
-                    }
-                    if (!isControl(char)) {
-                        tokens.add(char.toString())
-                    }
-                }
-                else -> {
-                    current.append(char)
-                }
+        val current = StringBuilder()
+
+        fun flush() {
+            if (current.isNotEmpty()) {
+                tokens.add(current.toString())
+                current.setLength(0)
             }
         }
-        
-        if (current.isNotEmpty()) {
-            tokens.add(current.toString())
+
+        val cleaned = stripAccents(text.lowercase())
+        for (char in cleaned) {
+            when {
+                isControl(char) -> { /* drop */ }
+                char.isWhitespace() -> flush()
+                isPunctuation(char) -> {
+                    flush()
+                    tokens.add(char.toString())
+                }
+                isCjk(char) -> {
+                    flush()
+                    tokens.add(char.toString())
+                }
+                else -> current.append(char)
+            }
         }
-        
+        flush()
         return tokens
     }
 
+    /** Lowercase already applied; remove combining marks (accents) via NFD. */
+    private fun stripAccents(text: String): String {
+        if (text.all { it.code < 0x80 }) return text // fast path: pure ASCII
+        val normalized = Normalizer.normalize(text, Normalizer.Form.NFD)
+        val sb = StringBuilder(normalized.length)
+        for (char in normalized) {
+            if (Character.getType(char) != Character.NON_SPACING_MARK.toInt()) {
+                sb.append(char)
+            }
+        }
+        return sb.toString()
+    }
+
     /**
-     * WordPiece tokenization: split words into subword tokens using vocabulary
+     * Greedy longest-match-first WordPiece tokenization.
      */
     private fun wordpieceTokenize(tokens: List<String>): List<Int> {
         val output = mutableListOf<Int>()
-        
+
         for (token in tokens) {
-            if (vocabulary.containsKey(token)) {
-                // Exact match in vocabulary
-                output.add(vocabulary[token]!!)
-            } else {
-                // Try to split with ##prefix notation
-                val subtokens = splitWordpiece(token)
-                if (subtokens.isEmpty()) {
-                    // Unknown token
-                    output.add(UNK_ID)
-                } else {
-                    for (subtoken in subtokens) {
-                        output.add(vocabulary[subtoken] ?: UNK_ID)
-                    }
-                }
+            if (token.length > MAX_INPUT_CHARS_PER_WORD) {
+                output.add(UNK_ID)
+                continue
             }
+
+            var isBad = false
+            var start = 0
+            val subTokenIds = mutableListOf<Int>()
+
+            while (start < token.length) {
+                var end = token.length
+                var matchedId: Int? = null
+                while (start < end) {
+                    val substr = if (start > 0) "##${token.substring(start, end)}" else token.substring(start, end)
+                    val id = vocabulary[substr]
+                    if (id != null) {
+                        matchedId = id
+                        break
+                    }
+                    end -= 1
+                }
+                if (matchedId == null) {
+                    isBad = true
+                    break
+                }
+                subTokenIds.add(matchedId)
+                start = end
+            }
+
+            if (isBad) output.add(UNK_ID) else output.addAll(subTokenIds)
         }
-        
+
         return output
     }
 
-    /**
-     * Split a word into subword tokens using greedy approach
-     */
-    private fun splitWordpiece(word: String): List<String> {
-        val tokens = mutableListOf<String>()
-        var start = 0
-        
-        while (start < word.length) {
-            var end = word.length
-            var found = false
-            
-            // Try to find the longest subword
-            while (start < end) {
-                var substr = word.substring(start, end)
-                if (start > 0) {
-                    substr = "##$substr"
-                }
-                
-                if (vocabulary.containsKey(substr)) {
-                    tokens.add(substr)
-                    found = true
-                    break
-                }
-                
-                end -= 1
-            }
-            
-            if (!found) {
-                // Character not found in vocabulary
-                return emptyList()
-            }
-            
-            start = end
-        }
-        
-        return tokens
-    }
-
-    /**
-     * Check if character is punctuation
-     */
     private fun isPunctuation(char: Char): Boolean {
         val cp = char.code
-        return (cp >= 33 && cp <= 47) ||  // !-/
-               (cp >= 58 && cp <= 64) ||  // :-@
-               (cp >= 91 && cp <= 96) ||  // [-`
-               (cp >= 123 && cp <= 126)   // {-~
+        // ASCII punctuation ranges plus any Unicode punctuation category.
+        if ((cp in 33..47) || (cp in 58..64) || (cp in 91..96) || (cp in 123..126)) return true
+        return when (Character.getType(char)) {
+            Character.CONNECTOR_PUNCTUATION.toInt(),
+            Character.DASH_PUNCTUATION.toInt(),
+            Character.START_PUNCTUATION.toInt(),
+            Character.END_PUNCTUATION.toInt(),
+            Character.INITIAL_QUOTE_PUNCTUATION.toInt(),
+            Character.FINAL_QUOTE_PUNCTUATION.toInt(),
+            Character.OTHER_PUNCTUATION.toInt() -> true
+            else -> false
+        }
     }
 
-    /**
-     * Check if character is control character
-     */
     private fun isControl(char: Char): Boolean {
+        if (char == '\t' || char == '\n' || char == '\r') return false
         val cp = char.code
-        return cp == 0x0009 || cp == 0x000A || cp == 0x000D ||
-               (cp >= 0x0000 && cp <= 0x0008) ||
-               (cp >= 0x000E && cp <= 0x001F) ||
-               (cp >= 0x007F && cp <= 0x009F)
+        return cp == 0 || (cp in 0x01..0x08) || (cp in 0x0E..0x1F) || (cp in 0x7F..0x9F)
+    }
+
+    private fun isCjk(char: Char): Boolean {
+        val cp = char.code
+        return (cp in 0x4E00..0x9FFF) || (cp in 0x3400..0x4DBF) ||
+            (cp in 0xF900..0xFAFF) || (cp in 0x2F800..0x2FA1F)
     }
 }

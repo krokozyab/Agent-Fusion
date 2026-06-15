@@ -5,11 +5,14 @@ import com.orchestrator.domain.TaskStatus
 import com.orchestrator.storage.repositories.MetricsRepository
 import com.orchestrator.storage.repositories.TaskRepository
 import com.orchestrator.web.pages.HomePage
+import com.orchestrator.web.utils.WebSecurity
 import io.ktor.http.ContentType
 import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Clock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -29,7 +32,8 @@ fun Route.homeRoutes(clock: Clock = Clock.systemUTC()) {
      * - Live HTMX updates
      */
     get("/") {
-        val config = buildHomePageConfig(clock)
+        // buildHomePageConfig issues blocking JDBC queries; keep it off the Netty event-loop.
+        val config = withContext(Dispatchers.IO) { buildHomePageConfig(clock) }
         val html = HomePage.render(config)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -42,7 +46,7 @@ fun Route.homeRoutes(clock: Clock = Clock.systemUTC()) {
      * Returns only the stats grid portion for live updates
      */
     get("/api/stats") {
-        val stats = fetchSystemStats()
+        val stats = withContext(Dispatchers.IO) { fetchSystemStats() }
         val html = renderStatsFragment(stats)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -55,7 +59,7 @@ fun Route.homeRoutes(clock: Clock = Clock.systemUTC()) {
      * Returns only the activity feed portion for live updates
      */
     get("/api/activity") {
-        val activities = fetchRecentActivities(clock, limit = 10)
+        val activities = withContext(Dispatchers.IO) { fetchRecentActivities(clock, limit = 10) }
         val html = renderActivityFragment(activities)
 
         call.response.headers.append("Cache-Control", "no-cache, no-store, must-revalidate")
@@ -256,10 +260,13 @@ private fun renderActivityFragment(activities: List<HomePage.ActivityItem>): Str
             HomePage.ActivityType.METRIC_RECORDED -> "📊"
         }
 
+        // Activity title/description/href originate from user-controlled task data
+        // (e.g. MCP create_task) and must be HTML-escaped to prevent stored XSS.
+        val safeTitle = WebSecurity.escapeHtml(activity.title)
         val titleHtml = if (activity.href != null) {
-            """<a href="${activity.href}" class="activity-item__title" hx-boost="true">${activity.title}</a>"""
+            """<a href="${WebSecurity.escapeHtml(activity.href)}" class="activity-item__title" hx-boost="true">$safeTitle</a>"""
         } else {
-            """<div class="activity-item__title">${activity.title}</div>"""
+            """<div class="activity-item__title">$safeTitle</div>"""
         }
 
         """
@@ -269,7 +276,7 @@ private fun renderActivityFragment(activities: List<HomePage.ActivityItem>): Str
             </div>
             <div class="activity-item__content">
                 $titleHtml
-                <div class="activity-item__description text-muted">${activity.description}</div>
+                <div class="activity-item__description text-muted">${WebSecurity.escapeHtml(activity.description)}</div>
             </div>
             <div class="activity-item__time text-muted text-sm">${formatRelativeTime(activity.timestamp)}</div>
         </li>

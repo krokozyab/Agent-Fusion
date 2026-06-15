@@ -204,6 +204,22 @@ class RefreshContextTool(
                 job.status == JobStatus.COMPLETED || job.status == JobStatus.FAILED
             }
         }
+
+        /** Upper bound on retained terminal jobs. clearCompletedJobs() is never called in
+         *  production, so without this the map grows unbounded as a long-lived daemon accumulates
+         *  COMPLETED/FAILED jobs. Running jobs are always kept; the oldest terminal jobs are evicted. */
+        private const val MAX_RETAINED_JOBS = 50
+
+        /** Evict oldest terminal (COMPLETED/FAILED) jobs once the map exceeds the retention cap.
+         *  Recently finished jobs survive so clients can still poll them. */
+        fun pruneOldJobs() {
+            if (jobs.size <= MAX_RETAINED_JOBS) return
+            val terminal = jobs.values
+                .filter { it.status == JobStatus.COMPLETED || it.status == JobStatus.FAILED }
+                .sortedBy { it.startedAt }
+            val excess = jobs.size - MAX_RETAINED_JOBS
+            terminal.take(excess).forEach { jobs.remove(it.jobId) }
+        }
     }
 
     fun execute(
@@ -279,7 +295,8 @@ class RefreshContextTool(
                 indexer.updateAsync(
                     paths = discoveredFiles,
                     parallelism = params.parallelism,
-                    onProgress = onProgress
+                    onProgress = onProgress,
+                    force = params.force
                 )
             }
 
@@ -341,6 +358,7 @@ class RefreshContextTool(
         )
 
         jobs[jobId] = job
+        pruneOldJobs()
 
         asyncScope.launch {
             WatcherRegistry.pauseWhile {
@@ -368,7 +386,8 @@ class RefreshContextTool(
                     } else {
                         indexer.updateAsync(
                             paths = discoveredFiles,
-                            parallelism = params.parallelism
+                            parallelism = params.parallelism,
+                            force = params.force
                         )
                     }
 

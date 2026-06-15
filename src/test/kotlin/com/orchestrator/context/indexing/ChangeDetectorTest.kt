@@ -40,6 +40,56 @@ class ChangeDetectorTest {
     }
 
     @Test
+    fun `detectChanges treats matching size and mtime as unchanged without hashing`() {
+        val path = projectRoot.resolve("src/Stable.kt")
+        Files.createDirectories(path.parent)
+        Files.writeString(path, "fun stable() = 1")
+
+        // Seed state with the file's REAL size+mtime but a deliberately WRONG content hash. If the
+        // detector hashed the file, it would see the mismatch and report "modified". The size+mtime
+        // fast path must classify it as unchanged without ever computing the hash.
+        val (size, mtime) = FileMetadataExtractor.statSizeAndMtime(path)
+        FileStateRepository.insert(
+            FileState(
+                id = 0,
+                relativePath = "src/Stable.kt",
+                absolutePath = path.toAbsolutePath().normalize().toString(),
+                contentHash = "deadbeef-not-the-real-hash",
+                sizeBytes = size,
+                modifiedTimeNs = mtime,
+                language = "kotlin",
+                kind = null,
+                fingerprint = null,
+                indexedAt = Instant.now(),
+                isDeleted = false
+            )
+        )
+
+        val changeSet = detector.detectChanges(listOf(path))
+
+        assertEquals(listOf("src/Stable.kt"), changeSet.unchangedFiles.map { it.relativePath })
+        assertTrue(changeSet.modifiedFiles.isEmpty(), "matching size+mtime must not be re-hashed/modified")
+    }
+
+    @Test
+    fun `detectChanges with force reindexes unchanged files`() {
+        val path = projectRoot.resolve("src/Force.kt")
+        Files.createDirectories(path.parent)
+        Files.writeString(path, "fun force() = 1")
+        insertFileState(path) // baseline matches disk exactly → normally "unchanged"
+
+        // Without force: unchanged.
+        val normal = detector.detectChanges(listOf(path), force = false)
+        assertEquals(listOf("src/Force.kt"), normal.unchangedFiles.map { it.relativePath })
+        assertTrue(normal.modifiedFiles.isEmpty())
+
+        // With force: the same file is re-indexed (classified modified) even though it didn't change.
+        val forced = detector.detectChanges(listOf(path), force = true)
+        assertEquals(listOf("src/Force.kt"), forced.modifiedFiles.map { it.relativePath })
+        assertTrue(forced.unchangedFiles.isEmpty())
+    }
+
+    @Test
     fun `detectChanges classifies new modified unchanged files`() {
         // Existing file already indexed
         val existingPath = projectRoot.resolve("src/Existing.kt")
@@ -83,6 +133,45 @@ class ChangeDetectorTest {
         assertTrue(changeSet.newFiles.isEmpty())
         assertTrue(changeSet.modifiedFiles.isEmpty())
         assertTrue(changeSet.unchangedFiles.isEmpty())
+    }
+
+    @Test
+    fun `detectChanges does not delete virtual git nodes that have no filesystem presence`() {
+        // A real file that is genuinely gone — must still be detected as deleted.
+        val deletePath = projectRoot.resolve("dir/Removed.kt")
+        Files.createDirectories(deletePath.parent)
+        Files.writeString(deletePath, "fun removed() = 0")
+        insertFileState(deletePath)
+        Files.delete(deletePath)
+
+        // Virtual git-intent nodes — never on disk; the sweep must leave them alone.
+        insertVirtualFileState("git://commit/abc123")
+        insertVirtualFileState("pr://42")
+
+        val changeSet = detector.detectChanges(emptyList())
+
+        val deletedPaths = changeSet.deletedFiles.map { it.absolutePath }
+        assertTrue(deletedPaths.contains(deletePath.toAbsolutePath().normalize().toString()),
+            "Genuinely removed file must be flagged deleted")
+        assertTrue(deletedPaths.none { it.contains("://") },
+            "Virtual git/pr nodes must never be flagged for deletion, got: $deletedPaths")
+    }
+
+    private fun insertVirtualFileState(virtualPath: String) {
+        val state = FileState(
+            id = 0,
+            relativePath = virtualPath,
+            absolutePath = virtualPath,
+            contentHash = "virtual-hash",
+            sizeBytes = 0,
+            modifiedTimeNs = 0,
+            language = null,
+            kind = "git_commit",
+            fingerprint = null,
+            indexedAt = Instant.now(),
+            isDeleted = false
+        )
+        FileStateRepository.insert(state)
     }
 
     private fun insertFileState(path: Path) {

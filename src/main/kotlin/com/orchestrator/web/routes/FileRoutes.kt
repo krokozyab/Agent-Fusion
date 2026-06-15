@@ -14,6 +14,8 @@ import io.ktor.server.application.call
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 
@@ -77,22 +79,24 @@ fun Route.fileRoutes() {
      * GET /files - Main files list page
      */
     get("/files") {
-        // Load all indexed files for client-side filtering/sorting
-        val files = ContextRepository.listAllFiles()
-            .filterNot { it.isDeleted }
-            .sortedBy { it.relativePath.lowercase() }
+        // DB access is blocking JDBC; keep it off the Netty event-loop threads.
+        val rowData = withContext(Dispatchers.IO) {
+            val files = ContextRepository.listAllFiles()
+                .filterNot { it.isDeleted }
+                .sortedBy { it.relativePath.lowercase() }
+            val chunkCounts = fetchChunkCounts()
 
-        // Convert files to ag-Grid row data format
-        val rowData = files.map { file ->
-            mapOf<String, Any>(
-                "path" to file.relativePath,
-                "status" to determineFileStatus(file),
-                "extension" to file.relativePath.substringAfterLast(".", ""),
-                "sizeBytes" to file.sizeBytes,
-                "lastModified" to formatInstant(file.indexedAt),
-                "chunkCount" to getChunkCountForFile(file.id),
-                "fileId" to file.id
-            )
+            files.map { file ->
+                mapOf<String, Any>(
+                    "path" to file.relativePath,
+                    "status" to determineFileStatus(file),
+                    "extension" to file.relativePath.substringAfterLast(".", ""),
+                    "sizeBytes" to file.sizeBytes,
+                    "lastModified" to formatInstant(file.indexedAt),
+                    "chunkCount" to (chunkCounts[file.id] ?: 0),
+                    "fileId" to file.id
+                )
+            }
         }
 
         val gridData = FilesPage.GridData(
@@ -130,20 +134,22 @@ fun Route.fileRoutes() {
             return@get
         }
 
-        // Query files with filters
-        val (files, totalCount) = queryFiles(params)
-
-        // Convert files to ag-Grid row data format
-        val rowData = files.map { file ->
-            mapOf<String, Any>(
-                "path" to file.relativePath,
-                "status" to determineFileStatus(file),
-                "extension" to file.relativePath.substringAfterLast(".", ""),
-                "sizeBytes" to formatFileSize(file.sizeBytes),
-                "lastModified" to formatInstant(file.indexedAt),
-                "chunkCount" to getChunkCountForFile(file.id),
-                "fileId" to file.id
-            )
+        // Query files with filters (blocking JDBC → run on the IO dispatcher)
+        val (rowData, totalCount) = withContext(Dispatchers.IO) {
+            val chunkCounts = fetchChunkCounts()
+            val (files, count) = queryFiles(params, chunkCounts)
+            val rows = files.map { file ->
+                mapOf<String, Any>(
+                    "path" to file.relativePath,
+                    "status" to determineFileStatus(file),
+                    "extension" to file.relativePath.substringAfterLast(".", ""),
+                    "sizeBytes" to formatFileSize(file.sizeBytes),
+                    "lastModified" to formatInstant(file.indexedAt),
+                    "chunkCount" to (chunkCounts[file.id] ?: 0),
+                    "fileId" to file.id
+                )
+            }
+            rows to count
         }
 
         // Render ag-Grid table with updated data
@@ -186,9 +192,13 @@ fun Route.fileRoutes() {
             return@get
         }
 
-        // Fetch file from repository
-        val fileState = ContextRepository.listAllFiles()
-            .find { it.relativePath == filePath || it.id.toString() == filePath }
+        // Fetch file + artifacts from the repository off the event-loop (blocking JDBC).
+        val (fileState, artifacts) = withContext(Dispatchers.IO) {
+            val state = ContextRepository.listAllFiles()
+                .find { it.relativePath == filePath || it.id.toString() == filePath }
+            val arts = state?.let { ContextRepository.fetchFileArtifactsByPath(it.relativePath) }
+            state to arts
+        }
 
         if (fileState == null) {
             call.respondText(
@@ -197,9 +207,6 @@ fun Route.fileRoutes() {
             )
             return@get
         }
-
-        // Fetch file artifacts (chunks)
-        val artifacts = ContextRepository.fetchFileArtifactsByPath(fileState.relativePath)
 
         // Convert chunks to model objects
         val chunkModels = artifacts?.chunks?.mapIndexed { index, chunkArtifact ->
@@ -243,7 +250,10 @@ fun Route.fileRoutes() {
 /**
  * Query files from repository with filters applied
  */
-private fun queryFiles(params: FileQueryParams): Pair<List<FileState>, Int> {
+private fun queryFiles(
+    params: FileQueryParams,
+    chunkCounts: Map<Long, Int>
+): Pair<List<FileState>, Int> {
     // Fetch all files from repository
     val allFiles = ContextRepository.listAllFiles()
 
@@ -322,9 +332,9 @@ private fun queryFiles(params: FileQueryParams): Pair<List<FileState>, Int> {
         }
         "chunks" -> {
             if (params.sortOrder == DataTable.SortDirection.DESC) {
-                filteredFiles.sortedByDescending { getChunkCountForFile(it.id) }
+                filteredFiles.sortedByDescending { chunkCounts[it.id] ?: 0 }
             } else {
-                filteredFiles.sortedBy { getChunkCountForFile(it.id) }
+                filteredFiles.sortedBy { chunkCounts[it.id] ?: 0 }
             }
         }
         else -> filteredFiles.sortedBy { it.relativePath }
@@ -364,26 +374,29 @@ private fun determineFileStatus(file: FileState): String {
 }
 
 /**
- * Get chunk count for a file (with caching to avoid repeated queries)
+ * Fetch chunk counts for all files in a single GROUP BY query.
+ *
+ * Replaces a per-file COUNT(*) (N+1 queries per page render) plus a process-wide
+ * `mutableMapOf` cache that was (a) not thread-safe — concurrent request coroutines mutated it via
+ * getOrPut, risking corruption/lost updates; (b) unbounded — it leaked an entry per file id forever;
+ * (c) never invalidated — counts stayed stale after re-indexing. One aggregate query per request is
+ * cheaper and always current. Callers run this inside withContext(Dispatchers.IO).
  */
-private val chunkCountCache = mutableMapOf<Long, Int>()
-
-private fun getChunkCountForFile(fileId: Long): Int {
-    return chunkCountCache.getOrPut(fileId) {
-        // Query the context database for chunks associated with this file
-        try {
-            com.orchestrator.context.storage.ContextDatabase.withConnection { conn ->
-                conn.prepareStatement("SELECT COUNT(*) FROM chunks WHERE file_id = ?").use { ps ->
-                    ps.setLong(1, fileId)
-                    ps.executeQuery().use { rs ->
-                        if (rs.next()) rs.getInt(1) else 0
+private fun fetchChunkCounts(): Map<Long, Int> {
+    return try {
+        com.orchestrator.context.storage.ContextDatabase.withConnection { conn ->
+            conn.prepareStatement("SELECT file_id, COUNT(*) FROM chunks GROUP BY file_id").use { ps ->
+                ps.executeQuery().use { rs ->
+                    val counts = HashMap<Long, Int>()
+                    while (rs.next()) {
+                        counts[rs.getLong(1)] = rs.getInt(2)
                     }
+                    counts
                 }
             }
-        } catch (e: Exception) {
-            // If query fails, return 0 and let caching handle it
-            0
         }
+    } catch (e: Exception) {
+        emptyMap()
     }
 }
 

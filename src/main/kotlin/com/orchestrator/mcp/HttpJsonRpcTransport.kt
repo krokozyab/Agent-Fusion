@@ -27,10 +27,22 @@ object HttpJsonRpcTransport {
         requestJson: JsonElement,
         mcpServer: McpServerImpl
     ): JsonElement? {
-        return try {
-            val request = parseJsonRpcRequest(requestJson)
-            val isNotification = request.id == null
+        // Parsing failures are genuine -32700 Parse errors with a null id (the id is unknown).
+        val request = try {
+            parseJsonRpcRequest(requestJson)
+        } catch (e: Exception) {
+            return buildJsonErrorResponse(
+                id = null,
+                code = -32700,
+                message = "Parse error: ${e.message ?: e::class.simpleName}"
+            )
+        }
 
+        val isNotification = request.id == null
+
+        // Dispatch failures, by contrast, are -32603 Internal errors and must carry the request id
+        // so the client can correlate the response with its request.
+        return try {
             val result = when (request.method) {
                 // MCP Requests (require responses)
                 "initialize" -> handleInitialize(request, mcpServer)
@@ -40,35 +52,25 @@ object HttpJsonRpcTransport {
                 "resources/read" -> handleResourcesRead(request, mcpServer)
 
                 // MCP Notifications (fire-and-forget, no response)
-                "notifications/initialized" -> {
-                    // Client notifies us that it's initialized - we don't need to respond
-                    return null
-                }
+                "notifications/initialized" -> return null
 
                 else -> {
-                    // For notifications, don't send an error response
-                    if (isNotification) {
-                        return null
-                    }
-                    JsonRpcError(
-                        code = -32601,
-                        message = "Method not found: ${request.method}"
-                    )
+                    if (isNotification) return null
+                    JsonRpcError(code = -32601, message = "Method not found: ${request.method}")
                 }
             }
 
-            // Only build response if this is a request (has id)
+            if (isNotification) null else buildJsonResponse(request.id, result)
+        } catch (e: Exception) {
             if (isNotification) {
                 null
             } else {
-                buildJsonResponse(request.id, result)
+                buildJsonErrorResponse(
+                    id = request.id,
+                    code = -32603,
+                    message = "Internal error: ${e.message ?: e::class.simpleName}"
+                )
             }
-        } catch (e: Exception) {
-            buildJsonErrorResponse(
-                id = null,
-                code = -32700,
-                message = "Parse error: ${e.message}"
-            )
         }
     }
 
@@ -152,7 +154,7 @@ object HttpJsonRpcTransport {
         } catch (e: Exception) {
             JsonRpcError(
                 code = -32000,
-                message = "Tool execution failed: ${e.message}"
+                message = "Tool execution failed: ${e.message ?: e::class.simpleName}"
             )
         }
     }
@@ -203,7 +205,7 @@ object HttpJsonRpcTransport {
         } catch (e: Exception) {
             JsonRpcError(
                 code = -32000,
-                message = "Resource read failed: ${e.message}"
+                message = "Resource read failed: ${e.message ?: e::class.simpleName}"
             )
         }
     }
@@ -212,7 +214,9 @@ object HttpJsonRpcTransport {
 
     data class JsonRpcRequest(
         val jsonrpc: String = "2.0",
-        val id: Any?,
+        // Raw id element so the response can echo it with the SAME JSON type (a numeric id:1 must
+        // come back as 1, not "1"). Null means the id was absent → notification.
+        val id: JsonElement?,
         val method: String,
         val params: Any? = null
     )
@@ -229,11 +233,9 @@ object HttpJsonRpcTransport {
         val jsonrpc = obj["jsonrpc"]?.jsonPrimitive?.contentOrNull ?: "2.0"
         if (jsonrpc != "2.0") throw IllegalArgumentException("Invalid jsonrpc version")
 
-        val id = when (val idElement = obj["id"]) {
-            is JsonPrimitive -> idElement.contentOrNull
-            null -> null
-            else -> idElement.toString()
-        }
+        // Preserve the id as-is (string/number/null per spec). Absent id (Kotlin null) = notification;
+        // an explicit JsonNull is kept so it round-trips correctly.
+        val id = obj["id"]
 
         val method = obj["method"]?.jsonPrimitive?.contentOrNull
             ?: throw IllegalArgumentException("Missing 'method' field")
@@ -248,26 +250,26 @@ object HttpJsonRpcTransport {
         )
     }
 
-    private fun buildJsonResponse(id: Any?, result: Any?): JsonElement {
+    private fun buildJsonResponse(id: JsonElement?, result: Any?): JsonElement {
         return when (result) {
             is JsonElement -> buildJsonObject {
                 put("jsonrpc", JsonPrimitive("2.0"))
-                if (id != null) put("id", JsonPrimitive(id.toString()))
+                put("id", id ?: JsonNull)
                 put("result", result)
             }
             is JsonRpcError -> buildJsonErrorResponse(id, result.code, result.message)
             else -> buildJsonObject {
                 put("jsonrpc", JsonPrimitive("2.0"))
-                if (id != null) put("id", JsonPrimitive(id.toString()))
+                put("id", id ?: JsonNull)
                 put("result", Json.encodeToJsonElement(result))
             }
         }
     }
 
-    private fun buildJsonErrorResponse(id: Any?, code: Int, message: String): JsonElement {
+    private fun buildJsonErrorResponse(id: JsonElement?, code: Int, message: String): JsonElement {
         return buildJsonObject {
             put("jsonrpc", JsonPrimitive("2.0"))
-            if (id != null) put("id", JsonPrimitive(id.toString()))
+            put("id", id ?: JsonNull)
             put("error", buildJsonObject {
                 put("code", JsonPrimitive(code))
                 put("message", JsonPrimitive(message))

@@ -120,7 +120,31 @@ class SymbolContextProvider(
         snakeRegex.findAll(query).forEach { tokens += it.value }
         callRegex.findAll(query).forEach { tokens += it.groupValues[1] }
 
+        // Fallback: for natural-language queries with no code identifiers,
+        // extract meaningful words for LIKE-based symbol search
+        if (tokens.isEmpty()) {
+            query.split(Regex("\\s+"))
+                .map { it.trim().lowercase(Locale.US) }
+                .filter { it.length >= 3 && it !in STOP_WORDS }
+                .forEach { tokens += it }
+        }
+
         return tokens.toList()
+    }
+
+    companion object {
+        // Fetch this many times maxResults so downstream scoring/filtering has headroom, while
+        // still bounding how much of the symbols table is materialized for a broad match.
+        private const val FETCH_HEADROOM = 10
+        private const val MAX_FETCH_LIMIT = 2000
+
+        private val STOP_WORDS = setOf(
+            "the", "a", "an", "is", "are", "was", "were", "in", "on", "at",
+            "to", "for", "of", "with", "by", "from", "how", "what", "where",
+            "when", "why", "which", "that", "this", "and", "or", "not", "but",
+            "does", "has", "have", "can", "will", "all", "any", "some", "get",
+            "set", "use", "using", "used", "about", "into", "than", "then"
+        )
     }
 
     private data class SqlBundle(val sql: String, val params: List<String>)
@@ -148,6 +172,9 @@ class SymbolContextProvider(
         }
 
         val where = if (conditions.isEmpty()) "1=1" else conditions.joinToString(" AND ")
+        // Bound the result set so a broad symbol-name LIKE doesn't materialize the whole symbols
+        // table; keep headroom over maxResults for downstream scoring/filtering. Internal Int, safe to inline.
+        val fetchLimit = (maxResults * FETCH_HEADROOM).coerceAtMost(MAX_FETCH_LIMIT)
         val sql = """
             SELECT s.symbol_id,
                    s.file_id,
@@ -168,6 +195,7 @@ class SymbolContextProvider(
             JOIN file_state f ON f.file_id = s.file_id
             LEFT JOIN chunks c ON c.file_id = s.file_id AND c.start_line <= COALESCE(s.start_line, c.start_line) AND c.end_line >= COALESCE(s.end_line, c.end_line)
             WHERE $where
+            LIMIT $fetchLimit
         """.trimIndent()
 
         return SqlBundle(sql, params)

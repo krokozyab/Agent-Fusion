@@ -90,6 +90,30 @@ class EventDebouncerTest {
         debouncer.close()
     }
 
+    @Test
+    fun `burst larger than the buffer is delivered without loss`() = runTest {
+        // Regression: the buffer used DROP_OLDEST, so a burst exceeding its capacity (256)
+        // silently lost events. With SUSPEND backpressure every event must still arrive.
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val debouncer = EventDebouncer(this, debounceMillis = 0, dispatcher = dispatcher)
+
+        val collected = mutableListOf<FileWatchEvent>()
+        val collector = launchCollector(this, debouncer, collected)
+
+        val burst = 500 // comfortably above the 256 buffer capacity
+        repeat(burst) { i ->
+            debouncer.submit(event(FileWatchEvent.Kind.MODIFIED, Path.of("file$i.txt")))
+        }
+
+        advanceUntilIdle()
+
+        assertEquals(burst, collected.size, "Every event in the burst must be delivered (no DROP_OLDEST loss)")
+        assertEquals((0 until burst).map { "file$it.txt" }.toSet(), collected.map { it.path.toString() }.toSet())
+
+        collector.cancelAndJoin()
+        debouncer.close()
+    }
+
     private fun launchCollector(
         scope: TestScope,
         debouncer: EventDebouncer,

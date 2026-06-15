@@ -87,8 +87,18 @@ object Database {
         }
     }
 
-    /** Convenience helper to use the connection. */
+    /**
+     * Convenience helper to use a connection.
+     *
+     * If a transaction is active on the current thread (see [Transaction]), the block runs on
+     * that transaction's connection and the connection is NOT closed here — the transaction owns
+     * its lifecycle. Otherwise a fresh pooled connection is acquired (auto-commit) and closed.
+     * This makes repository calls participate in an enclosing `Transaction.transaction { ... }`.
+     */
     fun <T> withConnection(block: (Connection) -> T): T {
+        Transaction.currentConnection()?.let { active ->
+            return block(active)
+        }
         return getConnection().use { conn -> block(conn) }
     }
 

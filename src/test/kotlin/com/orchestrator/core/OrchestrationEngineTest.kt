@@ -137,6 +137,37 @@ class OrchestrationEngineTest {
     }
 
     @Test
+    fun `resumeTask from WAITING_INPUT completes successfully`() = runBlocking {
+        // Regression: resuming a WAITING_INPUT task whose workflow succeeds must end COMPLETED,
+        // not FAILED. The engine must first move WAITING_INPUT -> IN_PROGRESS so that the final
+        // IN_PROGRESS -> COMPLETED transition is valid.
+        val resumeWorkflow = object : WorkflowExecutor {
+            override val supportedStrategies = setOf(RoutingStrategy.PARALLEL)
+            override suspend fun execute(runtime: WorkflowRuntime): WorkflowStep =
+                WorkflowStep.Success(runtime = runtime, output = "resumed")
+            override fun currentState(taskId: TaskId) = WorkflowState.RUNNING
+            override fun checkpoints(taskId: TaskId) = emptyList<Checkpoint>()
+            override suspend fun resume(runtime: WorkflowRuntime, checkpointId: String?) = execute(runtime)
+        }
+        engine.registerWorkflow(resumeWorkflow)
+
+        val waitingTask = testTask.copy(
+            id = TaskId("resume-waiting"),
+            routing = RoutingStrategy.PARALLEL,
+            status = TaskStatus.WAITING_INPUT
+        )
+        TaskRepository.delete(waitingTask.id)
+        TaskRepository.insert(waitingTask)
+
+        try {
+            val result = engine.resumeTask(waitingTask)
+            assertEquals(TaskStatus.COMPLETED, result.status)
+        } finally {
+            TaskRepository.delete(waitingTask.id)
+        }
+    }
+
+    @Test
     fun `route delegates to routing module`() {
         val decision = engine.route(testTask)
         

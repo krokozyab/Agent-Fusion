@@ -87,6 +87,42 @@ class FileIndexerTest {
     }
 
     @Test
+    fun `indexFile strips a leading byte-order mark`() {
+        val file = projectRoot.resolve("bom.kt")
+        // UTF-8 BOM (EF BB BF) followed by valid Kotlin.
+        val bom = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
+        Files.write(file, bom + "fun main() {}".toByteArray(Charsets.UTF_8))
+
+        val result = indexer.indexFile(file)
+        assertTrue(result.success)
+
+        val fileState = FileStateRepository.findByPath(file.toAbsolutePath().toString())
+        assertNotNull(fileState)
+        val chunks = ChunkRepository.findByFileId(fileState.id)
+        assertTrue(chunks.isNotEmpty())
+        assertTrue(
+            chunks.none { it.content.startsWith('﻿') },
+            "BOM must be stripped before chunking"
+        )
+    }
+
+    @Test
+    fun `indexFile decodes non-UTF8 bytes without failing`() {
+        val file = projectRoot.resolve("latin1.kt")
+        // 0xE9 is 'é' in Latin-1 but an invalid standalone UTF-8 byte; strict decoding would throw
+        // (and the file would be retried forever). Lenient decoding must index it best-effort.
+        val bytes = "val name = \"caf".toByteArray(Charsets.UTF_8) +
+            byteArrayOf(0xE9.toByte()) +
+            "\"".toByteArray(Charsets.UTF_8)
+        Files.write(file, bytes)
+
+        val result = indexer.indexFile(file)
+
+        assertTrue(result.success, "non-UTF8 file must index best-effort, not fail: ${result.error}")
+        assertTrue(result.chunkCount > 0)
+    }
+
+    @Test
     fun `indexFile stores embeddings`() {
         val file = projectRoot.resolve("test.kt")
         Files.writeString(file, "fun main() {}")

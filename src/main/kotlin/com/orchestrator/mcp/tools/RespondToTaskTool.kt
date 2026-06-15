@@ -214,10 +214,20 @@ class RespondToTaskTool {
         // STEP 7: Update task status
         // For SOLO routing: auto-complete after response submission (single agent completes the work)
         // For CONSENSUS/multi-agent: move to IN_PROGRESS (needs coordination/additional inputs)
+        // Status transitions use compare-and-set so concurrent responders cannot both win a race
+        // (e.g. two SOLO responses completing the same task). The valid prior states match the
+        // entry validation above (PENDING / WAITING_INPUT / IN_PROGRESS); COMPLETED/FAILED rejected.
+        val activeStates = setOf(TaskStatus.PENDING, TaskStatus.WAITING_INPUT, TaskStatus.IN_PROGRESS)
         val now = Instant.now()
         val updatedTask = when {
             // SOLO tasks auto-complete on response
             task.routing == RoutingStrategy.SOLO -> {
+                val claimed = TaskRepository.updateStatus(taskId, TaskStatus.COMPLETED, activeStates)
+                if (!claimed) {
+                    throw IllegalStateException(
+                        "Task '${task.id.value}' could not be completed: status changed concurrently"
+                    )
+                }
                 val updated = task.copy(
                     status = TaskStatus.COMPLETED,
                     updatedAt = now,
@@ -228,15 +238,18 @@ class RespondToTaskTool {
             }
             // Multi-agent tasks transition to IN_PROGRESS
             task.status == TaskStatus.PENDING || task.status == TaskStatus.WAITING_INPUT -> {
-                val updated = task.copy(status = TaskStatus.IN_PROGRESS, updatedAt = now)
-                TaskRepository.update(updated)
-                updated
+                val moved = TaskRepository.updateStatus(taskId, TaskStatus.IN_PROGRESS, activeStates)
+                if (!moved) {
+                    throw IllegalStateException(
+                        "Task '${task.id.value}' status changed concurrently; cannot accept response"
+                    )
+                }
+                task.copy(status = TaskStatus.IN_PROGRESS, updatedAt = now)
             }
-            // Already IN_PROGRESS, just update timestamp
+            // Already IN_PROGRESS, just refresh timestamp (no-op transition)
             task.status == TaskStatus.IN_PROGRESS -> {
-                val updated = task.copy(updatedAt = now)
-                TaskRepository.update(updated)
-                updated
+                TaskRepository.updateStatus(taskId, TaskStatus.IN_PROGRESS, setOf(TaskStatus.IN_PROGRESS))
+                task.copy(updatedAt = now)
             }
             else -> task
         }

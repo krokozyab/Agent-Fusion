@@ -32,9 +32,6 @@ class JsonChunker(
             return emptyList()
         }
 
-        val lines = content.lines()
-        val totalLines = lines.size
-
         try {
             val rootElement = Json.parseToJsonElement(content)
 
@@ -42,10 +39,9 @@ class JsonChunker(
                 is JsonObject -> {
                     rootElement.forEach { (key, value) ->
                         val jsonText = buildJsonString(key, value)
-                        val chunkLines = jsonText.lines().size
 
                         if (estimateTokens(jsonText) <= maxTokens) {
-                            chunks.add(createChunk(jsonText, key, ordinal++, 1, chunkLines))
+                            chunks.add(createChunk(jsonText, key, ordinal++))
                         } else {
                             // Split large values
                             chunks.addAll(splitLargeValue(key, value, ordinal))
@@ -58,18 +54,17 @@ class JsonChunker(
                     rootElement.forEachIndexed { index, item ->
                         val itemJson = json.encodeToString(JsonElement.serializer(), item)
                         val label = "[$index]"
-                        val chunkLines = itemJson.lines().size
-                        chunks.add(createChunk(itemJson, label, ordinal++, 1, chunkLines))
+                        chunks.add(createChunk(itemJson, label, ordinal++))
                     }
                 }
                 else -> {
                     // Single primitive value
-                    chunks.add(createChunk(content, "root", ordinal++, 1, totalLines))
+                    chunks.add(createChunk(content, "root", ordinal++))
                 }
             }
         } catch (e: Exception) {
             // If parsing fails, return whole content as single chunk
-            chunks.add(createChunk(content, "root", 0, 1, totalLines))
+            chunks.add(createChunk(content, "root", 0))
         }
 
         return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
@@ -84,10 +79,9 @@ class JsonChunker(
                 value.forEach { (subKey, subValue) ->
                     val subKeyPath = "$keyPath.$subKey"
                     val subJson = buildJsonString(subKey, subValue)
-                    val subLines = subJson.lines().size
 
                     if (estimateTokens(subJson) <= maxTokens) {
-                        chunks.add(createChunk(subJson, subKeyPath, ordinal++, 1, subLines))
+                        chunks.add(createChunk(subJson, subKeyPath, ordinal++))
                     } else {
                         chunks.addAll(splitLargeValue(subKeyPath, subValue, ordinal))
                         ordinal = chunks.size
@@ -98,10 +92,9 @@ class JsonChunker(
                 value.forEachIndexed { index, item ->
                     val itemPath = "$keyPath[$index]"
                     val itemJson = json.encodeToString(JsonElement.serializer(), item)
-                    val itemLines = itemJson.lines().size
 
                     if (estimateTokens(itemJson) <= maxTokens) {
-                        chunks.add(createChunk(itemJson, itemPath, ordinal++, 1, itemLines))
+                        chunks.add(createChunk(itemJson, itemPath, ordinal++))
                     } else {
                         chunks.addAll(splitLargeValue(itemPath, item, ordinal))
                         ordinal = chunks.size
@@ -116,7 +109,7 @@ class JsonChunker(
 
                     if (lines.size == 1 || estimateTokens(text) <= maxTokens) {
                         val valueJson = json.encodeToString(JsonPrimitive.serializer(), value)
-                        chunks.add(createChunk(valueJson, keyPath, ordinal++, 1, 1))
+                        chunks.add(createChunk(valueJson, keyPath, ordinal++))
                     } else {
                         val avgCharsPerLine = if (lines.isNotEmpty()) text.length / lines.size else 1
                         val linesPerChunk = maxOf(1, (maxTokens * 4) / avgCharsPerLine)
@@ -127,17 +120,14 @@ class JsonChunker(
                             val end = (start + linesPerChunk).coerceAtMost(lines.size)
                             val chunkText = lines.subList(start, end).joinToString("\n")
                             val chunkJson = json.encodeToString(JsonPrimitive.serializer(), JsonPrimitive(chunkText))
-                            val startLine = start + 1
-                            val endLine = end
-                            chunks.add(createChunk(chunkJson, "$keyPath[$chunkIndex]", ordinal++, startLine, endLine))
+                            chunks.add(createChunk(chunkJson, "$keyPath[$chunkIndex]", ordinal++))
                             start = end
                             chunkIndex++
                         }
                     }
                 } else {
                     val valueJson = json.encodeToString(JsonElement.serializer(), value)
-                    val valueLines = valueJson.lines().size
-                    chunks.add(createChunk(valueJson, keyPath, ordinal++, 1, valueLines))
+                    chunks.add(createChunk(valueJson, keyPath, ordinal++))
                 }
             }
         }
@@ -154,15 +144,20 @@ class JsonChunker(
         """.trimMargin()
     }
 
-    private fun createChunk(text: String, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+    private fun createChunk(text: String, label: String, ordinal: Int): Chunk {
         val path = ChunkPaths.path(ChunkKind.JSON_BLOCK, label)
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = ChunkKind.JSON_BLOCK,
-            startLine = startLine,
-            endLine = endLine,
+            // Line numbers are deliberately null: chunk text is re-serialized from the parsed JSON
+            // tree (kotlinx.serialization carries no source positions), so any 1..N range here would
+            // be relative to the synthesized snippet, not the file. Fabricated ranges made
+            // DiffResolver match every JSON chunk to a change at line 1; null correctly excludes
+            // them from line-range overlap while keeping whole-file matching.
+            startLine = null,
+            endLine = null,
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,

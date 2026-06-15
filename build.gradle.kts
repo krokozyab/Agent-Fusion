@@ -77,7 +77,12 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.2.5")
     implementation("org.apache.poi:poi-scratchpad:5.2.5")
     implementation("org.apache.pdfbox:pdfbox:2.0.30")
-    implementation("org.apache.logging.log4j:log4j-slf4j2-impl:2.23.1")
+    // POI logs through the Log4j2 API. Route those logs INTO SLF4J/Logback with the
+    // log4j-to-slf4j bridge. The previous log4j-slf4j2-impl was the wrong direction: it is a
+    // second SLF4J *binding* (SLF4J -> Log4j2) competing with logback-classic, which made SLF4J
+    // pick a provider nondeterministically (warning "multiple SLF4J providers") and could silently
+    // bypass logback.xml. It also dragged in log4j-core (a full Log4j2 backend) we do not want.
+    implementation("org.apache.logging.log4j:log4j-to-slf4j:2.23.1")
 
     // Testing
     testImplementation(kotlin("test"))

@@ -1,29 +1,55 @@
 package com.orchestrator.storage
 
+import kotlinx.coroutines.ThreadContextElement
 import kotlinx.coroutines.withContext
 import java.sql.Connection
 import java.sql.Savepoint
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.coroutineContext
 
 /**
  * Coroutine-aware transaction helper that cooperates with the pooled connection manager.
  * - Acquires a new connection for outermost transactions and reuses it for nested ones via coroutine context.
  * - Falls back to JDBC savepoints for nested transactions.
  * - Ensures connections are returned to the pool after outer transactions complete.
+ *
+ * The active connection is mirrored into a [ThreadLocal] (via [ThreadContextElement]) so that
+ * non-suspend repository code calling [Database.withConnection] joins the running transaction
+ * instead of grabbing a fresh auto-commit connection from the pool. Without this, repository
+ * writes inside a `transaction { ... }` block would commit independently and the outer
+ * commit/rollback would be a no-op.
  */
 object Transaction {
-    /** Coroutine context element that propagates the active connection and depth. */
-    class TxContext(val connection: Connection, val depth: Int) : AbstractCoroutineContextElement(Key) {
+    /** Thread-bound view of the active transaction connection (see [TxContext]). */
+    private val activeConnection = ThreadLocal<Connection?>()
+
+    /** The connection of the transaction currently active on this thread, or null. */
+    fun currentConnection(): Connection? = activeConnection.get()
+
+    /**
+     * Coroutine context element that propagates the active connection and depth, and mirrors
+     * the connection into [activeConnection] on every thread the coroutine runs on.
+     */
+    class TxContext(val connection: Connection, val depth: Int) :
+        AbstractCoroutineContextElement(Key), ThreadContextElement<Connection?> {
         companion object Key : CoroutineContext.Key<TxContext>
+
+        override fun updateThreadContext(context: CoroutineContext): Connection? {
+            val previous = activeConnection.get()
+            activeConnection.set(connection)
+            return previous
+        }
+
+        override fun restoreThreadContext(context: CoroutineContext, oldState: Connection?) {
+            activeConnection.set(oldState)
+        }
     }
 
     /**
      * Execute [block] within a database transaction boundary.
      */
     suspend fun <T> transaction(block: suspend (Connection) -> T): T {
-        val currentCtx = coroutineContext[TxContext]
+        val currentCtx = currentTxContext()
         val isOuter = currentCtx == null
         val newDepth = (currentCtx?.depth ?: 0) + 1
 
@@ -33,11 +59,9 @@ object Transaction {
 
         try {
             if (isOuter) {
-                println("[TX] BEGIN (outer)")
                 conn.autoCommit = false
             } else {
                 savepoint = conn.setSavepoint("sp_tx_$newDepth")
-                println("[TX] SAVEPOINT sp_tx_$newDepth (nested depth=$newDepth)")
             }
         } catch (e: Exception) {
             if (isOuter) {
@@ -52,11 +76,9 @@ object Transaction {
 
             if (isOuter) {
                 conn.commit()
-                println("[TX] COMMIT (outer)")
             } else {
                 try {
                     if (savepoint != null) conn.releaseSavepoint(savepoint)
-                    println("[TX] RELEASE SAVEPOINT sp_tx_$newDepth")
                 } catch (releaseError: Exception) {
                     runCatching { if (savepoint != null) conn.rollback(savepoint) }
                     throw releaseError
@@ -66,10 +88,8 @@ object Transaction {
         } catch (t: Throwable) {
             runCatching {
                 if (isOuter) {
-                    println("[TX] ROLLBACK (outer) due to ${t::class.simpleName}: ${t.message}")
                     conn.rollback()
                 } else {
-                    println("[TX] ROLLBACK TO SAVEPOINT sp_tx_$newDepth due to ${t::class.simpleName}: ${t.message}")
                     if (savepoint != null) conn.rollback(savepoint)
                 }
             }
@@ -77,9 +97,10 @@ object Transaction {
         } finally {
             if (isOuter) {
                 runCatching { conn.autoCommit = previousAutoCommit ?: true }
-                println("[TX] END (outer)")
                 runCatching { conn.close() }
             }
         }
     }
+
+    private suspend fun currentTxContext(): TxContext? = kotlin.coroutines.coroutineContext[TxContext]
 }

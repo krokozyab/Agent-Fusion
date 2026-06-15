@@ -1,5 +1,6 @@
 package com.orchestrator.context.search
 
+import com.orchestrator.context.ContextRepository
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
 import com.orchestrator.context.embedding.VectorOps
@@ -59,14 +60,16 @@ class VectorSearchEngine(
         val normalizedQuery = VectorOps.normalize(queryVector)
         if (normalizedQuery.all { it == 0f }) return emptyList()
 
-        val rows = repository.fetchAllWithMetadata(model)
+        // Phase 1 — score against lightweight rows (vector + filter columns only, NO content).
+        // This avoids materializing every chunk's full text in memory on each query.
+        val rows = repository.fetchScoringRows(model)
 
-        val scored = buildList<ScoredChunk> {
+        val scored = buildList<ScoredCandidate> {
             for (row in rows) {
-                if (row.embedding.dimensions != normalizedQuery.size) continue
-                if (!filters.matches(row.language, row.chunk.kind, row.relativePath, row.chunk.chunkPath)) continue
+                if (row.dimensions != normalizedQuery.size) continue
+                if (!filters.matches(row.language, row.kind, row.absPath, row.chunkPath)) continue
 
-                val candidateVector = row.embedding.vector.toFloatArray()
+                val candidateVector = row.vector.toFloatArray()
                 val normalizedCandidate = when {
                     candidateVector.isEmpty() -> continue
                     candidateVector.isUnitLength() -> candidateVector
@@ -75,38 +78,53 @@ class VectorSearchEngine(
                 if (normalizedCandidate.all { it == 0f }) continue
 
                 val score = VectorOps.dotProduct(normalizedQuery, normalizedCandidate)
-                if (!score.isNaN()) {
-                    // Boost document language scores to match code relevance
-                    // Documents (CVs, PDFs, etc) should be equally visible in search results
-                    val adjustedScore = if (row.language?.lowercase() == "document") {
-                        (score * 1.35f).coerceAtMost(0.99f)  // Boost by 35% but cap at 0.99
-                    } else {
-                        score
-                    }
+                if (score.isNaN()) continue
 
-                    // Filter by minimum score threshold: reduces result set size and memory usage
-                    // for large indexes, prevents low-relevance matches from being returned
-                    if (adjustedScore >= minScore) {
-                        add(
-                            ScoredChunk(
-                                chunk = row.chunk,
-                                path = row.relativePath,
-                                language = row.language,
-                                score = adjustedScore,
-                                embeddingId = row.embedding.id,
-                                vector = normalizedCandidate
-                            )
-                        )
-                    }
+                // Boost document language scores to match code relevance
+                // Documents (CVs, PDFs, etc) should be equally visible in search results
+                val adjustedScore = if (row.language?.lowercase() == "document") {
+                    (score * 1.35f).coerceAtMost(0.99f)  // Boost by 35% but cap at 0.99
+                } else {
+                    score
+                }
+
+                // Filter by minimum score threshold to keep the candidate set small.
+                if (adjustedScore >= minScore) {
+                    add(ScoredCandidate(row.chunkId, row.embeddingId, adjustedScore, normalizedCandidate))
                 }
             }
         }
 
         if (scored.isEmpty()) return emptyList()
 
-        return scored.sortedByDescending { it.score }
-            .take(k)
+        val topCandidates = scored.sortedByDescending { it.score }.take(k)
+
+        // Phase 2 — hydrate full chunk content for just the top-k results.
+        val chunkLookup = chunkHydrator(topCandidates.map { it.chunkId })
+        return topCandidates.mapNotNull { candidate ->
+            val hydrated = chunkLookup[candidate.chunkId] ?: return@mapNotNull null
+            ScoredChunk(
+                chunk = hydrated.chunk,
+                path = hydrated.filePath,
+                language = hydrated.language,
+                score = candidate.score,
+                embeddingId = candidate.embeddingId,
+                vector = candidate.vector
+            )
+        }
     }
+
+    private fun chunkHydrator(chunkIds: List<Long>): Map<Long, ContextRepository.ChunkWithFile> {
+        if (chunkIds.isEmpty()) return emptyMap()
+        return ContextRepository.getChunksByIds(chunkIds).associateBy { it.chunk.id }
+    }
+
+    private data class ScoredCandidate(
+        val chunkId: Long,
+        val embeddingId: Long,
+        val score: Float,
+        val vector: FloatArray
+    )
 
     private fun FloatArray.isUnitLength(): Boolean {
         var sum = 0.0

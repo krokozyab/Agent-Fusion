@@ -53,6 +53,10 @@ class FullTextContextProvider(
     // ── BM25 path (DuckDB FTS extension) ───────────────────────────────
 
     private fun queryBm25(query: String, scope: ContextScope): List<ContextSnippet> {
+        // Rebuild the FTS index if incremental indexing left it stale, so watcher-added chunks
+        // are searchable without waiting for a manual rebuild (DuckDB FTS has no incremental update).
+        ContextDatabase.ensureFtsFresh()
+
         val scopeConditions = mutableListOf<String>()
         val scopeParams = mutableListOf<Any>()
         buildScopeConditions(scope, scopeConditions, scopeParams)
@@ -101,19 +105,20 @@ class FullTextContextProvider(
     }
 
     /**
-     * Normalize raw BM25 scores (which are unbounded positive values) into [0, 1].
-     * Uses min-max normalization: score' = (s - min) / (max - min).
+     * Normalize raw BM25 scores (which are unbounded positive values) into (0, 1].
+     *
+     * Divide by the max rather than min-max: min-max always maps the lowest-scoring result to
+     * exactly 0, which the downstream score threshold (~0.3) then discards — so the worst hit on
+     * every page was silently dropped regardless of how good it actually was. Scaling by the max
+     * preserves relative magnitude and keeps the lowest result positive.
      */
     private fun normalizeBm25(snippets: List<ContextSnippet>): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
-        if (snippets.size == 1) return listOf(snippets[0].copy(score = 1.0))
         val maxScore = snippets.maxOf { it.score }
-        val minScore = snippets.minOf { it.score }
-        val range = maxScore - minScore
-        if (range <= 0.0) return snippets.map { it.copy(score = 1.0) }
+        if (maxScore <= 0.0) return snippets.map { it.copy(score = 1.0) }
         return snippets.map { s ->
             s.copy(
-                score = ((s.score - minScore) / range).coerceIn(0.0, 1.0),
+                score = (s.score / maxScore).coerceIn(0.0, 1.0),
                 metadata = s.metadata + ("raw_bm25" to "%.4f".format(Locale.US, s.score))
             )
         }
@@ -135,6 +140,11 @@ class FullTextContextProvider(
         buildScopeConditions(scope, conditions, params)
         val where = conditions.joinToString(" AND ")
 
+        // Bound the result set: without a LIMIT a common keyword (e.g. "test") would pull every
+        // matching chunk's full content into memory. Fetch a headroom multiple of maxResults so the
+        // downstream token-budget filtering still has candidates to choose from. The limit is an
+        // internal Int, safe to inline.
+        val fetchLimit = (maxResults * FETCH_HEADROOM).coerceAtMost(MAX_FETCH_LIMIT)
         val sql = """
             SELECT c.chunk_id, c.file_id, c.kind, c.content, c.summary,
                    c.token_count, c.chunk_path, c.parent_chunk_id,
@@ -142,6 +152,7 @@ class FullTextContextProvider(
             FROM chunks c
             JOIN file_state f ON f.file_id = c.file_id
             WHERE $where
+            LIMIT $fetchLimit
         """.trimIndent()
 
         val candidates = mutableListOf<ContextSnippet>()
@@ -272,6 +283,11 @@ class FullTextContextProvider(
     }
 
     companion object {
+        // Fetch this many times maxResults so the downstream token-budget filter has headroom,
+        // while still bounding how much is materialized for a broad keyword.
+        private const val FETCH_HEADROOM = 10
+        private const val MAX_FETCH_LIMIT = 2000
+
         private val STOPWORDS = setOf(
             "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
             "has", "in", "is", "it", "of", "on", "or", "that", "the", "to", "was", "will", "with"

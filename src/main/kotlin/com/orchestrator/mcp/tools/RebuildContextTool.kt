@@ -77,7 +77,10 @@ class RebuildContextTool(
         @Volatile var processedFiles: Int = 0,
         @Volatile var successfulFiles: Int = 0,
         @Volatile var failedFiles: Int = 0,
-        @Volatile var error: String? = null
+        @Volatile var error: String? = null,
+        // Set once when the job reaches a terminal state, so reported duration/completedAt are
+        // stable across polls (previously recomputed with Instant.now() on every getJobStatus call).
+        @Volatile var completedAt: Instant? = null
     )
 
     enum class JobStatus {
@@ -130,6 +133,22 @@ class RebuildContextTool(
             jobs.entries.removeIf { (_, job) ->
                 job.status == JobStatus.COMPLETED || job.status == JobStatus.FAILED
             }
+        }
+
+        /** Upper bound on retained terminal jobs. clearCompletedJobs() is never called in
+         *  production, so without this the map grows unbounded as a long-lived daemon accumulates
+         *  COMPLETED/FAILED jobs. Running jobs are always kept; the oldest terminal jobs are evicted. */
+        private const val MAX_RETAINED_JOBS = 50
+
+        /** Evict oldest terminal (COMPLETED/FAILED) jobs once the map exceeds the retention cap.
+         *  Recently finished jobs survive so clients can still poll them. */
+        fun pruneOldJobs() {
+            if (jobs.size <= MAX_RETAINED_JOBS) return
+            val terminal = jobs.values
+                .filter { it.status == JobStatus.COMPLETED || it.status == JobStatus.FAILED }
+                .sortedBy { it.completedAt ?: it.startedAt }
+            val excess = jobs.size - MAX_RETAINED_JOBS
+            terminal.take(excess).forEach { jobs.remove(it.jobId) }
         }
     }
 
@@ -377,8 +396,14 @@ class RebuildContextTool(
         )
 
         // Phase 3: Destructive phase
-        log.info("Destructive phase: clearing existing context data")
-        clearContextData()
+        val partial = !params.paths.isNullOrEmpty()
+        if (partial) {
+            log.info("Destructive phase: clearing context data only for {} requested paths", paths.size)
+            clearContextDataForPaths(paths)
+        } else {
+            log.info("Destructive phase: clearing all existing context data (full rebuild)")
+            clearContextData()
+        }
         onProgress?.invoke(
             BootstrapProgress(
                 totalFiles = 0,
@@ -468,6 +493,7 @@ class RebuildContextTool(
         )
 
         jobs[jobId] = job
+        pruneOldJobs()
 
         asyncScope.launch {
             WatcherRegistry.pauseWhile {
@@ -488,7 +514,12 @@ class RebuildContextTool(
                     // Phase 3: Destructive phase
                     log.info("Async rebuild (job={}): Destructive phase", jobId)
                     job.phase = "destructive"
-                    clearContextData()
+                    if (!params.paths.isNullOrEmpty()) {
+                        log.info("Async rebuild (job={}): partial clear for {} paths", jobId, paths.size)
+                        clearContextDataForPaths(paths)
+                    } else {
+                        clearContextData()
+                    }
 
                     // Phase 4: Rebuild phase
                     log.info("Async rebuild (job={}): Rebuild phase", jobId)
@@ -513,6 +544,7 @@ class RebuildContextTool(
                     job.phase = "post-rebuild"
                     optimizeDatabase()
 
+                    job.completedAt = Instant.now()
                     job.status = JobStatus.COMPLETED
                     job.phase = "completed"
                     onProgress?.invoke(
@@ -535,6 +567,7 @@ class RebuildContextTool(
                 } catch (e: Exception) {
                     val errorMessage = e.message ?: e::class.simpleName ?: "Unknown error"
                     job.error = errorMessage
+                    job.completedAt = Instant.now()
                     job.status = JobStatus.FAILED
                     job.phase = "failed"
                     log.error("Async rebuild failed (job={}): {}", jobId, errorMessage, e)
@@ -703,6 +736,49 @@ class RebuildContextTool(
         }
 
         log.info("Context data cleared and schema recreated successfully")
+    }
+
+    /**
+     * Partial clear: removes artifacts only for indexed files located under the
+     * requested [targetPaths], leaving the rest of the index (and the schema)
+     * intact. This is what a paths-scoped rebuild must do — dropping all tables
+     * here would destroy the entire index, contradicting the tool contract.
+     *
+     * Virtual entries (e.g. git:// commit nodes) live outside the filesystem and
+     * never match a real path prefix, so they are naturally left untouched.
+     */
+    private fun clearContextDataForPaths(targetPaths: List<Path>) {
+        // Ensure the schema exists before we touch it (a partial rebuild assumes a
+        // prior index, but initialize() is idempotent and cheap).
+        val storageConfig = com.orchestrator.context.config.StorageConfig(
+            dbPath = config.storage.dbPath
+        )
+        ContextDatabase.initialize(storageConfig)
+
+        val normalizedRoots = targetPaths.map { it.toAbsolutePath().normalize() }
+        val allFiles = com.orchestrator.context.ContextRepository.listAllFiles()
+
+        val toDelete = allFiles.filter { file ->
+            val abs = runCatching { Paths.get(file.absolutePath).toAbsolutePath().normalize() }.getOrNull()
+                ?: return@filter false
+            normalizedRoots.any { root -> abs == root || abs.startsWith(root) }
+        }
+
+        log.info("Partial clear: {} of {} indexed files fall under requested paths", toDelete.size, allFiles.size)
+
+        var deleted = 0
+        var failed = 0
+        for (file in toDelete) {
+            try {
+                com.orchestrator.context.ContextRepository.deleteFileArtifactsByAbsPath(file.absolutePath)
+                deleted++
+            } catch (e: Exception) {
+                failed++
+                log.warn("Failed to clear artifacts for {}: {}", file.absolutePath, e.message)
+            }
+        }
+
+        log.info("Partial clear completed: {} files cleared, {} failed", deleted, failed)
     }
 
     private suspend fun runBootstrap(
@@ -886,9 +962,9 @@ class RebuildContextTool(
                 processedFiles = job.processedFiles,
                 successfulFiles = job.successfulFiles,
                 failedFiles = job.failedFiles,
-                durationMs = Instant.now().toEpochMilli() - job.startedAt.toEpochMilli(),
+                durationMs = (job.completedAt ?: Instant.now()).toEpochMilli() - job.startedAt.toEpochMilli(),
                 startedAt = job.startedAt,
-                completedAt = Instant.now(),
+                completedAt = job.completedAt ?: Instant.now(),
                 message = "Rebuild completed: ${job.successfulFiles}/${job.totalFiles} files indexed successfully",
                 validationErrors = null
             )
@@ -901,9 +977,9 @@ class RebuildContextTool(
                 processedFiles = if (job.processedFiles > 0) job.processedFiles else null,
                 successfulFiles = if (job.successfulFiles > 0) job.successfulFiles else null,
                 failedFiles = if (job.failedFiles > 0) job.failedFiles else null,
-                durationMs = null,
+                durationMs = job.completedAt?.let { it.toEpochMilli() - job.startedAt.toEpochMilli() },
                 startedAt = job.startedAt,
-                completedAt = Instant.now(),
+                completedAt = job.completedAt,
                 message = "Rebuild failed: ${job.error}",
                 validationErrors = null
             )

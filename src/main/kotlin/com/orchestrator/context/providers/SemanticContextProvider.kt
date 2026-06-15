@@ -4,7 +4,6 @@ import com.orchestrator.context.domain.ContextScope
 import com.orchestrator.context.domain.ContextSnippet
 import com.orchestrator.context.domain.TokenBudget
 import com.orchestrator.context.embedding.Embedder
-import com.orchestrator.context.search.MmrReranker
 import com.orchestrator.context.search.VectorSearchEngine
 import com.orchestrator.context.storage.ContextDatabase
 import java.sql.Connection
@@ -14,19 +13,20 @@ import kotlin.math.max
 class SemanticContextProvider(
     private val embedder: Embedder,
     private val searchEngine: VectorSearchEngine,
-    private val reranker: MmrReranker,
+    private val candidateLimit: Int = DEFAULT_CANDIDATE_LIMIT,
 ) : ContextProvider {
 
     // ServiceLoader requires a no-arg constructor, so use lazy initialization
     constructor() : this(
         embedder = globalEmbedder ?: defaultNooopEmbedder,
-        searchEngine = VectorSearchEngine(),
-        reranker = MmrReranker()
+        searchEngine = VectorSearchEngine()
     )
 
     companion object {
         // Global embedder instance set from Main.kt
         var globalEmbedder: Embedder? = null
+
+        const val DEFAULT_CANDIDATE_LIMIT = 256
 
         private val defaultNooopEmbedder = object : Embedder {
             override suspend fun embed(text: String): FloatArray = FloatArray(1) { 1f }
@@ -47,17 +47,17 @@ class SemanticContextProvider(
         if (query.isBlank()) return emptyList()
 
         val vector = embedder.embed(query)
-        val k = max(1, minOf(64, budget.availableForSnippets.coerceAtLeast(64)))
+        val k = max(1, candidateLimit)
         val model = embedder.getModel()
         val filters = VectorSearchEngine.Filters(
             languages = scope.languages,
             kinds = scope.kinds,
             paths = scope.paths.toSet()
         )
-        val initial = searchEngine.search(vector, k, filters, model)
-        val reranked = reranker.rerank(initial, lambda = 0.6, budget = budget)
+        // Fetch candidates sorted by score; MMR is applied once in QueryContextTool
+        val results = searchEngine.search(vector, k, filters, model)
 
-        if (reranked.isEmpty()) return emptyList()
+        if (results.isEmpty()) return emptyList()
 
         val metadataCache = mutableMapOf<Long, FileMetadata>()
 
@@ -65,7 +65,7 @@ class SemanticContextProvider(
         var tokensUsed = 0
         val tokenBudget = budget.availableForSnippets.coerceAtLeast(0)
 
-        for (result in reranked) {
+        for (result in results) {
             val meta = metadataCache.getOrPut(result.chunk.fileId) {
                 fetchFileMetadata(result.chunk.fileId)
             }

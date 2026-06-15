@@ -28,6 +28,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.mockk.verify
 
 class IncrementalIndexerTest {
@@ -134,6 +136,48 @@ class IncrementalIndexerTest {
             )
         }
         verify(exactly = 0) { dataService.deleteFile(any()) }
+    }
+
+    @Test
+    fun `update marks fts index stale after indexing`() = runTest {
+        // After incremental indexing changes the chunks table, the FTS index must be marked
+        // stale so the next full-text query rebuilds it (DuckDB FTS has no incremental update).
+        mockkObject(ContextDatabase)
+        // Stub so the spy does not mutate the real global ftsDirty flag (would leak across tests).
+        every { ContextDatabase.markFtsStale() } returns Unit
+        try {
+            val changeDetector = mockk<ChangeDetector>()
+            val batchIndexer = mockk<BatchIndexer>()
+            val dataService = mockk<ContextDataService>(relaxed = true)
+
+            val newChange = FileChange(
+                path = Path.of("/repo/src/New.kt"),
+                relativePath = "src/New.kt",
+                metadata = FileMetadata(10, 20, "hash-new", "kotlin", "text/plain"),
+                previousState = null
+            )
+            every { changeDetector.detectChanges(any(), any()) } returns ChangeSet(
+                newFiles = listOf(newChange),
+                modifiedFiles = emptyList(),
+                deletedFiles = emptyList(),
+                unchangedFiles = emptyList(),
+                scannedAt = Instant.parse("2025-01-01T00:00:00Z")
+            )
+            coEvery {
+                batchIndexer.indexFilesAsync(paths = any(), onProgress = any())
+            } returns BatchResult(
+                successes = listOf(IndexResult(true, "src/New.kt", 1, 1, null)),
+                failures = emptyList(),
+                stats = BatchStats(1, 1, 1, 0, Instant.EPOCH, Instant.EPOCH, 0)
+            )
+
+            val incremental = IncrementalIndexer(changeDetector, batchIndexer, dataService, clock = fixedClock)
+            incremental.updateAsync(paths = listOf(Path.of("/repo/src/New.kt")))
+
+            verify(exactly = 1) { ContextDatabase.markFtsStale() }
+        } finally {
+            unmockkObject(ContextDatabase)
+        }
     }
 
     @Test

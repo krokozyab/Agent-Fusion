@@ -1,6 +1,7 @@
 package com.orchestrator.context.indexing
 
 import com.orchestrator.context.ContextDataService
+import com.orchestrator.context.storage.ContextDatabase
 import com.orchestrator.utils.Logger
 import java.nio.file.Path
 import java.time.Clock
@@ -38,9 +39,10 @@ class IncrementalIndexer(
         paths: List<Path>,
         parallelism: Int? = null,
         onProgress: ((BatchProgress) -> Unit)? = null,
-        detectImplicitDeletions: Boolean = false
+        detectImplicitDeletions: Boolean = false,
+        force: Boolean = false
     ): UpdateResult = runBlocking {
-        updateAsync(paths, parallelism, onProgress, detectImplicitDeletions)
+        updateAsync(paths, parallelism, onProgress, detectImplicitDeletions, force)
     }
 
     /**
@@ -61,10 +63,11 @@ class IncrementalIndexer(
         paths: List<Path>,
         parallelism: Int? = null,
         onProgress: ((BatchProgress) -> Unit)? = null,
-        detectImplicitDeletions: Boolean = false
+        detectImplicitDeletions: Boolean = false,
+        force: Boolean = false
     ): UpdateResult {
         val startedAt = Instant.now(clock)
-        val changeSet = changeDetector.detectChanges(paths, detectImplicitDeletions)
+        val changeSet = changeDetector.detectChanges(paths, detectImplicitDeletions, force)
 
         val candidates = (changeSet.newFiles + changeSet.modifiedFiles).map { it.path }
         val batchResult = when {
@@ -111,6 +114,13 @@ class IncrementalIndexer(
                 log.error("Failed deleting artefacts for ${deleted.absolutePath}: $message", throwable)
                 DeletionResult(deleted.relativePath, false, message)
             }
+        }
+
+        // The chunks table changed if anything was (re)indexed or deleted; mark the FTS index
+        // stale so the next full-text query rebuilds it (DuckDB FTS has no incremental update).
+        val touchedChunks = batchResult != null || deletionResults.any { it.success }
+        if (touchedChunks) {
+            ContextDatabase.markFtsStale()
         }
 
         val completedAt = Instant.now(clock)

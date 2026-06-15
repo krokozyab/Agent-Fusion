@@ -25,8 +25,23 @@ object ContextDatabase {
     private val log = Logger.logger("com.orchestrator.context.storage.ContextDatabase")
 
     private val initialized = AtomicBoolean(false)
+
+    // True when the FTS index no longer reflects the chunks table (set by incremental indexing,
+    // cleared by a rebuild). See markFtsStale / ensureFtsFresh.
+    private val ftsDirty = AtomicBoolean(false)
     private val guard = ReentrantLock()
     private val connectionLock = ReentrantLock()
+
+    // How many times ensureFtsIndex retries the full build before giving up to LIKE fallback.
+    private const val FTS_BUILD_ATTEMPTS = 2
+
+    // Test seam: when non-null, ensureFtsIndex returns its result instead of running the real build,
+    // so tests can exercise the success/failure (stale-retry) paths deterministically. Null in prod.
+    @Volatile
+    internal var ftsBuildOverride: (() -> Boolean)? = null
+
+    /** Test-only view of the FTS stale flag. */
+    internal fun isFtsDirty(): Boolean = ftsDirty.get()
 
     @Volatile
     private var connection: Connection? = null
@@ -148,10 +163,17 @@ object ContextDatabase {
 
     /**
      * Apply the schema definition (idempotent). Intended for bootstrapping and migrations.
+     *
+     * Must hold connectionLock: applyStatements toggles autoCommit and commits on the single shared
+     * connection. Without the lock, a concurrent transaction { } (running with autoCommit=false on
+     * the same connection) would have its work committed and its autoCommit flag flipped by this
+     * thread, corrupting that transaction.
      */
     fun executeSchema(statements: List<String>) {
         val conn = getConnection()
-        applyStatements(conn, statements)
+        connectionLock.withLock {
+            applyStatements(conn, statements)
+        }
     }
 
     /** Shutdown and release the JDBC connection. */
@@ -327,30 +349,85 @@ object ContextDatabase {
         )
         applyStatements(conn, statements)
         ensureFtsIndex(conn)
+        ensureSymbolIndexes(conn)
+    }
+
+    /**
+     * Indexes on the symbols table.
+     *
+     * Only the `file_id`/`chunk_id` indexes are kept: those columns are queried by equality
+     * (per-file delete/lookup), which DuckDB serves with an Index Scan (verified via EXPLAIN).
+     *
+     * The earlier `LOWER(name)`/`LOWER(qualified_name)` expression indexes were dropped. Cross-file
+     * link building filters with `LOWER(...) IN (...)`, and DuckDB does NOT use an ART index for
+     * IN-lists — EXPLAIN shows a sequential scan with or without them, so they bought no speedup on
+     * the real query while making the write-heavy indexing path ~3x slower. The O(N·S) cost is now
+     * removed at the source instead: CrossFileLinkBuilder.loadTargetSymbolsBatch scans `symbols` once
+     * per batch rather than once per file. We DROP the obsolete indexes so existing databases shed
+     * them on next startup.
+     *
+     * Created fault-tolerantly (outside the schema transaction, each wrapped in runCatching): a
+     * DuckDB build that rejects a statement loses the index rather than aborting schema bootstrap.
+     */
+    private fun ensureSymbolIndexes(conn: Connection) {
+        val indexStatements = listOf(
+            "DROP INDEX IF EXISTS idx_symbols_name_lower",
+            "DROP INDEX IF EXISTS idx_symbols_qname_lower",
+            "CREATE INDEX IF NOT EXISTS idx_symbols_file ON symbols(file_id)",
+            "CREATE INDEX IF NOT EXISTS idx_symbols_chunk ON symbols(chunk_id)"
+        )
+        conn.createStatement().use { st ->
+            indexStatements.forEach { sql ->
+                runCatching { st.execute(sql) }
+                    .onFailure { log.warn("Failed to apply symbol index statement ({}): {}", sql, it.message) }
+            }
+        }
     }
 
     /**
      * Create the DuckDB FTS index on the chunks table (content + summary).
      * Idempotent: drops and recreates so the index reflects current data.
      */
-    private fun ensureFtsIndex(conn: Connection) {
-        try {
-            conn.createStatement().use { st ->
-                st.execute("INSTALL fts")
-                st.execute("LOAD fts")
+    /**
+     * (Re)build the DuckDB FTS index on chunks(content, summary).
+     *
+     * Returns true on success, false if the build failed — callers keep the index marked stale on
+     * failure so a later query retries instead of being stuck on the LIKE fallback for good.
+     *
+     * Each DDL step runs on a fresh statement, and the whole build is retried once: DuckDB has been
+     * seen to invalidate the statement handle mid-build ("Statement was closed"), and a single retry
+     * recovers from that transient case rather than dropping full-text search to LIKE permanently.
+     */
+    private fun ensureFtsIndex(conn: Connection): Boolean {
+        ftsBuildOverride?.let { return it() } // test seam; null in production
+
+        repeat(FTS_BUILD_ATTEMPTS) { attempt ->
+            try {
+                runFtsStatement(conn, "INSTALL fts")
+                runFtsStatement(conn, "LOAD fts")
                 // Drop previous index if it exists, then recreate.
-                // DuckDB's PRAGMA create_fts_index is idempotent only if we drop first.
-                runCatching {
-                    st.execute("PRAGMA drop_fts_index('chunks')")
-                }
-                st.execute(
+                // DuckDB's PRAGMA create_fts_index is idempotent only if we drop first; a missing
+                // index makes the drop fail, which is expected, hence runCatching.
+                runCatching { runFtsStatement(conn, "PRAGMA drop_fts_index('chunks')") }
+                runFtsStatement(
+                    conn,
                     "PRAGMA create_fts_index('chunks', 'chunk_id', 'content', 'summary', overwrite = 1)"
                 )
+                log.info("DuckDB FTS index created on chunks(content, summary)")
+                return true
+            } catch (e: Exception) {
+                if (attempt == FTS_BUILD_ATTEMPTS - 1) {
+                    log.warn("Failed to create FTS index (falling back to LIKE search): {}", e.message)
+                } else {
+                    log.warn("FTS index build attempt {} failed ({}); retrying", attempt + 1, e.message)
+                }
             }
-            log.info("DuckDB FTS index created on chunks(content, summary)")
-        } catch (e: Exception) {
-            log.warn("Failed to create FTS index (falling back to LIKE search): {}", e.message)
         }
+        return false
+    }
+
+    private fun runFtsStatement(conn: Connection, sql: String) {
+        conn.createStatement().use { st -> st.execute(sql) }
     }
 
     /**
@@ -359,8 +436,33 @@ object ContextDatabase {
      */
     fun refreshFtsIndex() {
         val conn = getConnection()
-        connectionLock.withLock {
-            ensureFtsIndex(conn)
+        val built = connectionLock.withLock { ensureFtsIndex(conn) }
+        // Keep the index marked stale when the build failed, so the next query retries it.
+        ftsDirty.set(!built)
+    }
+
+    /**
+     * DuckDB's FTS index is a materialized snapshot with no incremental update API, so any chunk
+     * insert/delete leaves it stale. Incremental indexing (the file watcher) marks it stale here
+     * instead of rebuilding per file, and [ensureFtsFresh] rebuilds lazily before the next
+     * full-text query. Without this, watcher-added chunks were invisible to BM25 search until a
+     * manual rebuild.
+     */
+    fun markFtsStale() {
+        ftsDirty.set(true)
+    }
+
+    /** Rebuild the FTS index if it has been marked stale since the last rebuild. */
+    fun ensureFtsFresh() {
+        if (ftsDirty.compareAndSet(true, false)) {
+            val conn = getConnection()
+            val built = connectionLock.withLock { ensureFtsIndex(conn) }
+            // Re-mark stale on failure: dirty was cleared by the CAS above, so without this a failed
+            // rebuild would leave the index unbuilt and never retried — search stuck on LIKE until the
+            // next markFtsStale. Re-setting dirty makes the next full-text query try again.
+            if (!built) {
+                ftsDirty.set(true)
+            }
         }
     }
 

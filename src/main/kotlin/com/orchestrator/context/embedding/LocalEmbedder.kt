@@ -10,6 +10,9 @@ import kotlin.io.path.exists
 import kotlin.math.sqrt
 import com.orchestrator.utils.Logger
 
+/** Thrown when the embedding model cannot be initialized (missing, unreadable, or invalid). */
+class EmbedderInitException(message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
+
 class LocalEmbedder(
     private val modelPath: Path?,
     private val modelName: String = "sentence-transformers/all-MiniLM-L6-v2",
@@ -48,18 +51,71 @@ class LocalEmbedder(
     private val mutex = Mutex()
     private var session: OrtSession? = null
     private var environment: OrtEnvironment? = null
+    // Set once if model initialization fails fatally. Subsequent calls rethrow it immediately instead
+    // of re-attempting createSession per file: a bad/unreadable model is the same for every file, and
+    // retrying produced a storm of identical stack traces (one per indexed file). A fresh embedder
+    // instance (e.g. a new indexing run) starts clean and retries.
+    private var initFailure: Throwable? = null
+
+    // Serializes the native ONNX run so a single forward pass uses all cores. Without this, the batch
+    // indexer's concurrent file workers issued overlapping sess.run calls, each spawning `cores`
+    // intra-op threads → oversubscription and cache thrash. Tokenization stays outside the lock, so
+    // callers can tokenize the next batch while one runs.
+    private val inferenceLock = Any()
+
+    // BERT WordPiece tokenizer matching the model's training vocabulary. Immutable
+    // after construction, safe to share across coroutines.
+    private val tokenizer = BertTokenizer(maxSequenceLength = 512)
 
     private suspend fun ensureInitialized() = mutex.withLock {
-        if (session == null) {
-            val path = modelPath ?: getDefaultModelPath()
-            log.info("Initializing embedder with model: modelPath=$modelPath, resolvedPath=$path, modelName=$modelName, dimension=$dimension")
+        if (session != null) return@withLock
+        // Fail fast on a previously-recorded fatal failure instead of re-attempting per file.
+        initFailure?.let { throw it }
+
+        val path = modelPath ?: getDefaultModelPath()
+        log.info("Initializing embedder with model: modelPath=$modelPath, resolvedPath=$path, modelName=$modelName, dimension=$dimension")
+        try {
             if (!path.exists()) {
                 throw IllegalStateException("Model not found at $path. Please download the ONNX model first.")
             }
             log.info("Model file found at: $path (size=${path.toFile().length()} bytes)")
             environment = OrtEnvironment.getEnvironment()
+            // Default session options already use all cores for intra-op (with SEQUENTIAL exec and
+            // ALL_OPT graph optimization). We deliberately do NOT pass an explicit SessionOptions:
+            // in this onnxruntime build a user-managed SessionOptions trips "Attempt to use
+            // DefaultLogger but none has been registered" during createSession. Oversubscription is
+            // prevented instead by serializing inference (see inferenceLock), so a single pass gets
+            // every core without N concurrent passes each spawning `cores` threads.
             session = environment!!.createSession(path.toString())
             log.info("ONNX session created successfully for model at: $path")
+        } catch (t: Throwable) {
+            val failure = EmbedderInitException(describeInitFailure(path, t), t)
+            initFailure = failure
+            // Log once here; callers that rethrow on later files get the cached cause without re-logging.
+            log.error("Embedder initialization failed permanently: {}", failure.message)
+            throw failure
+        }
+    }
+
+    /**
+     * Build an actionable message for a model-init failure, adding a hint for the macOS privacy (TCC)
+     * case where the file can be stat-ed but its contents are unreadable (EPERM) — typical for models
+     * left in protected folders like Downloads/Desktop/Documents.
+     */
+    private fun describeInitFailure(path: Path, cause: Throwable): String {
+        val raw = cause.message.orEmpty()
+        val looksLikeAccessBlock = raw.contains("system error number 1", ignoreCase = true) ||
+            raw.contains("Operation not permitted", ignoreCase = true) ||
+            raw.contains("ORT_FAIL", ignoreCase = true)
+        val base = "Failed to initialize embedding model at $path"
+        return if (looksLikeAccessBlock) {
+            "$base — the model file could not be read. On macOS this is usually a privacy (TCC) block " +
+                "on protected folders (Downloads/Desktop/Documents): the process can see the file but " +
+                "not read its contents. Move the model to a non-protected location (e.g. ~/fusion-models) " +
+                "and point ONNX_MODEL_PATH / context.embedding.modelPath at it, or grant the launcher " +
+                "Full Disk Access. Cause: $raw"
+        } else {
+            "$base. Cause: $raw"
         }
     }
 
@@ -102,23 +158,36 @@ class LocalEmbedder(
 
         val tokenTypeIds = Array(batchSize) { LongArray(maxSeqLen) { 0L } }
         
-        val inputIdsTensor = OnnxTensor.createTensor(env, inputIds)
-        val attentionMaskTensor = OnnxTensor.createTensor(env, attentionMask)
-        val tokenTypeIdsTensor = OnnxTensor.createTensor(env, tokenTypeIds)
+        // Serialize the native run so a single inference gets all cores (see inferenceLock). Tensor
+        // allocation lives inside the lock too, bounding off-heap memory to one batch at a time.
+        val output = synchronized(inferenceLock) {
+            val inputIdsTensor = OnnxTensor.createTensor(env, inputIds)
+            val attentionMaskTensor = OnnxTensor.createTensor(env, attentionMask)
+            val tokenTypeIdsTensor = OnnxTensor.createTensor(env, tokenTypeIds)
 
-        val inputs = mapOf(
-            "input_ids" to inputIdsTensor,
-            "attention_mask" to attentionMaskTensor,
-            "token_type_ids" to tokenTypeIdsTensor
-        )
+            val inputs = mapOf(
+                "input_ids" to inputIdsTensor,
+                "attention_mask" to attentionMaskTensor,
+                "token_type_ids" to tokenTypeIdsTensor
+            )
 
-        val results = sess.run(inputs)
-        val output = results[0].value as Array<Array<FloatArray>>
-        
-        inputIdsTensor.close()
-        attentionMaskTensor.close()
-        tokenTypeIdsTensor.close()
-        results.close()
+            // try/finally: the input tensors and the run result hold native (off-heap) memory. If
+            // sess.run threw, the previous code skipped the close() calls and leaked that memory on
+            // every failed batch. Always release them.
+            try {
+                val results = sess.run(inputs)
+                try {
+                    @Suppress("UNCHECKED_CAST")
+                    results[0].value as Array<Array<FloatArray>>
+                } finally {
+                    results.close()
+                }
+            } finally {
+                inputIdsTensor.close()
+                attentionMaskTensor.close()
+                tokenTypeIdsTensor.close()
+            }
+        }
 
         return output.mapIndexed { i, sequence -> meanPooling(sequence, attentionMask[i]) }
     }
@@ -146,26 +215,7 @@ class LocalEmbedder(
         return result
     }
 
-    private fun tokenize(text: String): IntArray {
-        // Fast hash-based tokenization optimized for performance
-        val vocabSize = 30522
-        val reservedOffset = 1000
-        val availableRange = vocabSize - reservedOffset
-        val maxTokenPayload = 510  // 512 - 2 (for [CLS] and [SEP])
-
-        val tokens = text.lowercase()
-            .split(Regex("\\s+"))
-            .filter { it.isNotEmpty() }
-            .map { token ->
-                val hash = token.hashCode()
-                val positive = hash and Int.MAX_VALUE
-                reservedOffset + (positive % availableRange)
-            }
-            .take(maxTokenPayload)
-
-        // [CLS] = 101, [SEP] = 102
-        return intArrayOf(101) + tokens.toIntArray() + intArrayOf(102)
-    }
+    private fun tokenize(text: String): IntArray = tokenizer.tokenize(text)
 
     private fun normalizeVector(vector: FloatArray): FloatArray {
         val norm = sqrt(vector.sumOf { (it * it).toDouble() }).toFloat()

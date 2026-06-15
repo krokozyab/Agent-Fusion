@@ -8,7 +8,31 @@ import kotlin.test.assertTrue
 class JavaChunkerTest {
     
     private val chunker = JavaChunker(maxTokens = 600, overlapPercent = 15)
-    
+
+    @Test
+    fun `unparseable java falls back to whole-file chunk instead of dropping the file`() {
+        // Not valid Java — the parser will reject it. Previously this returned emptyList(),
+        // which made the file persist with zero chunks and vanish from search.
+        val broken = "this is not valid java @@@ ### <<< >>> public class {{{ "
+
+        val chunks = chunker.chunk(broken, "Broken.java")
+
+        assertTrue(chunks.isNotEmpty(), "Unparseable file must still yield at least one chunk")
+        assertTrue(
+            chunks.any { it.kind == ChunkKind.CODE_BLOCK },
+            "Fallback chunk should be a CODE_BLOCK"
+        )
+        assertTrue(
+            chunks.any { it.content.contains("not valid java") },
+            "Fallback chunk must preserve the original file content"
+        )
+    }
+
+    @Test
+    fun `blank content yields no chunks`() {
+        assertTrue(chunker.chunk("   \n\t", "Empty.java").isEmpty())
+    }
+
     @Test
     fun `chunks simple class with methods`() {
         val code = """

@@ -16,7 +16,7 @@ class GetPendingTasksTool {
 
     data class Params(
         val agentId: String? = null,
-        // If not provided, defaults to PENDING
+        // If not provided, defaults to the actionable set: PENDING, IN_PROGRESS, WAITING_INPUT.
         val statuses: List<String>? = null,
         // Optional maximum number of tasks to return (safeguard for performance)
         val limit: Int? = null
@@ -119,7 +119,7 @@ class GetPendingTasksTool {
               "minLength": 1,
               "description": "Optional. Uses the only configured agent when omitted; aliases 'user' and 'me' map to that agent."
             },
-            "statuses": {"type": ["array", "null"], "items": {"type": "string", "enum": [
+            "statuses": {"type": ["array", "null"], "description": "Defaults to PENDING, IN_PROGRESS, WAITING_INPUT when omitted.", "items": {"type": "string", "enum": [
               "PENDING", "IN_PROGRESS", "WAITING_INPUT", "COMPLETED", "FAILED"
             ]}},
             "limit": {"type": ["integer", "null"], "minimum": 0, "maximum": 1000}

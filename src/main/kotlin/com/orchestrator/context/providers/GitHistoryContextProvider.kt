@@ -41,14 +41,12 @@ class GitHistoryContextProvider(
     ): List<ContextSnippet> {
         // Extract file paths from query
         val paths = extractPaths(query, scope)
-        if (paths.isEmpty()) {
-            log.debug("No file paths found in query: $query")
-            return emptyList()
-        }
 
         val candidates = mutableListOf<GitContextCandidate>()
 
-        // If no paths resolved, fall back to repo-wide recent commits (last 30)
+        // If no paths resolved, fall back to repo-wide recent commits (last 30). This branch was
+        // previously dead code: an earlier `if (paths.isEmpty()) return emptyList()` bailed out
+        // before it could ever run, so a path-less query yielded nothing instead of recent history.
         if (paths.isEmpty()) {
             val repoRoot = gitAnalyzer.findRepositoryRoot()
             if (repoRoot != null) {

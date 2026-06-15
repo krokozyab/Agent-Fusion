@@ -4,6 +4,7 @@ import com.orchestrator.context.domain.ChunkKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class JsonChunkerTest {
@@ -13,6 +14,26 @@ class JsonChunkerTest {
         val chunker = JsonChunker()
         val chunks = chunker.chunk("", "test.json")
         assertTrue(chunks.isEmpty())
+    }
+
+    @Test
+    fun `line ranges are null because positions are lost on re-serialization`() {
+        // The chunker rebuilds text from the parsed tree, so any line number would be fictional.
+        // Null keeps these chunks out of DiffResolver's line-range matching (no false line-1 hits).
+        val json = """
+            {
+              "name": "MyApp",
+              "version": "1.0.0"
+            }
+        """.trimIndent()
+
+        val chunks = JsonChunker().chunk(json, "package.json")
+
+        assertTrue(chunks.isNotEmpty())
+        chunks.forEach { chunk ->
+            assertNull(chunk.startLine, "JSON chunks must not fabricate startLine")
+            assertNull(chunk.endLine, "JSON chunks must not fabricate endLine")
+        }
     }
 
     @Test

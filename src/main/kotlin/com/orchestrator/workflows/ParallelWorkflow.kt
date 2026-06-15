@@ -212,6 +212,9 @@ class ParallelWorkflow(
                 success = false,
                 error = error
             )
+        } catch (e: CancellationException) {
+            // Parent scope cancelled (not a per-agent timeout) — propagate.
+            throw e
         } catch (e: Exception) {
             val executionTime = System.currentTimeMillis() - startTime
             val error = e.message ?: e.toString()

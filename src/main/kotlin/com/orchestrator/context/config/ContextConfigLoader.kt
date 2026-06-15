@@ -246,13 +246,14 @@ object ContextConfigLoader {
 
         return QueryConfig(
             defaultK = table.getLong("default_k")?.toInt() ?: defaults.defaultK,
+            semanticCandidateLimit = table.getLong("semantic_candidate_limit")?.toInt() ?: defaults.semanticCandidateLimit,
+            rrfK = table.getLong("rrf_k")?.toInt() ?: defaults.rrfK,
             mmrLambda = table.getDouble("mmr_lambda") ?: defaults.mmrLambda,
             minScoreThreshold = table.getDouble("min_score_threshold") ?: defaults.minScoreThreshold,
             rerankEnabled = table.getBoolean("rerank_enabled") ?: defaults.rerankEnabled,
             useOptimizerInTool = table.getBoolean("use_optimizer_in_tool") ?: defaults.useOptimizerInTool,
             neighborWindow = table.getLong("neighbor_window")?.toInt() ?: defaults.neighborWindow,
             embeddingCacheSize = table.getLong("embedding_cache_size")?.toInt() ?: defaults.embeddingCacheSize,
-            idfEnabled = table.getBoolean("idf_enabled") ?: defaults.idfEnabled,
             secondStageRerankEnabled = table.getBoolean("second_stage_rerank_enabled")
                 ?: defaults.secondStageRerankEnabled,
             secondStageTopN = table.getLong("second_stage_top_n")?.toInt() ?: defaults.secondStageTopN,

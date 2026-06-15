@@ -3,9 +3,7 @@ package com.orchestrator.context.discovery
 import com.orchestrator.context.config.IndexingConfig
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.nio.file.Path
-import java.nio.file.attribute.BasicFileAttributes
 
 /**
  * Enforces symlink policies when traversing watched project directories.
@@ -16,8 +14,6 @@ class SymlinkHandler(
 ) {
 
     private val normalizedRoots: List<Path> = allowedRoots.map { it.toAbsolutePath().normalize() }
-    private val visitedInodes = mutableSetOf<Any?>()
-    private val visitedPaths = mutableSetOf<Path>()
 
     fun shouldFollow(link: Path): Boolean = shouldFollow(link, defaultConfig)
 
@@ -25,10 +21,13 @@ class SymlinkHandler(
         if (!config.followSymlinks) return false
         if (!Files.isSymbolicLink(link)) return false
 
+        // Cycle safety is handled per-traversal elsewhere: resolveTarget() detects symlink chains,
+        // and DirectoryScanner tracks visited directories within a single scan. We deliberately do
+        // NOT keep a persistent visited set here — that made a symlink follow-able only once for the
+        // lifetime of this handler, so an edited symlinked file would never be re-indexed (and the
+        // mutable set was shared across threads unsynchronised).
         val target = resolveTarget(link, config.maxSymlinkDepth) ?: return false
-        if (isEscape(target, normalizedRoots)) return false
-
-        return markVisited(target)
+        return !isEscape(target, normalizedRoots)
     }
 
     fun resolveTarget(link: Path): Path? = resolveTarget(link, defaultConfig.maxSymlinkDepth)
@@ -70,20 +69,4 @@ class SymlinkHandler(
         return current
     }
 
-    private fun markVisited(target: Path): Boolean {
-        val normalized = target.toAbsolutePath().normalize()
-        val key = inodeKey(normalized)
-        if (key != null) {
-            if (!visitedInodes.add(key)) return false
-        } else {
-            if (!visitedPaths.add(normalized)) return false
-        }
-        return true
-    }
-
-    private fun inodeKey(path: Path): Any? = try {
-        Files.readAttributes(path, BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS).fileKey()
-    } catch (_: IOException) {
-        null
-    }
 }

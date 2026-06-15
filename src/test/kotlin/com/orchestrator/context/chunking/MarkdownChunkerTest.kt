@@ -11,6 +11,65 @@ class MarkdownChunkerTest {
     private fun List<Chunk>.withoutRoot() = filterNot { it.summary == "Document root" }
 
     @Test
+    fun `unclosed code fence is not dropped`() {
+        // File ends inside a ``` block. The fenced content must still be indexed; previously
+        // everything from the opening fence to EOF was silently lost.
+        val content = """
+            # Title
+
+            Some intro text.
+
+            ```kotlin
+            fun important() = 42
+            val secret = "do not lose me"
+        """.trimIndent()
+
+        val chunker = MarkdownChunker()
+        val chunks = chunker.chunk(content, "doc.md", "markdown")
+
+        assertTrue(
+            chunks.any { it.content.contains("do not lose me") },
+            "Content inside an unclosed code fence must be preserved, got: ${chunks.map { it.content }}"
+        )
+    }
+
+    @Test
+    fun `all produced chunks satisfy 1 less than or equal to startLine less than or equal to endLine`() {
+        // Regression: real Confluence-exported markdown blew up with
+        // "startLine must be >= 1 and <= endLine" on SemanticProseChunker output.
+        val cases = listOf(
+            // 1) Long single paragraph → forces semantic split.
+            (1..400).joinToString(" ") { "word$it" },
+            // 2) CRLF line endings with front matter and heading.
+            "---\r\ntitle: Foo\r\n---\r\n\r\n# Heading\r\n\r\n" +
+                (1..200).joinToString(" ") { "token$it" },
+            // 3) Heading-only document.
+            "# Only a heading\n",
+            // 4) Leading blank lines then content.
+            "\n\n\n# After blanks\n\nBody text.\n",
+            // 5) Long section under a heading to trigger splitting.
+            "# Big section\n\n" + (1..600).joinToString(" ") { "w$it" }
+        )
+
+        val chunker = MarkdownChunker(maxTokens = 120)
+        for ((i, md) in cases.withIndex()) {
+            val chunks = chunker.chunk(md, "docs/case$i.md", "markdown")
+            for (c in chunks) {
+                val start = c.startLine
+                val end = c.endLine
+                assertTrue(
+                    start != null && start >= 1,
+                    "case $i chunk ${c.ordinal} startLine=$start must be >= 1"
+                )
+                assertTrue(
+                    end != null && end >= start!!,
+                    "case $i chunk ${c.ordinal} startLine=$start endLine=$end must satisfy end >= start"
+                )
+            }
+        }
+    }
+
+    @Test
     fun `splits by headings with labels`() {
         val markdown = """
             # Title

@@ -60,6 +60,7 @@ class MmrReranker(
         while (candidates.isNotEmpty()) {
             var bestCandidate: SearchResult? = null
             var bestScore = Double.NEGATIVE_INFINITY
+            var bestRelevance = Double.NEGATIVE_INFINITY
 
             for (candidate in candidates) {
                 if (!fitsBudget(candidate)) continue
@@ -73,10 +74,14 @@ class MmrReranker(
 
                 if (mmrScore > bestScore) {
                     bestScore = mmrScore
+                    bestRelevance = relevance
                     bestCandidate = candidate
                 } else if (mmrScore == bestScore && bestCandidate != null) {
-                    // Tie-breaker: prefer higher relevance
-                    if (relevance > bestCandidate.score) {
+                    // Tie-breaker: prefer higher relevance. Compare against the incumbent's
+                    // *adjusted relevance* (bestRelevance), not its raw .score — those are different
+                    // scales, so the old comparison `relevance > bestCandidate.score` was meaningless.
+                    if (relevance > bestRelevance) {
+                        bestRelevance = relevance
                         bestCandidate = candidate
                     }
                 }

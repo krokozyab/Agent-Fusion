@@ -2,6 +2,7 @@ package com.orchestrator.context.storage
 
 import com.orchestrator.context.config.StorageConfig
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -37,6 +38,94 @@ class ContextDatabaseTest {
                 }
             }
             conn.prepareStatement("SELECT COUNT(*) FROM chunks").use { ps ->
+                ps.executeQuery().use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(1, rs.getInt(1))
+                }
+            }
+        }
+
+        ContextDatabase.shutdown()
+    }
+
+    @Test
+    fun `failed FTS rebuild keeps the index stale so a later query retries`(@TempDir tempDir: Path) {
+        val dbPath = tempDir.resolve("context.duckdb").toString()
+        ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
+        try {
+            // Force the build to fail. Without re-marking stale, dirty (cleared by ensureFtsFresh's
+            // CAS) would stay false and the index would be stuck on LIKE forever.
+            ContextDatabase.ftsBuildOverride = { false }
+            ContextDatabase.markFtsStale()
+            assertTrue(ContextDatabase.isFtsDirty(), "precondition: marked stale")
+
+            ContextDatabase.ensureFtsFresh()
+            assertTrue(
+                ContextDatabase.isFtsDirty(),
+                "a failed rebuild must leave the index stale so the next query retries"
+            )
+
+            // Now the build succeeds: the retried ensureFtsFresh clears the stale flag.
+            ContextDatabase.ftsBuildOverride = { true }
+            ContextDatabase.ensureFtsFresh()
+            assertFalse(
+                ContextDatabase.isFtsDirty(),
+                "a successful rebuild must clear the stale flag"
+            )
+        } finally {
+            ContextDatabase.ftsBuildOverride = null
+            ContextDatabase.shutdown()
+        }
+    }
+
+    @Test
+    fun `keeps equality symbol indexes and drops the unused LOWER expression indexes`(@TempDir tempDir: Path) {
+        val dbPath = tempDir.resolve("context.duckdb").toString()
+        ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
+
+        // file_id/chunk_id are queried by equality (Index Scan); kept.
+        val expected = setOf("idx_symbols_file", "idx_symbols_chunk")
+        // LOWER(...) expression indexes are unused for the IN-list query (DuckDB seq-scans); dropped.
+        val unwanted = setOf("idx_symbols_name_lower", "idx_symbols_qname_lower")
+
+        val found = mutableSetOf<String>()
+        ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(
+                "SELECT index_name FROM duckdb_indexes() WHERE table_name = 'symbols'"
+            ).use { ps ->
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) found += rs.getString(1)
+                }
+            }
+        }
+
+        assertTrue(
+            found.containsAll(expected),
+            "expected equality symbol indexes $expected to exist, found $found"
+        )
+        assertTrue(
+            found.none { it in unwanted },
+            "LOWER expression indexes $unwanted must not exist, found $found"
+        )
+
+        ContextDatabase.shutdown()
+    }
+
+    @Test
+    fun `executeSchema applies statements and leaves the connection usable`(@TempDir tempDir: Path) {
+        val dbPath = tempDir.resolve("context.duckdb").toString()
+        ContextDatabase.initialize(StorageConfig(dbPath = dbPath))
+
+        // executeSchema now runs under connectionLock; verify it applies DDL and restores the
+        // connection to a usable auto-commit state afterwards (no leaked autoCommit=false).
+        ContextDatabase.executeSchema(
+            listOf("CREATE TABLE IF NOT EXISTS schema_probe (id INTEGER PRIMARY KEY)")
+        )
+
+        ContextDatabase.withConnection { conn ->
+            assertTrue(conn.autoCommit, "autoCommit must be restored after executeSchema")
+            conn.createStatement().use { it.execute("INSERT INTO schema_probe (id) VALUES (1)") }
+            conn.prepareStatement("SELECT COUNT(*) FROM schema_probe").use { ps ->
                 ps.executeQuery().use { rs ->
                     assertTrue(rs.next())
                     assertEquals(1, rs.getInt(1))

@@ -43,7 +43,11 @@ class ChangeDetector(
      *                                changed/modified files from the watcher (incremental updates). Set to true
      *                                when calling with a complete directory scan (bootstrap/full rescan).
      */
-    fun detectChanges(paths: List<Path>, detectImplicitDeletions: Boolean = true): ChangeSet {
+    fun detectChanges(
+        paths: List<Path>,
+        detectImplicitDeletions: Boolean = true,
+        force: Boolean = false
+    ): ChangeSet {
         val indexedStates = repository.listAllFiles().filter { it.isActive }.associateBy { it.absolutePath }
         val newFiles = mutableListOf<FileChange>()
         val modifiedFiles = mutableListOf<FileChange>()
@@ -92,6 +96,26 @@ class ChangeDetector(
                 continue
             }
 
+            // Fast path: if an indexed file's size and mtime are unchanged, treat it as unchanged
+            // WITHOUT hashing. This avoids re-reading and hashing every byte of every file on a full
+            // rescan; the hash is computed only when size or mtime actually differ. Skipped under
+            // force, which re-indexes every file regardless of whether it changed.
+            if (!force && previousState != null && !previousState.isDeleted) {
+                val stat = statSafely(absolutePath)
+                if (stat != null &&
+                    stat.first == previousState.sizeBytes &&
+                    stat.second == previousState.modifiedTimeNs
+                ) {
+                    unchangedFiles += FileChange(
+                        path = absolutePath,
+                        relativePath = relativePath,
+                        metadata = metadataFromState(previousState),
+                        previousState = previousState
+                    )
+                    continue
+                }
+            }
+
             val metadata = extractMetadataSafely(absolutePath) ?: continue
             val change = FileChange(
                 path = absolutePath,
@@ -102,6 +126,7 @@ class ChangeDetector(
 
             when {
                 previousState == null || previousState.isDeleted -> newFiles += change
+                force -> modifiedFiles += change
                 hasChanged(metadata, previousState) -> modifiedFiles += change
                 else -> unchangedFiles += change
             }
@@ -113,6 +138,11 @@ class ChangeDetector(
         if (detectImplicitDeletions) {
             for ((absolutePath, state) in indexedStates) {
                 if (seenDeleted.contains(absolutePath)) continue
+                // Virtual entries (e.g. git://commit/<hash>, pr://...) have no filesystem
+                // presence. Files.exists() is always false for them, so without this guard the
+                // sweep would delete the entire git-intent graph on every run (StartupReconciler
+                // and the 60s deletion sweep), which then gets rebuilt and deleted again in a loop.
+                if (isVirtualPath(absolutePath)) continue
                 val resolvedPath = Path.of(absolutePath)
                 if (!Files.exists(resolvedPath)) {
                     deletedFiles += DeletedFile(state.relativePath, absolutePath, state)
@@ -143,6 +173,22 @@ class ChangeDetector(
             metadata.modifiedTimeNs != state.modifiedTimeNs
     }
 
+    private fun statSafely(path: Path): Pair<Long, Long>? = try {
+        metadataExtractor.statSizeAndMtime(path)
+    } catch (ioe: IOException) {
+        log.debug("Failed to stat {}: {}", path, ioe.message)
+        null
+    }
+
+    /** Reconstruct a FileMetadata from a persisted state for the unchanged fast path (no hashing). */
+    private fun metadataFromState(state: FileState): FileMetadata = FileMetadata(
+        sizeBytes = state.sizeBytes,
+        modifiedTimeNs = state.modifiedTimeNs,
+        contentHash = state.contentHash ?: "",
+        language = state.language,
+        mimeType = null
+    )
+
     private fun extractMetadataSafely(path: Path): FileMetadata? {
         return try {
             metadataExtractor.extractMetadata(path)
@@ -171,6 +217,12 @@ class ChangeDetector(
         }
         return resolved
     }
+
+    /**
+     * True if [absolutePath] is a virtual (non-filesystem) entry such as a git:// commit node
+     * or pr:// reference. These carry a URI scheme ("://") that never appears in a real OS path.
+     */
+    private fun isVirtualPath(absolutePath: String): Boolean = absolutePath.contains("://")
 
     private fun findMatchingRoot(absolutePath: Path): Path? {
         val normalized = absolutePath.toAbsolutePath().normalize()

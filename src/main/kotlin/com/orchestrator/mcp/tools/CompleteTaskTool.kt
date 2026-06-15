@@ -88,8 +88,8 @@ class CompleteTaskTool {
         val taskId = TaskId(p.taskId)
         val warnings = mutableListOf<String>()
 
-        // Wrap entire operation in transaction for atomicity
-        Transaction.transaction { conn ->
+        // Wrap entire operation in transaction for atomicity.
+        val result = Transaction.transaction { conn ->
             val now = Instant.now()
 
             // 1) Fetch existing task and validate
@@ -329,26 +329,33 @@ class CompleteTaskTool {
                 logger.warn("Failed to calculate conversation tokens for task ${taskId.value}: ${e.message}")
             }
 
-            // 6) Mark task as complete (LAST operation for safety)
+            // 6) Mark task as complete (LAST operation for safety).
+            // Atomically claim the transition with a compare-and-set guard: the read-then-validate
+            // above only catches a serialized double-complete, not two concurrent complete_task
+            // calls that both read IN_PROGRESS. CAS ensures exactly one wins (the loser's whole
+            // transaction rolls back, so metrics/decision are not double-counted).
+            val claimed = TaskRepository.updateStatus(
+                id = taskId,
+                newStatus = TaskStatus.COMPLETED,
+                expectedOldStatuses = setOf(
+                    TaskStatus.PENDING,
+                    TaskStatus.IN_PROGRESS,
+                    TaskStatus.WAITING_INPUT,
+                    TaskStatus.FAILED
+                )
+            )
+            if (!claimed) {
+                throw IllegalStateException(
+                    "Task ${p.taskId} could not be completed: it is already COMPLETED or was completed concurrently."
+                )
+            }
+
             val completed = existing.copy(
                 status = TaskStatus.COMPLETED,
                 updatedAt = now,
                 metadata = existing.metadata + mapOf("completedBy" to (p.completedBy ?: "unknown"))
             )
             TaskRepository.update(completed)
-
-            // 7) Publish task update event for SSE broadcasting to connected clients
-            try {
-                runBlocking {
-                    EventBus.global.publish(SystemEvent.TaskUpdated(
-                        taskId = completed.id,
-                        timestamp = now
-                    ))
-                }
-            } catch (e: Exception) {
-                logger.warn("Failed to publish task update event for ${completed.id.value}: ${e.message}")
-                warnings.add("Failed to publish task update event: ${e.message}")
-            }
 
             Result(
                 taskId = completed.id.value,
@@ -359,6 +366,14 @@ class CompleteTaskTool {
                 warnings = warnings
             )
         }
+
+        // Publish the update only AFTER the transaction has committed. Emitting inside the
+        // transaction (as before) meant a subsequent rollback would still have notified SSE
+        // subscribers of a completion that never persisted. publish() is non-blocking and never
+        // throws to the caller, so no nested runBlocking / try-catch is needed.
+        EventBus.global.publish(SystemEvent.TaskUpdated(taskId = taskId, timestamp = Instant.now()))
+
+        result
     }
 
     companion object {

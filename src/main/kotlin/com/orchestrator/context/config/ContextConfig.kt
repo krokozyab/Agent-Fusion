@@ -165,6 +165,8 @@ data class ChunkingConfig(
 
 data class QueryConfig(
     val defaultK: Int = 12,
+    val semanticCandidateLimit: Int = 256,
+    val rrfK: Int = 60,
     val mmrLambda: Double = 0.5,
     val minScoreThreshold: Double = 0.3,
     val rerankEnabled: Boolean = true,
@@ -172,7 +174,6 @@ data class QueryConfig(
     val neighborWindow: Int = 1,
     val embeddingCacheSize: Int = 1000,
     val boosts: BoostConfig = BoostConfig(),
-    val idfEnabled: Boolean = true,
     val secondStageRerankEnabled: Boolean = false,
     val secondStageTopN: Int = 80,
     val secondStageBlendWeight: Double = 0.35,

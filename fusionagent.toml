@@ -35,18 +35,21 @@ transport = "HTTP"  # HTTP or GRPC
 # ------------------------------------------------------------------------------
 # Configure the embedded web dashboard server that provides a UI for the orchestrator.
 # This server hosts the web interface for monitoring agents and tasks.
-# Default: host = "0.0.0.0", port = 8081
-# Override with environment variables: WEB_HOST, WEB_PORT, WEB_CORS_ENABLED, etc.
+# Default: host = "127.0.0.1", port = 8081
+# Override with environment variables: WEB_HOST, WEB_PORT.
+# SECURITY: the dashboard has no authentication and exposes file content plus destructive
+# operations. Keep host on loopback (127.0.0.1). Only set 0.0.0.0 if you intentionally want to
+# expose it to the LAN and have added access controls in front of it.
 # ------------------------------------------------------------------------------
 
 [web]
-host = "0.0.0.0"
-port = 8081
+host = "127.0.0.1"
+port = 8082
 staticPath = "static"
 
 [web.cors]
 enabled = true
-allowedOrigins = ["http://localhost:8081", "http://127.0.0.1:8081"]
+allowedOrigins = ["http://localhost:8082", "http://127.0.0.1:8082"]
 
 # ------------------------------------------------------------------------------
 # [context] - Context system configuration
@@ -154,7 +157,7 @@ use_contextignore = true      # Also respects .contextignore (default: true) .co
 batch_size = 1024
 allowed_extensions = [
     ".kt", ".kts", ".java", ".go", ".py", ".ts", ".tsx", ".js", ".jsx",
-    ".json", ".md", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
+    ".json", ".md", ".markdown", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
 ]
 
 # SKIP_PATTERNS: Exclude specific files AFTER extension filtering
@@ -332,6 +335,12 @@ max_tokens = 600
 # - Higher values (12-15): More comprehensive coverage for broad searches
 # Default: 12 (balanced for most use cases)
 default_k = 12
+
+# Semantic search candidate pool size (higher = better recall, more compute)
+semantic_candidate_limit = 256
+
+# RRF smoothing constant for multi-provider fusion (standard: 60)
+rrf_k = 60
 
 # mmr_lambda: Maximal Marginal Relevance tradeoff (0.0 = max diversity, 1.0 = max relevance)
 # - 0.0: Return diverse results (some low-relevance items for diversity)

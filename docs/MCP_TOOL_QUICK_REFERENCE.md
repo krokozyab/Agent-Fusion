@@ -69,3 +69,41 @@ This guide provides a simplified decision-making framework for choosing the corr
     *   **Action:** Submit your contribution.
     *   **NEVER use `complete_task` on a task you didn't create.** Your job is to provide your piece of the puzzle, not to declare the whole puzzle finished.
 
+---
+
+## 5. Searching the Codebase: Context Tools
+
+**Question: What am I trying to find in the code?**
+
+*   **"I need to find code by meaning / keywords / description."**
+    *   **Tool:** `query_context`
+    *   **Action:** Semantic + symbol + full-text search with RRF fusion, MMR diversification, and optional graph-link expansion. This is the default for open-ended discovery.
+    *   **Use when:** "where is auth handled?", "find the PGP encryption implementation", "show me retry logic", exploring an unfamiliar module, looking for patterns to reuse.
+    *   **Not for:** computing blast radius of a diff — it ranks by relevance, not by actual call-graph reachability, so it may miss affected sites.
+
+*   **"I'm changing these lines. What else might break? Which tests should I run?"**
+    *   **Tool:** `get_impact_radius`
+    *   **Action:** Deterministic reverse traversal of the code graph from the changed chunks. Returns seeds (edited code) + transitive callers/dependents (via `CALLS` / `DEPENDS_ON` / `MODIFIES`) + tests that cover the affected symbols (via `COVERS` edges emitted from test files). No embeddings, no ranking — predictable recall.
+    *   **Use when:** reviewing a diff, planning a refactor, pre-merge safety check, answering "is it safe to change X?" with graph evidence, collecting review context under a token budget.
+    *   **Inputs:** either `paths: [...]` (whole-file impact per path) or `changes: [{path, startLine, endLine}, ...]` (line-range precision). Knobs: `maxDepth` (default 2), `includeTests` (default true), `tokenBudget` (default 8000).
+    *   **Not for:** "find code that does X" — use `query_context` for semantic discovery. The graph only knows edges that already exist.
+
+*   **"How is the context system doing right now?"**
+    *   **Tool:** `get_context_stats`
+    *   **Action:** Provider status, storage stats, language distribution, recent query activity. Use for debugging retrieval or monitoring index growth.
+
+*   **"Files changed on disk — re-index them."**
+    *   **Tool:** `refresh_context` (incremental) or `rebuild_context` (full wipe + reindex).
+
+### `query_context` vs `get_impact_radius` — quick rule
+
+| You have… | You want to know… | Use |
+|---|---|---|
+| A concept or keyword | Where is it implemented? | `query_context` |
+| A diff / edited lines | What might break? What tests cover it? | `get_impact_radius` |
+| A symbol name | Where is it defined? | `query_context` (symbol provider) |
+| A symbol name | Who calls it transitively? | `get_impact_radius` with `paths=[<symbol's file>]` |
+| Nothing specific | General exploration | `query_context` |
+
+Rule of thumb: `query_context` answers **"find me…"**, `get_impact_radius` answers **"what depends on…"**. If you're about to edit code, run `get_impact_radius` first so review context is seeded by the actual call graph instead of keyword similarity.
+

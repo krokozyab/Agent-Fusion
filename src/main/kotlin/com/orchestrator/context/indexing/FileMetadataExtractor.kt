@@ -84,6 +84,17 @@ object FileMetadataExtractor {
         )
     }
 
+    /**
+     * Cheap stat: size and last-modified time only, WITHOUT reading or hashing file contents.
+     * Used by ChangeDetector to skip the expensive hash pass for files whose size and mtime are
+     * unchanged since the last index.
+     */
+    fun statSizeAndMtime(path: Path): Pair<Long, Long> {
+        val sizeBytes = Files.size(path)
+        val modifiedTimeNs = Files.getLastModifiedTime(path).to(TimeUnit.NANOSECONDS)
+        return sizeBytes to modifiedTimeNs
+    }
+
     private fun detectMimeType(path: Path): String? = runCatching {
         Files.probeContentType(path)?.lowercase(Locale.US)
     }.getOrNull()

@@ -71,12 +71,12 @@ class ConsensusWorkflowTest {
         val task = sampleTask("t-consensus-1")
         TaskRepository.insert(task)
 
-        // Producer that submits immediately unique proposals per agent
+        // Agents agree on the same content so VOTING reaches a real majority consensus.
         val producer: suspend (Task, Agent) -> Proposal = { t, a ->
             ProposalManager.submitProposal(
                 taskId = t.id,
                 agentId = a.id,
-                content = mapOf("agent" to a.id.value, "v" to 1),
+                content = mapOf("answer" to "approve"),
                 inputType = InputType.OTHER,
                 confidence = 0.7,
                 tokenUsage = TokenUsage(3, 7),
@@ -116,6 +116,44 @@ class ConsensusWorkflowTest {
         // Proposals recorded
         val proposals = ProposalRepository.findByTask(task.id)
         assertEquals(3, proposals.size)
+    }
+
+    @Test
+    fun disagreeing_proposals_fail_consensus() {
+        // Regression: each agent proposes different content => no majority. VOTING must NOT reach
+        // consensus, and the workflow must surface failure (previously an always-agreeing fallback
+        // strategy made every consensus task succeed).
+        val registry = registryWithAgents(3)
+        val task = sampleTask("t-consensus-disagree")
+        TaskRepository.insert(task)
+
+        val producer: suspend (Task, Agent) -> Proposal = { t, a ->
+            ProposalManager.submitProposal(
+                taskId = t.id,
+                agentId = a.id,
+                content = mapOf("answer" to a.id.value), // unique per agent
+                inputType = InputType.OTHER,
+                confidence = 0.7
+            )
+        }
+
+        val wf = ConsensusWorkflow(
+            agentRegistry = registry,
+            stateStore = InMemoryWorkflowStateStore(),
+            maxAgents = 3,
+            perAgentTimeoutMs = TimeUnit.SECONDS.toMillis(5),
+            waitForAdditionalProposals = Duration.ZERO,
+            proposalProducer = producer
+        )
+
+        val runtime = WorkflowRuntime(task = task, currentStatus = task.status)
+        val step = runBlocking { wf.execute(runtime) }
+
+        assertTrue(step is WorkflowStep.Failure, "disagreeing proposals must not reach consensus")
+        // The Decision is still persisted for audit even when consensus fails.
+        val decision = DecisionRepository.findByTask(task.id)
+        assertNotNull(decision, "a no-consensus decision should still be recorded")
+        assertEquals(3, ProposalRepository.findByTask(task.id).size)
     }
 
     @Test
@@ -176,11 +214,12 @@ class ConsensusWorkflowTest {
         val latch = CountDownLatch(1)
         val producer: suspend (Task, Agent) -> Proposal = { t, a ->
             if (a.id.value.endsWith("1")) {
-                // Immediate
+                // Immediate. Agents agree on content so VOTING reaches consensus; the point of this
+                // test is that the delayed proposal is still collected before the decision.
                 ProposalManager.submitProposal(
                     taskId = t.id,
                     agentId = a.id,
-                    content = "immediate",
+                    content = "agreed",
                     inputType = InputType.OTHER,
                     confidence = 0.8
                 )
@@ -190,7 +229,7 @@ class ConsensusWorkflowTest {
                 ProposalManager.submitProposal(
                     taskId = t.id,
                     agentId = a.id,
-                    content = "delayed",
+                    content = "agreed",
                     inputType = InputType.OTHER,
                     confidence = 0.6
                 )

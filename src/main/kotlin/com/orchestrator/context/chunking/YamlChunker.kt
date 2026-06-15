@@ -20,9 +20,6 @@ class YamlChunker(
             return emptyList()
         }
 
-        val lines = content.lines()
-        val totalLines = lines.size
-
         try {
             val data = yaml.load<Any>(content)
 
@@ -32,10 +29,9 @@ class YamlChunker(
                         val keyStr = key.toString()
                         val valueYaml = toYamlString(value)
                         val fullText = "$keyStr:\n$valueYaml"
-                        val chunkLines = fullText.lines().size
 
                         if (estimateTokens(fullText) <= maxTokens) {
-                            chunks.add(createChunk(fullText, keyStr, ordinal++, 1, chunkLines))
+                            chunks.add(createChunk(fullText, keyStr, ordinal++))
                         } else {
                             // Split large values
                             chunks.addAll(splitLargeValue(keyStr, value, ordinal))
@@ -48,18 +44,17 @@ class YamlChunker(
                     data.forEachIndexed { index, item ->
                         val itemYaml = toYamlString(item)
                         val label = "[$index]"
-                        val chunkLines = itemYaml.lines().size
-                        chunks.add(createChunk(itemYaml, label, ordinal++, 1, chunkLines))
+                        chunks.add(createChunk(itemYaml, label, ordinal++))
                     }
                 }
                 else -> {
                     // Single value
-                    chunks.add(createChunk(content, "root", ordinal++, 1, totalLines))
+                    chunks.add(createChunk(content, "root", ordinal++))
                 }
             }
         } catch (e: Exception) {
             // If parsing fails, return whole content as single chunk
-            chunks.add(createChunk(content, "root", 0, 1, totalLines))
+            chunks.add(createChunk(content, "root", 0))
         }
 
         return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
@@ -74,10 +69,9 @@ class YamlChunker(
                 value.forEach { (subKey, subValue) ->
                     val subKeyPath = "$keyPath.$subKey"
                     val subYaml = "$subKey:\n${toYamlString(subValue)}"
-                    val subLines = subYaml.lines().size
 
                     if (estimateTokens(subYaml) <= maxTokens) {
-                        chunks.add(createChunk(subYaml, subKeyPath, ordinal++, 1, subLines))
+                        chunks.add(createChunk(subYaml, subKeyPath, ordinal++))
                     } else {
                         chunks.addAll(splitLargeValue(subKeyPath, subValue, ordinal))
                         ordinal = chunks.size
@@ -88,10 +82,9 @@ class YamlChunker(
                 value.forEachIndexed { index, item ->
                     val itemPath = "$keyPath[$index]"
                     val itemYaml = toYamlString(item)
-                    val itemLines = itemYaml.lines().size
 
                     if (estimateTokens(itemYaml) <= maxTokens) {
-                        chunks.add(createChunk(itemYaml, itemPath, ordinal++, 1, itemLines))
+                        chunks.add(createChunk(itemYaml, itemPath, ordinal++))
                     } else {
                         chunks.addAll(splitLargeValue(itemPath, item, ordinal))
                         ordinal = chunks.size
@@ -108,17 +101,14 @@ class YamlChunker(
                 while (start < lines.size) {
                     val end = (start + linesPerChunk).coerceAtMost(lines.size)
                     val chunkText = lines.subList(start, end).joinToString("\n")
-                    val startLine = start + 1
-                    val endLine = end
-                    chunks.add(createChunk(chunkText, "$keyPath[$chunkIndex]", ordinal++, startLine, endLine))
+                    chunks.add(createChunk(chunkText, "$keyPath[$chunkIndex]", ordinal++))
                     start = end
                     chunkIndex++
                 }
             }
             else -> {
                 val valueStr = toYamlString(value)
-                val valueLines = valueStr.lines().size
-                chunks.add(createChunk(valueStr, keyPath, ordinal++, 1, valueLines))
+                chunks.add(createChunk(valueStr, keyPath, ordinal++))
             }
         }
 
@@ -146,15 +136,20 @@ class YamlChunker(
         }
     }
     
-    private fun createChunk(text: String, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
+    private fun createChunk(text: String, label: String, ordinal: Int): Chunk {
         val path = ChunkPaths.path(ChunkKind.YAML_BLOCK, label)
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = ChunkKind.YAML_BLOCK,
-            startLine = startLine,
-            endLine = endLine,
+            // Line numbers are deliberately null: chunk text is re-emitted from the parsed YAML
+            // tree (SnakeYAML's load() drops source positions), so any 1..N range would be relative
+            // to the synthesized snippet rather than the file. Fabricated ranges made DiffResolver
+            // match every YAML chunk to a change at line 1; null excludes them from line-range
+            // overlap while keeping whole-file matching.
+            startLine = null,
+            endLine = null,
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,

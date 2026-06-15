@@ -14,6 +14,7 @@ import com.orchestrator.web.services.FilesystemIndexSnapshot
 import com.orchestrator.web.services.IndexOperationsService
 import com.orchestrator.web.services.OperationTriggerResult
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
@@ -212,9 +213,82 @@ class IndexRoutesTest {
             configureRouting(WebServerConfig())
         }
 
-        val response = client.post("/index/rebuild")
+        val response = client.post("/index/rebuild") {
+            header("HX-Request", "true")
+        }
         assertEquals(HttpStatusCode.NoContent, response.status)
         assertEquals(1, stubOperations.rebuildCalls.get())
+    }
+
+    @Test
+    fun `POST rebuild with X-Requested-With header is accepted`() = testApplication {
+        application {
+            install(SSE)
+            IndexOperationsService.install(this, stubOperations)
+            val appConfig = ConfigLoader.ApplicationConfig(
+                orchestrator = OrchestratorConfig(),
+                web = WebServerConfig(),
+                agents = emptyList(),
+                context = contextConfig
+            )
+            attributes.put(ApplicationConfigKey, appConfig)
+
+            configureRouting(WebServerConfig())
+        }
+
+        // The real dashboard button is a fetch() that sets X-Requested-With (not HTMX).
+        val response = client.post("/index/rebuild") {
+            header("X-Requested-With", "fetch")
+        }
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals(1, stubOperations.rebuildCalls.get())
+    }
+
+    @Test
+    fun `POST rebuild without HX-Request header is refused`() = testApplication {
+        application {
+            install(SSE)
+            IndexOperationsService.install(this, stubOperations)
+            val appConfig = ConfigLoader.ApplicationConfig(
+                orchestrator = OrchestratorConfig(),
+                web = WebServerConfig(),
+                agents = emptyList(),
+                context = contextConfig
+            )
+            attributes.put(ApplicationConfigKey, appConfig)
+
+            configureRouting(WebServerConfig())
+        }
+
+        // No HX-Request marker → treated as a forged/non-dashboard POST and rejected.
+        val response = client.post("/index/rebuild")
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(0, stubOperations.rebuildCalls.get())
+    }
+
+    @Test
+    fun `POST rebuild from a cross-origin page is refused`() = testApplication {
+        application {
+            install(SSE)
+            IndexOperationsService.install(this, stubOperations)
+            val appConfig = ConfigLoader.ApplicationConfig(
+                orchestrator = OrchestratorConfig(),
+                web = WebServerConfig(),
+                agents = emptyList(),
+                context = contextConfig
+            )
+            attributes.put(ApplicationConfigKey, appConfig)
+
+            configureRouting(WebServerConfig())
+        }
+
+        val response = client.post("/index/rebuild") {
+            header("HX-Request", "true")
+            header("Origin", "http://evil.example.com")
+            header("Host", "localhost")
+        }
+        assertEquals(HttpStatusCode.Forbidden, response.status)
+        assertEquals(0, stubOperations.rebuildCalls.get())
     }
 }
 

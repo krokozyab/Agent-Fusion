@@ -46,6 +46,70 @@ class ConfigLoaderTest {
     }
 
     @Test
+    fun `environment variables override TOML server and web values`() {
+        val toml = tempDir.resolve("fusionagent.toml")
+        toml.toFile().writeText("""
+            [orchestrator.server]
+            host = "127.0.0.1"
+            port = 3000
+            transport = "HTTP"
+
+            [web]
+            host = "127.0.0.1"
+            port = 8081
+            staticPath = "static"
+
+            [context]
+            enabled = false
+
+            [agents.claude-code]
+            type = "CLAUDE_CODE"
+            name = "Claude"
+        """.trimIndent())
+
+        val env = mapOf(
+            "SERVER_HOST" to "10.1.2.3",
+            "SERVER_PORT" to "4567",
+            "SERVER_TRANSPORT" to "grpc",
+            "WEB_HOST" to "0.0.0.0",
+            "WEB_PORT" to "9090"
+        )
+
+        val config = ConfigLoader.loadAll(tomlPath = toml, env = env)
+
+        assertEquals("10.1.2.3", config.orchestrator.server.host)
+        assertEquals(4567, config.orchestrator.server.port)
+        assertEquals(Transport.GRPC, config.orchestrator.server.transport)
+        assertEquals("0.0.0.0", config.web.host)
+        assertEquals(9090, config.web.port)
+    }
+
+    @Test
+    fun `invalid transport falls back to default instead of failing the whole config`() {
+        val toml = tempDir.resolve("fusionagent.toml")
+        toml.toFile().writeText("""
+            [orchestrator.server]
+            host = "127.0.0.1"
+            port = 3000
+            transport = "NONSENSE"
+
+            [context]
+            enabled = false
+
+            [agents.claude-code]
+            type = "CLAUDE_CODE"
+            name = "Claude"
+        """.trimIndent())
+
+        val config = ConfigLoader.loadAll(tomlPath = toml)
+
+        // The bad transport is tolerated; host/port still come through.
+        assertEquals("127.0.0.1", config.orchestrator.server.host)
+        assertEquals(3000, config.orchestrator.server.port)
+        assertEquals(Transport.HTTP, config.orchestrator.server.transport)
+    }
+
+    @Test
     fun `loadAll should parse all sections from complex TOML with glob keys`() {
         val watchDir = tempDir.resolve("project").also { it.toFile().mkdirs() }
         val toml = tempDir.resolve("fusionagent.toml")

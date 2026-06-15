@@ -6,6 +6,7 @@ import com.orchestrator.domain.TaskId
 import com.orchestrator.domain.TaskStatus
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * State of a workflow execution lifecycle.
@@ -114,8 +115,11 @@ interface WorkflowStateStore {
  * Minimal in-memory state store useful for tests and simple runtimes.
  */
 class InMemoryWorkflowStateStore : WorkflowStateStore {
-    private val states: MutableMap<TaskId, WorkflowState> = mutableMapOf()
-    private val checkpoints: MutableMap<TaskId, MutableList<Checkpoint>> = mutableMapOf()
+    // Concurrent collections: a single store instance is shared across all tasks of a workflow
+    // type, so two tasks of the same type write here concurrently. Plain HashMap/ArrayList would
+    // corrupt under that race.
+    private val states = ConcurrentHashMap<TaskId, WorkflowState>()
+    private val checkpoints = ConcurrentHashMap<TaskId, MutableList<Checkpoint>>()
 
     override fun getState(taskId: TaskId): WorkflowState = states[taskId] ?: WorkflowState.NOT_STARTED
 
@@ -124,7 +128,9 @@ class InMemoryWorkflowStateStore : WorkflowStateStore {
     }
 
     override fun addCheckpoint(checkpoint: Checkpoint) {
-        val list = checkpoints.getOrPut(checkpoint.taskId) { mutableListOf() }
+        // computeIfAbsent is atomic on ConcurrentHashMap; CopyOnWriteArrayList makes concurrent
+        // add()/iteration safe.
+        val list = checkpoints.computeIfAbsent(checkpoint.taskId) { CopyOnWriteArrayList() }
         list.add(checkpoint)
     }
 

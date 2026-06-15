@@ -64,18 +64,28 @@ class ScoreBooster(private val config: BoostConfig) {
 
     private fun matchesGlob(path: String, pattern: String): Boolean {
         val normalizedPath = path.replace('\\', '/').removePrefix("/")
-        var regex = pattern.replace('\\', '/')
+        val normalizedPattern = pattern.replace('\\', '/')
+
+        // A leading "**/" means "zero or more path segments", so it becomes an optional prefix
+        // ("foo" and "a/b/foo" both match "**/foo"). Decide this on the raw pattern BEFORE escaping:
+        // the old code inspected the escaped regex and did substring(3) assuming the prefix was ".*/"
+        // (3 chars). For patterns like "**.log" that chopped the backslash off "\." and left a bare
+        // "." which matched any character (so "**.log" wrongly matched e.g. "catalog").
+        val anchorPrefix: String
+        val core: String
+        if (normalizedPattern.startsWith("**/")) {
+            anchorPrefix = "^(.*/)?"
+            core = normalizedPattern.removePrefix("**/")
+        } else {
+            anchorPrefix = "^"
+            core = normalizedPattern
+        }
+
+        val regex = anchorPrefix + core
             .replace(".", "\\.")
             .replace("**", "###DOUBLESTAR###")
             .replace("*", "[^/]*")
-            .replace("###DOUBLESTAR###", ".*")
-
-        regex = if (regex.startsWith(".*")) {
-            "^(.*/)?" + regex.substring(3)
-        } else {
-            "^$regex"
-        }
-        if (!regex.endsWith("$")) regex = "$regex$"
+            .replace("###DOUBLESTAR###", ".*") + "$"
 
         return try {
             Regex(regex).matches(normalizedPath)

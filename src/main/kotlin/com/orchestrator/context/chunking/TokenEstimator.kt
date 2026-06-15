@@ -1,6 +1,5 @@
 package com.orchestrator.context.chunking
 
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -8,27 +7,22 @@ import kotlin.math.roundToInt
  * Lightweight heuristic estimator for token counts without model invocation.
  *
  * Uses a blended average of characters per token and tokens per word, calibrated against
- * common GPT-style BPE tokenisers. Results are cached by input length and word count.
+ * common GPT-style BPE tokenisers. The computation is a handful of arithmetic ops, so it is not
+ * cached — an unbounded (length, wordCount) cache would leak memory in a long-lived process for
+ * no real benefit.
  */
 object TokenEstimator {
-
-    private data class Key(val length: Int, val wordCount: Int)
-
-    private val cache = ConcurrentHashMap<Key, Int>()
 
     fun estimate(text: String): Int {
         if (text.isEmpty()) return 0
         val length = text.length
         val words = countWords(text)
-        val key = Key(length, words)
 
-        return cache.computeIfAbsent(key) {
-            val charEstimate = length / CHARS_PER_TOKEN
-            val wordEstimate = words * TOKENS_PER_WORD
-            val blended = (charEstimate * CHAR_WEIGHT) + (wordEstimate * WORD_WEIGHT)
-            val adjusted = max(charEstimate, blended)
-            adjusted.roundToInt().coerceIn(1, MAX_TOKENS_CAP)
-        }
+        val charEstimate = length / CHARS_PER_TOKEN
+        val wordEstimate = words * TOKENS_PER_WORD
+        val blended = (charEstimate * CHAR_WEIGHT) + (wordEstimate * WORD_WEIGHT)
+        val adjusted = max(charEstimate, blended)
+        return adjusted.roundToInt().coerceIn(1, MAX_TOKENS_CAP)
     }
 
     private fun countWords(text: String): Int {

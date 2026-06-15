@@ -145,7 +145,11 @@ class BatchIndexer(
                                 processedFiles = processed,
                                 succeeded = successCounter.get(),
                                 failed = failureCounter.get(),
-                                lastPath = result?.relativePath ?: failure?.relativePath ?: path.toString(),
+                                // Always the absolute file path: BootstrapProgressTracker keys
+                                // progress rows by path.toAbsolutePath().normalize(). On failure the
+                                // old fallback was failure.relativePath (just the file name), so
+                                // markFailed never matched a row and the file stayed PENDING forever.
+                                lastPath = path.toString(),
                                 lastError = errorMessage
                             )
                         )

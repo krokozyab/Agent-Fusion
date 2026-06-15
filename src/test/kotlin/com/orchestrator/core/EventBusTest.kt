@@ -39,6 +39,59 @@ class EventBusTest {
     }
 
     @Test
+    fun `supertype subscription receives concrete subtype events`() = runBlocking {
+        // Regression: subscribing to the SystemEvent supertype must receive a concrete
+        // TaskCreated. Previously publish keyed on the concrete class only, so supertype
+        // subscriptions silently received nothing.
+        eventBus = EventBus()
+        val taskId = TaskId("task-poly")
+
+        val job = launch {
+            val event = eventBus.subscribe<SystemEvent>().first()
+            assertTrue(event is SystemEvent.TaskCreated)
+            assertEquals(taskId, (event as SystemEvent.TaskCreated).taskId)
+        }
+
+        delay(50)
+        eventBus.publish(SystemEvent.TaskCreated(taskId))
+
+        withTimeout(1000) { job.join() }
+    }
+
+    @Test
+    fun `concurrent subscribe and publish does not throw`() = runBlocking {
+        // Regression: publish iterated a non-thread-safe ArrayList while subscribers were being
+        // added/removed, throwing ConcurrentModificationException that crashed the publisher
+        // (a workflow checkpoint). With CopyOnWriteArrayList this must run cleanly.
+        eventBus = EventBus()
+        val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+
+        val publishers = List(4) {
+            launch(Dispatchers.Default) {
+                repeat(500) {
+                    try {
+                        eventBus.publish(SystemEvent.TaskUpdated(TaskId("t")))
+                    } catch (t: Throwable) {
+                        errors += t
+                    }
+                }
+            }
+        }
+        val subscribers = List(4) {
+            launch(Dispatchers.Default) {
+                repeat(50) {
+                    val job = eventBus.on<SystemEvent.TaskUpdated> { }
+                    delay(1)
+                    job.cancel()
+                }
+            }
+        }
+
+        withTimeout(10_000) { (publishers + subscribers).forEach { it.join() } }
+        assertTrue(errors.isEmpty(), "publish must not throw under concurrent subscribe/unsubscribe: ${errors.firstOrNull()}")
+    }
+
+    @Test
     fun `multiple subscribers receive same event`() = runBlocking {
         eventBus = EventBus()
         val taskId = TaskId("task-1")

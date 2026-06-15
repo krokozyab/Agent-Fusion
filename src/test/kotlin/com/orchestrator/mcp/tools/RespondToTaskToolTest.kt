@@ -24,6 +24,9 @@ class RespondToTaskToolTest {
         mockkObject(ProposalRepository)
         mockkObject(ProposalManager)
         mockkObject(ContextModule)
+        // Status transitions now go through the CAS updateStatus; default it to success so unit
+        // tests (mocked repo) don't hit the real database. Individual tests override as needed.
+        every { TaskRepository.updateStatus(any(), any(), any()) } returns true
     }
 
     @AfterEach
@@ -344,7 +347,7 @@ class RespondToTaskToolTest {
         assertEquals("IN_PROGRESS", result.taskStatus)
 
         verify { ProposalManager.submitProposal(taskId, agentId, "Architectural plan", InputType.ARCHITECTURAL_PLAN, 0.85, any(), emptyMap()) }
-        // Verify task status was updated to IN_PROGRESS
-        verify { TaskRepository.update(match { it.status == TaskStatus.IN_PROGRESS }) }
+        // Verify task status was atomically transitioned to IN_PROGRESS via CAS
+        verify { TaskRepository.updateStatus(taskId, TaskStatus.IN_PROGRESS, any()) }
     }
 }

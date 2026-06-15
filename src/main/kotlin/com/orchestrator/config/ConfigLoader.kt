@@ -192,15 +192,23 @@ object ConfigLoader {
         }
 
         val sectionBody = sectionLines.joinToString("\n")
-        val host = extractTomlValue("host", sectionBody)?.expandEnv(env)
-        val portStr = extractTomlValue("port", sectionBody)
+        // Precedence: env var > TOML value > built-in default. Previously env vars were never
+        // consulted here, so SERVER_HOST/SERVER_PORT/SERVER_TRANSPORT silently did nothing whenever
+        // the [orchestrator.server] section was present (i.e. always).
+        val host = (env["SERVER_HOST"] ?: extractTomlValue("host", sectionBody))?.expandEnv(env)
+        val portStr = env["SERVER_PORT"] ?: extractTomlValue("port", sectionBody)
         val port = portStr?.toIntOrNull()
-        val transport = extractTomlValue("transport", sectionBody)
+        val transport = env["SERVER_TRANSPORT"] ?: extractTomlValue("transport", sectionBody)
 
         val configHost = host ?: ServerConfig().host
         val configPort = port ?: ServerConfig().port
+        // An unrecognised transport must not nuke the whole orchestrator config (returning null,
+        // which surfaced as a misleading "No orchestrator configuration found"). Warn and default.
         val configTransport = transport?.let {
-            Transport.valueOf(it.trim().uppercase())
+            runCatching { Transport.valueOf(it.trim().uppercase()) }.getOrElse {
+                System.err.println("Warning: invalid transport '$transport', falling back to ${ServerConfig().transport}")
+                ServerConfig().transport
+            }
         } ?: ServerConfig().transport
 
         return ServerConfig(host = configHost, port = configPort, transport = configTransport).validate()
@@ -267,8 +275,10 @@ object ConfigLoader {
             // Parse [web] section manually to avoid ktoml failures on unrelated
             // sections that contain special characters in keys (e.g. glob patterns).
             val webSection = extractSection(content, "web") ?: return null
-            val host = extractTomlValue("host", webSection)?.expandEnv(env) ?: defaults.host
-            val port = extractTomlValue("port", webSection)?.toIntOrNull() ?: defaults.port
+            // Precedence: env var > TOML value > default. WEB_HOST/WEB_PORT were documented as
+            // overrides but never read on this (the active) code path.
+            val host = (env["WEB_HOST"] ?: extractTomlValue("host", webSection))?.expandEnv(env) ?: defaults.host
+            val port = (env["WEB_PORT"] ?: extractTomlValue("port", webSection))?.toIntOrNull() ?: defaults.port
             val staticPath = extractTomlValue("staticPath", webSection)?.expandEnv(env) ?: defaults.staticPath
             val autoLaunchBrowser = extractTomlValue("autoLaunchBrowser", webSection)?.toBooleanStrictOrNull() ?: defaults.autoLaunchBrowser
 

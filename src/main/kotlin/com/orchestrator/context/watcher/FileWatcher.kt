@@ -68,10 +68,14 @@ class FileWatcher(
     private val recursive = true
     private val sensitivityModifiers: Array<WatchEvent.Modifier> = loadSensitivityModifiers()
 
+    // SUSPEND (not DROP_OLDEST): back-pressure the debouncer collector when the indexing consumer
+    // is slow rather than silently dropping events. There is exactly one collector
+    // (UnifiedFileWatcher), so a full buffer suspends only the debouncer->_events bridge coroutine,
+    // never the WatchService poll loop. Dropping here lost edits during bursts until restart.
     private val _events = MutableSharedFlow<FileWatchEvent>(
         replay = 0,
         extraBufferCapacity = 256,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+        onBufferOverflow = BufferOverflow.SUSPEND
     )
     val events: SharedFlow<FileWatchEvent> = _events.asSharedFlow()
 
@@ -160,6 +164,11 @@ class FileWatcher(
 
         if (kind == FileWatchEvent.Kind.CREATED && recursive && isDirectory) {
             registerRecursively(absolute, root)
+            // A directory moved/copied into a watched tree arrives as a single ENTRY_CREATE for the
+            // directory; the OS does not replay per-file events for its existing contents. Emit
+            // synthetic CREATED events so the already-present files get indexed (downstream
+            // validation + content-hash dedup make this safe and idempotent).
+            emitExistingFilesIn(absolute, root)
         }
 
         if (kind == FileWatchEvent.Kind.DELETED && isDirectory) {
@@ -214,6 +223,33 @@ class FileWatcher(
         }
     }
 
+    private fun emitExistingFilesIn(directory: Path, root: Path) {
+        if (!directory.isExistingDirectory()) return
+        runCatching {
+            Files.walkFileTree(directory, object : java.nio.file.SimpleFileVisitor<Path>() {
+                override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                    if (attrs.isRegularFile) {
+                        emitEvent(
+                            FileWatchEvent(
+                                kind = FileWatchEvent.Kind.CREATED,
+                                path = file.toAbsolutePath().normalize(),
+                                root = root,
+                                isDirectory = false,
+                                timestamp = Instant.now()
+                            )
+                        )
+                    }
+                    return FileVisitResult.CONTINUE
+                }
+
+                override fun visitFileFailed(file: Path, exc: IOException?): FileVisitResult =
+                    FileVisitResult.CONTINUE
+            })
+        }.onFailure { ex ->
+            log.debug("Failed to emit existing files for {}: {}", directory, ex.message)
+        }
+    }
+
     private fun registerDirectory(dir: Path, root: Path) {
         val normalized = dir.toAbsolutePath().normalize()
         val alreadyRegistered = !registeredDirectories.add(normalized)
@@ -247,22 +283,32 @@ class FileWatcher(
     }
 
     private fun shouldIgnore(root: Path, candidate: Path): Boolean {
-        val filter = filters[root] ?: return false
+        // `root` here is the registered directory, which may be a nested subdirectory — but ignore
+        // filters are keyed by the top-level watch roots. Resolve the most specific top watch root
+        // that owns this candidate and use its filter. Without this, ignore patterns never applied
+        // to events in subdirectories (e.g. a build/ or node_modules/ created at runtime).
+        val owningRoot = watchRoots
+            .filter { candidate.startsWith(it) }
+            .maxByOrNull { it.nameCount }
+            ?: root
+        val filter = filters[owningRoot] ?: return false
         return filter.shouldIgnore(candidate)
     }
 
     override fun close() {
-        if (!running.getAndSet(false)) {
-            runCatching { watchService.close() }
-            return
-        }
+        val wasRunning = running.getAndSet(false)
         runCatching { watchService.close() }
+        // The debouncer + its bridge coroutine are created in the constructor, so they exist even
+        // when the watcher was never start()ed. Always tear them down — the previous early-return
+        // for the "not running" case leaked debouncerJob and the debouncer's channel.
         watcherJob?.cancel()
         watcherJob = null
         debouncerJob.cancel()
         debouncer.close()
-        registeredDirectories.clear()
-        keyRoots.clear()
+        if (wasRunning) {
+            registeredDirectories.clear()
+            keyRoots.clear()
+        }
     }
 
     private fun Path.isExistingDirectory(): Boolean =

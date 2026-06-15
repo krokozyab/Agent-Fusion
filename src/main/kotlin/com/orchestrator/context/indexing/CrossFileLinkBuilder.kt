@@ -13,6 +13,9 @@ import java.util.Locale
  * Generated link types:
  * - CALLS: source chunk invokes a symbol defined in another file
  * - DEPENDS_ON: source chunk imports or references a symbol from another file
+ * - COVERS: source chunk lives in a test file and references the target symbol
+ *           (mirrors CALLS edges originating from test files; enables impact-radius
+ *           queries to surface "which tests cover this code")
  */
 class CrossFileLinkBuilder(
     private val maxLinksPerChunk: Int = 10,
@@ -22,108 +25,203 @@ class CrossFileLinkBuilder(
 
     fun rebuildForFile(fileId: Long) {
         if (fileId <= 0) return
-
         runCatching {
-            ContextDatabase.transaction { conn ->
-                val sourceChunks = loadSourceChunks(conn, fileId)
-                deleteExistingLinks(conn, fileId)
-                if (sourceChunks.isEmpty()) return@transaction
+            ContextDatabase.transaction { conn -> rebuildBatch(conn, listOf(fileId)) }
+        }.onFailure { e ->
+            log.warn("Failed to rebuild cross-file links for file_id={}: {}", fileId, e.message)
+        }
+    }
 
-                val imports = loadImportSymbols(conn, fileId)
-                val callTokensByChunk = sourceChunks.associate { chunk ->
-                    chunk.chunkId to extractCallTokens(chunk.content)
-                }
-                val callTokens = callTokensByChunk.values.flatten().toSet()
-                val importNames = imports
-                    .flatMap { listOfNotNull(it.name, it.qualifiedName?.substringAfterLast('.')) }
-                    .map { it.lowercase(Locale.US) }
-                    .toSet()
-                val importQualified = imports
-                    .mapNotNull { it.qualifiedName?.lowercase(Locale.US) }
-                    .toSet()
+    /**
+     * Rebuild links for many files using batched transactions instead of one transaction per file.
+     *
+     * A bulk operation (startup reconciliation, full refresh) over N files otherwise pays N commits
+     * on the single-writer DuckDB connection — serial fsync overhead that grows with the corpus.
+     * Batching cuts that to N/[TX_BATCH_SIZE]. Each file is still wrapped in runCatching so one bad
+     * file neither aborts its batch nor skips the rest.
+     */
+    fun rebuildForFiles(fileIds: Collection<Long>) {
+        val valid = fileIds.filter { it > 0 }.distinct()
+        if (valid.isEmpty()) return
+        valid.chunked(TX_BATCH_SIZE).forEach { batch ->
+            runCatching {
+                ContextDatabase.transaction { conn -> rebuildBatch(conn, batch) }
+            }.onFailure { e ->
+                log.warn("Cross-file link batch of {} files failed: {}", batch.size, e.message)
+            }
+        }
+    }
 
-                val lookupNames = (callTokens + importNames).filter { it.isNotBlank() }.toSet()
-                if (lookupNames.isEmpty() && importQualified.isEmpty()) return@transaction
+    /**
+     * Rebuild links for a batch of files with a single scan of `symbols` shared by every file.
+     *
+     * The earlier per-file path queried `symbols` once per file (`LOWER(name) IN (...)`), which
+     * DuckDB executes as a full sequential scan (its ART index is not used for IN-lists), so a batch
+     * of N files over a corpus of S symbols cost O(N*S) and indexing slowed as S grew. This instead:
+     *  - Phase A: per file, load source chunks/imports, delete stale links, and collect the names it
+     *    needs to resolve — no `symbols` scan yet.
+     *  - Phase B: one batched scan of `symbols` for the union of all names, served from in-memory maps.
+     *  - Phase C: per file, build and insert links from the shared maps.
+     *
+     * Per-file work stays wrapped in runCatching so one bad file neither aborts the batch nor skips
+     * the rest, matching the previous resilience guarantee.
+     */
+    private fun rebuildBatch(conn: Connection, fileIds: List<Long>) {
+        // Phase A — prepare each file (and clear its stale links) without touching `symbols`.
+        val plans = fileIds.mapNotNull { fileId ->
+            runCatching { prepareFile(conn, fileId) }
+                .onFailure { log.warn("Failed to rebuild cross-file links for file_id={}: {}", fileId, it.message) }
+                .getOrNull()
+        }
+        if (plans.isEmpty()) return
 
-                val targetSymbols = loadTargetSymbols(
-                    conn = conn,
+        // Phase B — one scan of `symbols` for the whole batch, deduped into name/qualified maps.
+        // Self-file symbols are intentionally included here and filtered per file at selection time
+        // (the old per-file query did this via `s.file_id <> ?`).
+        val allNames = plans.flatMapTo(HashSet()) { it.lookupNames }
+        val allQualified = plans.flatMapTo(HashSet()) { it.importQualified }
+        val targets = LinkedHashSet<TargetSymbol>()
+        loadTargetSymbolsBatch(conn, allNames, allQualified) { targets += it }
+        val byName = targets.groupBy { it.name.lowercase(Locale.US) }
+        val byQualified = targets
+            .filter { !it.qualifiedName.isNullOrBlank() }
+            .groupBy { it.qualifiedName!!.lowercase(Locale.US) }
+
+        // Phase C — build links per file from the shared maps.
+        plans.forEach { plan ->
+            runCatching { buildAndInsertLinks(conn, plan, byName, byQualified) }
+                .onFailure { log.warn("Failed to rebuild cross-file links for file_id={}: {}", plan.fileId, it.message) }
+        }
+    }
+
+    /**
+     * Phase A: load everything a file needs to build links, and delete its stale links.
+     *
+     * Returns null when the file has no code chunks or resolves no lookup names — but only after
+     * deleting existing links, so a file that used to have links but no longer should ends up clean
+     * (this matches the previous behaviour, where the delete ran before any early return).
+     */
+    private fun prepareFile(conn: Connection, fileId: Long): FilePlan? {
+        if (fileId <= 0) return null
+        val sourceChunks = loadSourceChunks(conn, fileId)
+        deleteExistingLinks(conn, fileId)
+        if (sourceChunks.isEmpty()) return null
+
+        val sourceRelPath = loadFileRelPath(conn, fileId)
+        val isTestFile = sourceRelPath != null && looksLikeTestFile(sourceRelPath)
+
+        val imports = loadImportSymbols(conn, fileId)
+        val callTokensByChunk = sourceChunks.associate { chunk ->
+            chunk.chunkId to extractCallTokens(chunk.content)
+        }
+        val callTokens = callTokensByChunk.values.flatten().toSet()
+        val importNames = imports
+            .flatMap { listOfNotNull(it.name, it.qualifiedName?.substringAfterLast('.')) }
+            .map { it.lowercase(Locale.US) }
+            .toSet()
+        val importQualified = imports
+            .mapNotNull { it.qualifiedName?.lowercase(Locale.US) }
+            .toSet()
+
+        val lookupNames = (callTokens + importNames).filter { it.isNotBlank() }.toSet()
+        if (lookupNames.isEmpty() && importQualified.isEmpty()) return null
+
+        return FilePlan(
+            fileId = fileId,
+            sourceChunks = sourceChunks,
+            isTestFile = isTestFile,
+            imports = imports,
+            callTokensByChunk = callTokensByChunk,
+            lookupNames = lookupNames,
+            importQualified = importQualified
+        )
+    }
+
+    /** Phase C: build and insert links for one file from the batch-wide symbol maps. */
+    private fun buildAndInsertLinks(
+        conn: Connection,
+        plan: FilePlan,
+        byName: Map<String, List<TargetSymbol>>,
+        byQualified: Map<String, List<TargetSymbol>>
+    ) {
+        val fileId = plan.fileId
+        val sourceChunks = plan.sourceChunks
+        val links = LinkedHashSet<LinkRow>()
+        val anchorChunkId = sourceChunks.minByOrNull { it.ordinal }?.chunkId
+
+        // Import -> dependency edges
+        var dependsOnCount = 0
+        for (importSymbol in plan.imports) {
+            if (dependsOnCount >= maxDependsOnPerFile) break
+            val sourceChunkId = importSymbol.startLine?.let { line -> findChunkForLine(sourceChunks, line) }
+                ?: anchorChunkId
+                ?: continue
+            val target = selectImportTarget(importSymbol, fileId, byName, byQualified) ?: continue
+            if (target.chunkId == sourceChunkId) continue
+
+            val link = LinkRow(
+                sourceChunkId = sourceChunkId,
+                targetFileId = target.fileId,
+                targetChunkId = target.chunkId,
+                type = LINK_TYPE_DEPENDS_ON,
+                label = importSymbol.qualifiedName ?: importSymbol.name,
+                score = 0.92
+            )
+            if (links.add(link)) {
+                dependsOnCount++
+            }
+        }
+
+        val importedFileIds = links
+            .filter { it.type == LINK_TYPE_DEPENDS_ON }
+            .map { it.targetFileId }
+            .toSet()
+
+        // Chunk call -> call edges
+        for (chunk in sourceChunks) {
+            var linked = 0
+            val tokens = plan.callTokensByChunk[chunk.chunkId].orEmpty()
+            for (token in tokens) {
+                if (linked >= maxLinksPerChunk) break
+                val candidates = byName[token].orEmpty()
+                val target = selectCallTarget(
+                    candidates = candidates,
+                    sourceChunkId = chunk.chunkId,
                     sourceFileId = fileId,
-                    names = lookupNames,
-                    qualified = importQualified
+                    importedFileIds = importedFileIds
+                ) ?: continue
+
+                val link = LinkRow(
+                    sourceChunkId = chunk.chunkId,
+                    targetFileId = target.fileId,
+                    targetChunkId = target.chunkId,
+                    type = LINK_TYPE_CALLS,
+                    label = token,
+                    score = 0.86
                 )
-                if (targetSymbols.isEmpty()) return@transaction
-
-                val targetsByName = targetSymbols.groupBy { it.name.lowercase(Locale.US) }
-                val targetsByQualified = targetSymbols
-                    .filter { !it.qualifiedName.isNullOrBlank() }
-                    .groupBy { it.qualifiedName!!.lowercase(Locale.US) }
-
-                val links = LinkedHashSet<LinkRow>()
-                val anchorChunkId = sourceChunks.minByOrNull { it.ordinal }?.chunkId
-
-                // Import -> dependency edges
-                var dependsOnCount = 0
-                for (importSymbol in imports) {
-                    if (dependsOnCount >= maxDependsOnPerFile) break
-                    val sourceChunkId = importSymbol.startLine?.let { line -> findChunkForLine(sourceChunks, line) }
-                        ?: anchorChunkId
-                        ?: continue
-                    val target = selectImportTarget(importSymbol, targetsByName, targetsByQualified) ?: continue
-                    if (target.chunkId == sourceChunkId) continue
-
-                    val link = LinkRow(
-                        sourceChunkId = sourceChunkId,
-                        targetFileId = target.fileId,
-                        targetChunkId = target.chunkId,
-                        type = LINK_TYPE_DEPENDS_ON,
-                        label = importSymbol.qualifiedName ?: importSymbol.name,
-                        score = 0.92
-                    )
-                    if (links.add(link)) {
-                        dependsOnCount++
-                    }
+                if (links.add(link)) {
+                    linked++
                 }
-
-                val importedFileIds = links
-                    .filter { it.type == LINK_TYPE_DEPENDS_ON }
-                    .map { it.targetFileId }
-                    .toSet()
-
-                // Chunk call -> call edges
-                for (chunk in sourceChunks) {
-                    var linked = 0
-                    val tokens = callTokensByChunk[chunk.chunkId].orEmpty()
-                    for (token in tokens) {
-                        if (linked >= maxLinksPerChunk) break
-                        val candidates = targetsByName[token].orEmpty()
-                        val target = selectCallTarget(
-                            candidates = candidates,
-                            sourceChunkId = chunk.chunkId,
-                            sourceFileId = fileId,
-                            importedFileIds = importedFileIds
-                        ) ?: continue
-
-                        val link = LinkRow(
+                // Mirror CALLS into COVERS when the source file is a test.
+                // Lets impact-radius queries surface the tests that exercise a symbol.
+                if (plan.isTestFile) {
+                    links.add(
+                        LinkRow(
                             sourceChunkId = chunk.chunkId,
                             targetFileId = target.fileId,
                             targetChunkId = target.chunkId,
-                            type = LINK_TYPE_CALLS,
+                            type = LINK_TYPE_COVERS,
                             label = token,
-                            score = 0.86
+                            score = 0.95
                         )
-                        if (links.add(link)) {
-                            linked++
-                        }
-                    }
-                }
-
-                if (links.isNotEmpty()) {
-                    insertLinks(conn, links.toList())
-                    log.debug("Built {} cross-file links for file_id={}", links.size, fileId)
+                    )
                 }
             }
-        }.onFailure { e ->
-            log.warn("Failed to rebuild cross-file links for file_id={}: {}", fileId, e.message)
+        }
+
+        if (links.isNotEmpty()) {
+            insertLinks(conn, links.toList())
+            log.debug("Built {} cross-file links for file_id={}", links.size, fileId)
         }
     }
 
@@ -179,54 +277,64 @@ class CrossFileLinkBuilder(
         }
     }
 
-    private fun loadTargetSymbols(
+    /**
+     * Load every candidate target symbol matching any of the given names/qualified names, feeding
+     * each row to [sink]. Used once per TX batch instead of once per file.
+     *
+     * DuckDB ignores the `symbols` ART index for `IN`-lists (verified via EXPLAIN: it picks a
+     * sequential scan regardless), so a batched scan over the union of names is far cheaper than one
+     * scan per file. To keep a large batch from building an unbounded prepared statement, the name
+     * and qualified-name sets are split into groups of at most [MAX_IN_PARAMS] bind parameters; each
+     * group is one scan, so even a big batch is a handful of scans rather than one per file. No
+     * `file_id <> ?` filter here — self-file exclusion happens per file at selection time.
+     */
+    private fun loadTargetSymbolsBatch(
         conn: Connection,
-        sourceFileId: Long,
         names: Set<String>,
-        qualified: Set<String>
-    ): List<TargetSymbol> {
-        if (names.isEmpty() && qualified.isEmpty()) return emptyList()
-
-        val conditions = mutableListOf<String>()
-        val params = mutableListOf<String>()
-
-        if (names.isNotEmpty()) {
-            conditions += "LOWER(s.name) IN (${names.joinToString(",") { "?" }})"
-            params += names.sorted()
+        qualified: Set<String>,
+        sink: (TargetSymbol) -> Unit
+    ) {
+        names.toList().chunked(MAX_IN_PARAMS).forEach { group ->
+            scanTargets(conn, "LOWER(s.name)", group, sink)
         }
-        if (qualified.isNotEmpty()) {
-            conditions += "LOWER(s.qualified_name) IN (${qualified.joinToString(",") { "?" }})"
-            params += qualified.sorted()
+        qualified.toList().chunked(MAX_IN_PARAMS).forEach { group ->
+            scanTargets(conn, "LOWER(s.qualified_name)", group, sink)
         }
+    }
 
+    private fun scanTargets(
+        conn: Connection,
+        column: String,
+        values: List<String>,
+        sink: (TargetSymbol) -> Unit
+    ) {
+        if (values.isEmpty()) return
+        val placeholders = values.joinToString(",") { "?" }
         val sql = """
             SELECT s.file_id, s.chunk_id, s.name, s.qualified_name, s.symbol_type
             FROM symbols s
-            WHERE s.file_id <> ?
-              AND s.chunk_id IS NOT NULL
+            WHERE s.chunk_id IS NOT NULL
               AND s.symbol_type IN ('FUNCTION', 'METHOD', 'CLASS', 'INTERFACE', 'ENUM', 'CONSTRUCTOR')
-              AND (${conditions.joinToString(" OR ")})
+              AND $column IN ($placeholders)
         """.trimIndent()
 
-        return conn.prepareStatement(sql).use { ps ->
-            var idx = 1
-            ps.setLong(idx++, sourceFileId)
-            params.forEach { ps.setString(idx++, it) }
+        conn.prepareStatement(sql).use { ps ->
+            values.forEachIndexed { i, value -> ps.setString(i + 1, value) }
             ps.executeQuery().use { rs ->
-                val out = mutableListOf<TargetSymbol>()
                 while (rs.next()) {
                     val chunkId = rs.getLong("chunk_id").takeIf { !rs.wasNull() } ?: continue
                     val name = rs.getString("name")?.trim().orEmpty()
                     if (name.isBlank()) continue
-                    out += TargetSymbol(
-                        fileId = rs.getLong("file_id"),
-                        chunkId = chunkId,
-                        name = name,
-                        qualifiedName = rs.getString("qualified_name")?.trim()?.takeIf { it.isNotBlank() },
-                        symbolType = rs.getString("symbol_type")?.trim().orEmpty()
+                    sink(
+                        TargetSymbol(
+                            fileId = rs.getLong("file_id"),
+                            chunkId = chunkId,
+                            name = name,
+                            qualifiedName = rs.getString("qualified_name")?.trim()?.takeIf { it.isNotBlank() },
+                            symbolType = rs.getString("symbol_type")?.trim().orEmpty()
+                        )
                     )
                 }
-                out
             }
         }
     }
@@ -235,15 +343,22 @@ class CrossFileLinkBuilder(
         val sql = """
             DELETE FROM links
             WHERE source_chunk_id IN (SELECT chunk_id FROM chunks WHERE file_id = ?)
-              AND link_type IN (?, ?)
+              AND link_type IN (?, ?, ?)
         """.trimIndent()
         conn.prepareStatement(sql).use { ps ->
             ps.setLong(1, fileId)
             ps.setString(2, LINK_TYPE_CALLS)
             ps.setString(3, LINK_TYPE_DEPENDS_ON)
+            ps.setString(4, LINK_TYPE_COVERS)
             ps.executeUpdate()
         }
     }
+
+    private fun loadFileRelPath(conn: Connection, fileId: Long): String? =
+        conn.prepareStatement("SELECT rel_path FROM file_state WHERE file_id = ?").use { ps ->
+            ps.setLong(1, fileId)
+            ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+        }
 
     private fun insertLinks(conn: Connection, links: List<LinkRow>) {
         if (links.isEmpty()) return
@@ -273,12 +388,14 @@ class CrossFileLinkBuilder(
 
     private fun selectImportTarget(
         symbol: ImportSymbol,
+        sourceFileId: Long,
         byName: Map<String, List<TargetSymbol>>,
         byQualified: Map<String, List<TargetSymbol>>
     ): TargetSymbol? {
+        // The batch maps include self-file symbols; exclude them here, as the old per-file query did.
         val qualified = symbol.qualifiedName?.lowercase(Locale.US)
         if (!qualified.isNullOrBlank()) {
-            val exact = byQualified[qualified]
+            val exact = byQualified[qualified]?.filter { it.fileId != sourceFileId }
             if (!exact.isNullOrEmpty()) return exact.sortedWith(targetComparator()).first()
         }
 
@@ -288,6 +405,7 @@ class CrossFileLinkBuilder(
 
         val merged = nameCandidates
             .flatMap { key -> byName[key].orEmpty() }
+            .filter { it.fileId != sourceFileId }
             .distinctBy { "${it.fileId}:${it.chunkId}:${it.symbolType}" }
         if (merged.isEmpty()) return null
         return merged.sortedWith(targetComparator()).first()
@@ -368,6 +486,17 @@ class CrossFileLinkBuilder(
             }
         }
 
+    /** Per-file state gathered in phase A, consumed in phase C — see [rebuildBatch]. */
+    private data class FilePlan(
+        val fileId: Long,
+        val sourceChunks: List<SourceChunk>,
+        val isTestFile: Boolean,
+        val imports: List<ImportSymbol>,
+        val callTokensByChunk: Map<Long, List<String>>,
+        val lookupNames: Set<String>,
+        val importQualified: Set<String>
+    )
+
     private data class SourceChunk(
         val chunkId: Long,
         val fileId: Long,
@@ -401,8 +530,30 @@ class CrossFileLinkBuilder(
     )
 
     companion object {
+        // Files per batched transaction in rebuildForFiles — bounds both commit overhead and the
+        // blast radius if a single transaction fails.
+        private const val TX_BATCH_SIZE = 200
+        // Max bind parameters per `symbols` scan in loadTargetSymbolsBatch — bounds the size of the
+        // prepared statement when a batch's name union is large, at the cost of a few extra scans.
+        private const val MAX_IN_PARAMS = 900
         private const val LINK_TYPE_CALLS = "CALLS"
         private const val LINK_TYPE_DEPENDS_ON = "DEPENDS_ON"
+        private const val LINK_TYPE_COVERS = "COVERS"
+
+        private val testDirSegments = listOf(
+            "/test/", "/tests/", "/__tests__/", "/spec/", "/specs/"
+        )
+        private val testFileNameRegex = Regex(
+            """(?i)(^test_.*|.*_test|.*tests?|.*\.test|.*\.spec)\.(kt|kts|java|py|go|rs|ts|tsx|js|jsx|mjs|cjs|rb|cs|swift|scala|php)$"""
+        )
+
+        /** True if the given relative path looks like a test source (by directory or filename). */
+        fun looksLikeTestFile(relPath: String): Boolean {
+            val normalized = "/" + relPath.replace('\\', '/').trimStart('/')
+            if (testDirSegments.any { normalized.contains(it, ignoreCase = true) }) return true
+            val name = normalized.substringAfterLast('/')
+            return testFileNameRegex.matches(name)
+        }
 
         private val callRegex = Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\s*\(""")
         private val declarationPrefixes = setOf("fun", "def", "function", "class", "interface", "enum", "object")

@@ -76,6 +76,51 @@ class ScoreBoosterTest {
     }
 
     @Test
+    fun `glob double-star-slash matches at any depth and bare double-star-dot matches by suffix`() {
+        val booster = ScoreBooster(
+            emptyBoosts.copy(
+                filePatternPenalties = mapOf(
+                    "**/build/**" to 0.5,
+                    "**.log" to 0.5
+                )
+            )
+        )
+
+        // **/build/** matches a nested path...
+        assertEquals(
+            0.5,
+            booster.applyBoosts(listOf(createSnippet(filePath = "/p/a/b/build/x.kt", score = 1.0)))[0].score,
+            0.001
+        )
+        // ...and **.log matches by suffix.
+        assertEquals(
+            0.5,
+            booster.applyBoosts(listOf(createSnippet(filePath = "/p/src/app.log", score = 1.0)))[0].score,
+            0.001
+        )
+    }
+
+    @Test
+    fun `glob bare double-star-dot does not over-match non-log segments`() {
+        // Regression: the old matcher turned "**.log" into "^(.*/)?.log$" (an unescaped dot), so a
+        // 4-char "Xlog" segment like "blog" was wrongly matched. The dot must stay literal.
+        val booster = ScoreBooster(
+            emptyBoosts.copy(filePatternPenalties = mapOf("**.log" to 0.5))
+        )
+
+        assertEquals(
+            1.0,
+            booster.applyBoosts(listOf(createSnippet(filePath = "/p/src/blog", score = 1.0)))[0].score,
+            0.001
+        )
+        assertEquals(
+            1.0,
+            booster.applyBoosts(listOf(createSnippet(filePath = "/p/src/catalog.kt", score = 1.0)))[0].score,
+            0.001
+        )
+    }
+
+    @Test
     fun `clamps boosted score to maximum 1_0`() {
         val booster = ScoreBooster(
             emptyBoosts.copy(pathPrefixes = mapOf("src/main" to 2.0))

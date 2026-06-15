@@ -98,6 +98,28 @@ class HybridContextProviderTest {
     }
 
     @Test
+    fun `normalized scores survive a typical downstream minScore threshold`() = runBlocking {
+        // Regression guard: raw RRF scores (~1/k ≈ 0.016) were always wiped out by the
+        // default minScore threshold (0.3), so hybrid returned nothing. After normalization
+        // the top hit must map to 1.0 and clear the threshold.
+        val provider1 = mockk<ContextProvider>()
+        every { provider1.type } returns ContextProviderType.SEMANTIC
+        coEvery { provider1.getContext(any(), any(), any()) } returns listOf(
+            createSnippet(1, 0.9, "top result"),
+            createSnippet(2, 0.8, "second result"),
+            createSnippet(3, 0.7, "third result")
+        )
+
+        val hybrid = HybridContextProvider(providers = listOf(provider1))
+        val result = hybrid.getContext("test", ContextScope(), TokenBudget(maxTokens = 10000))
+
+        assertEquals(3, result.size)
+        // Top hit normalized to 1.0; comfortably above a 0.3 threshold.
+        assertEquals(1.0, result[0].score, 0.001)
+        assertTrue(result.count { it.score >= 0.3 } >= 1, "At least the top hit must clear a 0.3 threshold")
+    }
+
+    @Test
     fun `handles provider failures with SKIP strategy`() = runBlocking {
         val provider1 = mockk<ContextProvider>()
         val provider2 = mockk<ContextProvider>()
@@ -507,11 +529,11 @@ class HybridContextProviderTest {
         // Check combined multiplier: 0.5 * 0.6 * 0.7 = 0.21
         assertEquals("0.210", snippet.metadata["combined_multiplier"])
 
-        // RRF score ~0.0164, after penalty * 0.21 → very small
-        val expectedRrf = 1.0 / 61.0
-        assertTrue(snippet.score < expectedRrf, "Penalized score should be less than raw RRF score")
-        // original_score now reflects the pre-penalty RRF score, not the provider score
-        assertEquals("%.4f".format(java.util.Locale.US, expectedRrf), snippet.metadata["original_score"])
+        // After RRF normalization the sole hit's base score is 1.0; penalties multiply it.
+        // combined_multiplier 0.21 → final score 0.21.
+        assertEquals(0.21, snippet.score, 0.001)
+        // original_score reflects the pre-penalty (normalized) RRF score
+        assertEquals("1.0000", snippet.metadata["original_score"])
     }
 
     @Test
@@ -536,12 +558,13 @@ class HybridContextProviderTest {
 
         assertEquals(1, result.size)
 
-        // original_score now reflects the pre-penalty RRF score
-        val expectedRrf = 1.0 / 61.0
-        assertEquals("%.4f".format(java.util.Locale.US, expectedRrf), result[0].metadata["original_score"])
+        // original_score reflects the pre-penalty (normalized) RRF score: the sole hit is 1.0
+        assertEquals("1.0000", result[0].metadata["original_score"])
 
-        // Adjusted score should be less than RRF score (penalty applied)
-        assertTrue(result[0].score < expectedRrf)
+        // Adjusted score = normalized base (1.0) * combined penalty multiplier, and is demoted by the pdf penalty.
+        val combined = result[0].metadata["combined_multiplier"]!!.toDouble()
+        assertEquals(combined, result[0].score, 0.001)
+        assertTrue(result[0].score < 1.0, "pdf penalty must demote the score below the normalized maximum")
     }
 
     @Test
@@ -574,9 +597,8 @@ class HybridContextProviderTest {
         assertEquals("1.000", result[0].metadata["kind_boost"])
         assertEquals("1.000", result[0].metadata["combined_multiplier"])
 
-        // Score is RRF-based: 1/(60+1) ≈ 0.0164; with no penalties it stays the same
-        val expectedRrf = 1.0 / 61.0
-        assertEquals(expectedRrf, result[0].score, 0.001)
+        // Score is the normalized RRF score; the sole/top hit maps to 1.0 with no penalties
+        assertEquals(1.0, result[0].score, 0.001)
     }
 
     @Test

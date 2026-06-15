@@ -33,10 +33,15 @@ class EventDebouncer(
 
     private data class PendingEvent(var event: FileWatchEvent, var job: Job)
 
+    // SUSPEND (not DROP_OLDEST): a slow downstream consumer must back-pressure the producer, not
+    // silently lose file events. The single collector means emit suspends only the launched
+    // debounce coroutines, bounded by the number of distinct in-flight paths — never the WatchService
+    // poll loop (submit() is fire-and-forget). Dropping here meant edits during a large burst
+    // (git checkout, npm install) vanished from the index until a restart.
     private val _events = MutableSharedFlow<FileWatchEvent>(
         replay = 0,
-        extraBufferCapacity = 64,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+        extraBufferCapacity = 256,
+        onBufferOverflow = BufferOverflow.SUSPEND
     )
     val events: SharedFlow<FileWatchEvent> = _events.asSharedFlow()
 

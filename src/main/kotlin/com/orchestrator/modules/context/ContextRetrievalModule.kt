@@ -134,21 +134,34 @@ class ContextRetrievalModule(
             if (fallback != null) {
                 val resolvedFallbackId = providerKey(fallback)
                 val fallbackStart = Instant.now()
-                val snippets = fallback.getContext(query, scope, budget)
-                val optimised = optimise(fallback, query, snippets, budget)
-                val annotated = optimised.map { annotateSnippet(it, resolvedFallbackId) }
-                aggregated += annotated
-                val duration = Duration.between(fallbackStart, Instant.now())
-                providerMetrics[resolvedFallbackId] = ProviderStats(
-                    providerId = resolvedFallbackId,
-                    providerType = fallback.type,
-                    snippetCount = annotated.size,
-                    durationMs = duration.toMillis().toDouble(),
-                    isFallback = true
-                )
-                if (annotated.isNotEmpty()) {
-                    fallbackUsed = true
-                    fallbackProvider = resolvedFallbackId
+                // Guard the fallback exactly like the main providers: it exists to recover from an
+                // empty result, so its own failure must not crash the whole context retrieval.
+                try {
+                    val snippets = fallback.getContext(query, scope, budget)
+                    val optimised = optimise(fallback, query, snippets, budget)
+                    val annotated = optimised.map { annotateSnippet(it, resolvedFallbackId) }
+                    aggregated += annotated
+                    val duration = Duration.between(fallbackStart, Instant.now())
+                    providerMetrics[resolvedFallbackId] = ProviderStats(
+                        providerId = resolvedFallbackId,
+                        providerType = fallback.type,
+                        snippetCount = annotated.size,
+                        durationMs = duration.toMillis().toDouble(),
+                        isFallback = true
+                    )
+                    if (annotated.isNotEmpty()) {
+                        fallbackUsed = true
+                        fallbackProvider = resolvedFallbackId
+                    }
+                } catch (ce: kotlinx.coroutines.CancellationException) {
+                    throw ce
+                } catch (t: Throwable) {
+                    logger.warn("Fallback provider {} failed: {}", resolvedFallbackId, t.message ?: t::class.simpleName ?: "error")
+                    providerMetrics[resolvedFallbackId] = ProviderStatsFailure(
+                        providerId = resolvedFallbackId,
+                        providerType = fallback.type,
+                        error = t.message ?: t::class.simpleName ?: "error"
+                    )
                 }
             }
         }

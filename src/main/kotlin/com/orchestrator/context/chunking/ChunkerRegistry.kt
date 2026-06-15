@@ -27,6 +27,7 @@ class ConfigurableChunkerRegistry(
 
     private fun buildRegistry(): Map<String, Chunker> = mapOf(
         "md" to MarkdownChunker(maxTokens = config.markdown.maxTokens, overlapPercent = overlapPercent),
+        "markdown" to MarkdownChunker(maxTokens = config.markdown.maxTokens, overlapPercent = overlapPercent),
         "py" to PythonChunker(maxTokens = config.python.maxTokens, overlapPercent = overlapPercent),
         "go" to CachingSimpleChunkerAdapter {
             GoChunker(maxTokens = config.go.maxTokens, overlapPercent = overlapPercent)
@@ -78,15 +79,22 @@ class ConfigurableChunkerRegistry(
 private class CachingSimpleChunkerAdapter(
     private val factory: () -> SimpleChunker
 ) : Chunker {
-    private val delegate: SimpleChunker by lazy { factory() }
+    // Per-thread delegate. The underlying parsers (e.g. JavaParser, SnakeYAML Yaml) are NOT
+    // thread-safe, and BatchIndexer invokes chunk() concurrently from many worker threads.
+    // A single shared instance would race and silently produce corrupted or empty parses.
+    // ThreadLocal gives each worker its own instance while still amortizing construction
+    // across the files that worker processes.
+    private val threadLocal = ThreadLocal.withInitial(factory)
 
-    override val strategy = ChunkingStrategy(
-        id = delegate::class.simpleName ?: "unknown",
-        displayName = delegate::class.simpleName ?: "Unknown"
-    )
+    private fun delegate(): SimpleChunker = threadLocal.get()
+
+    override val strategy: ChunkingStrategy by lazy {
+        val name = delegate()::class.simpleName ?: "unknown"
+        ChunkingStrategy(id = name, displayName = name)
+    }
 
     override fun chunk(content: String, filePath: String, language: String) =
-        delegate.chunk(content, filePath)
+        delegate().chunk(content, filePath)
 
     override fun estimateTokens(text: String) = text.length / 4
 }

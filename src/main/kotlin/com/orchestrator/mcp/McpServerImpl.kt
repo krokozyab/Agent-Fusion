@@ -57,10 +57,14 @@ import io.modelcontextprotocol.kotlin.sdk.shared.AbstractTransport
 import io.modelcontextprotocol.kotlin.sdk.shared.McpJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.job
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.ThreadContextElement
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -89,6 +93,30 @@ import java.util.concurrent.atomic.AtomicLong
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger(McpServerImpl::class.java)
+
+/**
+ * Propagates the current MCP session id across coroutine thread switches by mirroring it into a
+ * ThreadLocal on every thread the coroutine runs on. The tool handler runs after suspend hops
+ * through the SDK, so a plain ThreadLocal set before the call would be lost on resumption.
+ */
+private class SessionIdContext(
+    private val holder: ThreadLocal<String?>,
+    private val sessionId: String?
+) : ThreadContextElement<String?> {
+    companion object Key : CoroutineContext.Key<SessionIdContext>
+
+    override val key: CoroutineContext.Key<*> get() = Key
+
+    override fun updateThreadContext(context: CoroutineContext): String? {
+        val previous = holder.get()
+        holder.set(sessionId)
+        return previous
+    }
+
+    override fun restoreThreadContext(context: CoroutineContext, oldState: String?) {
+        holder.set(oldState)
+    }
+}
 
 /**
  * Minimal MCP server implementation using Ktor (HTTP transport).
@@ -128,6 +156,7 @@ class McpServerImpl(
     private val queryContextTool by lazy { QueryContextTool(contextConfig) }
     private val metricsCollector by lazy { com.orchestrator.modules.context.ContextMetricsCollector() }
     private val getContextStatsTool by lazy { GetContextStatsTool(contextConfig, metricsCollector) }
+    private val getImpactRadiusTool by lazy { GetImpactRadiusTool() }
     private val refreshContextTool by lazy { RefreshContextTool(contextConfig) }
     private val rebuildContextTool by lazy { RebuildContextTool(contextConfig) }
     private val getRebuildStatusTool by lazy { GetRebuildStatusTool(contextConfig) }
@@ -391,7 +420,10 @@ class McpServerImpl(
             respond(HttpStatusCode.NotFound, errorBody("session_not_found", "Unknown session '$sessionId'"))
             return
         }
-        transport.handlePostMessage(this)
+        // Make the session id resolvable during message handling on the legacy SSE transport too.
+        withContext(SessionIdContext(currentSessionId, sessionId)) {
+            transport.handlePostMessage(this@handleSsePost)
+        }
     }
 
     private suspend fun ApplicationCall.handleStreamableGet(sessionId: String) {
@@ -418,21 +450,20 @@ class McpServerImpl(
             return
         }
 
-        // Set current session for agent resolution
-        currentSessionId.set(sessionId)
-        try {
-            when (val result = session.handleMessage(message)) {
-                is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(sessionId, result.response)
-                StreamableHttpServerTransport.PostResult.Accepted -> {
-                    response.header(STREAMABLE_SESSION_HEADER, sessionId)
-                    respond(HttpStatusCode.Accepted)
-                }
-                is StreamableHttpServerTransport.PostResult.Error -> {
-                    respond(result.status, errorBody(result.code, result.message))
-                }
+        // Propagate session id through the coroutine context so the tool handler — which runs
+        // after suspend hops through the SDK — can resolve the agent even if it resumes on another thread.
+        val result = withContext(SessionIdContext(currentSessionId, sessionId)) {
+            session.handleMessage(message)
+        }
+        when (result) {
+            is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(sessionId, result.response)
+            StreamableHttpServerTransport.PostResult.Accepted -> {
+                response.header(STREAMABLE_SESSION_HEADER, sessionId)
+                respond(HttpStatusCode.Accepted)
             }
-        } finally {
-            currentSessionId.remove()
+            is StreamableHttpServerTransport.PostResult.Error -> {
+                respond(result.status, errorBody(result.code, result.message))
+            }
         }
     }
 
@@ -459,25 +490,22 @@ class McpServerImpl(
             log.debug("Session ${session.sessionId} associated with agent ${agentId.value}")
         }
 
-        // Set current session for agent resolution during handshake
-        currentSessionId.set(session.sessionId)
-        try {
-            val result = session.handleMessage(message)
-            when (result) {
-                is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
-                StreamableHttpServerTransport.PostResult.Accepted -> {
-                    response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
-                    respond(HttpStatusCode.Accepted)
-                }
-                is StreamableHttpServerTransport.PostResult.Error -> {
-                    // Tear down the session on failure so clients can retry cleanly
-                    streamableSessions.remove(session.sessionId)
-                    sessionToAgent.remove(session.sessionId)
-                    respond(result.status, errorBody(result.code, result.message))
-                }
+        // Propagate session id through the coroutine context (see handleStreamablePost).
+        val result = withContext(SessionIdContext(currentSessionId, session.sessionId)) {
+            session.handleMessage(message)
+        }
+        when (result) {
+            is StreamableHttpServerTransport.PostResult.Json -> respondJsonRpc(session.sessionId, result.response)
+            StreamableHttpServerTransport.PostResult.Accepted -> {
+                response.header(STREAMABLE_SESSION_HEADER, session.sessionId)
+                respond(HttpStatusCode.Accepted)
             }
-        } finally {
-            currentSessionId.remove()
+            is StreamableHttpServerTransport.PostResult.Error -> {
+                // Tear down the session on failure so clients can retry cleanly
+                streamableSessions.remove(session.sessionId)
+                sessionToAgent.remove(session.sessionId)
+                respond(result.status, errorBody(result.code, result.message))
+            }
         }
     }
 
@@ -598,6 +626,12 @@ class McpServerImpl(
         private val requestTimeoutMs: Long
     ) : AbstractTransport() {
 
+        companion object {
+            // Cap the per-session event buffer so a session that never attaches an SSE stream
+            // cannot grow without bound.
+            private const val MAX_PENDING_EVENTS = 1000
+        }
+
         sealed interface PostResult {
             data class Json(val response: JSONRPCResponse) : PostResult
             object Accepted : PostResult
@@ -625,15 +659,20 @@ class McpServerImpl(
                 val deferred = pendingResponses.remove(message.id)
                 if (deferred != null) {
                     deferred.complete(message)
-                    return
+                } else {
+                    // No waiter: the request already timed out (or the id is unknown). Drop the
+                    // late response — buffering it in pendingEvents would leak memory forever, as
+                    // a response has no SSE consumer.
+                    log.warn("Dropping late/orphan JSON-RPC response for id={} (request no longer pending)", message.id)
                 }
+                return
             }
 
             var shouldDispatch = false
             sendMutex.withLock {
                 val currentSession = sseSession
                 if (currentSession == null) {
-                    pendingEvents.add(message)
+                    bufferPendingEvent(message)
                 } else {
                     shouldDispatch = true
                 }
@@ -642,6 +681,16 @@ class McpServerImpl(
             if (shouldDispatch) {
                 dispatchToSse(message)
             }
+        }
+
+        // Must be called while holding sendMutex. Bounds the buffer so a session that never
+        // attaches an SSE stream cannot accumulate events without limit.
+        private fun bufferPendingEvent(message: JSONRPCMessage) {
+            if (pendingEvents.size >= MAX_PENDING_EVENTS) {
+                pendingEvents.removeAt(0)
+                log.warn("pendingEvents buffer full ({}); dropping oldest event", MAX_PENDING_EVENTS)
+            }
+            pendingEvents.add(message)
         }
 
         override suspend fun close() {
@@ -725,7 +774,7 @@ class McpServerImpl(
         private suspend fun dispatchToSse(message: JSONRPCMessage) {
             val session = sendMutex.withLock { sseSession }
             if (session == null) {
-                sendMutex.withLock { pendingEvents.add(message) }
+                sendMutex.withLock { bufferPendingEvent(message) }
                 return
             }
 
@@ -737,7 +786,7 @@ class McpServerImpl(
                 sendMutex.withLock {
                     if (sseSession === session) {
                         sseSession = null
-                        pendingEvents.add(message)
+                        bufferPendingEvent(message)
                     }
                 }
                 throw t
@@ -777,7 +826,15 @@ class McpServerImpl(
                 inputSchema = inputSchema
             ) { request ->
                 runCatching {
-                    val result = executeTool(entry.name, request.arguments ?: JsonNull)
+                    // Tools are synchronous and several use runBlocking internally (indexing,
+                    // embeddings, DB I/O). Run them on the IO dispatcher so a long tool call does
+                    // not block the request dispatcher thread and starve concurrent tool calls.
+                    val result = withContext(Dispatchers.IO) {
+                        // Default to an empty object, not JsonNull: tools with no required params
+                        // (get_pending_tasks, get_context_stats) are legitimately called without
+                        // arguments, and the param mappers expect a JSON object.
+                        executeTool(entry.name, request.arguments ?: JsonObject(emptyMap()))
+                    }
                     val payload = toolResultToJson(result)
                     val structured = when (payload) {
                         is JsonObject -> payload
@@ -975,6 +1032,7 @@ class McpServerImpl(
             }
             "query_context" -> queryContextTool.execute(mapQueryContextParams(params))
             "get_context_stats" -> getContextStatsTool.execute(mapGetContextStatsParams(params))
+            "get_impact_radius" -> getImpactRadiusTool.execute(mapGetImpactRadiusParams(params))
             "refresh_context" -> refreshContextTool.execute(mapRefreshContextParams(params))
             "rebuild_context" -> rebuildContextTool.execute(mapRebuildContextParams(params))
             "get_rebuild_status" -> getRebuildStatusTool.execute(mapGetRebuildStatusParams(params))
@@ -994,6 +1052,7 @@ class McpServerImpl(
         is RespondToTaskTool.Result -> respondToTaskResultToJson(result)
         is QueryContextTool.Result -> queryContextResultToJson(result)
         is GetContextStatsTool.Result -> getContextStatsResultToJson(result)
+        is GetImpactRadiusTool.Result -> getImpactRadiusResultToJson(result)
         is RefreshContextTool.Result -> refreshContextResultToJson(result)
         is RebuildContextTool.Result -> rebuildContextResultToJson(result)
         is GetRebuildStatusTool.Result -> getRebuildStatusResultToJson(result)
@@ -1380,6 +1439,35 @@ class McpServerImpl(
             }
         })
         put("metadata", anyToJsonElement(result.metadata))
+    }
+
+    private fun getImpactRadiusResultToJson(result: GetImpactRadiusTool.Result): JsonObject = buildJsonObject {
+        put("seedCount", JsonPrimitive(result.seedCount))
+        put("impactCount", JsonPrimitive(result.impactCount))
+        put("testCount", JsonPrimitive(result.testCount))
+        put("droppedDueToBudget", JsonPrimitive(result.droppedDueToBudget))
+        put("tokensUsed", JsonPrimitive(result.tokensUsed))
+        put("chunks", buildJsonArray {
+            result.chunks.forEach { c ->
+                add(buildJsonObject {
+                    put("chunkId", JsonPrimitive(c.chunkId))
+                    put("filePath", JsonPrimitive(c.filePath))
+                    if (c.relativePath == null) put("relativePath", JsonNull) else put("relativePath", JsonPrimitive(c.relativePath))
+                    if (c.language == null) put("language", JsonNull) else put("language", JsonPrimitive(c.language))
+                    if (c.startLine == null) put("startLine", JsonNull) else put("startLine", JsonPrimitive(c.startLine))
+                    if (c.endLine == null) put("endLine", JsonNull) else put("endLine", JsonPrimitive(c.endLine))
+                    if (c.label == null) put("label", JsonNull) else put("label", JsonPrimitive(c.label))
+                    put("kind", JsonPrimitive(c.kind))
+                    put("text", JsonPrimitive(c.text))
+                    put("tokenEstimate", JsonPrimitive(c.tokenEstimate))
+                    put("role", JsonPrimitive(c.role))
+                    if (c.depth == null) put("depth", JsonNull) else put("depth", JsonPrimitive(c.depth))
+                    if (c.linkType == null) put("linkType", JsonNull) else put("linkType", JsonPrimitive(c.linkType))
+                    if (c.propagatedScore == null) put("propagatedScore", JsonNull) else put("propagatedScore", JsonPrimitive(c.propagatedScore))
+                    put("droppedFromBudget", JsonPrimitive(c.droppedFromBudget))
+                })
+            }
+        })
     }
 
     private fun getContextStatsResultToJson(result: GetContextStatsTool.Result): JsonObject = buildJsonObject {
@@ -2674,6 +2762,48 @@ class McpServerImpl(
             jsonSchema = GetContextStatsTool.JSON_SCHEMA
         ),
         ToolEntry(
+            name = "get_impact_radius",
+            description = """
+                Graph-based impact analysis for code changes. Given a set of changed files (or specific
+                line ranges), walks the code graph BACKWARDS to find everything that might be affected:
+                transitive callers/dependents plus the tests that cover the changed symbols.
+
+                Unlike query_context, this tool performs NO semantic search — results are a
+                deterministic graph traversal with predictable recall. Use it for review, pre-merge
+                safety checks, and refactor planning where you must not miss affected sites.
+
+                ## Use When
+                - Reviewing a diff or pull request and need to see the blast radius
+                - Before a refactor: "what calls this?" across many hops
+                - Planning a safe fix: "what tests will exercise these lines?"
+                - Pre-merge: collecting callers + tests under a token budget
+                - Answering "is it safe to change X?" with graph evidence instead of guesses
+
+                ## Parameters
+                - paths (optional): list of file paths; whole-file impact for each
+                - changes (optional): list of {path, startLine, endLine}; line-range precision
+                - maxDepth (optional, default 2): max hops for caller/dependency traversal
+                - includeTests (optional, default true): also return chunks linked via COVERS
+                - tokenBudget (optional, default 8000): cap on total returned token estimate
+                - maxImpactResults (optional, default 200): cap on impact chunks traversed
+                - maxTestResults (optional, default 100): cap on test chunks traversed
+
+                ## Returns
+                - seedCount / impactCount / testCount: sizes of each bucket
+                - droppedDueToBudget: chunks trimmed to fit tokenBudget (returned without body)
+                - tokensUsed: actual token total of included bodies
+                - chunks: list of { chunkId, filePath, kind, startLine, endLine, text, role, depth,
+                  linkType, propagatedScore, droppedFromBudget } where role ∈ {seed, impact, test}
+
+                ## Notes
+                - Requires the code graph to be populated (indexed via CrossFileLinkBuilder).
+                - COVERS edges only exist when test files have been indexed.
+                - Seeds are always included in full (bypass the token budget); only impact/test
+                  chunks get trimmed when the budget is exhausted.
+            """.trimIndent(),
+            jsonSchema = GetImpactRadiusTool.JSON_SCHEMA
+        ),
+        ToolEntry(
             name = "refresh_context",
             description = """
                 Manually trigger re-indexing of files to update the context database. Supports both
@@ -3030,6 +3160,7 @@ class McpServerImpl(
         return CompleteTaskTool.Params(
             taskId = o.reqStr("taskId"),
             resultSummary = o.str("resultSummary"),
+            completedBy = o.str("completedBy"),
             decision = decision,
             tokenMetrics = tokenMetrics,
             artifacts = artifacts,
@@ -3220,6 +3351,7 @@ class McpServerImpl(
         val kinds = o.listStrFlexible("kinds")
         val excludePatterns = o.listStrFlexible("excludePatterns")
         val providers = o.listStrFlexible("providers")
+        val format = o.str("format")
 
         return QueryContextTool.Params(
             query = query,
@@ -3232,7 +3364,8 @@ class McpServerImpl(
             languages = languages,
             kinds = kinds,
             excludePatterns = excludePatterns,
-            providers = providers
+            providers = providers,
+            format = format
         )
     }
 
@@ -3240,6 +3373,29 @@ class McpServerImpl(
         val o = el.asObj()
         return GetContextStatsTool.Params(
             recentLimit = o.int("recentLimit") ?: 10
+        )
+    }
+
+    private fun mapGetImpactRadiusParams(el: JsonElement): GetImpactRadiusTool.Params {
+        val o = el.asObj()
+        val changesArray = o.array("changes").orEmpty()
+        val changes = changesArray.mapNotNull { elem ->
+            val co = elem as? JsonObject ?: return@mapNotNull null
+            val path = co.str("path") ?: return@mapNotNull null
+            GetImpactRadiusTool.ChangeInput(
+                path = path,
+                startLine = co.int("startLine"),
+                endLine = co.int("endLine")
+            )
+        }
+        return GetImpactRadiusTool.Params(
+            paths = o.listStr("paths").orEmpty(),
+            changes = changes,
+            maxDepth = o.int("maxDepth") ?: 2,
+            includeTests = o.bool("includeTests") ?: true,
+            tokenBudget = o.int("tokenBudget") ?: 8_000,
+            maxImpactResults = o.int("maxImpactResults") ?: 200,
+            maxTestResults = o.int("maxTestResults") ?: 100
         )
     }
 

@@ -37,11 +37,22 @@ class VotingStrategy(
             )
         }
 
+        // One vote per agent: collapse multiple proposals from the same agent (re-submissions,
+        // or accumulated proposals from earlier consensus retries) to the agent's latest proposal.
+        // Otherwise a single agent could swing or inflate the vote, and retries would double-count.
+        val oneVotePerAgent: List<Proposal> = proposals
+            .groupBy { it.agentId }
+            .map { (_, agentProposals) ->
+                agentProposals.maxWith(
+                    compareBy<Proposal> { it.createdAt }.thenBy { it.id.value }
+                )
+            }
+
         // Group proposals by their content (JSON-compatible), counting votes per unique content value
-        val votesByContent: Map<Any?, List<Proposal>> = proposals.groupBy { it.content }
+        val votesByContent: Map<Any?, List<Proposal>> = oneVotePerAgent.groupBy { it.content }
         val counts: Map<Any?, Int> = votesByContent.mapValues { it.value.size }
 
-        val total = proposals.size
+        val total = oneVotePerAgent.size
         val maxCount = counts.maxOf { it.value }
         val leaders: List<Any?> = counts.filter { it.value == maxCount }.keys.toList()
 

@@ -14,71 +14,85 @@ class SqlChunker(
     private val beginRegex = Regex("""\bBEGIN\b""", RegexOption.IGNORE_CASE)
     private val endRegex = Regex("""\bEND\b""", RegexOption.IGNORE_CASE)
     
+    /** A SQL statement together with its 1-based inclusive line span in the source file. */
+    private data class SqlStatement(val text: String, val startLine: Int, val endLine: Int)
+
     override fun chunk(content: String, filePath: String): List<Chunk> {
         if (content.isBlank()) return emptyList()
-        
+
         val chunks = mutableListOf<Chunk>()
         val statements = splitStatements(content)
-        
+
         statements.forEachIndexed { index, statement ->
-            val trimmed = statement.trim()
+            val trimmed = statement.text.trim()
             if (trimmed.isNotEmpty()) {
                 val label = extractLabel(trimmed)
-                chunks.add(createChunk(statement, label, index, null, null))
+                chunks.add(createChunk(statement.text, label, index, statement.startLine, statement.endLine))
             }
         }
-        
+
         return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
     }
-    
-    private fun splitStatements(content: String): List<String> {
-        val statements = mutableListOf<String>()
+
+    private fun splitStatements(content: String): List<SqlStatement> {
+        val statements = mutableListOf<SqlStatement>()
         val currentStatement = StringBuilder()
         val lines = content.lines()
         var inBlockComment = false
         val pendingComments = StringBuilder()
         var insideRoutine = false
         var routineDepth = 0
-        
-        for (line in lines) {
+        // Track the source line span of the statement being assembled. `stmtStartLine` is the first
+        // line that contributes to it (leading comment or code); `pendingStartLine` anchors comments
+        // that may precede the code. Both are 1-based; -1 means "not set yet".
+        var stmtStartLine = -1
+        var pendingStartLine = -1
+
+        lines.forEachIndexed { index, line ->
+            val lineNumber = index + 1
             val trimmed = line.trim()
             val upperTrimmed = trimmed.uppercase(Locale.US)
-            
+
             // Handle block comments
             if (trimmed.startsWith("/*")) {
                 inBlockComment = true
+                if (pendingStartLine == -1) pendingStartLine = lineNumber
                 pendingComments.append(line).append("\n")
                 if (trimmed.contains("*/")) {
                     inBlockComment = false
                 }
-                continue
+                return@forEachIndexed
             }
-            
+
             if (inBlockComment) {
                 pendingComments.append(line).append("\n")
                 if (trimmed.contains("*/")) {
                     inBlockComment = false
                 }
-                continue
+                return@forEachIndexed
             }
-            
+
             // Handle line comments
             if (trimmed.startsWith("--")) {
+                if (pendingStartLine == -1) pendingStartLine = lineNumber
                 pendingComments.append(line).append("\n")
-                continue
+                return@forEachIndexed
             }
-            
+
             // Skip empty lines between statements
             if (trimmed.isEmpty() && currentStatement.isEmpty()) {
-                continue
+                return@forEachIndexed
             }
-            
+
             // Add pending comments to current statement
             if (pendingComments.isNotEmpty() && trimmed.isNotEmpty()) {
+                if (stmtStartLine == -1) stmtStartLine = if (pendingStartLine != -1) pendingStartLine else lineNumber
                 currentStatement.append(pendingComments)
                 pendingComments.setLength(0)
+                pendingStartLine = -1
             }
-            
+            if (stmtStartLine == -1) stmtStartLine = lineNumber
+
             currentStatement.append(line).append("\n")
 
             if (!insideRoutine && routineStartRegex.containsMatchIn(upperTrimmed)) {
@@ -103,9 +117,11 @@ class SqlChunker(
             }
 
             if (shouldTerminate) {
-                statements.add(currentStatement.toString().trim())
+                statements.add(SqlStatement(currentStatement.toString().trim(), stmtStartLine, lineNumber))
                 currentStatement.setLength(0)
                 pendingComments.setLength(0)
+                stmtStartLine = -1
+                pendingStartLine = -1
                 if (insideRoutine) {
                     insideRoutine = false
                     routineDepth = 0
@@ -115,7 +131,8 @@ class SqlChunker(
 
         // Add remaining statement if any
         if (currentStatement.isNotEmpty()) {
-            statements.add(currentStatement.toString().trim())
+            val start = if (stmtStartLine != -1) stmtStartLine else 1
+            statements.add(SqlStatement(currentStatement.toString().trim(), start, lines.size))
         }
 
         return statements
@@ -158,17 +175,17 @@ class SqlChunker(
     }
     
     private fun createChunk(text: String, label: String, ordinal: Int, startLine: Int?, endLine: Int?): Chunk {
-        // Ensure line numbers are positive (>= 1) to satisfy NOT NULL constraint
-        val validStartLine = startLine?.coerceAtLeast(1) ?: 1
-        val validEndLine = endLine?.coerceAtLeast(1) ?: 1
+        // start_line/end_line are nullable in the schema. SQL statements are contiguous slices of
+        // the source, so splitStatements now supplies real 1-based line spans (previously these
+        // were coerced to 1, making every statement claim line 1 and corrupting DiffResolver).
         val path = ChunkPaths.path(ChunkKind.SQL_STATEMENT, label)
         return Chunk(
             id = 0,
             fileId = 0,
             ordinal = ordinal,
             kind = ChunkKind.SQL_STATEMENT,
-            startLine = validStartLine,
-            endLine = validEndLine,
+            startLine = startLine,
+            endLine = endLine,
             tokenEstimate = estimateTokens(text),
             content = text,
             summary = label,
