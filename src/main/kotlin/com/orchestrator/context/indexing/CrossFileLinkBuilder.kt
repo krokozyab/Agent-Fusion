@@ -109,15 +109,20 @@ class CrossFileLinkBuilder(
 
         val sourceRelPath = loadFileRelPath(conn, fileId)
         val isTestFile = sourceRelPath != null && looksLikeTestFile(sourceRelPath)
+        val language = loadFileLanguage(conn, fileId)
 
         val imports = loadImportSymbols(conn, fileId)
         val callTokensByChunk = sourceChunks.associate { chunk ->
+            // Strip comments and string literals first: a `name(` mentioned in a comment (e.g. an
+            // Oracle header `-- called from process_load_confirmation_main(...)`) or string must NOT
+            // create a phantom CALLS edge — that turned callees into "callers" in get_impact_radius.
+            val code = stripNonCode(chunk.content, language)
             // PL/SQL (SQL_STATEMENT chunks) calls parameterless procedures as bare `name;` with no
             // parens, which the `name(` regex misses — add those so intra-package callers are found.
             val tokens = if (chunk.kind == "SQL_STATEMENT") {
-                extractCallTokens(chunk.content) + extractParenlessCallTokens(chunk.content)
+                extractCallTokens(code) + extractParenlessCallTokens(code)
             } else {
-                extractCallTokens(chunk.content)
+                extractCallTokens(code)
             }
             chunk.chunkId to tokens.distinct()
         }
@@ -367,6 +372,78 @@ class CrossFileLinkBuilder(
             ps.setLong(1, fileId)
             ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
         }
+
+    private fun loadFileLanguage(conn: Connection, fileId: Long): String? =
+        conn.prepareStatement("SELECT language FROM file_state WHERE file_id = ?").use { ps ->
+            ps.setLong(1, fileId)
+            ps.executeQuery().use { rs -> if (rs.next()) rs.getString(1) else null }
+        }
+
+    /**
+     * Remove comments and string literals so identifiers inside them don't become phantom call
+     * tokens. Newlines are preserved (parameterless-call detection works line by line); other
+     * stripped characters become spaces. Comment/string syntax is chosen by the file's language.
+     */
+    private fun stripNonCode(content: String, language: String?): String {
+        val style = commentStyleFor(language)
+        val sb = StringBuilder(content.length)
+        var i = 0
+        val n = content.length
+        while (i < n) {
+            val lc = style.lineComments.firstOrNull { content.startsWith(it, i) }
+            if (lc != null) {
+                while (i < n && content[i] != '\n') i++
+                continue
+            }
+            if (style.blockStart != null && content.startsWith(style.blockStart, i)) {
+                i += style.blockStart.length
+                while (i < n && !content.startsWith(style.blockEnd!!, i)) {
+                    if (content[i] == '\n') sb.append('\n')
+                    i++
+                }
+                i += if (i < n) style.blockEnd!!.length else 0
+                continue
+            }
+            val ch = content[i]
+            if (ch in style.stringDelims) {
+                val triple = style.tripleQuotes && i + 2 < n && content[i + 1] == ch && content[i + 2] == ch
+                i += if (triple) 3 else 1
+                while (i < n) {
+                    val cur = content[i]
+                    if (!style.sqlEscape && cur == '\\') { i = (i + 2).coerceAtMost(n); continue }
+                    if (triple) {
+                        if (i + 2 < n && content[i] == ch && content[i + 1] == ch && content[i + 2] == ch) { i += 3; break }
+                    } else if (cur == ch) {
+                        if (style.sqlEscape && i + 1 < n && content[i + 1] == ch) { i += 2; continue } // '' escape
+                        i++; break
+                    }
+                    if (cur == '\n') sb.append('\n')
+                    i++
+                }
+                sb.append(' ')
+                continue
+            }
+            sb.append(ch)
+            i++
+        }
+        return sb.toString()
+    }
+
+    private fun commentStyleFor(language: String?): CommentStyle = when (language?.lowercase(Locale.US)) {
+        "plsql", "sql", "pls", "pks", "pkb" -> CommentStyle(listOf("--"), "/*", "*/", setOf('\''), sqlEscape = true)
+        "python", "py" -> CommentStyle(listOf("#"), null, null, setOf('\'', '"'), tripleQuotes = true)
+        // c-family + kotlin/go/typescript/javascript (and unknown — a safe default).
+        else -> CommentStyle(listOf("//"), "/*", "*/", setOf('"', '\'', '`'))
+    }
+
+    private data class CommentStyle(
+        val lineComments: List<String>,
+        val blockStart: String?,
+        val blockEnd: String?,
+        val stringDelims: Set<Char>,
+        val tripleQuotes: Boolean = false,
+        val sqlEscape: Boolean = false
+    )
 
     private fun insertLinks(conn: Connection, links: List<LinkRow>) {
         if (links.isEmpty()) return
