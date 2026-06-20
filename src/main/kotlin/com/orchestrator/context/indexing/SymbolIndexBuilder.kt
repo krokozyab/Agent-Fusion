@@ -101,6 +101,7 @@ class SymbolIndexBuilder(
         """^\s*(?:(?:MEMBER|STATIC|MAP|ORDER|FINAL|OVERRIDING|CONSTRUCTOR)\s+)*(?:PROCEDURE|FUNCTION)\s+("?[\w${'$'}#]+"?)""",
         RegexOption.IGNORE_CASE
     )
+    private val plsqlIsAsRegex = Regex("""\b(?:IS|AS)\b""", RegexOption.IGNORE_CASE)
 
     /**
      * Extract Oracle PL/SQL symbols: the PACKAGE/TYPE itself, standalone CREATE PROCEDURE/FUNCTION,
@@ -110,9 +111,20 @@ class SymbolIndexBuilder(
      */
     private fun extractPlSql(code: String, fileId: Long, language: String): List<SymbolRecord> {
         val symbols = mutableListOf<SymbolRecord>()
+        val lines = code.split("\n")
         var packageName: String? = null
 
-        code.split("\n").forEachIndexed { idx, line ->
+        // Pass 1: names that have a *definition* (an IS/AS body) in this file. A package body lists
+        // forward declarations (`PROCEDURE p;`) before the bodies; the symbol for `p` must point at
+        // its body, so we suppress the forward declaration whenever a definition exists.
+        val definedNames = HashSet<String>()
+        for ((idx, line) in lines.withIndex()) {
+            plsqlMemberRegex.find(line)?.let { m ->
+                if (isPlsqlDefinition(lines, idx)) definedNames += m.groupValues[1].trim('"').lowercase(Locale.US)
+            }
+        }
+
+        lines.forEachIndexed { idx, line ->
             val lineNumber = idx + 1
             val trimmed = line.trim()
             if (trimmed.isEmpty() || trimmed.startsWith("--")) return@forEachIndexed
@@ -148,6 +160,10 @@ class SymbolIndexBuilder(
 
             plsqlMemberRegex.find(line)?.let { m ->
                 val name = m.groupValues[1].trim('"')
+                // Skip a forward declaration when a real definition of the same name exists here.
+                if (!isPlsqlDefinition(lines, idx) && name.lowercase(Locale.US) in definedNames) {
+                    return@forEachIndexed
+                }
                 val qualified = packageName?.let { "$it.$name" } ?: name
                 symbols += symbol(
                     fileId = fileId,
@@ -161,6 +177,18 @@ class SymbolIndexBuilder(
             }
         }
         return symbols
+    }
+
+    /** True if the member at [idx] has an IS/AS body (definition) rather than ending at `;` (a
+     * forward declaration). Mirrors SqlChunker.isDefinitionAt. */
+    private fun isPlsqlDefinition(lines: List<String>, idx: Int): Boolean {
+        val limit = minOf(idx + 60, lines.size)
+        for (j in idx until limit) {
+            val code = lines[j].substringBefore("--")
+            if (plsqlIsAsRegex.containsMatchIn(code)) return true
+            if (code.trimEnd().endsWith(";")) return false
+        }
+        return true
     }
 
     private fun extractKotlin(code: String, fileId: Long, language: String): List<SymbolRecord> {
