@@ -207,22 +207,12 @@ class GitIntentLinkBuilder(
         val chunkPath = "git/commit/${commit.hash}"
 
         return if (existingChunkId != null) {
-            conn.prepareStatement(
-                """
-                UPDATE chunks
-                SET token_count = ?, chunk_path = ?, parent_chunk_id = NULL,
-                    content = ?, summary = ?, created_at = ?
-                WHERE chunk_id = ?
-                """.trimIndent()
-            ).use { ps ->
-                ps.setInt(1, tokenEstimate)
-                ps.setString(2, chunkPath)
-                ps.setString(3, content)
-                ps.setString(4, commit.shortMessage)
-                ps.setTimestamp(5, Timestamp.from(now))
-                ps.setLong(6, existingChunkId)
-                ps.executeUpdate()
-            }
+            // Reuse the existing commit chunk as-is — do NOT UPDATE it. A commit is immutable by hash,
+            // so its message/content never change, making the update redundant. More importantly, a
+            // single commit chunk is shared by every file that commit touched: once one file's
+            // MODIFIES link references it (source_chunk_id), DuckDB forbids UPDATE/DELETE of that row
+            // (its foreign-key limitation), so updating here on the second+ file threw
+            // "key source_chunk_id: N is still referenced by a foreign key" and lost that file's links.
             existingChunkId
         } else {
             val chunkId = nextId(conn, "chunks_seq")
