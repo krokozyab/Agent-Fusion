@@ -10,9 +10,29 @@ class SqlChunker(
     private val overlapPercent: Int = 15
 ) : SimpleChunker {
 
-    private val routineStartRegex = Regex("""\bCREATE\s+(?:FUNCTION|PROCEDURE|TRIGGER)\b""", RegexOption.IGNORE_CASE)
+    // A PL/SQL routine start. Crucially tolerates `OR REPLACE` and `[NON]EDITIONABLE` (which sit
+    // between CREATE and the object keyword in virtually all real Oracle DDL) and adds PACKAGE [BODY]
+    // and TYPE [BODY]. The previous `CREATE\s+(FUNCTION|PROCEDURE|TRIGGER)` never matched
+    // `CREATE OR REPLACE PROCEDURE ...`, so Oracle bodies were split on every internal `;`.
+    private val routineStartRegex = Regex(
+        """\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?(?:PACKAGE(?:\s+BODY)?|TYPE(?:\s+BODY)?|PROCEDURE|FUNCTION|TRIGGER)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    // PACKAGE/TYPE [BODY] need different termination: their inner sub-program ENDs return depth to 0
+    // while still inside the package, so the `;`+END heuristic mis-fires. These terminate only on the
+    // SQL*Plus `/` (or EOF).
+    private val packageStartRegex = Regex(
+        """\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?(?:PACKAGE|TYPE)\b""",
+        RegexOption.IGNORE_CASE
+    )
+    // Anonymous PL/SQL block opener (script-style `DECLARE ...` / bare `BEGIN ...`). A `BEGIN` that
+    // ends with `;` on the same line is a transaction-control statement, not a block, so the caller
+    // guards on that.
+    private val anonBlockStartRegex = Regex("""^(?:DECLARE|BEGIN)\b""", RegexOption.IGNORE_CASE)
     private val beginRegex = Regex("""\bBEGIN\b""", RegexOption.IGNORE_CASE)
-    private val endRegex = Regex("""\bEND\b""", RegexOption.IGNORE_CASE)
+    // A block-closing END. Excludes `END IF` / `END LOOP` / `END CASE`, which close control
+    // structures (no matching BEGIN) and would otherwise drive the nesting depth negative.
+    private val blockEndRegex = Regex("""\bEND\b(?!\s+(?:IF|LOOP|CASE)\b)""", RegexOption.IGNORE_CASE)
     
     /** A SQL statement together with its 1-based inclusive line span in the source file. */
     private data class SqlStatement(val text: String, val startLine: Int, val endLine: Int)
@@ -42,11 +62,21 @@ class SqlChunker(
         val pendingComments = StringBuilder()
         var insideRoutine = false
         var routineDepth = 0
+        var routineIsPackage = false
         // Track the source line span of the statement being assembled. `stmtStartLine` is the first
         // line that contributes to it (leading comment or code); `pendingStartLine` anchors comments
         // that may precede the code. Both are 1-based; -1 means "not set yet".
         var stmtStartLine = -1
         var pendingStartLine = -1
+        // 1-based line number of the last line actually appended to currentStatement, so a `/`
+        // terminator (which is itself dropped) can close the statement at the real last content line.
+        var lastAppendedLine = -1
+
+        fun resetRoutineState() {
+            insideRoutine = false
+            routineDepth = 0
+            routineIsPackage = false
+        }
 
         lines.forEachIndexed { index, line ->
             val lineNumber = index + 1
@@ -79,6 +109,23 @@ class SqlChunker(
                 return@forEachIndexed
             }
 
+            // SQL*Plus slash terminator: a line containing only `/` ends the current PL/SQL block
+            // (the canonical, unambiguous terminator for packages/types/anonymous blocks). The `/`
+            // itself is a directive, not part of the object, so it is dropped from the chunk.
+            if (trimmed == "/") {
+                if (currentStatement.isNotEmpty()) {
+                    val start = if (stmtStartLine != -1) stmtStartLine else lineNumber
+                    val end = if (lastAppendedLine != -1) lastAppendedLine else lineNumber
+                    statements.add(SqlStatement(currentStatement.toString().trim(), start, end.coerceAtLeast(start)))
+                    currentStatement.setLength(0)
+                    pendingComments.setLength(0)
+                    stmtStartLine = -1
+                    pendingStartLine = -1
+                    resetRoutineState()
+                }
+                return@forEachIndexed
+            }
+
             // Skip empty lines between statements
             if (trimmed.isEmpty() && currentStatement.isEmpty()) {
                 return@forEachIndexed
@@ -94,26 +141,40 @@ class SqlChunker(
             if (stmtStartLine == -1) stmtStartLine = lineNumber
 
             currentStatement.append(line).append("\n")
+            lastAppendedLine = lineNumber
 
-            if (!insideRoutine && routineStartRegex.containsMatchIn(upperTrimmed)) {
-                insideRoutine = true
-                routineDepth = 0
+            val lineEndsWithSemicolon = line.trimEnd().endsWith(";")
+
+            if (!insideRoutine) {
+                if (routineStartRegex.containsMatchIn(upperTrimmed)) {
+                    insideRoutine = true
+                    routineDepth = 0
+                    routineIsPackage = packageStartRegex.containsMatchIn(upperTrimmed)
+                } else if (anonBlockStartRegex.containsMatchIn(upperTrimmed) && !lineEndsWithSemicolon) {
+                    // Anonymous block (DECLARE.../BEGIN...). A `BEGIN;` is transaction control, not a
+                    // block, and is excluded by the !endsWithSemicolon guard.
+                    insideRoutine = true
+                    routineDepth = 0
+                    routineIsPackage = false
+                }
             }
 
             if (insideRoutine) {
                 if (beginRegex.containsMatchIn(upperTrimmed)) {
                     routineDepth += 1
                 }
-                if (endRegex.containsMatchIn(upperTrimmed)) {
+                if (blockEndRegex.containsMatchIn(upperTrimmed)) {
                     routineDepth = (routineDepth - 1).coerceAtLeast(0)
                 }
             }
 
-            // Check for statement terminator
-            val lineEndsWithSemicolon = line.trimEnd().endsWith(";")
+            // Check for statement terminator.
             val shouldTerminate = when {
                 !insideRoutine -> lineEndsWithSemicolon
-                else -> lineEndsWithSemicolon && routineDepth == 0 && endRegex.containsMatchIn(upperTrimmed)
+                // Packages/types terminate only on `/` (handled above) or EOF: their inner ENDs
+                // legitimately return depth to 0 while still inside the package.
+                routineIsPackage -> false
+                else -> lineEndsWithSemicolon && routineDepth == 0 && blockEndRegex.containsMatchIn(upperTrimmed)
             }
 
             if (shouldTerminate) {
@@ -122,10 +183,7 @@ class SqlChunker(
                 pendingComments.setLength(0)
                 stmtStartLine = -1
                 pendingStartLine = -1
-                if (insideRoutine) {
-                    insideRoutine = false
-                    routineDepth = 0
-                }
+                resetRoutineState()
             }
         }
 
@@ -145,6 +203,20 @@ class SqlChunker(
             .replace(Regex("--.*"), "")
             .trim()
         
+        // PL/SQL CREATE with optional OR REPLACE / [NON]EDITIONABLE, incl. PACKAGE/TYPE [BODY].
+        // Handled first so `CREATE OR REPLACE PACKAGE BODY pkg` labels as "CREATE PACKAGE BODY pkg"
+        // rather than falling through to the first-word fallback. Oracle identifiers may contain
+        // `$`/`#` and may be quoted.
+        val plsqlCreate = Regex(
+            """^CREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?(PACKAGE\s+BODY|PACKAGE|TYPE\s+BODY|TYPE|PROCEDURE|FUNCTION|TRIGGER)\s+(?:IF\s+NOT\s+EXISTS\s+)?("?[\w$#.]+"?)""",
+            RegexOption.IGNORE_CASE
+        )
+        plsqlCreate.find(cleanStatement)?.let { m ->
+            val kind = m.groupValues[1].replace(Regex("\\s+"), " ").uppercase(Locale.US)
+            val name = m.groupValues[2].trim('"')
+            return "CREATE $kind $name"
+        }
+
         // Extract statement type and table/object name
         val patterns = listOf(
             Regex("""^(CREATE\s+(?:TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|TRIGGER))\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)""", RegexOption.IGNORE_CASE),

@@ -46,7 +46,18 @@ class ConfigurableChunkerRegistry(
         "docx" to WordChunker(overlapPercent = overlapPercent),
         "pdf" to PdfChunker(overlapPercent = overlapPercent),
         "json" to CachingSimpleChunkerAdapter { JsonChunker(overlapPercent = overlapPercent) },
-        "sql" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) }
+        "sql" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        // Oracle PL/SQL source file extensions (package spec/body, procedures, functions, triggers,
+        // types) — route them to SqlChunker instead of the plain-text fallback.
+        "pls" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "plsql" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "pks" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "pkb" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "prc" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "fnc" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "trg" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "tps" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) },
+        "tpb" to CachingSimpleChunkerAdapter { SqlChunker(overlapPercent = overlapPercent) }
     )
 
     override fun getChunker(filePath: Path): Chunker {
