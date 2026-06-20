@@ -410,6 +410,10 @@ class CrossFileLinkBuilder(
                 i += if (triple) 3 else 1
                 while (i < n) {
                     val cur = content[i]
+                    // A non-triple string must close on its own line. An unbalanced quote (a `'` in
+                    // `don't`/`O'Brien`, Oracle q-quotes, etc.) otherwise ran away and swallowed real
+                    // statements — including a parameterless call on a later line.
+                    if (!triple && cur == '\n') break
                     if (!style.sqlEscape && cur == '\\') { i = (i + 2).coerceAtMost(n); continue }
                     if (triple) {
                         if (i + 2 < n && content[i] == ch && content[i + 1] == ch && content[i + 2] == ch) { i += 3; break }
