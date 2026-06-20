@@ -35,12 +35,18 @@ class SymbolContextProvider(
                     while (rs.next()) {
                         val chunkId = rs.getLong("chunk_id")
                         val symbolId = rs.getLong("symbol_id")
-                        val content = rs.getString("content") ?: continue
                         val summary = rs.getString("signature")
                         val name = rs.getString("name")
                         val qualified = rs.getString("qualified_name")
                         val symbolType = rs.getString("symbol_type") ?: "UNKNOWN"
                         val path = rs.getString("abs_path") ?: continue
+                        // A symbol with no attached chunk (rare) still surfaces, using its signature
+                        // or qualified name as text, instead of being silently dropped.
+                        val content = rs.getString("content")
+                            ?: summary
+                            ?: qualified
+                            ?: name
+                            ?: continue
                         val language = rs.getString("language") ?: rs.getString("file_language")
                         val chunkKind = rs.getString("kind")
                             ?.let { runCatching { ChunkKind.valueOf(it) }.getOrNull() }
@@ -166,8 +172,13 @@ class SymbolContextProvider(
         }
 
         if (scope.languages.isNotEmpty()) {
+            // Match on the FILE's language as well as the symbol's: the file's language is the
+            // authoritative one a query scopes by, and a symbol's stored language can lag behind it
+            // (e.g. a symbol indexed before the extension→language mapping was added). Filtering on
+            // s.language alone silently dropped every symbol in those files.
             val placeholders = scope.languages.joinToString(",") { "?" }
-            conditions += "s.language IN ($placeholders)"
+            conditions += "(s.language IN ($placeholders) OR f.language IN ($placeholders))"
+            scope.languages.forEach { params += it }
             scope.languages.forEach { params += it }
         }
 
@@ -185,15 +196,20 @@ class SymbolContextProvider(
                    s.start_line,
                    s.end_line,
                    s.language,
-                   c.chunk_id,
-                   c.kind,
-                   c.content,
-                   c.token_count,
+                   COALESCE(c.chunk_id, cl.chunk_id) AS chunk_id,
+                   COALESCE(c.kind, cl.kind) AS kind,
+                   COALESCE(c.content, cl.content) AS content,
+                   COALESCE(c.token_count, cl.token_count) AS token_count,
                    f.abs_path,
                    f.language AS file_language
             FROM symbols s
             JOIN file_state f ON f.file_id = s.file_id
-            LEFT JOIN chunks c ON c.file_id = s.file_id AND c.start_line <= COALESCE(s.start_line, c.start_line) AND c.end_line >= COALESCE(s.end_line, c.end_line)
+            -- Prefer the chunk the indexer already attached (s.chunk_id); fall back to line containment
+            -- only when it is missing, instead of relying solely on a fragile line join.
+            LEFT JOIN chunks c ON c.chunk_id = s.chunk_id
+            LEFT JOIN chunks cl ON s.chunk_id IS NULL AND cl.file_id = s.file_id
+                AND cl.start_line <= COALESCE(s.start_line, cl.start_line)
+                AND cl.end_line >= COALESCE(s.end_line, cl.end_line)
             WHERE $where
             LIMIT $fetchLimit
         """.trimIndent()
