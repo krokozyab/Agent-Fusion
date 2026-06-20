@@ -241,9 +241,14 @@ class QueryContextTool(
         // Sort by score and deduplicate
         val uniqueSnippets = deduplicateSnippets(allSnippets)
 
-        // Apply path/language boosts
-        val boostedSnippets = applyScoreBoosts(uniqueSnippets)
-        
+        // Drop excluded paths uniformly across every provider (scope.excludePatterns is only enforced
+        // by the semantic path otherwise, so symbol/full-text hits in e.g. a decommissioned monolith
+        // would still leak through).
+        val pathFiltered = applyPathExclusions(uniqueSnippets, scope)
+
+        // Apply path/language boosts, then push forward declarations below real definitions.
+        val boostedSnippets = deRankForwardDeclarations(applyScoreBoosts(pathFiltered))
+
         // Filter by minimum score threshold from config
         val filteredSnippets = boostedSnippets.filter { it.score >= config.query.minScoreThreshold }
         if (filteredSnippets.size < boostedSnippets.size) {
@@ -740,6 +745,49 @@ class QueryContextTool(
         }
     }
     
+    /** Remove snippets whose file path matches any scope.excludePatterns glob (all providers). */
+    private fun applyPathExclusions(snippets: List<ContextSnippet>, scope: ContextScope): List<ContextSnippet> {
+        if (scope.excludePatterns.isEmpty() || snippets.isEmpty()) return snippets
+        val regexes = scope.excludePatterns.map { globToRegex(it) }
+        val kept = snippets.filterNot { snippet -> regexes.any { it.containsMatchIn(snippet.filePath) } }
+        if (kept.size < snippets.size) {
+            log.debug("Excluded {} snippets via excludePatterns", snippets.size - kept.size)
+        }
+        return kept
+    }
+
+    private fun globToRegex(glob: String): Regex {
+        val sb = StringBuilder()
+        for (c in glob) {
+            when (c) {
+                '*' -> sb.append("[^/]*")
+                '?' -> sb.append("[^/]")
+                '.', '(', ')', '+', '^', '$', '{', '}', '[', ']', '\\', '|' -> sb.append('\\').append(c)
+                else -> sb.append(c)
+            }
+        }
+        return Regex(sb.toString(), RegexOption.IGNORE_CASE)
+    }
+
+    /**
+     * Push PL/SQL forward declarations (`PROCEDURE name(...);` — a bare signature, no body) below the
+     * real definition. A declaration is almost never what an identifier search wants; the body is.
+     */
+    private fun deRankForwardDeclarations(snippets: List<ContextSnippet>): List<ContextSnippet> {
+        if (snippets.isEmpty()) return snippets
+        return snippets.map { s ->
+            if (looksLikeForwardDeclaration(s)) s.copy(score = (s.score * FORWARD_DECL_PENALTY).coerceIn(0.0, 1.0)) else s
+        }
+    }
+
+    private fun looksLikeForwardDeclaration(snippet: ContextSnippet): Boolean {
+        if (snippet.kind != ChunkKind.SQL_STATEMENT) return false
+        val t = snippet.text.trim()
+        return forwardDeclStartRegex.containsMatchIn(t) &&
+            t.endsWith(";") &&
+            !beginKeywordRegex.containsMatchIn(t) // a real body has BEGIN; a forward declaration does not
+    }
+
     private fun applyScoreBoosts(snippets: List<ContextSnippet>): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
         if (config.query.boosts.pathPrefixes.isEmpty() && config.query.boosts.languages.isEmpty()) {
@@ -1034,6 +1082,14 @@ class QueryContextTool(
         private const val LINK_TYPE_CALLS = "CALLS"
         private const val LINK_TYPE_DEPENDS_ON = "DEPENDS_ON"
         private const val LINK_TYPE_MODIFIES = "MODIFIES"
+
+        // Forward declarations are demoted but not removed (kept as a fallback if no body exists).
+        private const val FORWARD_DECL_PENALTY = 0.5
+        private val forwardDeclStartRegex = Regex(
+            """^\s*(?:CREATE\s+(?:OR\s+REPLACE\s+)?)?(?:(?:MEMBER|STATIC|MAP|ORDER|FINAL|OVERRIDING|CONSTRUCTOR)\s+)*(?:PROCEDURE|FUNCTION)\b""",
+            RegexOption.IGNORE_CASE
+        )
+        private val beginKeywordRegex = Regex("""\bBEGIN\b""", RegexOption.IGNORE_CASE)
 
         const val JSON_SCHEMA: String = """
         {

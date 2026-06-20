@@ -416,6 +416,47 @@ class QueryContextToolTest {
         return persisted.id
     }
 
+    @Test
+    fun `definition ranks above forward declaration and excludePatterns drops the monolith`() {
+        // Real files on disk (query_context drops snippets whose files are missing).
+        val bodyPath = tempDir.resolve("pkg/target.pkb"); java.nio.file.Files.createDirectories(bodyPath.parent); java.nio.file.Files.writeString(bodyPath, "x")
+        val specPath = tempDir.resolve("old/3pl.pks"); java.nio.file.Files.createDirectories(specPath.parent); java.nio.file.Files.writeString(specPath, "x")
+
+        // Target package: a real definition (has a BEGIN body).
+        val bodyFile = insertFileStateAbsolute("pkg/target.pkb", bodyPath.toString(), "plsql")
+        insertChunk(500L, bodyFile, "PROCEDURE load_confirm_main IS\nBEGIN\n  NULL;\nEND load_confirm_main;", ChunkKind.SQL_STATEMENT)
+        insertSymbol(5001L, bodyFile, 500L, "load_confirm_main", "plsql")
+
+        // Decommissioned monolith: a forward declaration (signature only, no body).
+        val specFile = insertFileStateAbsolute("old/3pl.pks", specPath.toString(), "plsql")
+        insertChunk(600L, specFile, "PROCEDURE load_confirm_main(p_x NUMBER);", ChunkKind.SQL_STATEMENT)
+        insertSymbol(6001L, specFile, 600L, "load_confirm_main", "plsql")
+
+        val tool = QueryContextTool(config)
+
+        val ranked = tool.execute(QueryContextTool.Params(query = "load_confirm_main", providers = listOf("symbol")))
+        val top = ranked.hits.firstOrNull()
+        assertNotNull(top, "expected a symbol hit")
+        assertTrue(top.filePath.endsWith("target.pkb"), "the definition body must outrank the forward decl: ${ranked.hits.map { it.filePath to it.score }}")
+
+        val scoped = tool.execute(QueryContextTool.Params(query = "load_confirm_main", providers = listOf("symbol"), excludePatterns = listOf("3pl.*")))
+        assertTrue(scoped.hits.none { it.filePath.endsWith("3pl.pks") }, "excludePatterns must drop the monolith from symbol results")
+        assertTrue(scoped.hits.any { it.filePath.endsWith("target.pkb") }, "the target package survives the exclusion")
+    }
+
+    private fun insertSymbol(symbolId: Long, fileId: Long, chunkId: Long, name: String, language: String) {
+        ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(
+                "INSERT INTO symbols (symbol_id, file_id, chunk_id, symbol_type, name, qualified_name, signature, language, start_line, end_line, created_at) " +
+                    "VALUES (?, ?, ?, 'FUNCTION', ?, ?, ?, ?, 1, 1, CURRENT_TIMESTAMP)"
+            ).use { ps ->
+                ps.setLong(1, symbolId); ps.setLong(2, fileId); ps.setLong(3, chunkId)
+                ps.setString(4, name); ps.setString(5, "pkg.$name"); ps.setString(6, "PROCEDURE $name")
+                ps.setString(7, language); ps.executeUpdate()
+            }
+        }
+    }
+
     private fun insertChunk(chunkId: Long, fileId: Long, content: String = "content", kind: ChunkKind = ChunkKind.CODE_BLOCK) {
         ChunkRepository.insert(
             Chunk(
