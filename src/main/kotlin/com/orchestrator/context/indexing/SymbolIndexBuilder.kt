@@ -1,5 +1,6 @@
 package com.orchestrator.context.indexing
 
+import com.orchestrator.context.chunking.LanguageSpecs
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.SymbolRecord
 import com.orchestrator.context.domain.SymbolType
@@ -44,10 +45,15 @@ class SymbolIndexBuilder(
 
         val languageKey = language.lowercase(Locale.US)
         val extracted = when (languageKey) {
-            "kotlin", "kt" -> extractKotlin(code, fileId, languageKey)
-            "java" -> extractJava(code, fileId, languageKey)
-            "python", "py" -> extractPython(code, path, fileId, languageKey)
-            "typescript", "ts", "tsx", "javascript", "js", "jsx" -> extractTypeScript(code, fileId, languageKey)
+            // All tree-sitter languages share one AST-based extractor (accurate names, types and
+            // line ranges) — replacing the per-language regex extractors and the broken catch-all.
+            "kotlin", "kt", "kts" -> treeSitterExtract(LanguageSpecs.KOTLIN, code, fileId, languageKey)
+            "java" -> treeSitterExtract(LanguageSpecs.JAVA, code, fileId, languageKey)
+            "python", "py" -> treeSitterExtract(LanguageSpecs.PYTHON, code, fileId, languageKey)
+            "go" -> treeSitterExtract(LanguageSpecs.GO, code, fileId, languageKey)
+            "typescript", "ts", "tsx" -> treeSitterExtract(LanguageSpecs.TYPESCRIPT, code, fileId, languageKey)
+            "javascript", "js", "jsx" -> treeSitterExtract(LanguageSpecs.JAVASCRIPT, code, fileId, languageKey)
+            "csharp", "cs" -> treeSitterExtract(LanguageSpecs.CSHARP, code, fileId, languageKey)
             "plsql", "pls", "pks", "pkb", "sql" -> extractPlSql(code, fileId, languageKey)
             else -> extractPlainSymbols(code, path, fileId, languageKey)
         }
@@ -86,6 +92,21 @@ class SymbolIndexBuilder(
                 }
             }
         }
+    }
+
+    // ── tree-sitter (all AST languages) ─────────────────────────────────────────────────────────
+    // Parsers are not thread-safe and indexFile runs on concurrent indexing workers, so keep one
+    // extractor per (thread, language).
+    private val tsExtractors = ThreadLocal.withInitial { HashMap<String, TreeSitterSymbolExtractor>() }
+
+    private fun treeSitterExtract(
+        spec: com.orchestrator.context.chunking.LanguageSpec,
+        code: String,
+        fileId: Long,
+        language: String
+    ): List<SymbolRecord> {
+        val extractor = tsExtractors.get().getOrPut(language) { TreeSitterSymbolExtractor(spec) }
+        return extractor.extract(code, fileId, language)
     }
 
     // ── Oracle PL/SQL ──────────────────────────────────────────────────────────────────────────
