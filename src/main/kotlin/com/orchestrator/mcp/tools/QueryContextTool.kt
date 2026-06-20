@@ -598,8 +598,16 @@ class QueryContextTool(
             if (result.size >= limit) break
 
             val tokens = estimateTokens(snippet)
-            if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) {
-                continue // skip oversized snippet, try smaller ones below
+            val remaining = if (tokenBudget > 0) tokenBudget - tokensUsed else Int.MAX_VALUE
+            if (tokenBudget > 0 && tokens > remaining) {
+                // The top-ranked result is sometimes a single large chunk (e.g. a 1600-line PL/SQL
+                // procedure body for an exact-name query). Truncate it to fit rather than dropping it
+                // entirely — otherwise the very thing that was searched for disappears from results.
+                if (result.isEmpty() && remaining > 0) {
+                    result.add(truncateSnippet(snippet, remaining))
+                    tokensUsed += remaining
+                }
+                continue // smaller snippets below may still fit
             }
 
             tokensUsed += tokens
@@ -607,6 +615,15 @@ class QueryContextTool(
         }
 
         return result
+    }
+
+    private fun truncateSnippet(snippet: ContextSnippet, maxTokens: Int): ContextSnippet {
+        val maxChars = maxTokens.coerceAtLeast(1) * 4
+        if (snippet.text.length <= maxChars) return snippet
+        return snippet.copy(
+            text = snippet.text.substring(0, maxChars) + "\n… [truncated]",
+            metadata = snippet.metadata + ("truncated" to "true")
+        )
     }
 
     private fun mergeSources(a: String?, b: String?): String =

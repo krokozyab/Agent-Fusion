@@ -104,8 +104,17 @@ class SymbolContextProvider(
 
         for (candidate in ordered) {
             if (snippets.size >= maxResults) break
-            if (tokenBudget > 0 && tokensUsed + candidate.tokensNeeded > tokenBudget) continue
-
+            val remaining = if (tokenBudget > 0) tokenBudget - tokensUsed else Int.MAX_VALUE
+            if (tokenBudget > 0 && candidate.tokensNeeded > remaining) {
+                // Do NOT silently drop a matching symbol because its chunk is large — for an exact
+                // name lookup that oversized body is exactly the result wanted (a 1600-line PL/SQL
+                // procedure is one ~20k-token chunk). Include the top match truncated to fit; once
+                // the budget is spent there is no room for more.
+                if (snippets.isEmpty() && remaining > 0) {
+                    snippets += candidate.truncatedTo(remaining).toSnippet(id)
+                }
+                break
+            }
             tokensUsed += candidate.tokensNeeded
             snippets += candidate.toSnippet(id)
         }
@@ -274,8 +283,16 @@ class SymbolContextProvider(
         val offsets: IntRange?,
         val symbolType: String,
         val score: Double,
-        val tokensNeeded: Int
+        val tokensNeeded: Int,
+        val truncated: Boolean = false
     ) {
+        /** A copy whose text is cut to ~maxTokens (head of the chunk — keeps the signature/start). */
+        fun truncatedTo(maxTokens: Int): SymbolCandidate {
+            val maxChars = (maxTokens.coerceAtLeast(1)) * 4
+            if (text.length <= maxChars) return this
+            return copy(text = text.substring(0, maxChars) + "\n… [truncated]", tokensNeeded = maxTokens, truncated = true)
+        }
+
         fun toSnippet(providerId: String): ContextSnippet {
             return ContextSnippet(
                 chunkId = chunkId,
@@ -294,7 +311,8 @@ class SymbolContextProvider(
                     "symbol_id" to symbolId.toString(),
                     "symbol_type" to symbolType,
                     "token_estimate" to tokensNeeded.toString(),
-                    "score" to "%.3f".format(score)
+                    "score" to "%.3f".format(score),
+                    "truncated" to truncated.toString()
                 )
             )
         }
