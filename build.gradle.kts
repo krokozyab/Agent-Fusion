@@ -62,7 +62,11 @@ dependencies {
 
     // Java Parser for chunking
     implementation("com.github.javaparser:javaparser-core:3.25.7")
-    
+
+    // tree-sitter (AST-based chunking) — JNI binding (Java 11+) + Kotlin grammar
+    implementation("io.github.bonede:tree-sitter:0.25.3")
+    implementation("io.github.bonede:tree-sitter-kotlin:0.3.8.1")
+
     // YAML Parser for chunking
     implementation("org.yaml:snakeyaml:2.2")
     
