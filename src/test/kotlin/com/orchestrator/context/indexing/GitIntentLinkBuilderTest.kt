@@ -145,6 +145,83 @@ class GitIntentLinkBuilderTest {
         assertTrue(functionChunk.id in modifiesTargets)
     }
 
+    @Test
+    fun `shared commit across two files links both without FK violation`() {
+        // A commit that touched two files. The commit chunk is shared; building links for the second
+        // file must not fail trying to UPDATE the chunk already referenced by the first file's link
+        // (DuckDB forbids updating an FK-referenced row).
+        val (fileId1, chunk1, path1) = insertFileAndChunk("src/A.kt", "fun a() = Unit")
+        val (fileId2, chunk2, path2) = insertFileAndChunk("src/B.kt", "fun b() = Unit")
+
+        val commit = CommitInfo(
+            hash = "shared0commit0",
+            shortHash = "shared0",
+            author = AuthorInfo("Dev", "dev@example.com"),
+            committer = AuthorInfo("Dev", "dev@example.com"),
+            message = "Touch both A and B",
+            shortMessage = "Touch A and B",
+            timestamp = Instant.parse("2026-02-01T09:00:00Z"),
+            filesChanged = listOf("src/A.kt", "src/B.kt"),
+            additions = 2,
+            deletions = 0
+        )
+
+        val analyzer = mockk<GitHistoryAnalyzer>()
+        every { analyzer.getRecentCommits(path1, any()) } returns listOf(commit)
+        every { analyzer.getRecentCommits(path2, any()) } returns listOf(commit)
+        every { analyzer.getBlame(path1) } returns mapOf(1 to BlameInfo(1, "fun a() = Unit", commit))
+        every { analyzer.getBlame(path2) } returns mapOf(1 to BlameInfo(1, "fun b() = Unit", commit))
+
+        val builder = GitIntentLinkBuilder(analyzer = analyzer)
+        builder.rebuildForFile(fileId1)
+        builder.rebuildForFile(fileId2)
+
+        // Exactly one shared COMMIT_MESSAGE chunk, and MODIFIES links reach both files' chunks.
+        var commitChunkCount = 0
+        val modifiesTargets = mutableSetOf<Long>()
+        ContextDatabase.withConnection { conn ->
+            conn.prepareStatement("SELECT COUNT(*) FROM chunks WHERE kind = 'COMMIT_MESSAGE'").use { ps ->
+                ps.executeQuery().use { rs -> if (rs.next()) commitChunkCount = rs.getInt(1) }
+            }
+            conn.prepareStatement("SELECT target_chunk_id FROM links WHERE link_type = 'MODIFIES'").use { ps ->
+                ps.executeQuery().use { rs -> while (rs.next()) modifiesTargets += rs.getLong(1) }
+            }
+        }
+
+        assertTrue(commitChunkCount == 1, "the commit chunk must be shared, not duplicated (was $commitChunkCount)")
+        assertTrue(chunk1.id in modifiesTargets, "first file must be linked")
+        assertTrue(chunk2.id in modifiesTargets, "second file must be linked despite sharing the commit chunk")
+    }
+
+    private fun insertFileAndChunk(relPath: String, content: String): Triple<Long, Chunk, Path> {
+        val sourcePath = tempDir.resolve(relPath)
+        Files.createDirectories(sourcePath.parent)
+        Files.writeString(sourcePath, content)
+        val fileId = FileStateRepository.insert(
+            FileState(
+                id = 0,
+                relativePath = relPath,
+                absolutePath = sourcePath.toString(),
+                contentHash = "hash-$relPath",
+                sizeBytes = Files.size(sourcePath),
+                modifiedTimeNs = 1,
+                language = "kotlin",
+                kind = "code",
+                fingerprint = null,
+                indexedAt = Instant.now(),
+                isDeleted = false
+            )
+        ).id
+        val chunk = ChunkRepository.insert(
+            Chunk(
+                id = 0, fileId = fileId, ordinal = 0, kind = ChunkKind.CODE_FUNCTION,
+                startLine = 1, endLine = 1, tokenEstimate = 12, content = content,
+                summary = relPath, createdAt = Instant.now()
+            )
+        )
+        return Triple(fileId, chunk, sourcePath)
+    }
+
     private fun clearTables() {
         ContextDatabase.withConnection { conn ->
             conn.createStatement().use { st ->
