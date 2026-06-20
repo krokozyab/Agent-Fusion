@@ -58,6 +58,26 @@ class MmrRerankerTest {
         assertEquals(1L, reranked.first().chunk.id)
     }
 
+    @Test
+    fun `the most relevant candidate survives even when it alone exceeds the budget`() {
+        // An exact-name match whose body is one huge chunk (e.g. a 1600-line PL/SQL procedure).
+        // It is the most relevant hit but far exceeds the token budget. MMR must NOT silently drop
+        // it and substitute smaller, less-relevant forward declarations — that is exactly how an
+        // exact-name query loses its real answer. Downstream truncation trims the body to fit.
+        val hugeBody = "PROCEDURE process_load_confirmation_main IS BEGIN do_work; END;\n".repeat(2000)
+        // Symbol/full-text hits have no stored embedding → zero vector (mirrors production).
+        val body = scoredChunk(id = 1, score = 1.0f, vector = floatArrayOf(0f, 0f), content = hugeBody)
+        val forwardA = scoredChunk(id = 2, score = 0.40f, vector = floatArrayOf(1f, 0f), content = "PROCEDURE forward_a;")
+        val forwardB = scoredChunk(id = 3, score = 0.35f, vector = floatArrayOf(0f, 1f), content = "PROCEDURE forward_b;")
+
+        val budget = TokenBudget(maxTokens = 4000, reserveForPrompt = 0)
+        val reranked = reranker.rerank(listOf(body, forwardA, forwardB), lambda = 0.5, budget = budget)
+
+        assertTrue(reranked.isNotEmpty(), "the oversized top-relevance match must not be dropped to zero")
+        assertEquals(1L, reranked.first().chunk.id,
+            "the exact-name body must rank first, not the small forward declarations")
+    }
+
     private fun scoredChunk(
         id: Long,
         score: Float,
