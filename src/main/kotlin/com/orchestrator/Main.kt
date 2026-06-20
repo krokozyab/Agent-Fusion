@@ -314,12 +314,17 @@ class Main {
             chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
         )
         val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
-        val batchIndexer = BatchIndexer(fileIndexer)
+        val batchIndexer = BatchIndexer(fileIndexer, minEpsWarn = config.context.indexing.minEpsWarn)
         val incrementalIndexer = IncrementalIndexer(
             changeDetector = changeDetector,
             batchIndexer = batchIndexer,
             crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
-            gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
+            // git-history links run `git blame` per file; disabling skips that startup cost.
+            gitIntentLinkBuilder = if (config.context.indexing.gitIntentLinks) {
+                com.orchestrator.context.indexing.GitIntentLinkBuilder()
+            } else {
+                null
+            }
         )
 
         val reconciler = StartupReconciler(
@@ -411,12 +416,17 @@ class Main {
                 chunkerRegistry = ConfigurableChunkerRegistry(config.context.chunking)
             )
             val changeDetector = ChangeDetector(projectRoot, resolvedWatchRoots)
-            val batchIndexer = BatchIndexer(fileIndexer)
+            val batchIndexer = BatchIndexer(fileIndexer, minEpsWarn = config.context.indexing.minEpsWarn)
             val incrementalIndexer = IncrementalIndexer(
                 changeDetector = changeDetector,
                 batchIndexer = batchIndexer,
                 crossFileLinkBuilder = com.orchestrator.context.indexing.CrossFileLinkBuilder(),
-                gitIntentLinkBuilder = com.orchestrator.context.indexing.GitIntentLinkBuilder()
+                // git-history links run `git blame` per file; disabling skips that startup cost.
+                gitIntentLinkBuilder = if (config.context.indexing.gitIntentLinks) {
+                    com.orchestrator.context.indexing.GitIntentLinkBuilder()
+                } else {
+                    null
+                }
             )
 
             WatcherDaemon(

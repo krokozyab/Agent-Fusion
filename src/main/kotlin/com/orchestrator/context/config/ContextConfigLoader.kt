@@ -165,7 +165,9 @@ object ContextConfigLoader {
             followSymlinks = table.getBoolean("follow_symlinks") ?: defaults.followSymlinks,
             maxSymlinkDepth = table.getLong("max_symlink_depth")?.toInt() ?: defaults.maxSymlinkDepth,
             binaryDetection = detection ?: defaults.binaryDetection,
-            binaryThreshold = table.getLong("binary_threshold")?.toInt() ?: defaults.binaryThreshold
+            binaryThreshold = table.getLong("binary_threshold")?.toInt() ?: defaults.binaryThreshold,
+            gitIntentLinks = table.getBoolean("git_intent_links") ?: defaults.gitIntentLinks,
+            minEpsWarn = table.getLong("min_eps_warn")?.toInt() ?: defaults.minEpsWarn
         )
     }
 
