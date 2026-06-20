@@ -343,6 +343,57 @@ class CrossFileLinkBuilderTest {
     }
 
     @Test
+    fun `intra-package parameterless PL-SQL call builds a CALLS edge`() {
+        // PL/SQL invokes a no-arg procedure without parentheses: `callee;`. The `name(` regex misses
+        // it, so the call graph (and get_impact_radius reverse traversal) saw no caller.
+        val fileId = insertFile("pkg/body.pkb")
+
+        val callerChunk = ChunkRepository.insert(
+            Chunk(
+                id = 0, fileId = fileId, ordinal = 0, kind = ChunkKind.SQL_STATEMENT,
+                startLine = 1, endLine = 4, tokenEstimate = 12,
+                content = "PROCEDURE caller IS\nBEGIN\n  callee;\nEND caller;", summary = "PROCEDURE caller",
+                createdAt = Instant.now()
+            )
+        )
+        val calleeChunk = ChunkRepository.insert(
+            Chunk(
+                id = 0, fileId = fileId, ordinal = 1, kind = ChunkKind.SQL_STATEMENT,
+                startLine = 6, endLine = 9, tokenEstimate = 10,
+                content = "PROCEDURE callee IS\nBEGIN\n  NULL;\nEND callee;", summary = "PROCEDURE callee",
+                createdAt = Instant.now()
+            )
+        )
+        SymbolRepository.replaceForFile(
+            fileId,
+            listOf(
+                SymbolRecord(
+                    id = 0, fileId = fileId, chunkId = callerChunk.id, symbolType = SymbolType.FUNCTION,
+                    name = "caller", qualifiedName = "pkg.caller", signature = "PROCEDURE caller",
+                    language = "plsql", startLine = 1, endLine = 4, createdAt = Instant.now()
+                ),
+                SymbolRecord(
+                    id = 0, fileId = fileId, chunkId = calleeChunk.id, symbolType = SymbolType.FUNCTION,
+                    name = "callee", qualifiedName = "pkg.callee", signature = "PROCEDURE callee",
+                    language = "plsql", startLine = 6, endLine = 9, createdAt = Instant.now()
+                )
+            )
+        )
+
+        CrossFileLinkBuilder().rebuildForFile(fileId)
+
+        val callers = ContextRepository.traverseGraphReverse(
+            seedChunkIds = listOf(calleeChunk.id),
+            maxDepth = 2,
+            linkTypes = setOf("CALLS", "DEPENDS_ON", "MODIFIES")
+        )
+        assertTrue(
+            callers.any { it.chunkId == callerChunk.id && it.depth == 1 },
+            "parameterless caller must be found at depth 1: ${callers.map { it.chunkId to it.depth }}"
+        )
+    }
+
+    @Test
     fun `rebuildForFiles builds links for multiple files in one batch`() {
         // Two source files, each calling/importing a symbol defined in a shared target file.
         val target = insertFile("src/Target.kt")
