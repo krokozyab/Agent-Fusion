@@ -28,18 +28,39 @@ class ConfigurableChunkerRegistry(
     private fun buildRegistry(): Map<String, Chunker> = mapOf(
         "md" to MarkdownChunker(maxTokens = config.markdown.maxTokens, overlapPercent = overlapPercent),
         "markdown" to MarkdownChunker(maxTokens = config.markdown.maxTokens, overlapPercent = overlapPercent),
-        "py" to PythonChunker(maxTokens = config.python.maxTokens, overlapPercent = overlapPercent),
-        "go" to CachingSimpleChunkerAdapter {
-            GoChunker(maxTokens = config.go.maxTokens, overlapPercent = overlapPercent)
+        // Code languages use AST chunking via tree-sitter (TreeSitterChunker), wrapped in the
+        // ThreadLocal adapter because tree-sitter parsers are not thread-safe. Each falls back to its
+        // former heuristic chunker when a parse yields nothing usable.
+        "py" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.PYTHON, maxTokens = config.python.maxTokens, overlapPercent = overlapPercent)
         },
-        "ts" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
-        "tsx" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
-        "js" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
-        "jsx" to TypeScriptChunker(maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent),
-        "java" to CachingSimpleChunkerAdapter { JavaChunker(overlapPercent = overlapPercent) },
-        "cs" to CachingSimpleChunkerAdapter { CSharpChunker(overlapPercent = overlapPercent) },
-        "kt" to CachingSimpleChunkerAdapter { KotlinChunker(overlapPercent = overlapPercent) },
-        "kts" to CachingSimpleChunkerAdapter { KotlinChunker(overlapPercent = overlapPercent) },
+        "go" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.GO, maxTokens = config.go.maxTokens, overlapPercent = overlapPercent)
+        },
+        "ts" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.TYPESCRIPT, maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent)
+        },
+        "tsx" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.TYPESCRIPT, maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent)
+        },
+        "js" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.JAVASCRIPT, maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent)
+        },
+        "jsx" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.JAVASCRIPT, maxTokens = config.typescript.maxTokens, overlapPercent = overlapPercent)
+        },
+        "java" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.JAVA, overlapPercent = overlapPercent)
+        },
+        "cs" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.CSHARP, overlapPercent = overlapPercent)
+        },
+        "kt" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.KOTLIN, overlapPercent = overlapPercent)
+        },
+        "kts" to CachingSimpleChunkerAdapter {
+            TreeSitterChunker(LanguageSpecs.KOTLIN, overlapPercent = overlapPercent)
+        },
         "yaml" to CachingSimpleChunkerAdapter { YamlChunker(overlapPercent = overlapPercent) },
         "yml" to CachingSimpleChunkerAdapter { YamlChunker(overlapPercent = overlapPercent) },
         "doc" to WordChunker(overlapPercent = overlapPercent),
