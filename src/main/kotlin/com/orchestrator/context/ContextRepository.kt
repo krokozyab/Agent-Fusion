@@ -367,6 +367,36 @@ object ContextRepository {
         }
     }
 
+    /**
+     * Fetch persisted [FileState]s for a specific set of absolute paths, keyed by absolute path.
+     *
+     * Incremental change detection only needs the states of the handful of files it is checking, not
+     * the whole catalog. Querying just those paths (via an indexed abs_path lookup) avoids loading
+     * the entire file_state table on every watcher batch — which made each batch O(total files) and
+     * progressively slower as the corpus grew. Chunked to stay within parameter limits.
+     */
+    fun getFilesByAbsolutePaths(absolutePaths: Collection<String>): Map<String, FileState> {
+        if (absolutePaths.isEmpty()) return emptyMap()
+        val distinct = absolutePaths.toHashSet()
+        val result = HashMap<String, FileState>(distinct.size)
+        ContextDatabase.withConnection { conn ->
+            distinct.chunked(500).forEach { batch ->
+                val placeholders = batch.joinToString(",") { "?" }
+                val sql = "SELECT * FROM file_state WHERE abs_path IN ($placeholders)"
+                conn.prepareStatement(sql).use { ps ->
+                    batch.forEachIndexed { i, p -> ps.setString(i + 1, p) }
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            val state = rs.toFileState()
+                            result[state.absolutePath] = state
+                        }
+                    }
+                }
+            }
+        }
+        return result
+    }
+
     fun countActiveFiles(): Long = ContextDatabase.withConnection { conn ->
         conn.prepareStatement("SELECT COUNT(*) FROM file_state WHERE is_deleted = FALSE").use { ps ->
             ps.executeQuery().use { rs ->
@@ -1051,6 +1081,31 @@ object ContextRepository {
                     }
                     results
                 }
+            }
+        }
+    }
+
+    /**
+     * Count inbound graph edges (of [linkTypes]) pointing at the given chunks. Used by
+     * get_impact_radius to tell "no callers exist" (count 0) apart from a non-empty graph that simply
+     * had nothing to surface, so an impactCount of 0 is interpretable rather than a silent gap.
+     */
+    fun countInboundEdges(chunkIds: List<Long>, linkTypes: Set<String>? = null): Int {
+        if (chunkIds.isEmpty()) return 0
+        val placeholders = chunkIds.joinToString(",") { "?" }
+        val typeFilter = if (linkTypes.isNullOrEmpty()) "" else
+            " AND link_type IN (${linkTypes.joinToString(",") { "?" }})"
+        val sql = """
+            SELECT COUNT(*) FROM links
+            WHERE target_chunk_id IN ($placeholders)
+              AND source_chunk_id IS NOT NULL$typeFilter
+        """.trimIndent()
+        return ContextDatabase.withConnection { conn ->
+            conn.prepareStatement(sql).use { ps ->
+                var idx = 1
+                chunkIds.forEach { ps.setLong(idx++, it) }
+                linkTypes?.forEach { ps.setString(idx++, it) }
+                ps.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
             }
         }
     }

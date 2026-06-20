@@ -67,19 +67,24 @@ class GetImpactRadiusTool(
         val testCount: Int,
         val droppedDueToBudget: Int,
         val tokensUsed: Int,
+        // Inbound CALLS/DEPENDS_ON/MODIFIES edges pointing at the seed chunks. Lets a caller tell
+        // "no callers exist" (0) apart from "the graph simply surfaced nothing": impactCount=0 with
+        // seedInboundEdges>0 means callers exist but were filtered (budget/seed-overlap), while
+        // impactCount=0 with seedInboundEdges=0 means no recorded callers for these chunks.
+        val seedInboundEdges: Int,
         val chunks: List<ImpactChunk>
     )
 
     fun execute(params: Params): Result {
         val regions = buildRegions(params)
         if (regions.isEmpty()) {
-            return Result(0, 0, 0, 0, 0, emptyList())
+            return Result(0, 0, 0, 0, 0, 0, emptyList())
         }
 
         val seedIds = diffResolver.resolveSeedChunks(regions)
         if (seedIds.isEmpty()) {
             log.debug("get_impact_radius: no seed chunks resolved from {} regions", regions.size)
-            return Result(0, 0, 0, 0, 0, emptyList())
+            return Result(0, 0, 0, 0, 0, 0, emptyList())
         }
 
         val depth = params.maxDepth.coerceAtLeast(1)
@@ -196,12 +201,16 @@ class GetImpactRadiusTool(
             )
         }
 
+        // Honest signal for impactCount == 0: are there *any* inbound edges to the seeds at all?
+        val seedInboundEdges = ContextRepository.countInboundEdges(seedIds, IMPACT_EDGE_TYPES)
+
         return Result(
             seedCount = seedIds.size,
             impactCount = impactById.size,
             testCount = testById.size,
             droppedDueToBudget = dropped,
             tokensUsed = tokensUsed,
+            seedInboundEdges = seedInboundEdges,
             chunks = impactChunks
         )
     }
