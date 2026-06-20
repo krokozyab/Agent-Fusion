@@ -76,4 +76,29 @@ class SymbolProviderPlsqlTest {
         )
         assertTrue(stale.isNotEmpty(), "a symbol with stale s.language=sql in a plsql file must still match a plsql scope")
     }
+
+    @Test fun `a huge body chunk that exceeds the token budget is truncated, not dropped`() = runBlocking {
+        // A 1600-line PL/SQL procedure is one ~20k-token chunk. The symbol matches it but it exceeds
+        // the budget — it must be returned (truncated), not silently dropped to zero hits.
+        val rel = "big.pkb"
+        val p = tempDir.resolve(rel); Files.writeString(p, "x")
+        val fid = FileStateRepository.insert(FileState(0, rel, p.toString(), "h", 1, 1, "plsql", "code", null, Instant.now(), false)).id
+        val hugeBody = "PROCEDURE huge_proc IS\nBEGIN\n" + "  do_work(x);\n".repeat(6000) + "END huge_proc;"
+        val chunk = ChunkRepository.insert(
+            com.orchestrator.context.domain.Chunk(
+                id = 0, fileId = fid, ordinal = 0, kind = com.orchestrator.context.domain.ChunkKind.SQL_STATEMENT,
+                startLine = 1, endLine = 6003, tokenEstimate = hugeBody.length / 4,
+                content = hugeBody, summary = "PROCEDURE huge_proc", createdAt = Instant.now()
+            )
+        )
+        ContextDatabase.withConnection { c ->
+            c.prepareStatement("INSERT INTO symbols (symbol_id, file_id, chunk_id, symbol_type, name, qualified_name, signature, language, start_line, end_line, created_at) VALUES (88888, ?, ?, 'FUNCTION', 'huge_proc', 'big.huge_proc', 'PROCEDURE huge_proc', 'plsql', 1, 6003, CURRENT_TIMESTAMP)")
+                .use { ps -> ps.setLong(1, fid); ps.setLong(2, chunk.id); ps.executeUpdate() }
+        }
+
+        val res = SymbolContextProvider().getContext("huge_proc", ContextScope(languages = setOf("plsql")), TokenBudget(maxTokens = 4000))
+        assertTrue(res.isNotEmpty(), "an oversized matching symbol must be returned (truncated), not dropped to zero")
+        assertTrue(res.first().text.contains("huge_proc"), "the truncated head must still contain the procedure")
+        assertTrue(res.first().text.length < hugeBody.length, "the body must be truncated to fit the budget")
+    }
 }

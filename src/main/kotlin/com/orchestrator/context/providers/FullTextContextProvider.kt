@@ -43,7 +43,19 @@ class FullTextContextProvider(
         for (snippet in candidates) {
             if (result.size >= maxResults) break
             val tokens = max(1, snippet.metadata["token_estimate"]?.toIntOrNull() ?: snippet.text.length / 4)
-            if (tokenBudget > 0 && tokensUsed + tokens > tokenBudget) continue
+            val remaining = if (tokenBudget > 0) tokenBudget - tokensUsed else Int.MAX_VALUE
+            if (tokenBudget > 0 && tokens > remaining) {
+                // Don't drop a literal match just because the chunk is large (e.g. a whole PL/SQL
+                // procedure body); include the top one truncated to fit so the term still surfaces.
+                if (result.isEmpty() && remaining > 0) {
+                    val maxChars = remaining * 4
+                    result += snippet.copy(
+                        text = snippet.text.take(maxChars) + "\n… [truncated]",
+                        metadata = snippet.metadata + ("truncated" to "true")
+                    )
+                }
+                continue
+            }
             tokensUsed += tokens
             result += snippet
         }
