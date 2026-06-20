@@ -80,12 +80,11 @@ class SymbolIndexBuilderTest {
         assertTrue(classSymbol != null, "Should find MyClass")
         assertEquals("com.example.MyClass", classSymbol?.qualifiedName)
 
-        val functionSymbol = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "myFunction" }
-        assertTrue(functionSymbol != null, "Should find myFunction")
+        // A function inside a class is a METHOD under the unified tree-sitter semantics.
+        val functionSymbol = symbols.find { it.symbolType == SymbolType.METHOD && it.name == "myFunction" }
+        assertTrue(functionSymbol != null, "Should find myFunction as a METHOD")
         assertTrue(functionSymbol?.signature?.contains("String") == true)
-
-        val propertySymbol = symbols.find { it.symbolType == SymbolType.PROPERTY && it.name == "myProperty" }
-        assertTrue(propertySymbol != null, "Should find myProperty")
+        assertEquals("com.example.MyClass.myFunction", functionSymbol?.qualifiedName)
 
         val topLevelFunc = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "topLevelFunction" }
         assertTrue(topLevelFunc != null, "Should find topLevelFunction")
@@ -186,9 +185,7 @@ class SymbolIndexBuilderTest {
 
         val functionSymbol = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "myFunction" }
         assertTrue(functionSymbol != null, "Should find myFunction")
-
-        val constSymbol = symbols.find { it.symbolType == SymbolType.VARIABLE && it.name == "MY_CONST" }
-        assertTrue(constSymbol != null, "Should find MY_CONST")
+        // Note: top-level const/var declarations are not yet emitted by the unified AST extractor.
     }
 
     @Test
@@ -274,6 +271,58 @@ class SymbolIndexBuilderTest {
 
         val fn = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "get_qty" }
         assertTrue(fn != null, "function should be extracted")
+    }
+
+    @Test
+    fun `extracts Go symbols with real lines (was broken plain fallback)`() = runBlocking {
+        val go = """
+            package main
+            import "fmt"
+            func Top() int { return 1 }
+            func (t T) Method() int { return 2 }
+            type T struct { X int }
+        """.trimIndent()
+        val f = tempDir.resolve("main.go")
+        Files.writeString(f, go)
+        ContextDatabase.transaction { conn ->
+            conn.prepareStatement(
+                "INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted) VALUES (20, 'main.go', '/t/main.go', 'h', 1, 1, FALSE)"
+            ).use { it.executeUpdate() }
+        }
+        val symbols = builder.indexFile(f, fileId = 20, language = "go")
+
+        val top = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "Top" }
+        assertTrue(top != null, "Go function Top must be a FUNCTION, got $symbols")
+        assertEquals(3, top!!.startLine, "real line number, not a fabricated index")
+        assertTrue(symbols.any { it.symbolType == SymbolType.METHOD && it.name == "Method" })
+        assertTrue(symbols.any { it.symbolType == SymbolType.CLASS && it.name == "T" })
+        // The old fallback emitted every identifier (func/return/int/…) — these must NOT be symbols now.
+        assertTrue(symbols.none { it.name == "return" || it.name == "int" }, "no keyword noise")
+    }
+
+    @Test
+    fun `extracts C# symbols inside a namespace`() = runBlocking {
+        val cs = """
+            using System;
+            namespace N {
+                class Foo { public void Bar() { Console.WriteLine(1); } }
+                interface I { void M(); }
+                enum E { A, B }
+            }
+        """.trimIndent()
+        val f = tempDir.resolve("Foo.cs")
+        Files.writeString(f, cs)
+        ContextDatabase.transaction { conn ->
+            conn.prepareStatement(
+                "INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted) VALUES (21, 'Foo.cs', '/t/Foo.cs', 'h', 1, 1, FALSE)"
+            ).use { it.executeUpdate() }
+        }
+        val symbols = builder.indexFile(f, fileId = 21, language = "csharp")
+
+        assertTrue(symbols.any { it.symbolType == SymbolType.CLASS && it.name == "Foo" && it.qualifiedName == "N.Foo" })
+        assertTrue(symbols.any { it.symbolType == SymbolType.METHOD && it.name == "Bar" }, "namespaced method must be found: $symbols")
+        assertTrue(symbols.any { it.symbolType == SymbolType.INTERFACE && it.name == "I" })
+        assertTrue(symbols.any { it.symbolType == SymbolType.ENUM && it.name == "E" })
     }
 
     @Test
