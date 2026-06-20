@@ -418,12 +418,18 @@ class CrossFileLinkBuilder(
         importedFileIds: Set<Long>
     ): TargetSymbol? {
         if (candidates.isEmpty()) return null
+        // Same-file targets are kept (only the calling chunk itself is excluded). Intra-file calls —
+        // e.g. one PL/SQL package procedure calling another in the same .pkb, or a method calling a
+        // sibling method — are real CALLS edges; excluding them left get_impact_radius unable to find
+        // intra-file/intra-package callers (a silent false negative on blast radius). Local scope is
+        // preferred: an unqualified call resolves to a same-file subprogram before a cross-file one,
+        // matching how most languages (and Oracle PL/SQL) resolve names.
         return candidates
             .asSequence()
-            .filter { it.fileId != sourceFileId }
             .filter { it.chunkId != sourceChunkId }
             .sortedWith(
-                compareBy<TargetSymbol> { if (it.fileId in importedFileIds) 0 else 1 }
+                compareBy<TargetSymbol> { if (it.fileId == sourceFileId) 0 else 1 }
+                    .thenBy { if (it.fileId in importedFileIds) 0 else 1 }
                     .thenBy { symbolTypePriority(it.symbolType) }
                     .thenBy { it.qualifiedName?.length ?: Int.MAX_VALUE }
             )

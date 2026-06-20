@@ -1447,6 +1447,9 @@ class McpServerImpl(
         put("testCount", JsonPrimitive(result.testCount))
         put("droppedDueToBudget", JsonPrimitive(result.droppedDueToBudget))
         put("tokensUsed", JsonPrimitive(result.tokensUsed))
+        // Disambiguates impactCount == 0: 0 here means no recorded callers/dependents for the seeds;
+        // > 0 means edges exist but were filtered (e.g. all callers were themselves seeds).
+        put("seedInboundEdges", JsonPrimitive(result.seedInboundEdges))
         put("chunks", buildJsonArray {
             result.chunks.forEach { c ->
                 add(buildJsonObject {
