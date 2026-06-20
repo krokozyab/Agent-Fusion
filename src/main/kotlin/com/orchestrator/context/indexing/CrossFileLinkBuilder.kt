@@ -112,7 +112,14 @@ class CrossFileLinkBuilder(
 
         val imports = loadImportSymbols(conn, fileId)
         val callTokensByChunk = sourceChunks.associate { chunk ->
-            chunk.chunkId to extractCallTokens(chunk.content)
+            // PL/SQL (SQL_STATEMENT chunks) calls parameterless procedures as bare `name;` with no
+            // parens, which the `name(` regex misses — add those so intra-package callers are found.
+            val tokens = if (chunk.kind == "SQL_STATEMENT") {
+                extractCallTokens(chunk.content) + extractParenlessCallTokens(chunk.content)
+            } else {
+                extractCallTokens(chunk.content)
+            }
+            chunk.chunkId to tokens.distinct()
         }
         val callTokens = callTokensByChunk.values.flatten().toSet()
         val importNames = imports
@@ -227,7 +234,7 @@ class CrossFileLinkBuilder(
 
     private fun loadSourceChunks(conn: Connection, fileId: Long): List<SourceChunk> {
         val sql = """
-            SELECT chunk_id, file_id, ordinal, start_line, end_line, content
+            SELECT chunk_id, file_id, ordinal, start_line, end_line, content, kind
             FROM chunks
             WHERE file_id = ?
               AND (kind LIKE 'CODE_%' OR kind = 'SQL_STATEMENT')
@@ -244,7 +251,8 @@ class CrossFileLinkBuilder(
                         ordinal = rs.getInt("ordinal"),
                         startLine = rs.getInt("start_line").takeIf { !rs.wasNull() },
                         endLine = rs.getInt("end_line").takeIf { !rs.wasNull() },
-                        content = rs.getString("content").orEmpty()
+                        content = rs.getString("content").orEmpty(),
+                        kind = rs.getString("kind").orEmpty()
                     )
                 }
                 chunks
@@ -476,11 +484,34 @@ class CrossFileLinkBuilder(
         return tokens.toList()
     }
 
+    /**
+     * Parameterless PL/SQL calls: a statement that is just `name;` (or `pkg.name;`) — a procedure
+     * with no arguments is invoked without parentheses, which [extractCallTokens] misses. Excludes
+     * statement keywords (NULL;/RETURN;/COMMIT;/END name;/etc.) and assignments. The unqualified last
+     * segment is the call name, matching how the call graph resolves by symbol name.
+     */
+    private fun extractParenlessCallTokens(content: String): List<String> {
+        if (content.isBlank()) return emptyList()
+        val tokens = LinkedHashSet<String>()
+        content.lineSequence().forEach { rawLine ->
+            val line = rawLine.trim()
+            if (line.isEmpty() || line.startsWith("--")) return@forEach
+            val match = parenlessCallRegex.matchEntire(line) ?: return@forEach
+            val token = match.groupValues[1].substringAfterLast('.').lowercase(Locale.US)
+            if (token.length < 2) return@forEach
+            if (token in ignoredCallTokens || token in plsqlStatementKeywords) return@forEach
+            tokens += token
+        }
+        return tokens.toList()
+    }
+
     private fun looksLikeDeclaration(line: String, token: String, index: Int): Boolean {
         if (index <= 0 || index > line.length) return false
+        // True when the identifier is immediately preceded by a declaration keyword (e.g. `fun foo(`,
+        // `PROCEDURE foo(`). Match the keyword right before the token — the token is not in `prefix`.
         val prefix = line.substring(0, index)
         return declarationPrefixes.any { kw ->
-            Regex("""\b$kw\s+$token\s*$""", RegexOption.IGNORE_CASE).containsMatchIn(prefix)
+            Regex("""\b$kw\s+$""", RegexOption.IGNORE_CASE).containsMatchIn(prefix)
         }
     }
 
@@ -509,7 +540,8 @@ class CrossFileLinkBuilder(
         val ordinal: Int,
         val startLine: Int?,
         val endLine: Int?,
-        val content: String
+        val content: String,
+        val kind: String
     )
 
     private data class ImportSymbol(
@@ -562,11 +594,25 @@ class CrossFileLinkBuilder(
         }
 
         private val callRegex = Regex("""\b([A-Za-z_][A-Za-z0-9_]*)\s*\(""")
-        private val declarationPrefixes = setOf("fun", "def", "function", "class", "interface", "enum", "object")
+        // A whole statement that is just an identifier (optionally schema/package-qualified) + `;` —
+        // a parameterless PL/SQL procedure call. Excludes anything with operators/args.
+        private val parenlessCallRegex =
+            Regex("""([A-Za-z_][A-Za-z0-9_${'$'}#]*(?:\.[A-Za-z_][A-Za-z0-9_${'$'}#]*)*)\s*;""")
+        // `PROCEDURE`/`FUNCTION`/`TRIGGER` added so PL/SQL declarations (incl. .pks spec lines) are not
+        // mistaken for calls — that was creating false "spec-declaration -> body" CALLS edges.
+        private val declarationPrefixes = setOf(
+            "fun", "def", "function", "class", "interface", "enum", "object",
+            "procedure", "trigger"
+        )
         private val ignoredCallTokens = setOf(
             "if", "for", "while", "when", "switch", "catch", "return", "throw",
             "try", "with", "super", "this", "new", "println", "print", "log",
             "map", "filter", "reduce", "listof", "setof", "arrayof"
+        )
+        // Bare `name;` statements that are PL/SQL keywords, not procedure calls.
+        private val plsqlStatementKeywords = setOf(
+            "null", "return", "exit", "continue", "commit", "rollback", "begin", "end",
+            "goto", "raise", "savepoint", "loop", "else"
         )
     }
 }
