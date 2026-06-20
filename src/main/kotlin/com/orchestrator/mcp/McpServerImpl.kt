@@ -1493,6 +1493,11 @@ class McpServerImpl(
             put("chunks", JsonPrimitive(result.storage.chunks))
             put("embeddings", JsonPrimitive(result.storage.embeddings))
             put("totalSizeBytes", JsonPrimitive(result.storage.totalSizeBytes))
+            // Graph edges, so a caller can confirm a rebuild populated the call graph.
+            put("links", JsonPrimitive(result.storage.links))
+            put("linksByType", buildJsonObject {
+                result.storage.linksByType.forEach { (type, count) -> put(type, JsonPrimitive(count)) }
+            })
         })
         put("languageDistribution", buildJsonArray {
             result.languageDistribution.forEach { stat ->
@@ -3398,7 +3403,8 @@ class McpServerImpl(
             includeTests = o.bool("includeTests") ?: true,
             tokenBudget = o.int("tokenBudget") ?: 8_000,
             maxImpactResults = o.int("maxImpactResults") ?: 200,
-            maxTestResults = o.int("maxTestResults") ?: 100
+            maxTestResults = o.int("maxTestResults") ?: 100,
+            bodies = o.bool("bodies") ?: true
         )
     }
 

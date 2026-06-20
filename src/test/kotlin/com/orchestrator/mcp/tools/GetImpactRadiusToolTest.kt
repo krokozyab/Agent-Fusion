@@ -48,6 +48,30 @@ class GetImpactRadiusToolTest {
     }
 
     @Test
+    fun `bodies false returns metadata only with empty text and no budget drops`() {
+        val result = GetImpactRadiusTool().execute(
+            GetImpactRadiusTool.Params(
+                paths = listOf("src/Target.kt"),
+                maxDepth = 2,
+                tokenBudget = 1, // tiny budget that would drop bodies in normal mode
+                bodies = false
+            )
+        )
+
+        assertEquals(4, result.chunks.size, "full radius returned even with a tiny budget")
+        assertEquals(0, result.droppedDueToBudget, "no budget dropping in metadata-only mode")
+        result.chunks.forEach { c ->
+            assertEquals("", c.text, "bodies=false must return empty text")
+            // Metadata is still present.
+            assertEquals(true, c.label != null || c.relativePath != null)
+        }
+        val byId = result.chunks.associateBy { it.chunkId }
+        assertEquals("impact", byId.getValue(200L).role)
+        assertEquals("CALLS", byId.getValue(200L).linkType)
+        assertEquals(1, byId.getValue(200L).depth)
+    }
+
+    @Test
     fun `whole-file change returns seed, impact, and tests`() {
         val result = GetImpactRadiusTool().execute(
             GetImpactRadiusTool.Params(

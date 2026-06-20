@@ -26,7 +26,11 @@ class GetContextStatsTool(
         val files: Long,
         val chunks: Long,
         val embeddings: Long,
-        val totalSizeBytes: Long
+        val totalSizeBytes: Long,
+        // Graph edges, total and per link_type (CALLS/DEPENDS_ON/MODIFIES/COVERS). Lets a caller see
+        // that a rebuild actually populated the call graph, not just chunks/embeddings.
+        val links: Long,
+        val linksByType: Map<String, Long>
     )
 
     data class LanguageStat(
@@ -92,7 +96,14 @@ class GetContextStatsTool(
                     rs.getLong(1)
                 }
             }
-            StorageStats(files = files, chunks = chunks, embeddings = embeddings, totalSizeBytes = totalSize)
+            val linksByType = LinkedHashMap<String, Long>()
+            conn.prepareStatement("SELECT link_type, COUNT(*) FROM links GROUP BY link_type ORDER BY link_type").use { ps ->
+                ps.executeQuery().use { rs -> while (rs.next()) linksByType[rs.getString(1) ?: "UNKNOWN"] = rs.getLong(2) }
+            }
+            StorageStats(
+                files = files, chunks = chunks, embeddings = embeddings, totalSizeBytes = totalSize,
+                links = linksByType.values.sum(), linksByType = linksByType
+            )
         }
 
         val languageDistribution = ContextDatabase.withConnection { conn ->
