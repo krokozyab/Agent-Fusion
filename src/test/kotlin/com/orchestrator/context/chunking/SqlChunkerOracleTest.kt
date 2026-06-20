@@ -36,7 +36,7 @@ class SqlChunkerOracleTest {
     }
 
     @Test
-    fun `CREATE OR REPLACE PACKAGE BODY stays whole and terminates on slash`() {
+    fun `package body splits into per-member chunks and is not fragmented by inner semicolons`() {
         val sql = """
             CREATE OR REPLACE PACKAGE BODY pkg AS
               PROCEDURE a IS BEGIN NULL; END a;
@@ -46,13 +46,16 @@ class SqlChunkerOracleTest {
         """.trimIndent()
 
         val chunks = chunker.chunk(sql, "pkg.pkb")
+        val labels = chunks.mapNotNull { it.summary }
 
-        assertEquals(1, chunks.size, "a package body's inner procedure ENDs must not split it")
-        val c = chunks.single()
-        assertEquals("CREATE PACKAGE BODY pkg", c.summary)
-        assertTrue(c.content.contains("PROCEDURE a") && c.content.contains("PROCEDURE b"))
-        assertEquals(1, c.startLine)
-        assertEquals(4, c.endLine, "ends at 'END pkg;' (line 4); the '/' is dropped")
+        // The package is split at member boundaries (header + a + b), but NOT fragmented by the
+        // inner `;` of each one-line procedure (each member stays intact).
+        assertTrue("PROCEDURE a" in labels, "labels=$labels")
+        assertTrue("PROCEDURE b" in labels, "labels=$labels")
+        val a = chunks.first { it.summary == "PROCEDURE a" }
+        assertTrue(a.content.contains("BEGIN NULL; END a;"), "member A must stay intact: '${a.content}'")
+        // No chunk should hold both members (proves real splitting, not one giant chunk).
+        assertTrue(chunks.none { it.content.contains("END a;") && it.content.contains("END b;") })
     }
 
     @Test

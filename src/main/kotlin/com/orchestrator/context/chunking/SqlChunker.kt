@@ -37,21 +37,94 @@ class SqlChunker(
     /** A SQL statement together with its 1-based inclusive line span in the source file. */
     private data class SqlStatement(val text: String, val startLine: Int, val endLine: Int)
 
+    /** A labelled, line-located piece of a statement (used to break a package into its members). */
+    private data class LabeledPiece(val label: String, val text: String, val startLine: Int, val endLine: Int)
+
+    // A package/type member sub-program declaration, optionally prefixed by type-method modifiers.
+    private val memberStartRegex = Regex(
+        """^\s*(?:(?:MEMBER|STATIC|MAP|ORDER|FINAL|OVERRIDING|CONSTRUCTOR)\s+)*(PROCEDURE|FUNCTION)\s+("?[\w${'$'}#]+"?)""",
+        RegexOption.IGNORE_CASE
+    )
+
     override fun chunk(content: String, filePath: String): List<Chunk> {
         if (content.isBlank()) return emptyList()
 
         val chunks = mutableListOf<Chunk>()
         val statements = splitStatements(content)
+        var ordinal = 0
 
-        statements.forEachIndexed { index, statement ->
-            val trimmed = statement.text.trim()
-            if (trimmed.isNotEmpty()) {
-                val label = extractLabel(trimmed)
-                chunks.add(createChunk(statement.text, label, index, statement.startLine, statement.endLine))
+        statements.forEach { statement ->
+            if (statement.text.isBlank()) return@forEach
+            // A PACKAGE/TYPE [BODY] arrives as a single statement; break it into member sub-programs
+            // so a large package isn't one giant chunk (e.g. a 700KB package body → one embedding).
+            val pieces = if (packageStartRegex.containsMatchIn(statement.text.trimStart())) {
+                splitPackageMembers(statement)
+            } else {
+                listOf(LabeledPiece(extractLabel(statement.text.trim()), statement.text, statement.startLine, statement.endLine))
+            }
+            pieces.forEach { piece ->
+                if (piece.text.isNotBlank()) {
+                    chunks.add(createChunk(piece.text, piece.label, ordinal++, piece.startLine, piece.endLine))
+                }
             }
         }
 
         return OverlapProcessor.addOverlap(chunks, overlapPercent, ::estimateTokens)
+    }
+
+    /**
+     * Break a PACKAGE / PACKAGE BODY (or TYPE BODY) into a header chunk plus one chunk per member
+     * sub-program. A member starts at a top-level `PROCEDURE`/`FUNCTION` (depth 0, i.e. not inside
+     * another member's BEGIN..END body) and runs until the next member start or the package end.
+     * Returns the package as a single piece if no members are found (e.g. a thin package spec).
+     */
+    private fun splitPackageMembers(statement: SqlStatement): List<LabeledPiece> {
+        val lines = statement.text.split("\n")
+        val packageLabel = extractLabel(statement.text.trim())
+
+        // Find member-start line indices that sit at package level (BEGIN/END depth 0).
+        val starts = mutableListOf<Pair<Int, String>>() // index to "PROCEDURE name" / "FUNCTION name"
+        var depth = 0
+        for ((i, line) in lines.withIndex()) {
+            val upper = line.uppercase(Locale.US)
+            if (depth == 0) {
+                memberStartRegex.find(line)?.let { m ->
+                    val kind = m.groupValues[1].uppercase(Locale.US)
+                    val name = m.groupValues[2].trim('"')
+                    starts += i to "$kind $name"
+                }
+            }
+            if (beginRegex.containsMatchIn(upper)) depth += 1
+            if (blockEndRegex.containsMatchIn(upper)) depth = (depth - 1).coerceAtLeast(0)
+        }
+
+        if (starts.isEmpty()) {
+            return listOf(LabeledPiece(packageLabel, statement.text, statement.startLine, statement.endLine))
+        }
+
+        val pieces = mutableListOf<LabeledPiece>()
+        val base = statement.startLine
+
+        // Header: package declaration + package-level globals, up to the first member.
+        val firstStart = starts.first().first
+        if (firstStart > 0) {
+            val headerText = lines.subList(0, firstStart).joinToString("\n").trimEnd()
+            if (headerText.isNotBlank()) {
+                pieces += LabeledPiece(packageLabel, headerText, base, base + firstStart - 1)
+            }
+        }
+
+        // Each member spans from its start line to just before the next member start (last → end).
+        for ((k, start) in starts.withIndex()) {
+            val startIdx = start.first
+            val endIdx = if (k + 1 < starts.size) starts[k + 1].first - 1 else lines.lastIndex
+            val text = lines.subList(startIdx, endIdx + 1).joinToString("\n").trimEnd()
+            if (text.isNotBlank()) {
+                pieces += LabeledPiece(start.second, text, base + startIdx, base + endIdx)
+            }
+        }
+
+        return pieces
     }
 
     private fun splitStatements(content: String): List<SqlStatement> {
