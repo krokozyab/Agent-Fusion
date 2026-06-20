@@ -51,8 +51,13 @@ class MmrReranker(
             return tokensUsed + tokens <= availableTokens && tokens > 0
         }
 
-        // Select the highest relevance candidate that fits the budget as the seed.
-        val seed = candidates.firstOrNull { fitsBudget(it) } ?: return emptyList()
+        // Seed with the single most-relevant candidate — even if it alone exceeds the budget.
+        // An exact-name match is often one huge chunk (e.g. a 1600-line PL/SQL procedure body);
+        // dropping it for being oversized and substituting a smaller, less-relevant neighbour is
+        // precisely how an exact-name query loses its real answer. Downstream truncation trims the
+        // oversized seed to fit. Lower-relevance oversized candidates are still dropped in the loop
+        // below, so the budget is still honoured for everything except the top hit.
+        val seed = candidates.first()
         selected += seed
         tokensUsed += tokenCounts[seed] ?: 0
         candidates.remove(seed)
