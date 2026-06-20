@@ -48,6 +48,7 @@ class SymbolIndexBuilder(
             "java" -> extractJava(code, fileId, languageKey)
             "python", "py" -> extractPython(code, path, fileId, languageKey)
             "typescript", "ts", "tsx", "javascript", "js", "jsx" -> extractTypeScript(code, fileId, languageKey)
+            "plsql", "pls", "pks", "pkb", "sql" -> extractPlSql(code, fileId, languageKey)
             else -> extractPlainSymbols(code, path, fileId, languageKey)
         }
 
@@ -85,6 +86,81 @@ class SymbolIndexBuilder(
                 }
             }
         }
+    }
+
+    // ── Oracle PL/SQL ──────────────────────────────────────────────────────────────────────────
+    private val plsqlPackageRegex = Regex(
+        """\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?(?:PACKAGE(?:\s+BODY)?|TYPE(?:\s+BODY)?)\s+("?[\w${'$'}#.]+"?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val plsqlCreateRoutineRegex = Regex(
+        """\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:(?:NON)?EDITIONABLE\s+)?(?:PROCEDURE|FUNCTION)\s+("?[\w${'$'}#.]+"?)""",
+        RegexOption.IGNORE_CASE
+    )
+    private val plsqlMemberRegex = Regex(
+        """^\s*(?:(?:MEMBER|STATIC|MAP|ORDER|FINAL|OVERRIDING|CONSTRUCTOR)\s+)*(?:PROCEDURE|FUNCTION)\s+("?[\w${'$'}#]+"?)""",
+        RegexOption.IGNORE_CASE
+    )
+
+    /**
+     * Extract Oracle PL/SQL symbols: the PACKAGE/TYPE itself, standalone CREATE PROCEDURE/FUNCTION,
+     * and each member sub-program inside a package/type (procedure/function declarations and bodies).
+     * Members become FUNCTION symbols so they are call-graph targets (CrossFileLinkBuilder resolves
+     * CALLS against FUNCTION/METHOD symbols), qualified by the enclosing package name.
+     */
+    private fun extractPlSql(code: String, fileId: Long, language: String): List<SymbolRecord> {
+        val symbols = mutableListOf<SymbolRecord>()
+        var packageName: String? = null
+
+        code.split("\n").forEachIndexed { idx, line ->
+            val lineNumber = idx + 1
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("--")) return@forEachIndexed
+
+            plsqlPackageRegex.find(line)?.let { m ->
+                val qualified = m.groupValues[1].trim('"')
+                packageName = qualified
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.PACKAGE,
+                    name = qualified.substringAfterLast('.'),
+                    qualified = qualified,
+                    signature = trimmed.take(200),
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@forEachIndexed
+            }
+
+            plsqlCreateRoutineRegex.find(line)?.let { m ->
+                val qualified = m.groupValues[1].trim('"')
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.FUNCTION,
+                    name = qualified.substringAfterLast('.'),
+                    qualified = qualified,
+                    signature = trimmed.take(200),
+                    language = language,
+                    startLine = lineNumber
+                )
+                return@forEachIndexed
+            }
+
+            plsqlMemberRegex.find(line)?.let { m ->
+                val name = m.groupValues[1].trim('"')
+                val qualified = packageName?.let { "$it.$name" } ?: name
+                symbols += symbol(
+                    fileId = fileId,
+                    type = SymbolType.FUNCTION,
+                    name = name,
+                    qualified = qualified,
+                    signature = trimmed.take(200),
+                    language = language,
+                    startLine = lineNumber
+                )
+            }
+        }
+        return symbols
     }
 
     private fun extractKotlin(code: String, fileId: Long, language: String): List<SymbolRecord> {

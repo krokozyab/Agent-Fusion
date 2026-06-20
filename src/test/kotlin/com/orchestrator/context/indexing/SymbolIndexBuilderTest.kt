@@ -232,4 +232,47 @@ class SymbolIndexBuilderTest {
         assertTrue(storedCount > 0, "Symbols should be stored in database")
         assertEquals(symbols.size, storedCount, "All extracted symbols should be stored")
     }
+
+    @Test
+    fun `extracts PL-SQL package and member symbols`() = runBlocking {
+        val plsql = """
+            CREATE OR REPLACE PACKAGE BODY xxd_wms_inv_pkg AS
+              g_const CONSTANT NUMBER := 1;
+
+              PROCEDURE init_log_prc IS
+              BEGIN
+                NULL;
+              END init_log_prc;
+
+              FUNCTION get_qty(p IN NUMBER) RETURN NUMBER IS
+              BEGIN
+                RETURN p;
+              END get_qty;
+            END xxd_wms_inv_pkg;
+            /
+        """.trimIndent()
+
+        val sourceFile = tempDir.resolve("pkg.pkb")
+        Files.writeString(sourceFile, plsql)
+        ContextDatabase.transaction { conn ->
+            conn.prepareStatement(
+                """
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted)
+                VALUES (7, 'pkg.pkb', '/test/pkg.pkb', 'hash', 100, 1, FALSE)
+                """.trimIndent()
+            ).use { it.executeUpdate() }
+        }
+
+        val symbols = builder.indexFile(sourceFile, fileId = 7, language = "plsql")
+
+        val pkg = symbols.find { it.symbolType == SymbolType.PACKAGE }
+        assertEquals("xxd_wms_inv_pkg", pkg?.name, "package symbol")
+
+        val proc = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "init_log_prc" }
+        assertTrue(proc != null, "procedure should be a FUNCTION symbol (call-graph target)")
+        assertEquals("xxd_wms_inv_pkg.init_log_prc", proc?.qualifiedName, "members qualified by package")
+
+        val fn = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "get_qty" }
+        assertTrue(fn != null, "function should be extracted")
+    }
 }
