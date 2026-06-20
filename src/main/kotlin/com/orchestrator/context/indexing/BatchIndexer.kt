@@ -25,7 +25,10 @@ class BatchIndexer(
     private val fileIndexer: FileIndexer,
     private val defaultParallelism: Int = max(Runtime.getRuntime().availableProcessors() - 1, 1),
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val clock: Clock = Clock.systemUTC()
+    private val clock: Clock = Clock.systemUTC(),
+    // Warn when throughput falls below this (embeddings/sec). 0 disables it: heavy ONNX models on CPU
+    // run at single-digit eps, which is normal — an absolute threshold cried wolf every run.
+    private val minEpsWarn: Int = 0
 ) {
 
     private val log = Logger.logger("com.orchestrator.context.indexing.BatchIndexer")
@@ -183,11 +186,13 @@ class BatchIndexer(
             totalSeconds,
             finalEmbeddingsPerSecond.toInt()
         )
-        // Alert if performance is degraded: < 100 eps indicates memory or GC issues
-        if (totalEmbeddings > 0 && finalEmbeddingsPerSecond < 100) {
+        // Optional throughput warning, off by default (minEpsWarn = 0). Only meaningful as a
+        // regression signal relative to a baseline the operator knows for their model/hardware.
+        if (minEpsWarn > 0 && totalEmbeddings > 0 && finalEmbeddingsPerSecond < minEpsWarn) {
             log.warn(
-                "Batch indexing performance degraded: {} eps (expected 500+). Check memory and GC logs.",
-                finalEmbeddingsPerSecond.toInt()
+                "Batch indexing throughput {} eps is below the configured min_eps_warn={}",
+                finalEmbeddingsPerSecond.toInt(),
+                minEpsWarn
             )
         }
 

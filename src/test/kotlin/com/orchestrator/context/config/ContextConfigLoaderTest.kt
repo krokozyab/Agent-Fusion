@@ -78,6 +78,36 @@ class ContextConfigLoaderTest {
     }
 
     @Test
+    fun `parses indexing git_intent_links and min_eps_warn with defaults`() {
+        val srcPath = Paths.get("src").toAbsolutePath()
+
+        // Defaults when the keys are absent.
+        val defaults = ContextConfigLoader.load(path = Paths.get("config/not-present-context.toml"))
+        assertTrue(defaults.indexing.gitIntentLinks, "git_intent_links defaults to true")
+        assertEquals(0, defaults.indexing.minEpsWarn, "min_eps_warn defaults to 0 (off)")
+
+        // Explicit overrides.
+        val tempDir = Files.createTempDirectory("context-config-indexing")
+        val tomlPath = tempDir.resolve("context.toml")
+        Files.writeString(
+            tomlPath,
+            """
+            [context.watcher]
+            enabled = true
+            watch_paths = ["${'$'}{SRC_PATH}"]
+
+            [context.indexing]
+            git_intent_links = false
+            min_eps_warn = 50
+            """.trimIndent()
+        )
+
+        val config = ContextConfigLoader.load(path = tomlPath, env = mapOf("SRC_PATH" to srcPath.toString()))
+        assertFalse(config.indexing.gitIntentLinks)
+        assertEquals(50, config.indexing.minEpsWarn)
+    }
+
+    @Test
     fun `expands environment variables in nested tables`() {
         val tempDir = Files.createTempDirectory("context-config-env")
         val tomlPath = tempDir.resolve("context.toml")

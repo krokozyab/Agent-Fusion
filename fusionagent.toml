@@ -95,7 +95,7 @@ debounce_ms = 500
 #   watch_paths = ["."]                                       # Current directory
 #   watch_paths = ["/Users/sergeyrudenko/projects/codex_to_claude"]  # Absolute path
 watch_paths = [
-    "/Users/sergeyrudenko_1_2/PycharmProjects/jirat"
+    "/Users/sergeyrudenko_1_2/projects/deckers/pkg"
 ]
 
 # Periodically verify indexed files still exist (milliseconds). Set 0 to disable sweeps.
@@ -157,7 +157,7 @@ use_contextignore = true      # Also respects .contextignore (default: true) .co
 batch_size = 1024
 allowed_extensions = [
     ".kt", ".kts", ".java", ".go", ".py", ".ts", ".tsx", ".js", ".jsx",
-    ".json", ".md", ".markdown", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql"
+    ".json", ".md", ".markdown", ".yaml", ".yml", ".csv", ".txt", ".doc", ".docx", ".pdf", ".v", ".css", ".toml", ".sql", ".pkb", ".pks"
 ]
 
 # SKIP_PATTERNS: Exclude specific files AFTER extension filtering
@@ -241,6 +241,17 @@ binary_detection = "all"
 # Increase to be more permissive (e.g., 50 for UTF-8 heavy files)
 binary_threshold = 30
 
+# Build git-history (MODIFIES) links after indexing. This runs `git blame` per file via JGit and
+# can stall startup for minutes on large repos. Set to false to skip it.
+# Default: true
+git_intent_links = true
+
+# Warn if batch-indexing throughput drops below this (embeddings/sec). 0 disables the warning.
+# Heavy ONNX models on CPU run at single-digit eps (normal), so an absolute threshold is off by
+# default; set it to a value you know is abnormal for your model/hardware to catch regressions.
+# Default: 0 (disabled)
+min_eps_warn = 0
+
 # ------------------------------------------------------------------------------
 # [context.embedding] - Vector embedding configuration
 # ------------------------------------------------------------------------------
@@ -258,7 +269,7 @@ binary_threshold = 30
 # Optional: Path to custom ONNX model file
 # If specified, overrides the default bundled model
 # Fallback chain: model_path (if set) → ONNX_MODEL_PATH env var → default bundled model
- model_path = "/Users/sergeyrudenko_1_2/Downloads/model.onnx"
+ model_path = "/Users/sergeyrudenko_1_2/fusion-models/model.onnx"
 
 # Embedding dimension (must match your model's output)
 # Default: 384 (matches all-MiniLM-L6-v2)

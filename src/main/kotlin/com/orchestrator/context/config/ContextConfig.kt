@@ -111,7 +111,13 @@ data class IndexingConfig(
     val followSymlinks: Boolean = false,
     val maxSymlinkDepth: Int = 3,
     val binaryDetection: BinaryDetectionMode = BinaryDetectionMode.ALL,
-    val binaryThreshold: Int = 30
+    val binaryThreshold: Int = 30,
+    // Build git-history (MODIFIES) links after indexing. This runs `git blame` per file via JGit and
+    // can stall startup for minutes on large repos, so it can be disabled.
+    val gitIntentLinks: Boolean = true,
+    // Warn if batch-indexing throughput drops below this (embeddings/sec). 0 disables the warning.
+    // Heavy ONNX models on CPU run at single-digit eps, which is normal, not a regression.
+    val minEpsWarn: Int = 0
 )
 
 data class EmbeddingConfig(
