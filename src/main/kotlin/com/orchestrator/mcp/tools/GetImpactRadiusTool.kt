@@ -39,7 +39,13 @@ class GetImpactRadiusTool(
         val includeTests: Boolean = true,
         val tokenBudget: Int = 8_000,
         val maxImpactResults: Int = 200,
-        val maxTestResults: Int = 100
+        val maxTestResults: Int = 100,
+        /**
+         * When false, return metadata only (label, file, lines, depth, linkType, role) with empty
+         * chunk text. Impact analysis usually only needs the shape of the graph; full bodies blow
+         * the token budget, so this lets a caller get the whole radius cheaply.
+         */
+        val bodies: Boolean = true
     )
 
     data class ImpactChunk(
@@ -159,6 +165,28 @@ class GetImpactRadiusTool(
                 else -> { role = "test"; edge = testById[id] }
             }
 
+            // Metadata-only mode: emit the full radius with empty bodies and no token budgeting, so
+            // a caller can see the whole graph without blowing the context window.
+            if (!params.bodies) {
+                return@mapNotNull ImpactChunk(
+                    chunkId = chunk.id,
+                    filePath = data.filePath,
+                    relativePath = data.relativePath,
+                    language = data.language,
+                    startLine = chunk.lineSpan?.first,
+                    endLine = chunk.lineSpan?.last,
+                    label = chunk.summary,
+                    kind = chunk.kind.name,
+                    text = "",
+                    tokenEstimate = tokens,
+                    role = role,
+                    depth = edge?.depth,
+                    linkType = edge?.linkType,
+                    propagatedScore = edge?.linkScore,
+                    droppedFromBudget = false
+                )
+            }
+
             val overBudget = budget > 0 && tokensUsed + tokens > budget && role != "seed"
             if (overBudget) {
                 dropped++
@@ -259,6 +287,7 @@ class GetImpactRadiusTool(
             },
             "maxDepth":         { "type": "integer", "minimum": 1, "default": 2 },
             "includeTests":     { "type": "boolean", "default": true },
+            "bodies":           { "type": "boolean", "default": true, "description": "false = metadata only (label/file/lines/depth/linkType), empty bodies, no token budget" },
             "tokenBudget":      { "type": "integer", "minimum": 0, "default": 8000 },
             "maxImpactResults": { "type": "integer", "minimum": 1, "default": 200 },
             "maxTestResults":   { "type": "integer", "minimum": 1, "default": 100 }
