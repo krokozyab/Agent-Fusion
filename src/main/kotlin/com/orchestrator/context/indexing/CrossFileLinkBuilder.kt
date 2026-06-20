@@ -230,7 +230,7 @@ class CrossFileLinkBuilder(
             SELECT chunk_id, file_id, ordinal, start_line, end_line, content
             FROM chunks
             WHERE file_id = ?
-              AND kind LIKE 'CODE_%'
+              AND (kind LIKE 'CODE_%' OR kind = 'SQL_STATEMENT')
             ORDER BY ordinal
         """.trimIndent()
         return conn.prepareStatement(sql).use { ps ->
