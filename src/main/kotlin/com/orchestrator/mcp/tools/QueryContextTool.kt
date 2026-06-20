@@ -249,8 +249,16 @@ class QueryContextTool(
         // Apply path/language boosts, then push forward declarations below real definitions.
         val boostedSnippets = deRankForwardDeclarations(applyScoreBoosts(pathFiltered))
 
+        // For a bare-identifier query (e.g. `process_load_confirmation_main`), an exact structured
+        // match — the symbol provider matched the name, or full-text matched the literal token — is
+        // the definition the caller wants. RRF weighting otherwise lets a high-weight fuzzy *semantic*
+        // neighbour outrank it (symbol+full_text weight < semantic weight), so the real definition
+        // sinks below the budget cut and never reaches the output. Lift exact matches into a reserved
+        // top band so they always outrank semantic-only hits, preserving their internal order.
+        val exactRanked = boostExactIdentifierMatches(boostedSnippets, originalQuery)
+
         // Filter by minimum score threshold from config
-        val filteredSnippets = boostedSnippets.filter { it.score >= config.query.minScoreThreshold }
+        val filteredSnippets = exactRanked.filter { it.score >= config.query.minScoreThreshold }
         if (filteredSnippets.size < boostedSnippets.size) {
             log.debug("Filtered {} snippets below min_score_threshold of {}",
                 boostedSnippets.size - filteredSnippets.size,
@@ -805,6 +813,39 @@ class QueryContextTool(
             !beginKeywordRegex.containsMatchIn(t) // a real body has BEGIN; a forward declaration does not
     }
 
+    /**
+     * When the query is a single identifier, an exact structured match (symbol-name hit, or full-text
+     * hit containing the literal identifier as a whole word) is the definition the user is after. RRF
+     * provider weighting can otherwise let a fuzzy semantic neighbour outrank it. Re-score so every
+     * exact match lands in the top half [0.5, 1.0] and every non-exact hit in [0.0, 0.5), keeping each
+     * group's internal order. No-op for multi-word/phrase queries.
+     */
+    private fun boostExactIdentifierMatches(snippets: List<ContextSnippet>, query: String): List<ContextSnippet> {
+        if (snippets.isEmpty()) return snippets
+        val identifier = query.trim()
+        if (identifier.length < MIN_IDENTIFIER_LEN || !IDENTIFIER_REGEX.matches(identifier)) return snippets
+
+        val wholeWord = Regex(
+            "(^|[^A-Za-z0-9_])" + Regex.escape(identifier) + "($|[^A-Za-z0-9_])",
+            RegexOption.IGNORE_CASE
+        )
+        fun isExactMatch(s: ContextSnippet): Boolean {
+            val sources = s.metadata["sources"]?.lowercase().orEmpty()
+            // The symbol provider matches by name/qualified-name, so its presence is a structured hit.
+            if ("symbol" in sources) return true
+            // A full-text/exact hit counts only if the literal identifier really appears in the body.
+            if (("full_text" in sources || "exact_match" in sources) && wholeWord.containsMatchIn(s.text)) return true
+            return false
+        }
+
+        val (exact, others) = snippets.partition { isExactMatch(it) }
+        if (exact.isEmpty()) return snippets // nothing to lift; leave ordering untouched
+
+        val rescaledExact = exact.map { it.copy(score = (0.5 + 0.5 * it.score.coerceIn(0.0, 1.0))) }
+        val rescaledOthers = others.map { it.copy(score = (0.5 * it.score.coerceIn(0.0, 1.0))) }
+        return (rescaledExact + rescaledOthers).sortedByDescending { it.score }
+    }
+
     private fun applyScoreBoosts(snippets: List<ContextSnippet>): List<ContextSnippet> {
         if (snippets.isEmpty()) return emptyList()
         if (config.query.boosts.pathPrefixes.isEmpty() && config.query.boosts.languages.isEmpty()) {
@@ -1102,6 +1143,11 @@ class QueryContextTool(
 
         // Forward declarations are demoted but not removed (kept as a fallback if no body exists).
         private const val FORWARD_DECL_PENALTY = 0.5
+
+        // A bare identifier of at least this length triggers the exact-match boost (avoids firing on
+        // trivial 1-2 char tokens). The query must be a single identifier with no other words.
+        private const val MIN_IDENTIFIER_LEN = 3
+        private val IDENTIFIER_REGEX = Regex("[A-Za-z_][A-Za-z0-9_]*")
         private val forwardDeclStartRegex = Regex(
             """^\s*(?:CREATE\s+(?:OR\s+REPLACE\s+)?)?(?:(?:MEMBER|STATIC|MAP|ORDER|FINAL|OVERRIDING|CONSTRUCTOR)\s+)*(?:PROCEDURE|FUNCTION)\b""",
             RegexOption.IGNORE_CASE

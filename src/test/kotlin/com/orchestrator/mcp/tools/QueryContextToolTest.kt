@@ -8,6 +8,8 @@ import com.orchestrator.context.config.ProviderConfig
 import com.orchestrator.context.config.WatcherConfig
 import com.orchestrator.context.domain.Chunk
 import com.orchestrator.context.domain.ChunkKind
+import com.orchestrator.context.embedding.Embedder
+import com.orchestrator.context.providers.SemanticContextProvider
 import com.orchestrator.context.domain.FileState
 import com.orchestrator.context.storage.ChunkRepository
 import com.orchestrator.context.storage.ContextDatabase
@@ -444,6 +446,58 @@ class QueryContextToolTest {
         assertTrue(scoped.hits.any { it.filePath.endsWith("target.pkb") }, "the target package survives the exclusion")
     }
 
+    @Test
+    fun `exact-name symbol and full_text hits reach output and outrank semantic forward decls`() {
+        // Reproduces the user's round-10 report: semantic=2, symbol=1, full_text=1, but returnedHits=2
+        // and both returned are semantic forward declarations — the exact-name body never reaches hits.
+        // Make the semantic provider fire in-test with a deterministic 16-dim embedder.
+        val previous = SemanticContextProvider.globalEmbedder
+        SemanticContextProvider.globalEmbedder = object : Embedder {
+            override suspend fun embed(text: String) = FloatArray(16) { 0.1f }
+            override suspend fun embedBatch(texts: List<String>) = texts.map { FloatArray(16) { 0.1f } }
+            override fun getDimension() = 16
+            override fun getModel() = "test-model"
+        }
+        try {
+            // The target definition: exact name, has a BEGIN body, one HUGE chunk (~18k tokens like a
+            // 1600-line PL/SQL procedure). Found by symbol (exact name) and full_text (literal string),
+            // NOT by semantic (no embedding) — exactly the user's provider split.
+            val bodyPath = tempDir.resolve("pkg/target.pkb")
+            java.nio.file.Files.createDirectories(bodyPath.parent); java.nio.file.Files.writeString(bodyPath, "x")
+            val bodyFile = insertFileStateAbsolute("pkg/target.pkb", bodyPath.toString(), "plsql")
+            val hugeBody = "PROCEDURE process_load_confirmation_main IS\nBEGIN\n" +
+                "  do_work(x);\n".repeat(6000) + "END process_load_confirmation_main;"
+            insertChunkSized(700L, bodyFile, hugeBody, ChunkKind.SQL_STATEMENT, tokenEstimate = hugeBody.length / 4)
+            insertSymbol(7001L, bodyFile, 700L, "process_load_confirmation_main", "plsql")
+
+            // Decommissioned monolith: small chunks of differently-named code, reachable ONLY via
+            // semantic (no shared literal token with the query → full_text/symbol skip them). They are
+            // NOT forward declarations, so deRankForwardDeclarations does not demote them — the body
+            // must win on its own merit as an exact identifier match, not because rivals are penalized.
+            val specPath = tempDir.resolve("old/3pl.pks")
+            java.nio.file.Files.createDirectories(specPath.parent); java.nio.file.Files.writeString(specPath, "x")
+            val specFile = insertFileStateAbsolute("old/3pl.pks", specPath.toString(), "plsql")
+            insertChunkSized(710L, specFile, "result := transfers_helper(p_batch);", ChunkKind.CODE_BLOCK, tokenEstimate = 12)
+            insertChunkSized(711L, specFile, "result := adjustments_helper(p_batch);", ChunkKind.CODE_BLOCK, tokenEstimate = 12)
+            insertEmbedding(710L); insertEmbedding(711L)
+
+            val tool = QueryContextTool(config)
+            val result = tool.execute(QueryContextTool.Params(query = "process_load_confirmation_main"))
+
+            val hitFiles = result.hits.map { it.filePath to "%.3f".format(it.score) }
+            assertTrue(
+                result.hits.any { it.filePath.endsWith("target.pkb") },
+                "the exact-name body must reach hits, not be dropped after fusion. providers=${result.metadata["providers"]} hits=$hitFiles"
+            )
+            assertTrue(
+                result.hits.first().filePath.endsWith("target.pkb"),
+                "the exact-name body must be the TOP hit, above semantic forward decls. hits=$hitFiles"
+            )
+        } finally {
+            SemanticContextProvider.globalEmbedder = previous
+        }
+    }
+
     private fun insertSymbol(symbolId: Long, fileId: Long, chunkId: Long, name: String, language: String) {
         ContextDatabase.withConnection { conn ->
             conn.prepareStatement(
@@ -467,6 +521,23 @@ class QueryContextToolTest {
                 startLine = 1,
                 endLine = 10,
                 tokenEstimate = 50,
+                content = content,
+                summary = "summary",
+                createdAt = Instant.now()
+            )
+        )
+    }
+
+    private fun insertChunkSized(chunkId: Long, fileId: Long, content: String, kind: ChunkKind, tokenEstimate: Int) {
+        ChunkRepository.insert(
+            Chunk(
+                id = chunkId,
+                fileId = fileId,
+                ordinal = 0,
+                kind = kind,
+                startLine = 1,
+                endLine = 10,
+                tokenEstimate = tokenEstimate,
                 content = content,
                 summary = "summary",
                 createdAt = Instant.now()
