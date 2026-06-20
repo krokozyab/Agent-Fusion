@@ -45,6 +45,10 @@ class SqlChunker(
         """^\s*(?:(?:MEMBER|STATIC|MAP|ORDER|FINAL|OVERRIDING|CONSTRUCTOR)\s+)*(PROCEDURE|FUNCTION)\s+("?[\w${'$'}#]+"?)""",
         RegexOption.IGNORE_CASE
     )
+    // `IS`/`AS` opens a sub-program body — its presence (before a `;`) marks a definition vs a
+    // forward declaration. Bounds how far the signature scan looks ahead.
+    private val isAsKeywordRegex = Regex("""\b(?:IS|AS)\b""", RegexOption.IGNORE_CASE)
+    private val MAX_SIGNATURE_LINES = 60
 
     override fun chunk(content: String, filePath: String): List<Chunk> {
         if (content.isBlank()) return emptyList()
@@ -73,58 +77,119 @@ class SqlChunker(
     }
 
     /**
-     * Break a PACKAGE / PACKAGE BODY (or TYPE BODY) into a header chunk plus one chunk per member
-     * sub-program. A member starts at a top-level `PROCEDURE`/`FUNCTION` (depth 0, i.e. not inside
-     * another member's BEGIN..END body) and runs until the next member start or the package end.
-     * Returns the package as a single piece if no members are found (e.g. a thin package spec).
+     * Break a PACKAGE / PACKAGE BODY (or TYPE BODY) into a header chunk plus one chunk per member.
+     *
+     * Crucially distinguishes a sub-program *definition* (`PROCEDURE name(...) IS ... BEGIN ... END
+     * name;` — has a body) from a *forward declaration* (`PROCEDURE name(...);` — ends at `;`, no
+     * body). In a package body Oracle lists forward declarations first, then the bodies; treating a
+     * forward declaration as its own member produced tiny mislabelled chunks and made the symbol for
+     * a procedure point at its forward declaration instead of its real body.
+     *
+     * Package body: one chunk per *definition* (start → just before the next definition); forward
+     * declarations and package-level globals fold into the header. Package spec (no definitions):
+     * one chunk per declaration so the public API stays individually searchable.
      */
     private fun splitPackageMembers(statement: SqlStatement): List<LabeledPiece> {
         val lines = statement.text.split("\n")
         val packageLabel = extractLabel(statement.text.trim())
+        val base = statement.startLine
 
-        // Find member-start line indices that sit at package level (BEGIN/END depth 0).
-        val starts = mutableListOf<Pair<Int, String>>() // index to "PROCEDURE name" / "FUNCTION name"
+        // Top-level (BEGIN/END depth 0) sub-program *definitions* — forward declarations excluded.
+        val defStarts = mutableListOf<Pair<Int, String>>()
         var depth = 0
         for ((i, line) in lines.withIndex()) {
             val upper = line.uppercase(Locale.US)
             if (depth == 0) {
-                memberStartRegex.find(line)?.let { m ->
+                val m = memberStartRegex.find(line)
+                if (m != null && isDefinitionAt(lines, i)) {
                     val kind = m.groupValues[1].uppercase(Locale.US)
                     val name = m.groupValues[2].trim('"')
-                    starts += i to "$kind $name"
+                    defStarts += i to "$kind $name"
                 }
             }
             if (beginRegex.containsMatchIn(upper)) depth += 1
             if (blockEndRegex.containsMatchIn(upper)) depth = (depth - 1).coerceAtLeast(0)
         }
 
-        if (starts.isEmpty()) {
-            return listOf(LabeledPiece(packageLabel, statement.text, statement.startLine, statement.endLine))
+        if (defStarts.isEmpty()) {
+            // No bodies → package spec (or a thin package): split each declaration into its own chunk.
+            return splitDeclarations(lines, base, packageLabel, statement)
         }
 
         val pieces = mutableListOf<LabeledPiece>()
-        val base = statement.startLine
 
-        // Header: package declaration + package-level globals, up to the first member.
-        val firstStart = starts.first().first
-        if (firstStart > 0) {
-            val headerText = lines.subList(0, firstStart).joinToString("\n").trimEnd()
+        // Header: package declaration, globals and forward declarations, up to the first definition.
+        val firstDef = defStarts.first().first
+        if (firstDef > 0) {
+            val headerText = lines.subList(0, firstDef).joinToString("\n").trimEnd()
             if (headerText.isNotBlank()) {
-                pieces += LabeledPiece(packageLabel, headerText, base, base + firstStart - 1)
+                pieces += LabeledPiece(packageLabel, headerText, base, base + firstDef - 1)
             }
         }
 
-        // Each member spans from its start line to just before the next member start (last → end).
-        for ((k, start) in starts.withIndex()) {
-            val startIdx = start.first
-            val endIdx = if (k + 1 < starts.size) starts[k + 1].first - 1 else lines.lastIndex
+        // Each definition is one chunk: its start line to just before the next definition.
+        for ((k, def) in defStarts.withIndex()) {
+            val startIdx = def.first
+            val endIdx = if (k + 1 < defStarts.size) defStarts[k + 1].first - 1 else lines.lastIndex
             val text = lines.subList(startIdx, endIdx + 1).joinToString("\n").trimEnd()
             if (text.isNotBlank()) {
-                pieces += LabeledPiece(start.second, text, base + startIdx, base + endIdx)
+                pieces += LabeledPiece(def.second, text, base + startIdx, base + endIdx)
             }
         }
 
         return pieces
+    }
+
+    /** Split a package spec into one chunk per declared member (no bodies present). */
+    private fun splitDeclarations(
+        lines: List<String>,
+        base: Int,
+        packageLabel: String,
+        statement: SqlStatement
+    ): List<LabeledPiece> {
+        val starts = mutableListOf<Pair<Int, String>>()
+        var depth = 0
+        for ((i, line) in lines.withIndex()) {
+            val upper = line.uppercase(Locale.US)
+            if (depth == 0) {
+                memberStartRegex.find(line)?.let { m ->
+                    starts += i to "${m.groupValues[1].uppercase(Locale.US)} ${m.groupValues[2].trim('"')}"
+                }
+            }
+            if (beginRegex.containsMatchIn(upper)) depth += 1
+            if (blockEndRegex.containsMatchIn(upper)) depth = (depth - 1).coerceAtLeast(0)
+        }
+        if (starts.isEmpty()) {
+            return listOf(LabeledPiece(packageLabel, statement.text, statement.startLine, statement.endLine))
+        }
+        val pieces = mutableListOf<LabeledPiece>()
+        val firstStart = starts.first().first
+        if (firstStart > 0) {
+            val headerText = lines.subList(0, firstStart).joinToString("\n").trimEnd()
+            if (headerText.isNotBlank()) pieces += LabeledPiece(packageLabel, headerText, base, base + firstStart - 1)
+        }
+        for ((k, start) in starts.withIndex()) {
+            val startIdx = start.first
+            val endIdx = if (k + 1 < starts.size) starts[k + 1].first - 1 else lines.lastIndex
+            val text = lines.subList(startIdx, endIdx + 1).joinToString("\n").trimEnd()
+            if (text.isNotBlank()) pieces += LabeledPiece(start.second, text, base + startIdx, base + endIdx)
+        }
+        return pieces
+    }
+
+    /**
+     * True if the sub-program at [startIdx] is a *definition* (has an `IS`/`AS` body) rather than a
+     * *forward declaration* (the signature ends at `;` before any `IS`/`AS`). Scans the signature
+     * forward a bounded number of lines: an `IS`/`AS` keyword ⇒ definition; a `;` first ⇒ declaration.
+     */
+    private fun isDefinitionAt(lines: List<String>, startIdx: Int): Boolean {
+        val limit = minOf(startIdx + MAX_SIGNATURE_LINES, lines.size)
+        for (j in startIdx until limit) {
+            val code = lines[j].substringBefore("--")
+            if (isAsKeywordRegex.containsMatchIn(code)) return true
+            if (code.trimEnd().endsWith(";")) return false
+        }
+        return true // default to definition: keep the body as its own member rather than lose it
     }
 
     private fun splitStatements(content: String): List<SqlStatement> {

@@ -275,4 +275,43 @@ class SymbolIndexBuilderTest {
         val fn = symbols.find { it.symbolType == SymbolType.FUNCTION && it.name == "get_qty" }
         assertTrue(fn != null, "function should be extracted")
     }
+
+    @Test
+    fun `PL-SQL symbol points at the body, not the forward declaration`() = runBlocking {
+        val plsql = """
+            CREATE OR REPLACE PACKAGE BODY pkg AS
+              PROCEDURE process_main;
+              PROCEDURE helper;
+
+              PROCEDURE helper IS
+              BEGIN
+                NULL;
+              END helper;
+
+              PROCEDURE process_main IS
+              BEGIN
+                helper;
+              END process_main;
+            END pkg;
+            /
+        """.trimIndent()
+
+        val sourceFile = tempDir.resolve("pkg.pkb")
+        Files.writeString(sourceFile, plsql)
+        ContextDatabase.transaction { conn ->
+            conn.prepareStatement(
+                """
+                INSERT INTO file_state (file_id, rel_path, abs_path, content_hash, size_bytes, mtime_ns, is_deleted)
+                VALUES (9, 'pkg.pkb', '/test/pkg.pkb', 'hash', 100, 1, FALSE)
+                """.trimIndent()
+            ).use { it.executeUpdate() }
+        }
+
+        val symbols = builder.indexFile(sourceFile, fileId = 9, language = "plsql")
+
+        val mains = symbols.filter { it.symbolType == SymbolType.FUNCTION && it.name == "process_main" }
+        assertEquals(1, mains.size, "exactly one process_main symbol (the body), not the forward decl: $mains")
+        // Body starts at the definition line (line 11 here, 1-based), not the forward decl (line 2).
+        assertTrue(mains.single().startLine!! > 4, "symbol must point at the body, not the forward declaration")
+    }
 }

@@ -78,6 +78,46 @@ class SqlChunkerPackageTest {
     }
 
     @Test
+    fun `forward declarations fold into header and the body is the labelled chunk`() {
+        val sql = """
+            CREATE OR REPLACE PACKAGE BODY pkg AS
+              PROCEDURE process_main;
+              PROCEDURE helper;
+
+              PROCEDURE helper IS
+              BEGIN
+                NULL;
+              END helper;
+
+              PROCEDURE process_main IS
+              BEGIN
+                helper;
+              END process_main;
+            END pkg;
+            /
+        """.trimIndent()
+
+        val chunks = chunker.chunk(sql, "pkg.pkb")
+
+        // process_main appears exactly once — as its body, not the forward declaration.
+        val mains = chunks.filter { it.summary == "PROCEDURE process_main" }
+        assertEquals(1, mains.size, "process_main must be one chunk (its body), got ${chunks.map { it.summary }}")
+        val main = mains.single()
+        assertTrue(main.content.contains("helper;"), "the body chunk must contain the procedure body")
+        assertTrue(main.content.contains("END process_main"), "body chunk must span to its END")
+        assertTrue(main.startLine!! > 4, "body chunk must start at the definition (line >4), not the forward decl")
+
+        // The forward declarations live in the header chunk, not their own labelled member chunks.
+        val header = chunks.first()
+        assertTrue(
+            header.content.contains("PROCEDURE process_main;") && header.content.contains("PROCEDURE helper;"),
+            "forward declarations must fold into the header"
+        )
+        assertTrue(chunks.none { it.summary == "PROCEDURE helper" && !it.content.contains("BEGIN") },
+            "a forward declaration must not become its own member chunk")
+    }
+
+    @Test
     fun `non-package sql is unaffected`() {
         val sql = "CREATE TABLE users (id INT PRIMARY KEY);"
         val chunks = chunker.chunk(sql, "schema.sql")
